@@ -1,0 +1,118 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { Mail, Shield, HelpCircle, Heart, MapPin } from "lucide-astro";
+
+const contactChannels = [
+  {
+    icon: HelpCircle,
+    title: "Support & Bugs",
+    email: "support@scanorbit.io",
+    response: "Within 24 hours",
+    cta: "Send email",
+    color: "cyber-cyan",
+  },
+  {
+    icon: Shield,
+    title: "Security Issues",
+    email: "security@scanorbit.io",
+    response: "Within 24 hours",
+    cta: "Report vulnerability",
+    color: "neon-green",
+  },
+  {
+    icon: Mail,
+    title: "Privacy & GDPR",
+    email: "dpa@scanorbit.io",
+    response: "Within 30 days",
+    cta: "Request data",
+    color: "orbit-purple",
+  },
+  {
+    icon: Heart,
+    title: "Everything Else",
+    email: "hello@scanorbit.io",
+    response: "Within 48 hours",
+    cta: "Say hello",
+    color: "warning-orange",
+  },
+];
+---
+
+<Layout
+  title="Contact Us - ScanOrbit"
+  description="Get in touch with ScanOrbit. Support, security reports, privacy requests, and general inquiries."
+>
+  <Header />
+  <main class="pt-24">
+    <section class="py-16 bg-deep-space">
+      <div class="container mx-auto px-6">
+        <div class="max-w-4xl mx-auto">
+          <!-- Header -->
+          <div class="text-center mb-16">
+            <h1 class="text-4xl md:text-5xl font-bold mb-6">
+              <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+                Contact Us
+              </span>
+            </h1>
+            <p class="text-lg text-slate-gray">
+              We're here to help. Choose the right channel for your question.
+            </p>
+          </div>
+
+          <!-- Email Channels -->
+          <div class="mb-16">
+            <h2 class="text-sm font-semibold text-slate-gray uppercase tracking-wider mb-6">
+              Email by Topic
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {contactChannels.map((channel) => (
+                <a
+                  href={`mailto:${channel.email}`}
+                  class="group p-6 bg-midnight rounded-xl border border-midnight hover:border-cyber-cyan/30 transition-all duration-300"
+                >
+                  <div class="flex items-start gap-4">
+                    <div class={`p-3 rounded-lg bg-${channel.color}/10`}>
+                      <channel.icon class={`w-5 h-5 text-${channel.color}`} />
+                    </div>
+                    <div class="flex-1">
+                      <h3 class="font-semibold text-cloud-gray mb-1">{channel.title}</h3>
+                      <p class="text-cyber-cyan text-sm mb-2">{channel.email}</p>
+                      <p class="text-slate-gray text-xs">Response: {channel.response}</p>
+                    </div>
+                  </div>
+                  <div class="mt-4 pt-4 border-t border-deep-space">
+                    <span class="text-sm text-slate-gray group-hover:text-cyber-cyan transition-colors">
+                      {channel.cta} →
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <!-- Address -->
+          <div class="mb-16">
+            <h2 class="text-sm font-semibold text-slate-gray uppercase tracking-wider mb-6">
+              Address
+            </h2>
+            <div class="p-6 bg-midnight rounded-xl border border-midnight">
+              <div class="flex items-start gap-4">
+                <div class="p-3 rounded-lg bg-cyber-cyan/10">
+                  <MapPin class="w-5 h-5 text-cyber-cyan" />
+                </div>
+                <div>
+                  <p class="text-cloud-gray font-semibold">ScanOrbit</p>
+                  <p class="text-slate-gray">Amsterdam, Netherlands</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Layout>

@@ -1,0 +1,84 @@
+---
+import { HardDrive, ShieldCheck, Globe, Server } from "lucide-astro";
+
+const features = [
+  {
+    icon: HardDrive,
+    title: "Orphaned Resources",
+    description: "AI-powered detection of idle EBS volumes, unused EIPs, and forgotten snapshots draining your budget.",
+    highlights: ["EBS volumes", "Elastic IPs", "Snapshots", "Cost estimates"],
+    color: "from-orbit-purple to-cyber-cyan",
+  },
+  {
+    icon: ShieldCheck,
+    title: "SSL Certificates",
+    description: "Full coverage of ACM certificates and endpoint scans. Get alerts at 60, 30, 14, and 7 days before expiry.",
+    highlights: ["ACM certificates", "Endpoint scanning", "Expiry alerts", "Multi-domain"],
+    color: "from-cyber-cyan to-neon-green",
+  },
+  {
+    icon: Globe,
+    title: "Data Residency",
+    description: "EU-only compliance checks to flag resources deployed in US, Asia, or other non-EU regions.",
+    highlights: ["GDPR compliance", "Region mapping", "Policy enforcement", "Audit reports"],
+    color: "from-neon-green to-warning-orange",
+  },
+  {
+    icon: Server,
+    title: "Cloud Inventory",
+    description: "Complete catalog of your AWS resources. EC2, RDS, S3, ALB, and more in one unified dashboard.",
+    highlights: ["EC2 instances", "RDS databases", "S3 buckets", "Load balancers"],
+    color: "from-warning-orange to-orbit-purple",
+  },
+];
+---
+
+<section id="features" class="py-24 bg-midnight relative">
+  <div class="container mx-auto px-6">
+    <!-- Section header -->
+    <div class="text-center mb-16">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-deep-space rounded-full border border-cyber-cyan/20 mb-6">
+        <span class="text-sm text-cyber-cyan">Core Features</span>
+      </div>
+      <h2 class="text-3xl md:text-5xl font-bold mb-6">
+        <span class="text-cloud-gray">Everything you need to </span>
+        <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+          secure and optimize
+        </span>
+      </h2>
+      <p class="text-lg text-slate-gray max-w-2xl mx-auto">
+        Four powerful scanners working together to find waste, ensure compliance, and give you complete visibility.
+      </p>
+    </div>
+
+    <!-- Features grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {features.map((feature) => (
+        <div class="group relative p-8 bg-deep-space rounded-2xl border border-midnight hover:border-cyber-cyan/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(0,212,255,0.15)]">
+          <!-- Gradient border effect on hover -->
+          <div class={`absolute inset-0 rounded-2xl bg-gradient-to-r ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}></div>
+
+          <div class="relative z-10">
+            <!-- Icon -->
+            <div class={`inline-flex p-4 rounded-xl bg-gradient-to-r ${feature.color} mb-6`}>
+              <feature.icon class="w-8 h-8 text-white" />
+            </div>
+
+            <!-- Title & description -->
+            <h3 class="text-2xl font-bold text-cloud-gray mb-3">{feature.title}</h3>
+            <p class="text-slate-gray mb-6">{feature.description}</p>
+
+            <!-- Highlights -->
+            <div class="flex flex-wrap gap-2">
+              {feature.highlights.map((highlight) => (
+                <span class="px-3 py-1 text-xs bg-midnight rounded-full text-slate-gray border border-midnight group-hover:border-cyber-cyan/20 transition-colors">
+                  {highlight}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

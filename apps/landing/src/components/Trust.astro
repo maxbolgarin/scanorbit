@@ -1,0 +1,37 @@
+---
+import { Shield, Server, Lock, Eye } from "lucide-astro";
+
+const securityPoints = [
+  { icon: Shield, text: "Read-only IAM access only" },
+  { icon: Server, text: "EU-hosted data centers" },
+  { icon: Lock, text: "Encrypted at rest & in transit (AES-256 + TLS 1.3)" },
+  { icon: Eye, text: "Zero agents = no network access to your instances" },
+];
+---
+
+<section class="py-24 bg-deep-space relative">
+  <div class="container mx-auto px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-3xl md:text-4xl font-bold mb-6 text-cloud-gray">
+        Built for Security from Day 1
+      </h2>
+
+      <p class="text-lg text-slate-gray mb-10">
+        We're an early-stage startup, but security isn't a nice-to-have for us—it's foundational. Here's what we do today:
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+        {securityPoints.map((point) => (
+          <div class="flex items-center gap-3 p-4 bg-midnight rounded-lg border border-neon-green/20">
+            <point.icon class="w-5 h-5 text-neon-green flex-shrink-0" />
+            <span class="text-cloud-gray text-left">{point.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <p class="text-slate-gray text-sm">
+        SOC2 & ISO 27001 audits scheduled for late 2026.
+      </p>
+    </div>
+  </div>
+</section>

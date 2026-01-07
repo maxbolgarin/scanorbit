@@ -1,0 +1,45 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "ScanOrbit - Agentless AWS Infrastructure Scanner",
+  description = "Discover orphaned resources, expiring SSL certificates, and GDPR residency violations in your AWS infrastructure. EU-hosted, read-only, GDPR compliant.",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0a0f1e" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://scanorbit.io" />
+    <meta property="og:image" content="https://scanorbit.io/og-image.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://scanorbit.io" />
+
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-deep-space text-cloud-gray antialiased">
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  @import "../styles/global.css";
+</style>

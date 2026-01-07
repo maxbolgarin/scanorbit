@@ -1,0 +1,163 @@
+---
+import { Link, Scan, FileCheck, ArrowRight, Copy } from "lucide-astro";
+
+const steps = [
+  {
+    number: "01",
+    icon: Link,
+    title: "Connect AWS",
+    description: "Create a read-only IAM role in your AWS account. We provide the exact policy - no write permissions needed.",
+    color: "cyber-cyan",
+  },
+  {
+    number: "02",
+    icon: Scan,
+    title: "Automatic Scan",
+    description: "Our scanner analyzes all your resources across all enabled regions. Typically completes in 5-10 minutes.",
+    color: "orbit-purple",
+  },
+  {
+    number: "03",
+    icon: FileCheck,
+    title: "Get Findings",
+    description: "Review prioritized findings with cost estimates, severity levels, and actionable recommendations.",
+    color: "neon-green",
+  },
+];
+
+const scanFeatures = ["Multi-region", "Parallel processing", "Zero impact", "Complete inventory"];
+const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps", "Export reports"];
+---
+
+<section id="how-it-works" class="py-24 bg-midnight relative overflow-hidden">
+  <!-- Background decoration -->
+  <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-cyber-cyan/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+  <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-orbit-purple/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+
+  <div class="container mx-auto px-6 relative z-10">
+    <!-- Section header -->
+    <div class="text-center mb-20">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-deep-space rounded-full border border-cyber-cyan/20 mb-6">
+        <span class="text-sm text-cyber-cyan">Simple Setup</span>
+      </div>
+      <h2 class="text-3xl md:text-5xl font-bold mb-6">
+        <span class="text-cloud-gray">Start scanning in </span>
+        <span class="bg-gradient-to-r from-cyber-cyan to-neon-green bg-clip-text text-transparent">
+          under 5 minutes
+        </span>
+      </h2>
+      <p class="text-lg text-slate-gray max-w-2xl mx-auto">
+        No agents to install. No SSH access required. Just a simple IAM role with read-only permissions.
+      </p>
+    </div>
+
+    <!-- Steps - Horizontal on large screens -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+      {steps.map((step, index) => (
+        <div class="relative group">
+          {/* Connector arrow (only between cards on large screens) */}
+          {index < steps.length - 1 && (
+            <div class="hidden lg:block absolute top-12 -right-4 z-10">
+              <ArrowRight class="w-8 h-8 text-slate-gray/30" />
+            </div>
+          )}
+
+          <div class="h-full p-8 rounded-2xl bg-deep-space/50 border border-slate-gray/10 hover:border-slate-gray/20 transition-all duration-300">
+            <!-- Step number & icon -->
+            <div class="flex items-center gap-4 mb-6">
+              <div class={`relative w-16 h-16 rounded-xl bg-gradient-to-br from-${step.color}/20 to-${step.color}/5 flex items-center justify-center group-hover:scale-105 transition-transform duration-300`}>
+                <div class={`absolute inset-0 rounded-xl bg-${step.color}/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                <step.icon class={`w-8 h-8 text-${step.color} relative z-10`} />
+              </div>
+              <span class={`text-4xl font-bold text-${step.color}/30`}>{step.number}</span>
+            </div>
+
+            <!-- Title & description -->
+            <h3 class="text-xl font-bold text-cloud-gray mb-3">{step.title}</h3>
+            <p class="text-slate-gray leading-relaxed">{step.description}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Detailed content cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto mb-16">
+      <!-- IAM Policy Card -->
+      <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-alert-red"></div>
+            <div class="w-3 h-3 rounded-full bg-warning-orange"></div>
+            <div class="w-3 h-3 rounded-full bg-neon-green"></div>
+          </div>
+          <span class="text-xs text-slate-gray font-mono">iam-policy.json</span>
+        </div>
+        <div class="bg-midnight/50 rounded-xl p-4 overflow-x-auto">
+          <pre class="text-sm font-mono leading-relaxed"><code><span class="text-slate-gray">{"{"}</span>
+  <span class="text-cyber-cyan">"Version"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"2012-10-17"</span><span class="text-slate-gray">,</span>
+  <span class="text-cyber-cyan">"Statement"</span><span class="text-slate-gray">: [{"{"}</span>
+    <span class="text-cyber-cyan">"Effect"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"Allow"</span><span class="text-slate-gray">,</span>
+    <span class="text-cyber-cyan">"Action"</span><span class="text-slate-gray">: [</span>
+      <span class="text-neon-green">"ec2:Describe*"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"rds:Describe*"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"s3:ListAllMyBuckets"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"acm:ListCertificates"</span>
+    <span class="text-slate-gray">],</span>
+    <span class="text-cyber-cyan">"Resource"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"*"</span>
+  <span class="text-slate-gray">{"}"}]</span>
+<span class="text-slate-gray">{"}"}</span></code></pre>
+        </div>
+        <p class="text-xs text-slate-gray mt-4 text-center">Read-only permissions only. Zero write access.</p>
+      </div>
+
+      <!-- Features Cards -->
+      <div class="space-y-4">
+        <!-- Scan Features -->
+        <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-orbit-purple/20 flex items-center justify-center">
+              <Scan class="w-5 h-5 text-orbit-purple" />
+            </div>
+            <h4 class="font-semibold text-cloud-gray">Scan Capabilities</h4>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {scanFeatures.map((feature) => (
+              <span class="px-3 py-1.5 text-sm bg-orbit-purple/10 rounded-lg text-orbit-purple border border-orbit-purple/20">
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <!-- Finding Features -->
+        <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-neon-green/20 flex items-center justify-center">
+              <FileCheck class="w-5 h-5 text-neon-green" />
+            </div>
+            <h4 class="font-semibold text-cloud-gray">Finding Details</h4>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {findingFeatures.map((feature) => (
+              <span class="px-3 py-1.5 text-sm bg-neon-green/10 rounded-lg text-neon-green border border-neon-green/20">
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="text-center">
+      <a
+        href="/app"
+        class="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-xl font-semibold text-lg transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,212,255,0.3)] hover:scale-105"
+      >
+        Start Free Scan
+        <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+      </a>
+      <p class="text-slate-gray text-sm mt-4">No credit card required</p>
+    </div>
+  </div>
+</section>

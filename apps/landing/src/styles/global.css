@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import url("https://fonts.cdnfonts.com/css/geist-sans");
+@import url("https://fonts.cdnfonts.com/css/geist-mono");
+
+@theme {
+  /* Colors - ScanOrbit Brand Palette */
+  --color-deep-space: #0a0f1e;
+  --color-midnight: #1a1f3a;
+  --color-orbit-purple: #6b46c1;
+  --color-cyber-cyan: #00d4ff;
+  --color-neon-green: #10b981;
+  --color-warning-orange: #f59e0b;
+  --color-alert-red: #ef4444;
+  --color-cloud-gray: #e2e8f0;
+  --color-slate-gray: #94a3b8;
+
+  /* Fonts */
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Animations */
+  --animate-scan: scan 3s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 40px rgba(0, 212, 255, 0.6);
+  }
+}
+
+/* Base Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-deep-space);
+  color: var(--color-cloud-gray);
+  line-height: 1.6;
+}
+
+/* Selection colors */
+::selection {
+  background-color: var(--color-orbit-purple);
+  color: white;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-deep-space);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-midnight);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-orbit-purple);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-cyber-cyan);
+  outline-offset: 2px;
+}
+
+/* Code blocks */
+code {
+  font-family: var(--font-mono);
+  background-color: var(--color-midnight);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+/* Typography - Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+

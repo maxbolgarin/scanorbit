@@ -1,0 +1,127 @@
+---
+import { Orbit, ChevronDown } from "lucide-astro";
+
+const featuresDropdown = [
+  { label: "Core Features", href: "/#features" },
+  { label: "How it Saves Money", href: "/#comparison" },
+  { label: "How it Works", href: "/#how-it-works" },
+];
+
+const resourcesDropdown = [
+  { label: "Security", href: "/security" },
+  { label: "Contact", href: "/contact" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
+  { label: "Cookie Policy", href: "/cookies" },
+];
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 bg-deep-space/80 backdrop-blur-md border-b border-midnight">
+  <nav class="container mx-auto px-6 py-4 flex items-center justify-between">
+    <!-- Logo -->
+    <a href="/" class="flex items-center gap-2 group">
+      <Orbit class="w-8 h-8 text-cyber-cyan group-hover:animate-spin" />
+      <span class="text-xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+        ScanOrbit
+      </span>
+    </a>
+
+    <!-- Navigation -->
+    <div class="hidden md:flex items-center gap-1">
+      <!-- Features Dropdown -->
+      <div class="relative group">
+        <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+          Features
+          <ChevronDown class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+        </button>
+        <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+          <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
+            {featuresDropdown.map((item) => (
+              <a
+                href={item.href}
+                class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <!-- Resources Dropdown -->
+      <div class="relative group">
+        <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+          Resources
+          <ChevronDown class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+        </button>
+        <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+          <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
+            {resourcesDropdown.map((item) => (
+              <a
+                href={item.href}
+                class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <a href="/#pricing" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        Pricing
+      </a>
+
+      <!-- FAQ -->
+      <a href="/#faq" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        FAQ
+      </a>
+    </div>
+
+    <!-- CTA Buttons -->
+    <div class="flex items-center gap-4">
+      <a
+        href="/app"
+        class="hidden sm:block text-slate-gray hover:text-cloud-gray transition-colors"
+      >
+        Login
+      </a>
+      <a
+        href="/app"
+        class="px-4 py-2 bg-gradient-to-r from-orbit-purple to-orbit-purple hover:to-cyber-cyan rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.3)]"
+      >
+        Get Started
+      </a>
+    </div>
+
+    <!-- Mobile Menu Button -->
+    <button class="md:hidden p-2 text-slate-gray" id="mobile-menu-btn">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  <div class="hidden md:hidden bg-midnight border-t border-slate-gray/10" id="mobile-menu">
+    <div class="container mx-auto px-6 py-4 space-y-2">
+      <a href="/#features" class="block py-2 text-slate-gray hover:text-cloud-gray">Core Features</a>
+      <a href="/#comparison" class="block py-2 text-slate-gray hover:text-cloud-gray">How it Saves Money</a>
+      <a href="/#how-it-works" class="block py-2 text-slate-gray hover:text-cloud-gray">How it Works</a>
+      <a href="/#pricing" class="block py-2 text-slate-gray hover:text-cloud-gray">Pricing</a>
+      <a href="/security" class="block py-2 text-slate-gray hover:text-cloud-gray">Security</a>
+      <a href="/#faq" class="block py-2 text-slate-gray hover:text-cloud-gray">FAQ</a>
+      <a href="/contact" class="block py-2 text-slate-gray hover:text-cloud-gray">Contact</a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+
+  mobileMenuBtn?.addEventListener('click', () => {
+    mobileMenu?.classList.toggle('hidden');
+  });
+</script>
