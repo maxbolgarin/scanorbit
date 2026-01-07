@@ -2,11 +2,11 @@
 import Layout from "../layouts/Layout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import { Mail, Shield, HelpCircle, Heart, MapPin } from "lucide-astro";
+import { Icon } from "astro-icon/components";
 
 const contactChannels = [
   {
-    icon: HelpCircle,
+    icon: "lucide:help-circle",
     title: "Support & Bugs",
     email: "support@scanorbit.io",
     response: "Within 24 hours",
@@ -14,7 +14,7 @@ const contactChannels = [
     color: "cyber-cyan",
   },
   {
-    icon: Shield,
+    icon: "lucide:shield",
     title: "Security Issues",
     email: "security@scanorbit.io",
     response: "Within 24 hours",
@@ -22,7 +22,7 @@ const contactChannels = [
     color: "neon-green",
   },
   {
-    icon: Mail,
+    icon: "lucide:mail",
     title: "Privacy & GDPR",
     email: "dpa@scanorbit.io",
     response: "Within 30 days",
@@ -30,7 +30,7 @@ const contactChannels = [
     color: "orbit-purple",
   },
   {
-    icon: Heart,
+    icon: "lucide:heart",
     title: "Everything Else",
     email: "hello@scanorbit.io",
     response: "Within 48 hours",
@@ -74,7 +74,7 @@ const contactChannels = [
                 >
                   <div class="flex items-start gap-4">
                     <div class={`p-3 rounded-lg bg-${channel.color}/10`}>
-                      <channel.icon class={`w-5 h-5 text-${channel.color}`} />
+                      <Icon name={channel.icon} class={`w-5 h-5 text-${channel.color}`} />
                     </div>
                     <div class="flex-1">
                       <h3 class="font-semibold text-cloud-gray mb-1">{channel.title}</h3>
@@ -100,7 +100,7 @@ const contactChannels = [
             <div class="p-6 bg-midnight rounded-xl border border-midnight">
               <div class="flex items-start gap-4">
                 <div class="p-3 rounded-lg bg-cyber-cyan/10">
-                  <MapPin class="w-5 h-5 text-cyber-cyan" />
+                  <Icon name="lucide:map-pin" class="w-5 h-5 text-cyber-cyan" />
                 </div>
                 <div>
                   <p class="text-cloud-gray font-semibold">ScanOrbit</p>

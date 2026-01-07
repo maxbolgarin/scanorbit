@@ -1,24 +1,25 @@
 ---
-import { Link, Scan, FileCheck, ArrowRight, Copy } from "lucide-astro";
+import { Icon } from "astro-icon/components";
+import { appUrl } from "../config";
 
 const steps = [
   {
     number: "01",
-    icon: Link,
+    icon: "lucide:link",
     title: "Connect AWS",
     description: "Create a read-only IAM role in your AWS account. We provide the exact policy - no write permissions needed.",
     color: "cyber-cyan",
   },
   {
     number: "02",
-    icon: Scan,
+    icon: "lucide:scan",
     title: "Automatic Scan",
     description: "Our scanner analyzes all your resources across all enabled regions. Typically completes in 5-10 minutes.",
     color: "orbit-purple",
   },
   {
     number: "03",
-    icon: FileCheck,
+    icon: "lucide:file-check",
     title: "Get Findings",
     description: "Review prioritized findings with cost estimates, severity levels, and actionable recommendations.",
     color: "neon-green",
@@ -58,7 +59,7 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
           {/* Connector arrow (only between cards on large screens) */}
           {index < steps.length - 1 && (
             <div class="hidden lg:block absolute top-12 -right-4 z-10">
-              <ArrowRight class="w-8 h-8 text-slate-gray/30" />
+              <Icon name="lucide:arrow-right" class="w-8 h-8 text-slate-gray/30" />
             </div>
           )}
 
@@ -67,7 +68,7 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
             <div class="flex items-center gap-4 mb-6">
               <div class={`relative w-16 h-16 rounded-xl bg-gradient-to-br from-${step.color}/20 to-${step.color}/5 flex items-center justify-center group-hover:scale-105 transition-transform duration-300`}>
                 <div class={`absolute inset-0 rounded-xl bg-${step.color}/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-                <step.icon class={`w-8 h-8 text-${step.color} relative z-10`} />
+                <Icon name={step.icon} class={`w-8 h-8 text-${step.color} relative z-10`} />
               </div>
               <span class={`text-4xl font-bold text-${step.color}/30`}>{step.number}</span>
             </div>
@@ -116,7 +117,7 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
         <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-orbit-purple/20 flex items-center justify-center">
-              <Scan class="w-5 h-5 text-orbit-purple" />
+              <Icon name="lucide:scan" class="w-5 h-5 text-orbit-purple" />
             </div>
             <h4 class="font-semibold text-cloud-gray">Scan Capabilities</h4>
           </div>
@@ -133,7 +134,7 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
         <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-neon-green/20 flex items-center justify-center">
-              <FileCheck class="w-5 h-5 text-neon-green" />
+              <Icon name="lucide:file-check" class="w-5 h-5 text-neon-green" />
             </div>
             <h4 class="font-semibold text-cloud-gray">Finding Details</h4>
           </div>
@@ -151,11 +152,11 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
     <!-- CTA -->
     <div class="text-center">
       <a
-        href="/app"
+        href={appUrl}
         class="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-xl font-semibold text-lg transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,212,255,0.3)] hover:scale-105"
       >
         Start Free Scan
-        <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
       </a>
       <p class="text-slate-gray text-sm mt-4">No credit card required</p>
     </div>

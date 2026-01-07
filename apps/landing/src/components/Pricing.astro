@@ -1,5 +1,6 @@
 ---
-import { Check, ArrowRight, Zap } from "lucide-astro";
+import { Icon } from "astro-icon/components";
+import { appUrl } from "../config";
 
 const plans = [
   {
@@ -16,7 +17,7 @@ const plans = [
       "Community support",
     ],
     cta: "Start Free",
-    ctaLink: "/app",
+    ctaLink: appUrl,
     highlight: false,
     style: "default",
   },
@@ -36,7 +37,7 @@ const plans = [
       "Team collaboration",
     ],
     cta: "Start Pro Trial",
-    ctaLink: "/app?plan=pro",
+    ctaLink: `${appUrl}?plan=pro`,
     highlight: true,
     style: "featured",
   },
@@ -72,7 +73,7 @@ const plans = [
     <!-- Section header -->
     <div class="text-center mb-16">
       <div class="inline-flex items-center gap-2 px-4 py-2 bg-deep-space rounded-full border border-cyber-cyan/20 mb-6">
-        <Zap class="w-4 h-4 text-cyber-cyan" />
+        <Icon name="lucide:zap" class="w-4 h-4 text-cyber-cyan" />
         <span class="text-sm text-cyber-cyan">Simple Pricing</span>
       </div>
       <h2 class="text-3xl md:text-5xl font-bold mb-6">
@@ -137,7 +138,7 @@ const plans = [
               {plan.features.map((feature) => (
                 <li class="flex items-start gap-3">
                   <div class={`mt-0.5 p-0.5 rounded-full ${plan.highlight ? "bg-cyber-cyan/20" : "bg-neon-green/20"}`}>
-                    <Check class={`w-4 h-4 ${plan.highlight ? "text-cyber-cyan" : "text-neon-green"}`} />
+                    <Icon name="lucide:check" class={`w-4 h-4 ${plan.highlight ? "text-cyber-cyan" : "text-neon-green"}`} />
                   </div>
                   <span class="text-cloud-gray">{feature}</span>
                 </li>
@@ -154,7 +155,7 @@ const plans = [
               }`}
             >
               {plan.cta}
-              <ArrowRight class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <Icon name="lucide:arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </a>
           </div>
         </div>

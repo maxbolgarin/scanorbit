@@ -1,0 +1,159 @@
+package awsclient
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/rs/zerolog"
+)
+
+// EC2Scanner scans EC2 resources.
+type EC2Scanner struct {
+	logger zerolog.Logger
+}
+
+// NewEC2Scanner creates a new EC2 scanner.
+func NewEC2Scanner(logger zerolog.Logger) *EC2Scanner {
+	return &EC2Scanner{
+		logger: logger.With().Str("scanner", "ec2").Logger(),
+	}
+}
+
+// ScanInstances scans all EC2 instances in a region.
+func (s *EC2Scanner) ScanInstances(ctx context.Context, cfg aws.Config, region string) ([]*models.Resource, error) {
+	svc := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
+		o.Region = region
+	})
+
+	var resources []*models.Resource
+	paginator := ec2.NewDescribeInstancesPaginator(svc, &ec2.DescribeInstancesInput{})
+
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("describe instances: %w", err)
+		}
+
+		for _, reservation := range output.Reservations {
+			for _, instance := range reservation.Instances {
+				raw, _ := json.Marshal(instance)
+
+				resource := &models.Resource{
+					ResourceID: aws.ToString(instance.InstanceId),
+					Service:    models.ServiceEC2,
+					Region:     region,
+					Name:       getTagValue(instance.Tags, "Name"),
+					State:      string(instance.State.Name),
+					Tags:       tagsToMap(instance.Tags),
+					Raw:        raw,
+				}
+				resources = append(resources, resource)
+			}
+		}
+	}
+
+	s.logger.Debug().Str("region", region).Int("count", len(resources)).Msg("scanned EC2 instances")
+	return resources, nil
+}
+
+// ScanVolumes scans all EBS volumes in a region.
+func (s *EC2Scanner) ScanVolumes(ctx context.Context, cfg aws.Config, region string) ([]*models.Resource, error) {
+	svc := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
+		o.Region = region
+	})
+
+	var resources []*models.Resource
+	paginator := ec2.NewDescribeVolumesPaginator(svc, &ec2.DescribeVolumesInput{})
+
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("describe volumes: %w", err)
+		}
+
+		for _, volume := range output.Volumes {
+			raw, _ := json.Marshal(volume)
+
+			// Determine state: "available" means unattached (potential orphan)
+			state := string(volume.State)
+			if len(volume.Attachments) == 0 && state == "available" {
+				state = "unattached"
+			}
+
+			resource := &models.Resource{
+				ResourceID: aws.ToString(volume.VolumeId),
+				Service:    models.ServiceEBS,
+				Region:     region,
+				Name:       getTagValue(volume.Tags, "Name"),
+				State:      state,
+				Tags:       tagsToMap(volume.Tags),
+				Raw:        raw,
+			}
+			resources = append(resources, resource)
+		}
+	}
+
+	s.logger.Debug().Str("region", region).Int("count", len(resources)).Msg("scanned EBS volumes")
+	return resources, nil
+}
+
+// ScanEIPs scans all Elastic IPs in a region.
+func (s *EC2Scanner) ScanEIPs(ctx context.Context, cfg aws.Config, region string) ([]*models.Resource, error) {
+	svc := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
+		o.Region = region
+	})
+
+	output, err := svc.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{})
+	if err != nil {
+		return nil, fmt.Errorf("describe addresses: %w", err)
+	}
+
+	var resources []*models.Resource
+	for _, address := range output.Addresses {
+		raw, _ := json.Marshal(address)
+
+		// Determine state based on association
+		state := "associated"
+		if address.AssociationId == nil && address.InstanceId == nil {
+			state = "unassociated"
+		}
+
+		resource := &models.Resource{
+			ResourceID: aws.ToString(address.AllocationId),
+			Service:    models.ServiceEIP,
+			Region:     region,
+			Name:       aws.ToString(address.PublicIp),
+			State:      state,
+			Tags:       tagsToMap(address.Tags),
+			Raw:        raw,
+		}
+		resources = append(resources, resource)
+	}
+
+	s.logger.Debug().Str("region", region).Int("count", len(resources)).Msg("scanned EIPs")
+	return resources, nil
+}
+
+// Helper functions
+
+func getTagValue(tags []types.Tag, key string) string {
+	for _, tag := range tags {
+		if aws.ToString(tag.Key) == key {
+			return aws.ToString(tag.Value)
+		}
+	}
+	return ""
+}
+
+func tagsToMap(tags []types.Tag) map[string]string {
+	result := make(map[string]string)
+	for _, tag := range tags {
+		result[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
+	}
+	return result
+}

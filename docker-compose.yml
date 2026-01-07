@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scanorbit}
       POSTGRES_DB: ${POSTGRES_DB:-scanorbit}
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
     image: redis:7-alpine
     container_name: scanorbit-redis
     ports:
-      - "6379:6379"
+      - "16379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -38,9 +38,14 @@ services:
       - "4000:4000"
     environment:
       NODE_ENV: development
+      PORT: 4000
       DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      JWT_EXPIRY: ${JWT_EXPIRY:-7d}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
     depends_on:
       db:
         condition: service_healthy
@@ -58,6 +63,12 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
       REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SCAN_CONCURRENCY: ${SCAN_CONCURRENCY:-10}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -73,6 +84,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
       REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
     depends_on:
       db:
         condition: service_healthy

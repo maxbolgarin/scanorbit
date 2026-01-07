@@ -1,11 +1,11 @@
 ---
-import { Shield, Server, Lock, Eye } from "lucide-astro";
+import { Icon } from "astro-icon/components";
 
 const securityPoints = [
-  { icon: Shield, text: "Read-only IAM access only" },
-  { icon: Server, text: "EU-hosted data centers" },
-  { icon: Lock, text: "Encrypted at rest & in transit (AES-256 + TLS 1.3)" },
-  { icon: Eye, text: "Zero agents = no network access to your instances" },
+  { icon: "lucide:shield", text: "Read-only IAM access only" },
+  { icon: "lucide:server", text: "EU-hosted data centers" },
+  { icon: "lucide:lock", text: "Encrypted at rest & in transit (AES-256 + TLS 1.3)" },
+  { icon: "lucide:eye", text: "Zero agents = no network access to your instances" },
 ];
 ---
 
@@ -23,7 +23,7 @@ const securityPoints = [
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
         {securityPoints.map((point) => (
           <div class="flex items-center gap-3 p-4 bg-midnight rounded-lg border border-neon-green/20">
-            <point.icon class="w-5 h-5 text-neon-green flex-shrink-0" />
+            <Icon name={point.icon} class="w-5 h-5 text-neon-green flex-shrink-0" />
             <span class="text-cloud-gray text-left">{point.text}</span>
           </div>
         ))}

@@ -1,28 +1,26 @@
 # Development stage
 FROM node:22-alpine AS development
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install
+COPY package.json ./
+RUN npm install
 COPY . .
 EXPOSE 4000
-CMD ["pnpm", "dev"]
+CMD ["npm", "run", "dev"]
 
-# Build stage
+# Build stage - install all deps including devDependencies
 FROM node:22-alpine AS builder
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json ./
+RUN npm install
 COPY . .
-RUN pnpm build
+RUN npm run build
 
-# Production stage
+# Production stage - only production deps
 FROM node:22-alpine AS production
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod
+ENV NODE_ENV=production
+COPY package.json ./
+RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 USER node
 EXPOSE 4000

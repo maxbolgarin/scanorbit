@@ -1,20 +1,45 @@
+# ScanOrbit Production Caddyfile
+# Automatic HTTPS via Let's Encrypt
+#
+# Update the domain below before deploying to production
+
 {
     email admin@scanorbit.io
 }
 
+# Main domain - scanorbit.io
 scanorbit.io {
-    root * /srv/landing
-    file_server
-
-    handle /app/* {
-        reverse_proxy app:80
-    }
-
+    # API routes
     handle /api/* {
         reverse_proxy api:4000
     }
+
+    # React application routes
+    handle /app* {
+        reverse_proxy app:80
+    }
+
+    # Landing page (default)
+    handle {
+        reverse_proxy landing:80
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
 }
 
+# Redirect www to non-www
 www.scanorbit.io {
-    redir https://scanorbit.io{uri}
+    redir https://scanorbit.io{uri} permanent
 }

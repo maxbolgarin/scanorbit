@@ -1,30 +1,30 @@
 ---
-import { HardDrive, ShieldCheck, Globe, Server } from "lucide-astro";
+import { Icon } from "astro-icon/components";
 
 const features = [
   {
-    icon: HardDrive,
+    icon: "lucide:hard-drive",
     title: "Orphaned Resources",
     description: "AI-powered detection of idle EBS volumes, unused EIPs, and forgotten snapshots draining your budget.",
     highlights: ["EBS volumes", "Elastic IPs", "Snapshots", "Cost estimates"],
     color: "from-orbit-purple to-cyber-cyan",
   },
   {
-    icon: ShieldCheck,
+    icon: "lucide:shield-check",
     title: "SSL Certificates",
     description: "Full coverage of ACM certificates and endpoint scans. Get alerts at 60, 30, 14, and 7 days before expiry.",
     highlights: ["ACM certificates", "Endpoint scanning", "Expiry alerts", "Multi-domain"],
     color: "from-cyber-cyan to-neon-green",
   },
   {
-    icon: Globe,
+    icon: "lucide:globe",
     title: "Data Residency",
     description: "EU-only compliance checks to flag resources deployed in US, Asia, or other non-EU regions.",
     highlights: ["GDPR compliance", "Region mapping", "Policy enforcement", "Audit reports"],
     color: "from-neon-green to-warning-orange",
   },
   {
-    icon: Server,
+    icon: "lucide:server",
     title: "Cloud Inventory",
     description: "Complete catalog of your AWS resources. EC2, RDS, S3, ALB, and more in one unified dashboard.",
     highlights: ["EC2 instances", "RDS databases", "S3 buckets", "Load balancers"],
@@ -61,7 +61,7 @@ const features = [
           <div class="relative z-10">
             <!-- Icon -->
             <div class={`inline-flex p-4 rounded-xl bg-gradient-to-r ${feature.color} mb-6`}>
-              <feature.icon class="w-8 h-8 text-white" />
+              <Icon name={feature.icon} class="w-8 h-8 text-white" />
             </div>
 
             <!-- Title & description -->

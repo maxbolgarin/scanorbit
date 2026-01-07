@@ -1,3 +1,11 @@
+# Production Docker Compose Configuration
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+# 1. Create .env.prod with production values
+# 2. Update docker/Caddyfile with your domain
+# 3. Ensure strong JWT_SECRET and POSTGRES_PASSWORD
+
 services:
   proxy:
     image: caddy:2-alpine
@@ -14,6 +22,8 @@ services:
       - landing
       - app
     restart: always
+    networks:
+      - scanorbit
 
   landing:
     build:
@@ -21,6 +31,8 @@ services:
       dockerfile: Dockerfile
     container_name: scanorbit-landing
     restart: always
+    networks:
+      - scanorbit
 
   app:
     build:
@@ -28,6 +40,8 @@ services:
       dockerfile: Dockerfile
     container_name: scanorbit-app
     restart: always
+    networks:
+      - scanorbit
 
   api:
     build:
@@ -37,15 +51,22 @@ services:
     container_name: scanorbit-api
     environment:
       NODE_ENV: production
+      PORT: 4000
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY:-7d}
+      FRONTEND_URL: ${FRONTEND_URL:-https://scanorbit.io}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
+    networks:
+      - scanorbit
 
   scanner:
     build:
@@ -56,12 +77,20 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SCAN_CONCURRENCY: ${SCAN_CONCURRENCY:-10}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
+    networks:
+      - scanorbit
 
   analyzer:
     build:
@@ -72,12 +101,16 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
+    networks:
+      - scanorbit
 
   db:
     image: postgres:17-alpine
@@ -94,10 +127,13 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    networks:
+      - scanorbit
 
   redis:
     image: redis:7-alpine
     container_name: scanorbit-redis
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
@@ -106,9 +142,15 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    networks:
+      - scanorbit
 
 volumes:
   postgres_data:
   redis_data:
   caddy_data:
   caddy_config:
+
+networks:
+  scanorbit:
+    driver: bridge

@@ -1,5 +1,6 @@
 ---
-import { Shield, Server, Lock, ArrowRight, Clock, Search } from "lucide-astro";
+import { Icon } from "astro-icon/components";
+import { appUrl } from "../config";
 ---
 
 <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
@@ -42,15 +43,15 @@ import { Shield, Server, Lock, ArrowRight, Clock, Search } from "lucide-astro";
       <!-- Value props row -->
       <div class="flex flex-wrap justify-center gap-6 mb-12">
         <div class="flex items-center gap-2 text-cloud-gray">
-          <Clock class="w-5 h-5 text-cyber-cyan" />
+          <Icon name="lucide:clock" class="w-5 h-5 text-cyber-cyan" />
           <span>5 minute setup</span>
         </div>
         <div class="flex items-center gap-2 text-cloud-gray">
-          <Search class="w-5 h-5 text-cyber-cyan" />
+          <Icon name="lucide:search" class="w-5 h-5 text-cyber-cyan" />
           <span>Find orphaned resources</span>
         </div>
         <div class="flex items-center gap-2 text-cloud-gray">
-          <Shield class="w-5 h-5 text-cyber-cyan" />
+          <Icon name="lucide:shield" class="w-5 h-5 text-cyber-cyan" />
           <span>Track SSL expiry</span>
         </div>
       </div>
@@ -58,11 +59,11 @@ import { Shield, Server, Lock, ArrowRight, Clock, Search } from "lucide-astro";
       <!-- CTA buttons -->
       <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
         <a
-          href="/app"
+          href={appUrl}
           class="group px-8 py-4 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-lg font-semibold text-lg transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,212,255,0.4)] flex items-center gap-2"
         >
           Start Free Today
-          <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </a>
         <a
           href="#how-it-works"
@@ -75,15 +76,15 @@ import { Shield, Server, Lock, ArrowRight, Clock, Search } from "lucide-astro";
       <!-- Trust badges -->
       <div class="flex flex-wrap items-center justify-center gap-6">
         <div class="flex items-center gap-2 px-4 py-2 bg-midnight/50 rounded-full border border-neon-green/20">
-          <Shield class="w-4 h-4 text-neon-green" />
+          <Icon name="lucide:shield" class="w-4 h-4 text-neon-green" />
           <span class="text-sm text-slate-gray">Read-only access</span>
         </div>
         <div class="flex items-center gap-2 px-4 py-2 bg-midnight/50 rounded-full border border-neon-green/20">
-          <Server class="w-4 h-4 text-neon-green" />
+          <Icon name="lucide:server" class="w-4 h-4 text-neon-green" />
           <span class="text-sm text-slate-gray">EU-hosted</span>
         </div>
         <div class="flex items-center gap-2 px-4 py-2 bg-midnight/50 rounded-full border border-neon-green/20">
-          <Lock class="w-4 h-4 text-neon-green" />
+          <Icon name="lucide:lock" class="w-4 h-4 text-neon-green" />
           <span class="text-sm text-slate-gray">GDPR compliant</span>
         </div>
       </div>

@@ -1,27 +1,28 @@
 ---
-import { HardDrive, ShieldAlert, Globe, Tag, ArrowRight } from "lucide-astro";
+import { Icon } from "astro-icon/components";
+import { appUrl } from "../config";
 
 const problems = [
   {
-    icon: HardDrive,
+    icon: "lucide:hard-drive",
     title: "Orphaned EBS volumes",
     description: "Unattached volumes silently accumulate costs every month",
     color: "text-warning-orange",
   },
   {
-    icon: ShieldAlert,
+    icon: "lucide:shield-alert",
     title: "SSL certificates expiring",
     description: "Causing outages and security vulnerabilities",
     color: "text-alert-red",
   },
   {
-    icon: Globe,
+    icon: "lucide:globe",
     title: "Data in wrong regions",
     description: "Flowing to non-EU regions, risking GDPR fines",
     color: "text-alert-red",
   },
   {
-    icon: Tag,
+    icon: "lucide:tag",
     title: "Untagged resources",
     description: "Hiding true cloud costs and blocking governance",
     color: "text-warning-orange",
@@ -49,7 +50,7 @@ const problems = [
           {problems.map((problem) => (
             <div class="flex items-start gap-4">
               <div class={`p-2 rounded-lg bg-midnight ${problem.color}`}>
-                <problem.icon class="w-5 h-5" />
+                <Icon name={problem.icon} class="w-5 h-5" />
               </div>
               <div>
                 <h3 class="font-semibold text-cloud-gray mb-1">{problem.title}</h3>
@@ -65,11 +66,11 @@ const problems = [
       <div class="text-center">
         <p class="text-cloud-gray mb-6">See what's actually in your AWS account.</p>
         <a
-          href="/app"
+          href={appUrl}
           class="group inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-lg font-semibold transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,212,255,0.4)]"
         >
           Start Free Scan
-          <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </a>
       </div>
     </div>
