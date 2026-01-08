@@ -131,16 +131,16 @@ You can control cookies through your browser settings:
 **Chrome/Edge:**
 1. Settings → Privacy and Security → Cookies and other site data
 2. Manage all cookies and site data
-3. Search for "scanorbit.io" to see our cookies
+3. Search for "scanorbit.cloud" to see our cookies
 
 **Firefox:**
 1. Preferences → Privacy & Security → Cookies and Site Data
 2. Manage Data
-3. Search for "scanorbit.io"
+3. Search for "scanorbit.cloud"
 
 **Safari:**
 1. Preferences → Privacy → Manage Website Data
-2. Find "scanorbit.io"
+2. Find "scanorbit.cloud"
 3. Click Remove or Remove All
 
 **Note:** Disabling essential cookies may prevent ScanOrbit from working properly.
@@ -269,13 +269,13 @@ We may update this Cookie Policy to:
 ## 12. Questions About Cookies?
 
 **Cookie-related questions:**
-📧 **Email:** privacy@scanorbit.io
+📧 **Email:** privacy@scanorbit.cloud
 
 **Technical cookie issues:**
-📧 **Email:** support@scanorbit.io
+📧 **Email:** support@scanorbit.cloud
 
 **GDPR/privacy questions:**
-📧 **Email:** dpa@scanorbit.io
+📧 **Email:** dpa@scanorbit.cloud
 
 ---
 

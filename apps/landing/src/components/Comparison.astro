@@ -1,6 +1,5 @@
 ---
 import { Icon } from "astro-icon/components";
-import { appUrl } from "../config";
 
 const features = [
   { name: "Setup time", scanorbit: "5 minutes", explorer: "30 minutes", manual: "Weeks" },
@@ -121,16 +120,6 @@ const features = [
           </table>
         </div>
 
-        <!-- Bottom CTA bar -->
-        <div class="bg-gradient-to-r from-orbit-purple/10 to-cyber-cyan/10 border-t border-cyber-cyan/20 p-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <span class="text-slate-gray">Ready to see the difference?</span>
-          <a
-            href={appUrl}
-            class="px-6 py-2 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-lg font-medium text-sm hover:shadow-[0_0_20px_rgba(0,212,255,0.3)] transition-all"
-          >
-            Start Free Audit
-          </a>
-        </div>
       </div>
     </div>
   </div>

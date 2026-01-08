@@ -619,7 +619,7 @@ If a data breach occurs:
 
 If you discover a security vulnerability:
 
-📧 **Email:** security@scanorbit.io
+📧 **Email:** security@scanorbit.cloud
 
 **Include:**
 - Description of vulnerability
@@ -726,23 +726,23 @@ If you discover a security vulnerability:
 - Architecture documentation
 - Incident response procedures
 
-**Contact:** compliance@scanorbit.io
+**Contact:** compliance@scanorbit.cloud
 
 ---
 
 ## 16. Security Contacts
 
 **Security Inquiries:**
-📧 **security@scanorbit.io**
+📧 **security@scanorbit.cloud**
 
 **Compliance Questions:**
-📧 **compliance@scanorbit.io**
+📧 **compliance@scanorbit.cloud**
 
 **Data Subject Requests (GDPR):**
-📧 **dpa@scanorbit.io**
+📧 **dpa@scanorbit.cloud**
 
 **General Support:**
-📧 **support@scanorbit.io**
+📧 **support@scanorbit.cloud**
 
 ---
 
@@ -778,7 +778,7 @@ We take security seriously and are happy to discuss:
 - Integration security
 - Anything else
 
-**Email:** security@scanorbit.io
+**Email:** security@scanorbit.cloud
 
 ---
 

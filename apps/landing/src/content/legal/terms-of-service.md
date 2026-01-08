@@ -32,7 +32,7 @@ ScanOrbit is an **early-stage product (Beta)** with:
 - We aim for 99.5% uptime but don't guarantee it
 - Features may be added, removed, or changed without notice
 - We'll notify you of major changes when possible
-- Report bugs to: bugs@scanorbit.io
+- Report bugs to: bugs@scanorbit.cloud
 
 ---
 
@@ -355,7 +355,7 @@ When applicable:
 ### 10.1 Support
 
 ScanOrbit currently offers:
-- Email support (best-effort): support@scanorbit.io
+- Email support (best-effort): support@scanorbit.cloud
 - Documentation: /docs
 - Community discussions: github.com/scanorbit
 - No guaranteed response time (early-stage)
@@ -410,7 +410,7 @@ We may modify these Terms at any time:
 
 You can terminate your account:
 - Anytime through account settings
-- Email: support@scanorbit.io
+- Email: support@scanorbit.cloud
 - Your data will be deleted per Privacy Policy
 
 ### 13.2 By Us
@@ -444,7 +444,7 @@ These Terms are governed by the laws of:
 ### 14.2 Dispute Resolution
 
 If you have a dispute:
-1. **Good Faith Discussion:** Email disputes@scanorbit.io
+1. **Good Faith Discussion:** Email disputes@scanorbit.cloud
 2. **Mediation:** We will attempt to resolve within 30 days
 3. **Arbitration:** If unresolved, binding arbitration in Amsterdam, Netherlands
 4. **Legal Action:** You may file in courts of your jurisdiction
@@ -495,11 +495,11 @@ Any prior agreements, understandings, or negotiations are superseded.
 
 ### 18.1 Questions About These Terms
 
-**Email:** legal@scanorbit.io
+**Email:** legal@scanorbit.cloud
 
 ### 18.2 Service-Related Questions
 
-**Support:** support@scanorbit.io
+**Support:** support@scanorbit.cloud
 
 ### 18.3 Mailing Address
 

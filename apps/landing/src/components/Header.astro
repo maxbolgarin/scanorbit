@@ -1,6 +1,6 @@
 ---
 import { Icon } from "astro-icon/components";
-import { appUrl } from "../config";
+import { signupUrl, loginUrl } from "../config";
 
 const featuresDropdown = [
   { label: "Core Features", href: "/#features" },
@@ -83,14 +83,14 @@ const resourcesDropdown = [
     <!-- CTA Buttons -->
     <div class="flex items-center gap-4">
       <a
-        href={appUrl}
+        href={loginUrl}
         class="hidden sm:block text-slate-gray hover:text-cloud-gray transition-colors"
       >
         Login
       </a>
       <a
-        href={appUrl}
-        class="px-4 py-2 bg-gradient-to-r from-orbit-purple to-orbit-purple hover:to-cyber-cyan rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.3)]"
+        href={signupUrl}
+        class="px-4 py-2 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
       >
         Get Started
       </a>

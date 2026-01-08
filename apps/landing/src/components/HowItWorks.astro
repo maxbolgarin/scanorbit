@@ -1,6 +1,6 @@
 ---
 import { Icon } from "astro-icon/components";
-import { appUrl } from "../config";
+import { signupUrl } from "../config";
 
 const steps = [
   {
@@ -26,8 +26,19 @@ const steps = [
   },
 ];
 
-const scanFeatures = ["Multi-region", "Parallel processing", "Zero impact", "Complete inventory"];
-const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps", "Export reports"];
+const scanFeatures = [
+  { icon: "lucide:globe", label: "Multi-region" },
+  { icon: "lucide:zap", label: "Parallel processing" },
+  { icon: "lucide:shield-check", label: "Zero impact" },
+  { icon: "lucide:list", label: "Complete inventory" },
+];
+
+const findingFeatures = [
+  { icon: "lucide:alert-triangle", label: "Severity scoring" },
+  { icon: "lucide:dollar-sign", label: "Cost impact" },
+  { icon: "lucide:wrench", label: "Remediation steps" },
+  { icon: "lucide:download", label: "Export reports" },
+];
 ---
 
 <section id="how-it-works" class="py-24 bg-midnight relative overflow-hidden">
@@ -58,8 +69,8 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
         <div class="relative group">
           {/* Connector arrow (only between cards on large screens) */}
           {index < steps.length - 1 && (
-            <div class="hidden lg:block absolute top-12 -right-4 z-10">
-              <Icon name="lucide:arrow-right" class="w-8 h-8 text-slate-gray/30" />
+            <div class="hidden lg:block absolute top-1/2 -translate-y-1/2 -right-4 z-10">
+              <Icon name="lucide:arrow-right" class="w-8 h-8 text-slate-gray/50" />
             </div>
           )}
 
@@ -84,25 +95,29 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
     <!-- Detailed content cards -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto mb-16">
       <!-- IAM Policy Card -->
-      <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
+      <div class="group p-6 rounded-2xl bg-deep-space border border-slate-gray/10 hover:border-cyber-cyan/30 transition-all duration-300">
         <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-alert-red"></div>
             <div class="w-3 h-3 rounded-full bg-warning-orange"></div>
             <div class="w-3 h-3 rounded-full bg-neon-green"></div>
           </div>
           <span class="text-xs text-slate-gray font-mono">iam-policy.json</span>
         </div>
-        <div class="bg-midnight/50 rounded-xl p-4 overflow-x-auto">
-          <pre class="text-sm font-mono leading-relaxed"><code><span class="text-slate-gray">{"{"}</span>
+        <div class="bg-midnight rounded-xl p-4 overflow-x-auto">
+          <pre class="text-xs font-mono leading-relaxed"><code><span class="text-slate-gray">{"{"}</span>
   <span class="text-cyber-cyan">"Version"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"2012-10-17"</span><span class="text-slate-gray">,</span>
   <span class="text-cyber-cyan">"Statement"</span><span class="text-slate-gray">: [{"{"}</span>
     <span class="text-cyber-cyan">"Effect"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"Allow"</span><span class="text-slate-gray">,</span>
     <span class="text-cyber-cyan">"Action"</span><span class="text-slate-gray">: [</span>
       <span class="text-neon-green">"ec2:Describe*"</span><span class="text-slate-gray">,</span>
       <span class="text-neon-green">"rds:Describe*"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"s3:GetBucketLocation"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"s3:GetBucketTagging"</span><span class="text-slate-gray">,</span>
       <span class="text-neon-green">"s3:ListAllMyBuckets"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"acm:ListCertificates"</span>
+      <span class="text-neon-green">"elasticloadbalancing:Describe*"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"acm:Describe*"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"acm:List*"</span>
     <span class="text-slate-gray">],</span>
     <span class="text-cyber-cyan">"Resource"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"*"</span>
   <span class="text-slate-gray">{"}"}]</span>
@@ -114,35 +129,37 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
       <!-- Features Cards -->
       <div class="space-y-4">
         <!-- Scan Features -->
-        <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-orbit-purple/20 flex items-center justify-center">
-              <Icon name="lucide:scan" class="w-5 h-5 text-orbit-purple" />
+        <div class="group p-6 rounded-2xl bg-deep-space border border-slate-gray/10 hover:border-orbit-purple/30 transition-all duration-300">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orbit-purple/30 to-orbit-purple/10 flex items-center justify-center">
+              <Icon name="lucide:radar" class="w-5 h-5 text-orbit-purple" />
             </div>
-            <h4 class="font-semibold text-cloud-gray">Scan Capabilities</h4>
+            <h4 class="font-bold text-lg text-cloud-gray">Scan Capabilities</h4>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="grid grid-cols-2 gap-3">
             {scanFeatures.map((feature) => (
-              <span class="px-3 py-1.5 text-sm bg-orbit-purple/10 rounded-lg text-orbit-purple border border-orbit-purple/20">
-                {feature}
-              </span>
+              <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-midnight/50 border border-orbit-purple/10 group-hover:border-orbit-purple/20 transition-colors">
+                <Icon name={feature.icon} class="w-4 h-4 text-orbit-purple" />
+                <span class="text-sm text-cloud-gray">{feature.label}</span>
+              </div>
             ))}
           </div>
         </div>
 
         <!-- Finding Features -->
-        <div class="p-6 rounded-2xl bg-deep-space border border-slate-gray/10">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-neon-green/20 flex items-center justify-center">
-              <Icon name="lucide:file-check" class="w-5 h-5 text-neon-green" />
+        <div class="group p-6 rounded-2xl bg-deep-space border border-slate-gray/10 hover:border-neon-green/30 transition-all duration-300">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-green/30 to-neon-green/10 flex items-center justify-center">
+              <Icon name="lucide:file-search" class="w-5 h-5 text-neon-green" />
             </div>
-            <h4 class="font-semibold text-cloud-gray">Finding Details</h4>
+            <h4 class="font-bold text-lg text-cloud-gray">Finding Details</h4>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="grid grid-cols-2 gap-3">
             {findingFeatures.map((feature) => (
-              <span class="px-3 py-1.5 text-sm bg-neon-green/10 rounded-lg text-neon-green border border-neon-green/20">
-                {feature}
-              </span>
+              <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-midnight/50 border border-neon-green/10 group-hover:border-neon-green/20 transition-colors">
+                <Icon name={feature.icon} class="w-4 h-4 text-neon-green" />
+                <span class="text-sm text-cloud-gray">{feature.label}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -152,8 +169,8 @@ const findingFeatures = ["Severity scoring", "Cost impact", "Remediation steps",
     <!-- CTA -->
     <div class="text-center">
       <a
-        href={appUrl}
-        class="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-xl font-semibold text-lg transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,212,255,0.3)] hover:scale-105"
+        href={signupUrl}
+        class="group inline-flex items-center gap-3 px-8 py-4 bg-orbit-purple hover:bg-orbit-purple/90 rounded-xl font-semibold text-lg transition-all duration-300 hover:shadow-[0_0_40px_rgba(107,70,193,0.5)] hover:scale-105"
       >
         Start Free Scan
         <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" />

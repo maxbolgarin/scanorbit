@@ -179,7 +179,7 @@ As an EU resident or user, you have the following rights:
 ### 6.1 Right to Access
 **Request a copy of all your personal data we hold.**
 
-Email: privacy@scanorbit.io
+Email: privacy@scanorbit.cloud
 Response time: Within 30 days
 
 ### 6.2 Right to Erasure
@@ -346,10 +346,10 @@ We may update this policy to reflect:
 ## 13. Contact Us
 
 **Privacy Inquiries:**
-Email: privacy@scanorbit.io
+Email: privacy@scanorbit.cloud
 
 **Data Subject Requests (GDPR):**
-Email: dpa@scanorbit.io
+Email: dpa@scanorbit.cloud
 Response time: Within 30 days
 
 **Mailing Address:**
@@ -357,7 +357,7 @@ ScanOrbit
 Amsterdam, Netherlands
 
 **Data Protection Officer (if appointed):**
-Contact: dpo@scanorbit.io
+Contact: dpo@scanorbit.cloud
 
 ---
 
@@ -380,7 +380,7 @@ We process your data based on:
 For enterprise customers:
 - We provide a Data Processing Agreement (DPA) aligned with GDPR Article 28
 - Standard clauses for data transfers (if applicable)
-- Contact sales@scanorbit.io for DPA
+- Contact sales@scanorbit.cloud for DPA
 
 ---
 

@@ -1,67 +1,39 @@
 ---
 import { Icon } from "astro-icon/components";
-import { appUrl } from "../config";
+import { signupUrl } from "../config";
 
 const plans = [
   {
     name: "Free",
     price: "€0",
-    period: "forever",
-    description: "Perfect for getting started",
-    features: [
-      "1 AWS account",
-      "Unlimited scans",
-      "All scanner types",
-      "Email alerts",
-      "7-day data retention",
-      "Community support",
-    ],
-    cta: "Start Free",
-    ctaLink: appUrl,
-    highlight: false,
-    style: "default",
+    period: "",
+    ctaLink: signupUrl,
   },
   {
     name: "Pro",
-    price: "€99",
+    price: "€19",
     period: "/month",
-    description: "For growing teams",
-    features: [
-      "Up to 5 AWS accounts",
-      "Unlimited scans",
-      "All scanner types",
-      "Slack & webhook alerts",
-      "90-day data retention",
-      "Priority email support",
-      "Custom scan schedules",
-      "Team collaboration",
-    ],
-    cta: "Start Pro Trial",
-    ctaLink: `${appUrl}?plan=pro`,
-    highlight: true,
-    style: "featured",
+    ctaLink: `${signupUrl}?plan=pro`,
   },
   {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    description: "For large organizations",
-    features: [
-      "Unlimited AWS accounts",
-      "Unlimited scans",
-      "All scanner types",
-      "SSO & SAML",
-      "Custom data retention",
-      "Dedicated support",
-      "Custom integrations",
-      "SLA guarantee",
-      "On-premise option",
-    ],
-    cta: "Contact Sales",
-    ctaLink: "mailto:sales@scanorbit.io",
-    highlight: false,
-    style: "default",
+    name: "Team",
+    price: "€79",
+    period: "/month",
+    ctaLink: `${signupUrl}?plan=team`,
   },
+];
+
+const features = [
+  { name: "AWS Accounts", free: "1", pro: "1", team: "5" },
+  { name: "Scanner Types", free: "Limited", pro: "All", team: "All" },
+  { name: "Scan Frequency", free: "Limited", pro: "Unlimited", team: "Unlimited" },
+  { name: "Data Retention", free: "7 days", pro: "30 days", team: "90 days" },
+  { name: "Email Alerts", free: false, pro: true, team: true },
+  { name: "API Access", free: false, pro: false, team: true },
+  { name: "Scan Priority", free: false, pro: false, team: true },
+  { name: "Support", free: "Community", pro: "Email", team: "Priority Email" },
+  { name: "Custom Schedules", free: false, pro: false, team: true },
+  { name: "Team Features", free: false, pro: false, team: true },
 ];
 ---
 
@@ -72,109 +44,86 @@ const plans = [
   <div class="container mx-auto px-6 relative z-10">
     <!-- Section header -->
     <div class="text-center mb-16">
-      <div class="inline-flex items-center gap-2 px-4 py-2 bg-deep-space rounded-full border border-cyber-cyan/20 mb-6">
-        <Icon name="lucide:zap" class="w-4 h-4 text-cyber-cyan" />
-        <span class="text-sm text-cyber-cyan">Simple Pricing</span>
-      </div>
       <h2 class="text-3xl md:text-5xl font-bold mb-6">
-        <span class="text-cloud-gray">Start free, </span>
+        <span class="text-cloud-gray">Simple, </span>
         <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
-          scale when ready
+          Transparent Pricing
         </span>
       </h2>
       <p class="text-lg text-slate-gray max-w-2xl mx-auto">
-        No credit card required to start. Upgrade only when you need more accounts or features.
+        Start free. Upgrade anytime.
       </p>
     </div>
 
-    <!-- Pricing cards -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto items-start">
-      {plans.map((plan, index) => (
-        <div
-          class={`relative rounded-2xl transition-all duration-500 ${
-            plan.highlight
-              ? "lg:-mt-4 lg:mb-4"
-              : ""
-          }`}
-        >
-          {/* Glow effect for featured */}
-          {plan.highlight && (
-            <div class="absolute -inset-[1px] bg-gradient-to-b from-cyber-cyan via-orbit-purple to-cyber-cyan rounded-2xl opacity-70 blur-sm"></div>
-          )}
-
-          <div
-            class={`relative h-full p-8 rounded-2xl border backdrop-blur-sm ${
-              plan.highlight
-                ? "bg-deep-space/90 border-cyber-cyan/30"
-                : "bg-deep-space/50 border-slate-gray/10 hover:border-slate-gray/30"
-            }`}
-          >
-            {/* Popular badge */}
-            {plan.highlight && (
-              <div class="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span class="px-5 py-1.5 bg-gradient-to-r from-orbit-purple to-cyber-cyan rounded-full text-sm font-semibold shadow-lg shadow-cyber-cyan/25">
-                  Most Popular
-                </span>
-              </div>
-            )}
-
-            {/* Plan header */}
-            <div class="mb-8 pt-2">
-              <h3 class={`text-lg font-medium mb-4 ${plan.highlight ? "text-cyber-cyan" : "text-slate-gray"}`}>
-                {plan.name}
-              </h3>
-              <div class="flex items-baseline gap-1 mb-3">
-                <span class="text-5xl font-bold text-white tracking-tight">{plan.price}</span>
-                <span class="text-slate-gray text-lg">{plan.period}</span>
-              </div>
-              <p class="text-slate-gray">{plan.description}</p>
-            </div>
-
-            {/* Divider */}
-            <div class={`h-px mb-8 ${plan.highlight ? "bg-gradient-to-r from-transparent via-cyber-cyan/30 to-transparent" : "bg-slate-gray/10"}`}></div>
-
-            {/* Features */}
-            <ul class="space-y-4 mb-8">
-              {plan.features.map((feature) => (
-                <li class="flex items-start gap-3">
-                  <div class={`mt-0.5 p-0.5 rounded-full ${plan.highlight ? "bg-cyber-cyan/20" : "bg-neon-green/20"}`}>
-                    <Icon name="lucide:check" class={`w-4 h-4 ${plan.highlight ? "text-cyber-cyan" : "text-neon-green"}`} />
-                  </div>
-                  <span class="text-cloud-gray">{feature}</span>
-                </li>
+    <!-- Pricing table -->
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-deep-space rounded-2xl border border-slate-gray/10 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <!-- Header with plan names and prices -->
+            <thead>
+              <tr class="border-b border-slate-gray/10">
+                <th class="text-left py-6 px-6 text-slate-gray font-medium">
+                  Feature
+                </th>
+                {plans.map((plan) => (
+                  <th class="py-6 px-6 text-center min-w-[140px]">
+                    <div class="flex flex-col items-center gap-2">
+                      <span class="text-lg font-bold text-cloud-gray">{plan.name}</span>
+                      <div class="flex items-baseline gap-0.5">
+                        <span class="text-2xl font-bold text-white">{plan.price}</span>
+                        <span class="text-slate-gray text-sm">{plan.period}</span>
+                      </div>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {features.map((feature, index) => (
+                <tr class={index % 2 === 0 ? "bg-midnight/30" : ""}>
+                  <td class="py-4 px-6 text-cloud-gray">{feature.name}</td>
+                  {["free", "pro", "team"].map((plan) => {
+                    const value = feature[plan];
+                    return (
+                      <td class="py-4 px-6 text-center">
+                        {typeof value === "boolean" ? (
+                          value ? (
+                            <div class="flex justify-center">
+                              <Icon name="lucide:check" class="w-5 h-5 text-neon-green" />
+                            </div>
+                          ) : (
+                            <span class="text-slate-gray/50">—</span>
+                          )
+                        ) : (
+                          <span class="text-cloud-gray">{value}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
               ))}
-            </ul>
-
-            {/* CTA */}
-            <a
-              href={plan.ctaLink}
-              class={`group w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold transition-all duration-300 ${
-                plan.highlight
-                  ? "bg-gradient-to-r from-orbit-purple to-cyber-cyan text-white hover:shadow-[0_0_30px_rgba(0,212,255,0.4)] hover:scale-[1.02]"
-                  : "bg-slate-gray/10 border border-slate-gray/20 text-cloud-gray hover:bg-slate-gray/20 hover:border-slate-gray/40"
-              }`}
-            >
-              {plan.cta}
-              <Icon name="lucide:arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </a>
-          </div>
+            </tbody>
+            <!-- CTA row -->
+            <tfoot>
+              <tr class="border-t border-slate-gray/10">
+                <td class="py-6 px-6"></td>
+                {plans.map((plan) => (
+                  <td class="py-6 px-6 text-center">
+                    <a
+                      href={plan.ctaLink}
+                      class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-300 bg-orbit-purple hover:bg-orbit-purple/90 text-white hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
+                    >
+                      {plan.name === "Free" ? "Get Started" : "Start Free Trial"}
+                    </a>
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
         </div>
-      ))}
+      </div>
     </div>
 
-    <!-- FAQ teaser -->
-    <div class="mt-16 text-center">
-      <p class="text-slate-gray">
-        Questions? Check our{" "}
-        <a href="/security" class="text-cyber-cyan hover:underline font-medium">
-          security page
-        </a>{" "}
-        or{" "}
-        <a href="/contact" class="text-cyber-cyan hover:underline font-medium">
-          contact us
-        </a>
-        .
-      </p>
-    </div>
   </div>
 </section>
