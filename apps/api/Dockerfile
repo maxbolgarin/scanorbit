@@ -6,7 +6,7 @@ WORKDIR /app
 RUN npm install -g pnpm@latest
 
 # Copy root-level package files (monorepo)
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 
 # Copy app-specific package.json
 COPY apps/api/package.json ./apps/api/
@@ -17,8 +17,8 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY apps/api ./apps/api
 
-# Build TypeScript
-RUN pnpm build
+# Build TypeScript (use --filter to run the package's own build script)
+RUN pnpm --filter @scanorbit/api run build
 
 # Production stage
 FROM node:25-alpine AS production
@@ -28,7 +28,7 @@ WORKDIR /app
 RUN npm install -g pnpm@latest
 
 # Copy root-level package files (monorepo)
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 
 # Copy app-specific package.json
 COPY apps/api/package.json ./apps/api/
