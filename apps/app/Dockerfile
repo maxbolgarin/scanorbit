@@ -1,34 +1,39 @@
 # Build stage
 FROM node:25-alpine AS builder
-WORKDIR /app
+WORKDIR /repo
 
 # Install pnpm
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@10.27.0
 
-# Copy package files
-COPY package.json pnpm-lock.yaml* ./
+# Copy root-level package files (monorepo)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
+# Copy workspace package.json files
+COPY apps/api/package.json ./apps/api/
+COPY apps/app/package.json ./apps/app/
+COPY apps/landing/package.json ./apps/landing/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY . .
+# Copy app source code
+COPY apps/app ./apps/app
 
 # Build arguments for environment variables
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application
-RUN pnpm build
+RUN pnpm --filter @scanorbit/app run build
 
 # Production stage - serve with nginx
 FROM nginx:alpine AS production
 
 # Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/app/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built files
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /repo/apps/app/dist /usr/share/nginx/html
 
 # Create non-root user
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
