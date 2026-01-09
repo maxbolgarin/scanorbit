@@ -5,9 +5,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { FindingFilters as Filters, FindingType, FindingSeverity, FindingStatus } from "@/types";
 
 interface FindingFiltersProps {
@@ -16,11 +15,30 @@ interface FindingFiltersProps {
 }
 
 const typeOptions: { value: FindingType; label: string }[] = [
+  // Orphan findings
   { value: "orphaned_volume", label: "Orphaned Volume" },
   { value: "orphaned_eip", label: "Orphaned EIP" },
   { value: "orphaned_snapshot", label: "Orphaned Snapshot" },
+  // SSL findings
   { value: "ssl_expiry", label: "SSL Expiry" },
+  // Compliance findings
   { value: "data_residency_violation", label: "Data Residency" },
+  // Security findings
+  { value: "unencrypted_resource", label: "Unencrypted Resource" },
+  { value: "public_access", label: "Public Access" },
+  { value: "permissive_security_group", label: "Permissive Security Group" },
+  { value: "open_all_ports", label: "Open All Ports" },
+  // Cost findings
+  { value: "unused_resource", label: "Unused Resource" },
+  { value: "stopped_instance", label: "Stopped Instance" },
+  { value: "unused_log_group", label: "Unused Log Group" },
+  // Tagging findings
+  { value: "missing_tag", label: "Missing Tag" },
+  // IAM findings
+  { value: "old_access_key", label: "Old Access Key" },
+  { value: "unused_access_key", label: "Unused Access Key" },
+  { value: "unused_iam_role", label: "Unused IAM Role" },
+  { value: "user_without_mfa", label: "User Without MFA" },
 ];
 
 const severityOptions: { value: FindingSeverity; label: string }[] = [
@@ -37,7 +55,7 @@ const statusOptions: { value: FindingStatus; label: string }[] = [
 ];
 
 export function FindingFilters({ filters, onFiltersChange }: FindingFiltersProps) {
-  const hasFilters = filters.type || filters.severity || filters.status || filters.search;
+  const hasFilters = filters.type || filters.severity || filters.status;
 
   const clearFilters = () => {
     onFiltersChange({});
@@ -45,18 +63,6 @@ export function FindingFilters({ filters, onFiltersChange }: FindingFiltersProps
 
   return (
     <div className="flex flex-wrap gap-3">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search findings..."
-          value={filters.search || ""}
-          onChange={(e) =>
-            onFiltersChange({ ...filters, search: e.target.value || undefined })
-          }
-          className="pl-9"
-        />
-      </div>
-
       <Select
         value={filters.type || "all"}
         onValueChange={(value) =>

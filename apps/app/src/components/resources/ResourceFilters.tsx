@@ -5,9 +5,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { ResourceFilters as Filters, ServiceType } from "@/types";
 
 interface ResourceFiltersProps {
@@ -20,12 +19,22 @@ interface ResourceFiltersProps {
 const serviceLabels: Record<ServiceType, string> = {
   ec2: "EC2 Instances",
   ebs: "EBS Volumes",
+  eip: "Elastic IPs",
   rds: "RDS Databases",
+  rds_snapshot: "RDS Snapshots",
   s3: "S3 Buckets",
   alb: "Load Balancers",
   acm: "Certificates",
-  eip: "Elastic IPs",
-  snapshot: "Snapshots",
+  lambda: "Lambda Functions",
+  cloudwatch_logs: "CloudWatch Logs",
+  cloudwatch_alarm: "CloudWatch Alarms",
+  iam_user: "IAM Users",
+  iam_role: "IAM Roles",
+  iam_policy: "IAM Policies",
+  iam_access_key: "Access Keys",
+  security_group: "Security Groups",
+  secret: "Secrets",
+  kms_key: "KMS Keys",
 };
 
 export function ResourceFilters({
@@ -34,7 +43,7 @@ export function ResourceFilters({
   regions,
   services,
 }: ResourceFiltersProps) {
-  const hasFilters = filters.service || filters.region || filters.search;
+  const hasFilters = filters.service || filters.region;
 
   const clearFilters = () => {
     onFiltersChange({});
@@ -42,18 +51,6 @@ export function ResourceFilters({
 
   return (
     <div className="flex flex-wrap gap-3">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search resources..."
-          value={filters.search || ""}
-          onChange={(e) =>
-            onFiltersChange({ ...filters, search: e.target.value || undefined })
-          }
-          className="pl-9"
-        />
-      </div>
-
       <Select
         value={filters.service || "all"}
         onValueChange={(value) =>

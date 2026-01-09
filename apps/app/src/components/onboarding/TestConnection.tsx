@@ -130,13 +130,17 @@ export function TestConnection({
           }`}
         >
           {testResult.success ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4" />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
           ) : (
-            <AlertCircle className="mt-0.5 h-4 w-4" />
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           )}
           <div>
-            <p className="font-medium">{testResult.message}</p>
-            {testResult.regions && (
+            <p className="font-medium">
+              {testResult.success
+                ? testResult.message || "Connection successful! ScanOrbit can access your AWS account."
+                : testResult.message || "Connection failed. Please check your role configuration."}
+            </p>
+            {testResult.regions && testResult.regions.length > 0 && (
               <p className="mt-1 text-xs">
                 Regions available: {testResult.regions.join(", ")}
               </p>

@@ -1,0 +1,98 @@
+import { eq, desc } from 'drizzle-orm';
+import { db } from '../lib/db.js';
+import { consentLogs } from '../db/schema.js';
+
+// Current version of terms and privacy policy
+const CURRENT_TERMS_VERSION = '1.0';
+
+interface ConsentMetadata {
+  signupSource?: string;
+  referrer?: string;
+  [key: string]: unknown;
+}
+
+interface LogConsentParams {
+  userId?: string;
+  email: string;
+  consentType: 'terms_and_privacy' | 'marketing';
+  consentGiven: boolean;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: ConsentMetadata;
+}
+
+export const consentService = {
+  /**
+   * Log user consent for GDPR compliance
+   * This creates an immutable record of when and how consent was given
+   */
+  async logConsent(params: LogConsentParams): Promise<void> {
+    const {
+      userId,
+      email,
+      consentType,
+      consentGiven,
+      ipAddress,
+      userAgent,
+      metadata = {},
+    } = params;
+
+    await db.insert(consentLogs).values({
+      userId: userId || null,
+      email: email.toLowerCase(),
+      consentType,
+      consentVersion: CURRENT_TERMS_VERSION,
+      consentGiven,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      metadata: {
+        ...metadata,
+        loggedAt: new Date().toISOString(),
+      },
+    });
+
+    console.log(`Consent logged: ${consentType} for ${email} (given: ${consentGiven})`);
+  },
+
+  /**
+   * Log signup consent (terms and privacy policy)
+   * Called when user completes signup
+   */
+  async logSignupConsent(params: {
+    userId: string;
+    email: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    await this.logConsent({
+      userId: params.userId,
+      email: params.email,
+      consentType: 'terms_and_privacy',
+      consentGiven: true,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+      metadata: {
+        signupSource: 'web',
+        action: 'signup_completed',
+      },
+    });
+  },
+
+  /**
+   * Get consent history for a user (for GDPR data export)
+   */
+  async getConsentHistory(email: string) {
+    return db
+      .select()
+      .from(consentLogs)
+      .where(eq(consentLogs.email, email.toLowerCase()))
+      .orderBy(desc(consentLogs.consentedAt));
+  },
+
+  /**
+   * Get current terms version
+   */
+  getCurrentTermsVersion(): string {
+    return CURRENT_TERMS_VERSION;
+  },
+};

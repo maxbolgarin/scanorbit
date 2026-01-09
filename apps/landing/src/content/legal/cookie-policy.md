@@ -159,7 +159,7 @@ You'll need to log in again after clearing session cookies.
 
 ### 6.3 Cookie Preferences (Future)
 
-Coming in Q1 2026, we'll add a **Cookie Preferences Center** where you can:
+We plan to add a **Cookie Preferences Center** where you can:
 - Toggle preference cookies on/off
 - View all cookies in detail
 - Withdraw consent anytime
@@ -271,9 +271,6 @@ We may update this Cookie Policy to:
 ## 12. Questions About Cookies?
 
 **Cookie-related questions:**
-Email: privacy@scanorbit.cloud
-
-**Technical cookie issues:**
 Email: support@scanorbit.cloud
 
 **GDPR/privacy questions:**

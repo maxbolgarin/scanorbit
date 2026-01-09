@@ -195,6 +195,9 @@ docker-clean:
 db-migrate:
 	pnpm db:migrate
 
+db-reset:
+	pnpm db:reset
+
 db-generate:
 	pnpm db:generate
 

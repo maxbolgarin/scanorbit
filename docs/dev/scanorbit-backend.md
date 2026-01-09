@@ -1,32 +1,30 @@
-# ScanOrbit Node.js + TypeScript Backend – Complete Implementation Guide
+# ScanOrbit Node.js + TypeScript Backend – Implementation Guide
 
 ## 1. Architecture Overview
 
 ### 1.1 Tech Stack
 
-- **Framework**: Hono.js (TypeScript-first, minimal, fast, edge-friendly)
-- **Database**: PostgreSQL with pg (node-postgres)
-- **Type Validation**: Zod (schema validation + type inference)
-- **ORM/Query Builder**: pg (raw SQL) or Knex.js (optional query builder)
-- **Authentication**: JWT (stored in httpOnly cookies)
-- **Password Hashing**: bcrypt
-- **Job Queue**: Redis (simple queue or Bull for complex workflows)
-- **Logging**: pino (structured JSON logging)
-- **Environment**: dotenv
-- **Error Handling**: Custom error classes + centralized error handler
-- **API Documentation**: OpenAPI/Swagger (optional)
+| Component | Library | Version |
+|-----------|---------|---------|
+| **Runtime** | Node.js | 22.x |
+| **Framework** | Hono.js | 4.x |
+| **Database** | PostgreSQL + Drizzle ORM | 17.x, 0.45.x |
+| **Type Validation** | Zod | 3.x |
+| **Authentication** | jose (JWT) | 6.x |
+| **Password Hashing** | bcrypt | 6.x |
+| **Cache/Queue** | Redis (ioredis) | 5.x |
+| **AWS SDK** | @aws-sdk/client-sts | 3.x |
+| **Error Handling** | Custom error classes | - |
 
 ### 1.2 Project Structure
 
 ```
-/api
+apps/api/
 ├── src/
 │   ├── index.ts                 # Hono app entry point
-│   ├── middleware/
+│   ├── middlewares/
 │   │   ├── auth.ts              # JWT verification
-│   │   ├── errorHandler.ts      # Global error handling
-│   │   ├── logger.ts            # Request/response logging
-│   │   └── cors.ts              # CORS setup
+│   │   └── errorHandler.ts      # Global error handling
 │   ├── routes/
 │   │   ├── index.ts             # Route aggregation
 │   │   ├── auth.ts              # /auth/* endpoints
@@ -34,194 +32,140 @@
 │   │   ├── aws-accounts.ts      # /aws/accounts/* endpoints
 │   │   ├── resources.ts         # /resources/* endpoints
 │   │   └── findings.ts          # /findings/* endpoints
-│   ├── controllers/
-│   │   ├── authController.ts
-│   │   ├── orgsController.ts
-│   │   ├── awsAccountsController.ts
-│   │   ├── resourcesController.ts
-│   │   └── findingsController.ts
 │   ├── services/
 │   │   ├── authService.ts       # Auth business logic
 │   │   ├── orgService.ts
 │   │   ├── awsAccountService.ts
 │   │   ├── resourceService.ts
-│   │   ├── findingService.ts
-│   │   └── awsDiscovery.ts      # AWS API calls (wrapper)
-│   ├── repositories/
-│   │   ├── userRepository.ts
-│   │   ├── orgRepository.ts
-│   │   ├── awsAccountRepository.ts
-│   │   ├── resourceRepository.ts
-│   │   └── findingRepository.ts
+│   │   └── findingService.ts
+│   ├── db/
+│   │   └── schema.ts            # Drizzle schema definitions
 │   ├── lib/
-│   │   ├── db.ts                # Postgres connection pool
-│   │   ├── redis.ts             # Redis client
-│   │   ├── jwt.ts               # JWT sign/verify helpers
-│   │   ├── aws.ts               # AWS SDK setup
-│   │   ├── logger.ts            # Logger instance
+│   │   ├── db.ts                # Drizzle client setup
+│   │   ├── redis.ts             # ioredis client
+│   │   ├── jwt.ts               # jose JWT helpers
+│   │   ├── config.ts            # Environment config
 │   │   └── errors.ts            # Error classes
-│   ├── types/
-│   │   ├── index.ts             # Shared types
-│   │   ├── entities.ts          # DB entity types
-│   │   ├── api.ts               # Request/response types
-│   │   └── aws.ts               # AWS-specific types
-│   ├── migrations/
-│   │   └── *.sql                # Database migrations
-│   └── config/
-│       └── index.ts             # Environment config
+│   └── types/
+│       └── index.ts             # Shared types
+├── drizzle/                     # Generated migrations
 ├── package.json
 ├── tsconfig.json
+├── drizzle.config.cjs
 ├── .env.example
 └── Dockerfile
 ```
 
+**Note:** The codebase uses a flat structure without controllers or repositories. Routes call services directly, and services use Drizzle ORM for database access.
+
 ---
 
-## 2. Database Schema (PostgreSQL)
+## 2. Database Schema (Drizzle ORM)
 
-### 2.1 Core Tables
+### 2.1 Schema Definition
 
-```sql
--- Users
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  full_name VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+The schema is defined in `apps/api/src/db/schema.ts` using Drizzle ORM:
 
--- Organizations
-CREATE TABLE orgs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  slug VARCHAR(255) UNIQUE NOT NULL,
-  logo_url VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+```typescript
+import { pgTable, uuid, varchar, text, timestamp, jsonb, numeric, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
--- User-Org memberships
-CREATE TABLE user_org_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-  role VARCHAR(50) DEFAULT 'member', -- 'admin', 'member'
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, org_id)
-);
+// Users
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  fullName: varchar('full_name', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 
--- AWS Accounts
-CREATE TABLE aws_accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  aws_account_id VARCHAR(12) NOT NULL,
-  role_arn VARCHAR(255) NOT NULL,
-  external_id VARCHAR(255),
-  status VARCHAR(50) DEFAULT 'pending', -- 'ok', 'error'
-  last_error TEXT,
-  last_scan_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(org_id, aws_account_id)
-);
+// Organizations
+export const orgs = pgTable('orgs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull().unique(),
+  logoUrl: varchar('logo_url', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 
--- Scans (track scan jobs)
-CREATE TABLE scans (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-  aws_account_id UUID NOT NULL REFERENCES aws_accounts(id) ON DELETE CASCADE,
-  status VARCHAR(50) DEFAULT 'pending', -- 'running', 'complete', 'error'
-  started_at TIMESTAMP,
-  completed_at TIMESTAMP,
-  resources_discovered INT DEFAULT 0,
-  error_message TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+// AWS Accounts
+export const awsAccounts = pgTable('aws_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  awsAccountId: varchar('aws_account_id', { length: 12 }).notNull(),
+  roleArn: varchar('role_arn', { length: 255 }).notNull(),
+  externalId: varchar('external_id', { length: 255 }),
+  status: varchar('status', { length: 50 }).default('pending').notNull(),
+  lastError: text('last_error'),
+  lastScanAt: timestamp('last_scan_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('aws_accounts_org_account_idx').on(table.orgId, table.awsAccountId),
+]);
 
--- Resources
-CREATE TABLE resources (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-  aws_account_id UUID NOT NULL REFERENCES aws_accounts(id) ON DELETE CASCADE,
-  resource_id VARCHAR(255) NOT NULL, -- ARN or provider ID
-  service VARCHAR(50) NOT NULL, -- 'ec2', 'ebs', 'rds', 's3', 'alb', 'acm'
-  region VARCHAR(50),
-  name VARCHAR(255),
-  state VARCHAR(50), -- 'available', 'running', 'pending', etc.
-  tags JSONB DEFAULT '{}',
-  cost_estimate_monthly NUMERIC(10,2),
-  last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  raw JSONB, -- Full provider response
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(org_id, aws_account_id, resource_id)
-);
+// Resources
+export const resources = pgTable('resources', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  awsAccountId: uuid('aws_account_id').notNull().references(() => awsAccounts.id, { onDelete: 'cascade' }),
+  resourceId: varchar('resource_id', { length: 255 }).notNull(),
+  service: varchar('service', { length: 50 }).notNull(),
+  region: varchar('region', { length: 50 }),
+  name: varchar('name', { length: 255 }),
+  state: varchar('state', { length: 50 }),
+  tags: jsonb('tags').default({}).notNull(),
+  costEstimateMonthly: numeric('cost_estimate_monthly', { precision: 10, scale: 2 }),
+  lastSeenAt: timestamp('last_seen_at').defaultNow().notNull(),
+  raw: jsonb('raw'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('resources_org_account_resource_idx').on(table.orgId, table.awsAccountId, table.resourceId),
+]);
 
--- Certificates
-CREATE TABLE certificates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-  aws_account_id UUID NOT NULL REFERENCES aws_accounts(id) ON DELETE CASCADE,
-  identifier VARCHAR(255) NOT NULL, -- ARN or fingerprint
-  source VARCHAR(50) NOT NULL, -- 'acm', 'endpoint_scan'
-  primary_domain VARCHAR(255),
-  alt_names JSONB DEFAULT '[]',
-  not_before TIMESTAMP,
-  not_after TIMESTAMP,
-  issuer VARCHAR(255),
-  algorithm VARCHAR(50),
-  last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(org_id, aws_account_id, identifier)
-);
+// Findings
+export const findings = pgTable('findings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  awsAccountId: uuid('aws_account_id').notNull().references(() => awsAccounts.id, { onDelete: 'cascade' }),
+  resourceId: uuid('resource_id').references(() => resources.id, { onDelete: 'set null' }),
+  type: varchar('type', { length: 50 }).notNull(),
+  severity: varchar('severity', { length: 50 }).notNull(),
+  summary: text('summary').notNull(),
+  details: jsonb('details').default({}).notNull(),
+  status: varchar('status', { length: 50 }).default('open').notNull(),
+  resolvedAt: timestamp('resolved_at'),
+  snoozedUntil: timestamp('snoozed_until'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 
--- Findings
-CREATE TABLE findings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
-  aws_account_id UUID NOT NULL REFERENCES aws_accounts(id) ON DELETE CASCADE,
-  resource_id UUID REFERENCES resources(id) ON DELETE SET NULL,
-  certificate_id UUID REFERENCES certificates(id) ON DELETE SET NULL,
-  type VARCHAR(50) NOT NULL, -- 'orphaned_volume', 'ssl_expiry', 'data_residency_violation'
-  severity VARCHAR(50) NOT NULL, -- 'low', 'medium', 'high'
-  summary TEXT NOT NULL,
-  details JSONB DEFAULT '{}',
-  status VARCHAR(50) DEFAULT 'open', -- 'resolved', 'snoozed', 'ignored'
-  resolved_at TIMESTAMP,
-  snoozed_until TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+// Type exports
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type AwsAccount = typeof awsAccounts.$inferSelect;
+export type NewAwsAccount = typeof awsAccounts.$inferInsert;
+export type Finding = typeof findings.$inferSelect;
+export type NewFinding = typeof findings.$inferInsert;
+```
 
--- Jobs (for background workers)
-CREATE TABLE jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type VARCHAR(50) NOT NULL, -- 'scan_account', 'analyze_orphans'
-  payload JSONB NOT NULL,
-  status VARCHAR(50) DEFAULT 'queued', -- 'running', 'complete', 'error'
-  result JSONB,
-  error TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  started_at TIMESTAMP,
-  completed_at TIMESTAMP
-);
+### 2.2 Migrations
 
--- Create indexes for common queries
-CREATE INDEX idx_user_org_members_user_id ON user_org_members(user_id);
-CREATE INDEX idx_user_org_members_org_id ON user_org_members(org_id);
-CREATE INDEX idx_aws_accounts_org_id ON aws_accounts(org_id);
-CREATE INDEX idx_resources_org_id ON resources(org_id);
-CREATE INDEX idx_resources_account_id ON resources(aws_account_id);
-CREATE INDEX idx_resources_service ON resources(service);
-CREATE INDEX idx_findings_org_id ON findings(org_id);
-CREATE INDEX idx_findings_type ON findings(type);
-CREATE INDEX idx_findings_severity ON findings(severity);
-CREATE INDEX idx_findings_status ON findings(status);
-CREATE INDEX idx_certificates_org_id ON certificates(org_id);
+Migrations are managed with Drizzle Kit:
+
+```bash
+# Generate migrations from schema changes
+pnpm db:generate
+
+# Apply migrations
+pnpm db:migrate
+
+# Open Drizzle Studio for database browsing
+pnpm db:studio
 ```
 
 ---
@@ -231,52 +175,71 @@ CREATE INDEX idx_certificates_org_id ON certificates(org_id);
 ### 3.1 Database Connection (lib/db.ts)
 
 ```typescript
-import { Pool } from 'pg';
-import { config } from '../config';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from '../db/schema';
+import { config } from './config';
 
-const pool = new Pool({
-  connectionString: config.DATABASE_URL,
+// Create postgres.js client
+const client = postgres(config.DATABASE_URL, {
   max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  idle_timeout: 30,
+  connect_timeout: 10,
 });
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
-});
+// Create Drizzle instance with schema
+export const db = drizzle(client, { schema });
 
-export const query = async (text: string, params?: any[]) => {
-  const start = Date.now();
-  try {
-    const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    if (duration > 1000) {
-      console.warn(`Slow query (${duration}ms):`, text);
-    }
-    return res;
-  } catch (error) {
-    console.error('Query error:', text, error);
-    throw error;
-  }
-};
-
-export default pool;
+export default db;
 ```
 
-### 3.2 Auth Service (services/authService.ts)
+### 3.2 Using Drizzle ORM
+
+```typescript
+import { db } from '../lib/db';
+import { users, orgs, awsAccounts, eq, and } from '../db/schema';
+
+// Select with relations
+const user = await db.query.users.findFirst({
+  where: eq(users.email, email),
+  with: { orgMembers: true },
+});
+
+// Insert
+const [newUser] = await db.insert(users)
+  .values({ email, passwordHash, fullName })
+  .returning();
+
+// Update
+await db.update(awsAccounts)
+  .set({ status: 'ok', lastScanAt: new Date() })
+  .where(eq(awsAccounts.id, accountId));
+
+// Complex query
+const accounts = await db.select()
+  .from(awsAccounts)
+  .where(and(
+    eq(awsAccounts.orgId, orgId),
+    eq(awsAccounts.status, 'ok')
+  ));
+```
+
+### 3.3 Auth Service (services/authService.ts)
 
 ```typescript
 import * as bcrypt from 'bcrypt';
-import { query } from '../lib/db';
-import { jwt } from '../lib/jwt';
+import { db } from '../lib/db';
+import { users, orgs, userOrgMembers, eq } from '../db/schema';
+import { signToken, verifyToken } from '../lib/jwt';
 import { HTTP400Error, HTTP401Error } from '../lib/errors';
 
 export const authService = {
   async signup(email: string, password: string, fullName: string) {
     // Check if user exists
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+    if (existing) {
       throw new HTTP400Error('Email already registered');
     }
 
@@ -284,62 +247,75 @@ export const authService = {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = await query(
-      'INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3) RETURNING id, email',
-      [email, passwordHash, fullName]
-    );
+    const [user] = await db.insert(users)
+      .values({ email, passwordHash, fullName })
+      .returning();
 
     // Create org (auto-generated from email domain)
     const domain = email.split('@')[1];
-    const slug = domain.replace(/\./g, '-');
-    const org = await query(
-      'INSERT INTO orgs (name, slug) VALUES ($1, $2) RETURNING id, name',
-      [domain, slug]
-    );
+    const slug = domain.replace(/\./g, '-') + '-' + Date.now();
+    const [org] = await db.insert(orgs)
+      .values({ name: domain, slug })
+      .returning();
 
     // Add user to org
-    await query('INSERT INTO user_org_members (user_id, org_id, role) VALUES ($1, $2, $3)', [
-      user.rows[0].id,
-      org.rows[0].id,
-      'admin',
-    ]);
+    await db.insert(userOrgMembers)
+      .values({ userId: user.id, orgId: org.id, role: 'admin' });
 
-    return { user: user.rows[0], org: org.rows[0] };
+    return { user, org };
   },
 
   async login(email: string, password: string) {
-    const result = await query('SELECT id, password_hash FROM users WHERE email = $1', [email]);
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       throw new HTTP401Error('Invalid credentials');
     }
 
-    const user = result.rows[0];
-    const match = await bcrypt.compare(password, user.password_hash);
-
+    const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) {
       throw new HTTP401Error('Invalid credentials');
     }
 
     // Get user's orgs
-    const orgs = await query(
-      'SELECT o.* FROM orgs o JOIN user_org_members m ON o.id = m.org_id WHERE m.user_id = $1',
-      [user.id]
-    );
-
-    // Sign JWT
-    const token = jwt.sign({
-      userId: user.id,
-      orgId: orgs.rows[0]?.id || null, // Default to first org
+    const memberships = await db.query.userOrgMembers.findMany({
+      where: eq(userOrgMembers.userId, user.id),
+      with: { org: true },
     });
 
-    return { token, user, orgs: orgs.rows };
-  },
+    // Sign JWT using jose
+    const token = await signToken({
+      userId: user.id,
+      orgId: memberships[0]?.org.id || null,
+    });
 
-  async verifyToken(token: string) {
-    return jwt.verify(token);
+    return { token, user, orgs: memberships.map(m => m.org) };
   },
 };
+```
+
+### 3.4 JWT Helpers (lib/jwt.ts)
+
+```typescript
+import * as jose from 'jose';
+import { config } from './config';
+
+const secret = new TextEncoder().encode(config.JWT_SECRET);
+
+export async function signToken(payload: { userId: string; orgId: string | null }) {
+  return await new jose.SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(config.JWT_EXPIRY || '7d')
+    .sign(secret);
+}
+
+export async function verifyToken(token: string) {
+  const { payload } = await jose.jwtVerify(token, secret);
+  return payload as { userId: string; orgId: string | null };
+}
 ```
 
 ### 3.3 Auth Routes (routes/auth.ts)
@@ -465,27 +441,64 @@ export default awsRoute;
 
 ## 4. Middleware
 
-### 4.1 Auth Middleware (middleware/auth.ts)
+### 4.1 Auth Middleware (middlewares/auth.ts)
 
 ```typescript
-import { Context, Next } from 'hono';
-import { jwt } from '../lib/jwt';
-import { HTTP401Error } from '../lib/errors';
+import type { Context, Next } from 'hono';
+import { getCookie } from 'hono/cookie';
+import { jwt } from '../lib/jwt.js';
+import { HTTP401Error } from '../lib/errors.js';
+import type { Variables } from '../types/index.js';
 
-export const requireAuth = async (c: Context, next: Next) => {
-  const token = c.req.header('Authorization')?.replace('Bearer ', '') || 
-                c.req.cookie('jwt');
+export const requireAuth = async (
+  c: Context<{ Variables: Variables }>,
+  next: Next
+) => {
+  // Try to get token from Authorization header first, then from cookie
+  const authHeader = c.req.header('Authorization');
+  const token = authHeader?.replace('Bearer ', '') ?? getCookie(c, 'jwt');
 
   if (!token) {
-    throw new HTTP401Error('Missing token');
+    throw new HTTP401Error('Missing authentication token');
   }
 
   try {
-    const payload = jwt.verify(token);
+    const payload = await jwt.verify(token);
+
+    if (!payload.userId) {
+      throw new HTTP401Error('Invalid token payload');
+    }
+
     c.set('userId', payload.userId);
-    c.set('orgId', payload.orgId);
+    c.set('orgId', payload.orgId ?? '');
   } catch (error) {
-    throw new HTTP401Error('Invalid token');
+    if (error instanceof HTTP401Error) {
+      throw error;
+    }
+    throw new HTTP401Error('Invalid or expired token');
+  }
+
+  await next();
+};
+
+// Optional auth - doesn't throw if no token, but sets user if present
+export const optionalAuth = async (
+  c: Context<{ Variables: Variables }>,
+  next: Next
+) => {
+  const authHeader = c.req.header('Authorization');
+  const token = authHeader?.replace('Bearer ', '') ?? getCookie(c, 'jwt');
+
+  if (token) {
+    try {
+      const payload = await jwt.verify(token);
+      if (payload.userId) {
+        c.set('userId', payload.userId);
+        c.set('orgId', payload.orgId ?? '');
+      }
+    } catch {
+      // Ignore invalid tokens for optional auth
+    }
   }
 
   await next();
@@ -561,38 +574,56 @@ export default app;
 ### 6.1 Development Setup
 
 ```bash
-# Install dependencies
-npm install hono @hono/node-server pg zod @hono/zod-validator bcrypt jsonwebtoken pino dotenv
-
-# TypeScript & Dev tools
-npm install -D typescript tsx ts-node @types/node @types/pg
+# Install dependencies (from monorepo root)
+pnpm install
 
 # Run dev server
-npm run dev  # Uses tsx for hot reload
+pnpm --filter @scanorbit/api dev  # Uses tsx for hot reload
+
+# Database migrations
+pnpm --filter @scanorbit/api db:generate
+pnpm --filter @scanorbit/api db:migrate
+pnpm --filter @scanorbit/api db:studio  # Browse database
 ```
 
-### 6.2 package.json Scripts
+### 6.2 package.json
 
 ```json
 {
+  "name": "@scanorbit/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest",
-    "lint": "eslint src/",
-    "type-check": "tsc --noEmit"
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.cjs",
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.cjs",
+    "db:studio": "drizzle-kit studio --config=drizzle.config.cjs"
   },
   "dependencies": {
-    "hono": "^4.0.0",
-    "@hono/node-server": "^1.0.0",
-    "pg": "^8.12.0",
-    "zod": "^3.23.0",
-    "@hono/zod-validator": "^0.2.0",
-    "bcrypt": "^5.1.1",
-    "jsonwebtoken": "^9.1.2",
-    "pino": "^8.17.0",
-    "dotenv": "^16.4.5"
+    "@aws-sdk/client-sts": "^3.726.1",
+    "@hono/node-server": "^1.14.1",
+    "@hono/zod-validator": "^0.4.3",
+    "bcrypt": "^6.0.0",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.11.3",
+    "ioredis": "^5.9.0",
+    "jose": "^6.1.3",
+    "postgres": "^3.4.7",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^22.14.1",
+    "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.30.5",
+    "tsx": "^4.19.5",
+    "typescript": "^5.7.3"
   }
 }
 ```
@@ -600,17 +631,32 @@ npm run dev  # Uses tsx for hot reload
 ### 6.3 Dockerfile (for Docker Compose deployment)
 
 ```dockerfile
-FROM node:20-alpine
-
+# Development stage
+FROM node:22-alpine AS development
 WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY . .
+EXPOSE 4000
+CMD ["npm", "run", "dev"]
 
-COPY package*.json ./
-RUN npm ci --only=production
+# Build stage
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
-COPY dist ./dist
-
-EXPOSE 3000
-
+# Production stage
+FROM node:22-alpine AS production
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package.json ./
+RUN npm install --omit=dev
+COPY --from=builder /app/dist ./dist
+USER node
+EXPOSE 4000
 CMD ["node", "dist/index.js"]
 ```
 
@@ -618,18 +664,17 @@ CMD ["node", "dist/index.js"]
 
 ```env
 NODE_ENV=development
-PORT=3000
+PORT=4000
 
-DATABASE_URL=postgresql://user:password@postgres:5432/scanorbit
-REDIS_URL=redis://redis:6379
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scanorbit
+REDIS_URL=redis://localhost:6379
 
 JWT_SECRET=your-super-secret-key-change-in-prod
 JWT_EXPIRY=7d
 
 AWS_REGION=eu-west-1
 
-FRONTEND_URL=http://localhost:3000
-LOG_LEVEL=info
+CORS_ORIGIN=http://localhost:3000
 ```
 
 ---
@@ -662,41 +707,61 @@ LOG_LEVEL=info
 
 Each service follows the same pattern:
 
-1. **Validation**: Zod schema (in routes)
-2. **Authorization**: Check org membership
+1. **Validation**: Zod schema (in routes via `@hono/zod-validator`)
+2. **Authorization**: Check org membership (via auth middleware)
 3. **Business Logic**: Service method
-4. **Repository**: Data access
+4. **Data Access**: Drizzle ORM queries (in services)
 5. **Response**: Typed JSON
 
 Example:
 
 ```typescript
-// Route → validates input
-// Service → checks auth + applies business logic
-// Repository → queries database
-// Response → JSON with types
+// Route (routes/aws-accounts.ts)
+awsRoute.post('/', zValidator('json', createAccountSchema), async (c) => {
+  const orgId = c.get('orgId');  // From auth middleware
+  const data = c.req.valid('json');  // Validated input
+  const account = await awsAccountService.createAccount(orgId, data);  // Service call
+  return c.json(account, 201);  // Typed response
+});
+
+// Service (services/awsAccountService.ts)
+async createAccount(orgId: string, data: CreateAccountInput) {
+  const [account] = await db.insert(awsAccounts)
+    .values({ orgId, ...data })
+    .returning();
+  return account;
+}
 ```
 
 ---
 
 ## 9. Key Considerations
 
-1. **Connection Pooling**: pg Pool handles up to 20 concurrent connections
-2. **Query Logging**: Warn if query > 1s
-3. **Error Handling**: Custom error classes with HTTP status codes
-4. **JWT Strategy**: httpOnly cookies + short expiry
-5. **JSONB for Flexibility**: tags, details, raw provider data stored as JSONB
-6. **Indexes**: On common filter columns (org_id, type, severity, status)
-7. **Migrations**: Use node-pg-migrate or manual SQL scripts
+1. **Connection Pooling**: postgres.js client handles up to 20 concurrent connections (configurable in `lib/db.ts`)
+2. **Drizzle ORM**: Type-safe queries with schema inference (`$inferSelect`, `$inferInsert`)
+3. **Error Handling**: Custom error classes (`HTTP400Error`, `HTTP401Error`, `HTTP404Error`) with automatic status codes
+4. **JWT Strategy**: Using `jose` library for JWT signing/verification; supports httpOnly cookies + Bearer token
+5. **JSONB for Flexibility**: tags, details, raw provider data stored as JSONB columns
+6. **Indexes**: Composite unique indexes on common query patterns (org_id + aws_account_id, etc.)
+7. **Migrations**: Managed by Drizzle Kit (`db:generate`, `db:migrate`)
+8. **ESM**: Project uses ES modules (`"type": "module"` in package.json)
 
 ---
 
-## 10. Next Steps
+## 10. Implementation Status
 
-1. Implement Findings endpoints (list, detail, update status)
-2. Implement Resources endpoints (list, detail, edit tags)
-3. Implement AWS discovery service (ScanAwsAccount worker integration)
-4. Add validation for all inputs (Zod schemas)
-5. Add logging/observability
-6. Write unit + integration tests
-7. Set up CI/CD pipeline (GitHub Actions)
+### Completed
+- Auth routes (signup, login, logout)
+- AWS accounts CRUD + connection testing
+- Resources listing with filters
+- Findings listing with filters
+- Drizzle ORM schema with migrations
+- JWT authentication middleware
+- Error handling middleware
+
+### Pending
+- Email verification flow
+- Password reset flow
+- Audit logging
+- Rate limiting
+- Integration tests

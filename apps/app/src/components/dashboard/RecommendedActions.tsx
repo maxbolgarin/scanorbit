@@ -7,23 +7,44 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { ArrowRight, Lightbulb } from "lucide-react";
-import type { RecommendedAction } from "@/lib/mock-data";
+import type { Finding } from "@/types";
 
 interface RecommendedActionsProps {
-  actions: RecommendedAction[];
+  findings: Finding[];
 }
 
-const priorityColors = {
-  high: "error",
-  medium: "warning",
-  low: "secondary",
-} as const;
+// Map finding types to human-readable titles
+const findingTitles: Record<string, string> = {
+  orphaned_volume: "Clean up orphaned EBS volume",
+  orphaned_eip: "Release unused Elastic IP",
+  orphaned_snapshot: "Delete orphaned snapshot",
+  ssl_expiry: "Renew expiring SSL certificate",
+  data_residency_violation: "Fix data residency violation",
+};
 
-export function RecommendedActions({ actions }: RecommendedActionsProps) {
+export function RecommendedActions({ findings }: RecommendedActionsProps) {
   const navigate = useNavigate();
+
+  if (findings.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-yellow-500" />
+            Recommended Actions
+          </CardTitle>
+          <CardDescription>Quick wins to improve your infrastructure</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            No recommended actions at this time. Great job!
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -36,37 +57,26 @@ export function RecommendedActions({ actions }: RecommendedActionsProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {actions.map((action) => (
+          {findings.map((finding) => (
             <div
-              key={action.id}
+              key={finding.id}
               className="flex items-start justify-between gap-4 rounded-lg border p-3 transition-colors hover:bg-muted/50"
             >
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-2">
-                  <Badge variant={priorityColors[action.priority]}>
-                    {action.priority}
-                  </Badge>
-                  <span className="font-medium">{action.title}</span>
+                  <SeverityBadge severity={finding.severity} />
+                  <span className="font-medium">
+                    {findingTitles[finding.type] || finding.type}
+                  </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {action.description}
+                  {finding.summary}
                 </p>
-                {action.estimatedSavings && (
-                  <p className="text-sm font-medium text-green-600">
-                    Save {formatCurrency(action.estimatedSavings)}/month
-                  </p>
-                )}
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  navigate(
-                    action.findingId
-                      ? `/findings?id=${action.findingId}`
-                      : "/findings"
-                  )
-                }
+                onClick={() => navigate(`/findings?id=${finding.id}`)}
               >
                 <ArrowRight className="h-4 w-4" />
               </Button>

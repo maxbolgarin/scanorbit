@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Server,
   AlertTriangle,
+  History,
   Cloud,
   Settings,
 } from "lucide-react";
@@ -23,6 +24,11 @@ const navItems = [
     label: "Findings",
     href: "/findings",
     icon: AlertTriangle,
+  },
+  {
+    label: "Scans",
+    href: "/scans",
+    icon: History,
   },
   {
     label: "AWS Accounts",

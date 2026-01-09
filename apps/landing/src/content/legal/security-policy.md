@@ -24,10 +24,10 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 
 | Certification | Timeline | Status |
 |---------------|----------|--------|
-| **SOC2 Type II** | Q2 2026 | Planned |
-| **ISO 27001** | Q3 2026 | Planned |
-| **Penetration Testing** | Q1 2026 | Planned |
-| **Bug Bounty Program** | Q1 2026 | Coming Soon |
+| **SOC2 Type II** | Late 2026 | Planned |
+| **ISO 27001** | Late 2026 | Planned |
+| **Penetration Testing** | Mid 2026 | Planned |
+| **Bug Bounty Program** | Mid 2026 | Coming Soon |
 
 ---
 
@@ -191,9 +191,8 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 - Refresh tokens: 7-day expiry, rotated on use
 
 **Multi-Factor Authentication (Future):**
-- TOTP (Google Authenticator, Authy) coming Q1 2026
-- SMS 2FA coming Q2 2026
-- Hardware security keys coming Q3 2026
+- TOTP (Google Authenticator, Authy) coming 2026
+- Hardware security keys coming 2027
 
 **Authorization:**
 - Role-based access control (RBAC)
@@ -247,16 +246,12 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
       "Action": [
         "ec2:Describe*",
         "rds:Describe*",
-        "s3:ListBucket",
-        "s3:GetBucketTagging",
         "s3:GetBucketLocation",
+        "s3:GetBucketTagging",
         "s3:ListAllMyBuckets",
         "elasticloadbalancing:Describe*",
         "acm:Describe*",
-        "acm:ListCertificates",
-        "iam:ListRoles",
-        "iam:ListUsers",
-        "iam:ListPolicies"
+        "acm:List*"
       ],
       "Resource": "*"
     }
@@ -271,7 +266,6 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 - View RDS instances (metadata only, NOT data)
 - View load balancers and configurations
 - View ACM certificates (metadata only)
-- List IAM roles, users, policies
 
 **What This Prevents:**
 - Terminate or stop instances
@@ -279,7 +273,6 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 - Delete or access S3 objects
 - Read RDS database contents
 - Create, modify, or delete security groups
-- Change IAM permissions
 - Any write operations whatsoever
 
 ### 5.2 STS Assume Role
@@ -560,9 +553,8 @@ If a data breach occurs:
 
 | Standard | Timeline | Scope |
 |----------|----------|-------|
-| **SOC2 Type II** | Q2 2026 | Security, availability, integrity |
-| **ISO 27001** | Q3 2026 | Information security management |
-| **BSI C5** | Q4 2026 | Cloud computing compliance (German standard) |
+| **SOC2 Type II** | Late 2026 | Security, availability, integrity |
+| **ISO 27001** | Late 2026 | Information security management |
 
 ---
 
@@ -630,7 +622,7 @@ If you discover a security vulnerability:
 
 ### 12.2 Bug Bounty Program
 
-**Coming Q1 2026:**
+**Coming Mid 2026:**
 - Structured bug bounty program
 - Reward tiers based on severity
 - Legal immunity for responsible disclosure
@@ -668,7 +660,7 @@ If you discover a security vulnerability:
 
 ### 14.1 Transparency Report (Future)
 
-**Coming Q2 2026:**
+**Coming Late 2026:**
 - Government data requests
 - Legal orders
 - Abuse reports
@@ -678,16 +670,14 @@ If you discover a security vulnerability:
 ### 14.2 Security Roadmap
 
 **2026 Goals:**
-- Q1: Penetration testing, bug bounty launch
-- Q2: SOC2 Type II certification
-- Q3: ISO 27001 certification
-- Q4: BSI C5 compliance
+- Mid 2026: Penetration testing, bug bounty launch
+- Late 2026: SOC2 Type II certification
+- Late 2026: ISO 27001 certification
 
 **2027 Goals:**
 - Hardware security keys
 - Advanced threat detection
 - Automated incident response
-- Security AI/ML integration
 
 ---
 
@@ -720,17 +710,14 @@ If you discover a security vulnerability:
 - Architecture documentation
 - Incident response procedures
 
-**Contact:** compliance@scanorbit.cloud
+**Contact:** security@scanorbit.cloud
 
 ---
 
 ## 16. Security Contacts
 
-**Security Inquiries:**
+**Security Inquiries & Compliance Questions:**
 **security@scanorbit.cloud**
-
-**Compliance Questions:**
-**compliance@scanorbit.cloud**
 
 **Data Subject Requests (GDPR):**
 **dpa@scanorbit.cloud**
@@ -756,7 +743,7 @@ If you discover a security vulnerability:
 - 100% uptime (we aim for 99.5%, but it's early-stage)
 - Zero breaches forever (no one can)
 - Perfect security (we strive for it but stay vigilant)
-- SOC2/ISO27001 yet (coming Q2-Q3 2026)
+- SOC2/ISO27001 yet (coming late 2026)
 
 ---
 

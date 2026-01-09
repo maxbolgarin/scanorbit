@@ -1,0 +1,29 @@
+# Scaleway Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your values
+
+# Scaleway region and zone (EU for GDPR compliance)
+scw_zone   = "nl-ams-1" # Amsterdam
+scw_region = "nl-ams"
+
+# Instance configuration
+instance_type  = "DEV1-M"      # 3 vCPU, 4GB RAM, 40GB SSD (~€7/month)
+instance_image = "ubuntu_jammy" # Ubuntu 22.04 LTS
+
+# Your domain (must be managed in Scaleway Domains)
+domain = "scanorbit.cloud"
+
+# Email for Let's Encrypt certificate notifications
+admin_email = "admin@scanorbit.cloud"
+
+# SSH key IDs from your Scaleway account
+# Find these at: https://console.scaleway.com/iam/ssh-keys
+ssh_key_ids = [
+  "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+]
+
+# Project metadata
+project_name = "scanorbit"
+environment  = "prod"
+
+# GitHub repository SSH URL
+github_repo = "git@github.com:YOUR_ORG/scanorbit.git"

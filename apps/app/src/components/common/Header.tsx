@@ -48,11 +48,11 @@ export function Header() {
               <Button variant="ghost" className="gap-2">
                 <Avatar className="h-7 w-7">
                   <AvatarFallback className="text-xs">
-                    {user ? getInitials(user.name) : "?"}
+                    {user ? getInitials(user.fullName || user.email) : "?"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="hidden md:inline-block">
-                  {user?.name || user?.email}
+                  {user?.fullName || user?.email}
                 </span>
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
@@ -60,7 +60,7 @@ export function Header() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user?.name}</p>
+                  <p className="text-sm font-medium">{user?.fullName}</p>
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
               </DropdownMenuLabel>

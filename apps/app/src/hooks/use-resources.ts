@@ -17,18 +17,23 @@ export function useResource(id: string) {
   });
 }
 
+export function useResourceStats() {
+  return useQuery({
+    queryKey: ["resource-stats"],
+    queryFn: api.getResourceStats,
+  });
+}
+
 export function useResourceRegions() {
-  const { data: resources } = useResources();
-
-  const regions = [...new Set(resources?.map((r) => r.region) || [])].sort();
-
-  return regions;
+  return useQuery({
+    queryKey: ["resource-regions"],
+    queryFn: api.getDistinctRegions,
+  });
 }
 
 export function useResourceServices() {
-  const { data: resources } = useResources();
-
-  const services = [...new Set(resources?.map((r) => r.service) || [])].sort();
-
-  return services;
+  return useQuery({
+    queryKey: ["resource-services"],
+    queryFn: api.getDistinctServices,
+  });
 }

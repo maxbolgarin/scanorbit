@@ -70,18 +70,22 @@ export function ResourcesTable({ resources }: ResourcesTableProps) {
                 {resource.region}
               </TableCell>
               <TableCell className="hidden lg:table-cell">
-                <Badge
-                  variant={
-                    (stateColors[resource.state] as "success" | "warning" | "secondary") ||
-                    "secondary"
-                  }
-                >
-                  {resource.state}
-                </Badge>
+                {resource.state ? (
+                  <Badge
+                    variant={
+                      (stateColors[resource.state] as "success" | "warning" | "secondary") ||
+                      "secondary"
+                    }
+                  >
+                    {resource.state}
+                  </Badge>
+                ) : (
+                  "-"
+                )}
               </TableCell>
               <TableCell className="hidden lg:table-cell text-right">
                 {resource.costEstimateMonthly
-                  ? formatCurrency(resource.costEstimateMonthly)
+                  ? formatCurrency(parseFloat(resource.costEstimateMonthly))
                   : "-"}
               </TableCell>
               <TableCell className="hidden md:table-cell text-right text-muted-foreground">

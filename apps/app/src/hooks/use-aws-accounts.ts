@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAwsStore } from "@/stores/aws-store";
 import * as api from "@/lib/api";
-import type { CreateAwsAccountInput, ConnectAwsRoleInput } from "@/types";
+import type { CreateAwsAccountInput } from "@/types";
 import { useEffect } from "react";
 
 export function useAwsAccounts() {
@@ -31,21 +31,8 @@ export function useAwsAccounts() {
     mutationFn: (accountId: string) => api.testAwsConnection(accountId),
   });
 
-  const connectRoleMutation = useMutation({
-    mutationFn: ({
-      accountId,
-      input,
-    }: {
-      accountId: string;
-      input: ConnectAwsRoleInput;
-    }) => api.connectAwsRole(accountId, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["aws-accounts"] });
-    },
-  });
-
-  const disconnectMutation = useMutation({
-    mutationFn: api.disconnectAwsAccount,
+  const deleteMutation = useMutation({
+    mutationFn: api.deleteAwsAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["aws-accounts"] });
     },
@@ -58,12 +45,10 @@ export function useAwsAccounts() {
     refetch: query.refetch,
     createAccount: (input: CreateAwsAccountInput) => createMutation.mutateAsync(input),
     testConnection: (accountId: string) => testConnectionMutation.mutateAsync(accountId),
-    connectRole: (accountId: string, input: ConnectAwsRoleInput) =>
-      connectRoleMutation.mutateAsync({ accountId, input }),
-    disconnectAccount: (accountId: string) => disconnectMutation.mutateAsync(accountId),
+    deleteAccount: (accountId: string) => deleteMutation.mutateAsync(accountId),
     isCreating: createMutation.isPending,
     isTesting: testConnectionMutation.isPending,
-    isConnecting: connectRoleMutation.isPending,
+    isDeleting: deleteMutation.isPending,
   };
 }
 
@@ -88,9 +73,11 @@ export function useTriggerScan() {
 
   return useMutation({
     mutationFn: api.triggerScan,
-    onSuccess: (_, accountId) => {
+    onSuccess: (_data, accountId) => {
       queryClient.invalidateQueries({ queryKey: ["scan-history", accountId] });
       queryClient.invalidateQueries({ queryKey: ["aws-accounts"] });
+      // Immediately refresh active scans to show the new scan
+      queryClient.invalidateQueries({ queryKey: ["active-scans"] });
     },
   });
 }
@@ -98,7 +85,7 @@ export function useTriggerScan() {
 export function useScanStatus(scanId: string | null) {
   return useQuery({
     queryKey: ["scan-status", scanId],
-    queryFn: () => api.getScanStatus(scanId!),
+    queryFn: () => api.getScan(scanId!),
     enabled: !!scanId,
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -108,5 +95,29 @@ export function useScanStatus(scanId: string | null) {
       }
       return false;
     },
+  });
+}
+
+export function useActiveScans() {
+  return useQuery({
+    queryKey: ["active-scans"],
+    queryFn: api.getActiveScans,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Poll every 3 seconds if there are active scans
+      if (data && data.length > 0) {
+        return 3000;
+      }
+      // Poll every 10 seconds when no active scans
+      return 10000;
+    },
+  });
+}
+
+export function useRecentScans(limit: number = 10) {
+  return useQuery({
+    queryKey: ["recent-scans", limit],
+    queryFn: () => api.getRecentScans(limit),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 }

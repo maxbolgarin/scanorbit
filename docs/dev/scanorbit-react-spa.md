@@ -4,39 +4,69 @@
 
 ### 1.1 Tech Stack
 
-- **Framework**: React 18+ with TypeScript
-- **Router**: TanStack Router (v1+) or React Router v6+ with data loaders
-- **State Management**: React Context API + useReducer for global auth/org state; TanStack Query for server state
-- **HTTP Client**: Axios or React Query (TanStack Query)
-- **UI Components**: shadcn/ui (headless) + Tailwind CSS
-- **Form Handling**: React Hook Form + Zod validation
-- **Build**: Vite
-- **Code Splitting**: Lazy loading for dashboard sections
+| Component | Library | Version |
+|-----------|---------|---------|
+| **Framework** | React + TypeScript | 19.x |
+| **Router** | React Router | 7.x |
+| **State Management** | Zustand (global) + TanStack Query (server) | 5.x, 5.x |
+| **HTTP Client** | Axios | 1.x |
+| **UI Components** | Radix UI + Tailwind CSS | Latest |
+| **Form Handling** | React Hook Form + Zod | 7.x, 3.x |
+| **Build** | Vite | 6.x |
+| **Icons** | Lucide React | Latest |
 
 **Project structure:**
 ```
-src/
+apps/app/src/
 ├── components/
-│   ├── common/          (Header, Sidebar, Breadcrumb)
-│   ├── auth/            (LoginForm, SignupForm, MfaSetup)
+│   ├── ui/              (button, input, card, dialog - Radix primitives)
+│   ├── common/          (Layout, Header, Sidebar)
+│   ├── auth/            (LoginForm, SignupForm, ProtectedRoute)
 │   ├── onboarding/      (AwsAccountForm, PolicyGuide, TestConnection)
-│   ├── dashboard/       (MetricCards, FindingsList, ResourcesTable)
-│   └── shared/          (Modals, Alerts, Tables, Charts)
-├── pages/               (page components for routes)
-├── hooks/               (useAuth, useAwsAccount, useFindingsQuery, etc)
-├── context/             (AuthContext, OrgContext)
-├── services/            (api.ts, awsService.ts)
-├── lib/                 (utils, formatters, helpers)
-├── types/               (TypeScript interfaces)
-└── App.tsx + main.tsx
+│   ├── dashboard/       (SummaryCards, RecentFindings, AccountStatus)
+│   ├── resources/       (ResourcesTable, ResourceFilters)
+│   ├── findings/        (FindingsTable, FindingFilters, FindingDetailModal)
+│   ├── accounts/        (AccountsTable, ScanHistory)
+│   ├── settings/        (ProfileSettings, OrgSettings, SecuritySettings)
+│   └── shared/          (MetricCard, SeverityBadge, StatusBadge, EmptyState)
+├── pages/
+│   ├── Dashboard.tsx
+│   ├── Login.tsx
+│   ├── Signup.tsx
+│   ├── Resources.tsx
+│   ├── ResourceDetail.tsx
+│   ├── Findings.tsx
+│   ├── Accounts.tsx
+│   ├── Settings.tsx
+│   └── onboarding/      (CreateOrg, AwsSetup, Scanning)
+├── hooks/
+│   ├── use-auth.ts
+│   ├── use-aws-accounts.ts
+│   ├── use-resources.ts
+│   ├── use-findings.ts
+│   ├── use-dashboard.ts
+│   └── use-toast.ts
+├── stores/
+│   ├── auth-store.ts    (Zustand - user/org state)
+│   └── aws-store.ts     (Zustand - AWS accounts state)
+├── lib/
+│   ├── api.ts           (Axios client)
+│   └── utils.ts         (cn helper, formatters)
+├── types/
+│   └── index.ts         (TypeScript interfaces)
+├── styles/
+│   └── globals.css      (Tailwind base styles)
+├── App.tsx              (React Router routes)
+└── main.tsx             (Entry point)
 ```
 
 ### 1.2 State Management Strategy
 
-- **Auth + Org**: React Context (changes infrequently, needed globally)
-- **Findings, Resources, Certificates**: TanStack Query / React Query (server state, caching, automatic refetching)
-- **Form state**: React Hook Form (local component scope)
-- **UI state** (modals, tabs, drawer): Zustand or useState per component (optional, keep minimal)
+- **Auth + Org**: **Zustand** store (`stores/auth-store.ts`) - persists auth state globally
+- **AWS Accounts**: **Zustand** store (`stores/aws-store.ts`) - selected account, account list
+- **Findings, Resources**: **TanStack Query** (server state, caching, automatic refetching)
+- **Form state**: **React Hook Form** (local component scope)
+- **UI state** (modals, tabs): Local `useState` per component
 
 ---
 
@@ -267,59 +297,94 @@ src/
 
 ## 3. Key Components & Patterns
 
-### 3.1 Auth Context
+### 3.1 Auth Store (Zustand)
 
 ```typescript
-// contexts/AuthContext.tsx
+// stores/auth-store.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
 interface User {
   id: string;
   email: string;
-  name: string;
+  fullName?: string;
 }
 
 interface Org {
   id: string;
   name: string;
-  created_at: string;
+  slug: string;
 }
 
-interface AuthContextType {
+interface AuthState {
   user: User | null;
   org: Org | null;
-  isLoading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  createOrg: (name: string) => Promise<void>;
+  token: string | null;
+  isAuthenticated: boolean;
+  setAuth: (user: User, org: Org, token: string) => void;
+  clearAuth: () => void;
+  setOrg: (org: Org) => void;
 }
 
-export const AuthContext = createContext<AuthContextType | null>(null);
-export const useAuth = () => useContext(AuthContext);
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      org: null,
+      token: null,
+      isAuthenticated: false,
+      setAuth: (user, org, token) =>
+        set({ user, org, token, isAuthenticated: true }),
+      clearAuth: () =>
+        set({ user: null, org: null, token: null, isAuthenticated: false }),
+      setOrg: (org) => set({ org }),
+    }),
+    { name: 'auth-storage' }
+  )
+);
 ```
 
-- Persists JWT in secure httpOnly cookie (handled by backend)
-- Fetches user/org on app mount via `GET /me`
-- Handles session expiry gracefully
+- Uses Zustand with `persist` middleware for localStorage persistence
+- JWT also stored in httpOnly cookie (handled by backend)
+- `useAuthStore` hook provides direct access to state
 
-### 3.2 AWS Account Context
+### 3.2 AWS Account Store (Zustand)
 
 ```typescript
+// stores/aws-store.ts
+import { create } from 'zustand';
+
 interface AwsAccount {
   id: string;
   name: string;
-  account_id: string;
-  status: "pending" | "ok" | "error";
-  last_scan_at?: string;
+  awsAccountId: string;
+  status: 'pending' | 'ok' | 'error';
+  lastScanAt?: string;
 }
 
-interface AwsAccountContextType {
+interface AwsState {
   accounts: AwsAccount[];
   selectedAccountId: string | null;
-  isLoading: boolean;
-  selectAccount: (id: string) => void;
-  refetchAccounts: () => Promise<void>;
+  setAccounts: (accounts: AwsAccount[]) => void;
+  selectAccount: (id: string | null) => void;
+  addAccount: (account: AwsAccount) => void;
+  updateAccount: (id: string, updates: Partial<AwsAccount>) => void;
 }
+
+export const useAwsStore = create<AwsState>((set) => ({
+  accounts: [],
+  selectedAccountId: null,
+  setAccounts: (accounts) => set({ accounts }),
+  selectAccount: (id) => set({ selectedAccountId: id }),
+  addAccount: (account) =>
+    set((state) => ({ accounts: [...state.accounts, account] })),
+  updateAccount: (id, updates) =>
+    set((state) => ({
+      accounts: state.accounts.map((a) =>
+        a.id === id ? { ...a, ...updates } : a
+      ),
+    })),
+}));
 ```
 
 - Stores list of connected AWS accounts + selected account
@@ -477,21 +542,45 @@ While scan is running:
 
 ### Quick Start
 ```bash
-npm create vite@latest scanorbit-app -- --template react-ts
-cd scanorbit-app
-npm install react-router-dom @tanstack/react-query axios zod react-hook-form tailwindcss
-npm run dev
+# From monorepo root
+pnpm install
+
+# Run dev server
+pnpm --filter @scanorbit/app dev
+
+# Type check
+pnpm --filter @scanorbit/app typecheck
+
+# Lint
+pnpm --filter @scanorbit/app lint
 ```
 
 ### Build Process
 ```bash
-npm run build  # production build
-npm run preview  # test production build locally
+# Production build
+pnpm --filter @scanorbit/app build
+
+# Preview production build
+pnpm --filter @scanorbit/app preview
+```
+
+### package.json Scripts
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules"
+  }
+}
 ```
 
 ### Testing (Future)
-- Unit: Jest + React Testing Library
-- E2E: Playwright or Cypress
+- Unit: Vitest + React Testing Library
+- E2E: Playwright
 
 ---
 

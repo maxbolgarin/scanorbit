@@ -32,7 +32,7 @@ ScanOrbit is an **early-stage product (Beta)** with:
 - We aim for 99.5% uptime but don't guarantee it
 - Features may be added, removed, or changed without notice
 - We'll notify you of major changes when possible
-- Report bugs to: bugs@scanorbit.cloud
+- Report bugs to: support@scanorbit.cloud
 
 ---
 
@@ -90,16 +90,12 @@ You must provide ScanOrbit with:
       "Action": [
         "ec2:Describe*",
         "rds:Describe*",
-        "s3:ListBucket",
-        "s3:GetBucketTagging",
         "s3:GetBucketLocation",
+        "s3:GetBucketTagging",
         "s3:ListAllMyBuckets",
         "elasticloadbalancing:Describe*",
         "acm:Describe*",
-        "acm:ListCertificates",
-        "iam:ListRoles",
-        "iam:ListUsers",
-        "iam:ListPolicies"
+        "acm:List*"
       ],
       "Resource": "*"
     }
@@ -116,7 +112,6 @@ With your read-only role, ScanOrbit can **view only:**
 - RDS instance metadata (not data)
 - Load balancers and target groups
 - ACM certificates and metadata
-- IAM roles, users, and policies
 - Resource tags and configurations
 
 ### 3.3 What We Cannot Do
@@ -127,7 +122,6 @@ ScanOrbit **CANNOT** and **will not:**
 - Delete or access S3 objects
 - Read RDS database contents
 - Modify security groups
-- Change IAM permissions
 - Encrypt/decrypt any data
 - Make any AWS API calls that modify resources
 - Access AWS credentials or secrets
@@ -328,25 +322,29 @@ These third parties have their own terms and privacy policies. We recommend revi
 
 ## 9. Payment & Subscription
 
-### 9.1 Current Status
+### 9.1 Pricing Tiers
 
-As of January 2026, ScanOrbit is **free to use** (beta).
+ScanOrbit offers the following plans:
 
-### 9.2 Future Pricing
+| Plan | Price | Features |
+|------|-------|----------|
+| **Free** | €0 | 1 AWS account, limited scanners, 7-day retention |
+| **Pro** | €19/month | 1 AWS account, all scanners, 30-day retention, email support |
+| **Team** | €79/month | 5 AWS accounts, all scanners, 90-day retention, API access, priority support |
 
-When we introduce paid plans:
-- You will receive notice 30 days in advance
-- You can cancel before billing begins
-- Billing will be transparent and clear
-- Refunds will follow our refund policy (to be posted)
+### 9.2 Payment Terms
 
-### 9.3 Payment Terms (Future)
-
-When applicable:
 - You authorize charges to your payment method
 - Billing is monthly unless otherwise stated
 - Cancellation effective at end of billing period
 - You are responsible for sales tax/VAT
+- Refunds follow our refund policy
+
+### 9.3 Plan Changes
+
+- You can upgrade or downgrade at any time
+- Changes take effect at the next billing cycle
+- Data retention limits apply based on your current plan
 
 ---
 
@@ -355,10 +353,9 @@ When applicable:
 ### 10.1 Support
 
 ScanOrbit currently offers:
-- Email support (best-effort): support@scanorbit.cloud
+- Email support: support@scanorbit.cloud
 - Documentation: /docs
-- Community discussions: github.com/scanorbit
-- No guaranteed response time (early-stage)
+- Response times vary by plan (see pricing)
 
 ### 10.2 Disclaimers
 
@@ -444,7 +441,7 @@ These Terms are governed by the laws of:
 ### 14.2 Dispute Resolution
 
 If you have a dispute:
-1. **Good Faith Discussion:** Email disputes@scanorbit.cloud
+1. **Good Faith Discussion:** Email support@scanorbit.cloud
 2. **Mediation:** We will attempt to resolve within 30 days
 3. **Arbitration:** If unresolved, binding arbitration in Amsterdam, Netherlands
 4. **Legal Action:** You may file in courts of your jurisdiction
@@ -483,7 +480,7 @@ If any provision of these Terms is found invalid:
 This Agreement, together with:
 - [Privacy Policy](/privacy)
 - [Security Policy](/security)
-- [Cookie Policy](/cookie-policy)
+- [Cookie Policy](/cookies)
 
 Constitutes the entire agreement between you and ScanOrbit regarding the Service.
 
@@ -495,7 +492,7 @@ Any prior agreements, understandings, or negotiations are superseded.
 
 ### 18.1 Questions About These Terms
 
-**Email:** legal@scanorbit.cloud
+**Email:** hello@scanorbit.cloud
 
 ### 18.2 Service-Related Questions
 

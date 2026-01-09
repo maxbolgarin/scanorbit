@@ -21,10 +21,11 @@ export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: resource, isLoading } = useResource(id || "");
-  const { data: allFindings } = useFindings();
+  const { data: findingsResponse } = useFindings();
+  const allFindings = findingsResponse?.data || [];
 
   // Filter findings for this resource
-  const resourceFindings = allFindings?.filter(
+  const resourceFindings = allFindings.filter(
     (f) => f.resourceId === id && f.status === "open"
   );
 
@@ -116,7 +117,7 @@ export default function ResourceDetail() {
                 </p>
                 <p className="mt-1">
                   {resource.costEstimateMonthly
-                    ? formatCurrency(resource.costEstimateMonthly)
+                    ? formatCurrency(parseFloat(resource.costEstimateMonthly))
                     : "N/A"}
                 </p>
               </div>

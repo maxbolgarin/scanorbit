@@ -16,7 +16,7 @@ type AWSAccount struct {
 	RoleARN      string
 	ExternalID   string
 	Status       string
-	LastError    string
+	LastError    *string
 	LastScanAt   *time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

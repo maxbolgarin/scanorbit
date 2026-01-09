@@ -1,10 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Import Geist fonts */
 @import url("https://fonts.cdnfonts.com/css/geist-sans");
 @import url("https://fonts.cdnfonts.com/css/geist-mono");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -39,8 +39,8 @@
     --warning: 38 92% 50%; /* warning-orange #f59e0b */
     --warning-foreground: 222 52% 8%;
 
-    --border: 230 38% 25%;
-    --input: 230 38% 20%;
+    --border: 230 38% 30%;
+    --input: 222 52% 12%;
     --ring: 191 100% 50%;
     --radius: 0.5rem;
 

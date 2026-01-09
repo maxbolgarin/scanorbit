@@ -9,14 +9,24 @@ import (
 type ServiceType string
 
 const (
-	ServiceEC2         ServiceType = "ec2"
-	ServiceEBS         ServiceType = "ebs"
-	ServiceEIP         ServiceType = "eip"
-	ServiceRDS         ServiceType = "rds"
-	ServiceRDSSnapshot ServiceType = "rds_snapshot"
-	ServiceS3          ServiceType = "s3"
-	ServiceALB         ServiceType = "alb"
-	ServiceACM         ServiceType = "acm"
+	ServiceEC2             ServiceType = "ec2"
+	ServiceEBS             ServiceType = "ebs"
+	ServiceEIP             ServiceType = "eip"
+	ServiceRDS             ServiceType = "rds"
+	ServiceRDSSnapshot     ServiceType = "rds_snapshot"
+	ServiceS3              ServiceType = "s3"
+	ServiceALB             ServiceType = "alb"
+	ServiceACM             ServiceType = "acm"
+	ServiceLambda          ServiceType = "lambda"
+	ServiceCloudWatchLogs  ServiceType = "cloudwatch_logs"
+	ServiceCloudWatchAlarm ServiceType = "cloudwatch_alarm"
+	ServiceIAMUser         ServiceType = "iam_user"
+	ServiceIAMRole         ServiceType = "iam_role"
+	ServiceIAMPolicy       ServiceType = "iam_policy"
+	ServiceIAMAccessKey    ServiceType = "iam_access_key"
+	ServiceSecurityGroup   ServiceType = "security_group"
+	ServiceSecret          ServiceType = "secret"
+	ServiceKMSKey          ServiceType = "kms_key"
 )
 
 // Resource represents an AWS resource discovered during scanning.

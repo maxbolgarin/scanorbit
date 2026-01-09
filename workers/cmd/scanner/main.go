@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -85,6 +86,18 @@ func main() {
 		var scanJob models.ScanAccountJob
 		if err := json.Unmarshal(job.Payload, &scanJob); err != nil {
 			logger.Error().Err(err).Msg("failed to unmarshal job payload")
+			return err
+		}
+
+		// Validate job payload
+		if scanJob.AccountID == "" {
+			err := errors.New("account_id is required but was empty")
+			logger.Error().Err(err).Msg("invalid job payload")
+			return err
+		}
+		if scanJob.OrgID == "" {
+			err := errors.New("org_id is required but was empty")
+			logger.Error().Err(err).Msg("invalid job payload")
 			return err
 		}
 

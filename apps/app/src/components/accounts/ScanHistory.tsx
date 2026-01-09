@@ -18,17 +18,17 @@ interface ScanHistoryProps {
 }
 
 const statusIcons: Record<ScanStatus, React.ReactNode> = {
-  queued: <Clock className="h-4 w-4 text-yellow-500" />,
+  pending: <Clock className="h-4 w-4 text-yellow-500" />,
   running: <PlayCircle className="h-4 w-4 text-blue-500 animate-pulse" />,
-  completed: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-  failed: <XCircle className="h-4 w-4 text-red-500" />,
+  complete: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+  error: <XCircle className="h-4 w-4 text-red-500" />,
 };
 
 const statusLabels: Record<ScanStatus, string> = {
-  queued: "Queued",
+  pending: "Pending",
   running: "Running",
-  completed: "Completed",
-  failed: "Failed",
+  complete: "Completed",
+  error: "Failed",
 };
 
 export function ScanHistory({ accountId, accountName, onClose }: ScanHistoryProps) {
@@ -59,27 +59,24 @@ export function ScanHistory({ accountId, accountName, onClose }: ScanHistoryProp
                       <span className="font-medium">
                         {statusLabels[scan.status]}
                       </span>
-                      {scan.status === "completed" && (
+                      {scan.status === "complete" && (
                         <Badge variant="secondary" className="text-xs">
                           {scan.resourcesDiscovered} resources
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Started: {formatDateTime(scan.startedAt)}
-                    </p>
+                    {scan.startedAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Started: {formatDateTime(scan.startedAt)}
+                      </p>
+                    )}
                     {scan.completedAt && (
                       <p className="text-sm text-muted-foreground">
                         Completed: {formatDateTime(scan.completedAt)}
                       </p>
                     )}
-                    {scan.findingsCount !== undefined && scan.findingsCount > 0 && (
-                      <p className="text-sm text-orange-600">
-                        {scan.findingsCount} findings detected
-                      </p>
-                    )}
-                    {scan.error && (
-                      <p className="text-sm text-red-600">{scan.error}</p>
+                    {scan.errorMessage && (
+                      <p className="text-sm text-red-600">{scan.errorMessage}</p>
                     )}
                   </div>
                 </div>

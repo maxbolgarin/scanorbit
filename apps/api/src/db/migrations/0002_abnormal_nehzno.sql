@@ -1,0 +1,1 @@
+ALTER TABLE "user_org_members" ADD COLUMN "title" varchar(50);

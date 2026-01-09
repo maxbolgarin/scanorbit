@@ -8,6 +8,10 @@ const (
 	JobTypeAnalyzeOrphans   JobType = "analyze_orphans"
 	JobTypeAnalyzeSSL       JobType = "analyze_ssl"
 	JobTypeAnalyzeResidency JobType = "analyze_residency"
+	JobTypeAnalyzeSecurity  JobType = "analyze_security"
+	JobTypeAnalyzeCost      JobType = "analyze_cost"
+	JobTypeAnalyzeTagging   JobType = "analyze_tagging"
+	JobTypeAnalyzeIAM       JobType = "analyze_iam"
 )
 
 // ScanAccountJob is the payload for a scan_account job.

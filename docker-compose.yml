@@ -29,31 +29,6 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
-    container_name: scanorbit-api
-    ports:
-      - "4000:4000"
-    environment:
-      NODE_ENV: development
-      PORT: 4000
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
-      JWT_EXPIRY: ${JWT_EXPIRY:-7d}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      AWS_REGION: ${AWS_REGION:-eu-central-1}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./apps/api/src:/app/src
-
   scanner:
     build:
       context: ./workers

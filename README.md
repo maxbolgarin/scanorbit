@@ -205,61 +205,149 @@ make dev-analyzer
 
 ## Production Deployment
 
-### 1. Prepare Environment
+ScanOrbit uses **GitHub Container Registry (GHCR)** with **Watchtower** for automatic deployments.
+
+### CI/CD Architecture
+
+```
+Push to main → GitHub Actions builds images → Pushes to GHCR → Watchtower pulls & restarts
+```
+
+| Component | Role |
+|-----------|------|
+| GitHub Actions | Builds Docker images on push to `main` |
+| GHCR | Stores container images (`ghcr.io/org/scanorbit-*`) |
+| Watchtower | Auto-pulls new images every 5 minutes |
+| Caddy | Reverse proxy with automatic Let's Encrypt TLS |
+
+### 1. Infrastructure Setup (Scaleway)
 
 ```bash
-# Create production .env file
+cd terraform/scaleway
+
+# Configure variables
+cp terraform.tfvars.example terraform.tfvars
+vim terraform.tfvars  # Set domain, ssh_key_ids, etc.
+
+# Deploy infrastructure
+terraform init
+terraform apply
+
+# Note the public IP
+terraform output public_ip
+```
+
+### 2. GitHub Repository Setup
+
+1. **Enable GitHub Packages**
+   - Go to **Settings → Actions → General**
+   - Enable "Read and write permissions" for `GITHUB_TOKEN`
+
+2. **Add Repository Variables** (Settings → Secrets and variables → Actions → Variables)
+   - `VITE_API_URL` = `https://api.yourdomain.com`
+
+3. **Push to main** — GitHub Actions will build and push images to GHCR
+
+### 3. Server Setup (First Time)
+
+```bash
+# SSH into the VM
+ssh root@$(terraform output -raw public_ip)
+
+# Login to GitHub Container Registry
+# Create PAT at: https://github.com/settings/tokens (scope: read:packages)
+echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+
+# Copy deployment files (from local machine)
+scp docker-compose.prod.yml Caddyfile .env.example root@<IP>:/opt/scanorbit/
+
+# Configure environment
+cd /opt/scanorbit
 cp .env.example .env.prod
+vim .env.prod  # Fill in secrets (see below)
 
-# Edit with production values:
-# - Strong JWT_SECRET (generate with: openssl rand -base64 32)
-# - Strong POSTGRES_PASSWORD
-# - Proper DATABASE_URL and REDIS_URL
+# Start services
+docker compose -f docker-compose.prod.yml up -d
+
+# Run database migrations
+docker compose -f docker-compose.prod.yml exec api node dist/db/migrate.js
 ```
 
-### 2. Build and Deploy
+### 4. Environment Variables (.env.prod)
 
 ```bash
-# Build all images
-make docker-build
+# Domain
+DOMAIN=scanorbit.cloud
+ADMIN_EMAIL=admin@scanorbit.cloud
 
-# Deploy with production configuration
-make docker-prod
+# GitHub Container Registry
+GITHUB_REPOSITORY=your-org/scanorbit
+IMAGE_TAG=latest
+
+# Database
+POSTGRES_USER=scanorbit
+POSTGRES_PASSWORD=<generate-strong-password>
+POSTGRES_DB=scanorbit
+DATABASE_URL=postgresql://scanorbit:<password>@postgres:5432/scanorbit
+
+# Redis
+REDIS_URL=redis://redis:6379
+
+# JWT (generate with: openssl rand -hex 32)
+JWT_SECRET=<generated-secret>
+JWT_REFRESH_SECRET=<generated-secret>
+
+# CORS
+CORS_ORIGIN=https://app.scanorbit.cloud
+
+# AWS
+AWS_REGION=eu-west-1
 ```
 
-### 3. Run Migrations
+### 5. Auto-Updates with Watchtower
+
+Watchtower runs inside Docker Compose and automatically:
+- Polls GHCR every 5 minutes for new images
+- Pulls and restarts containers with new versions
+- Performs rolling restarts (zero downtime)
+
+**Manual deploy** (if needed):
+```bash
+cd /opt/scanorbit
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### 6. DNS Configuration
+
+Configure these DNS records (Scaleway DNS or your provider):
+
+| Record | Type | Value |
+|--------|------|-------|
+| `scanorbit.cloud` | A | VM Public IP |
+| `www.scanorbit.cloud` | CNAME | scanorbit.cloud |
+| `app.scanorbit.cloud` | A | VM Public IP |
+| `api.scanorbit.cloud` | A | VM Public IP |
+
+Caddy automatically provisions Let's Encrypt certificates for all domains.
+
+### 7. Monitoring & Logs
 
 ```bash
-# Connect to API container and run migrations
-docker exec -it scanorbit-api pnpm db:migrate
+# View all logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# View specific service
+docker compose -f docker-compose.prod.yml logs -f api
+
+# Check Watchtower activity
+docker compose -f docker-compose.prod.yml logs -f watchtower
+
+# Service status
+docker compose -f docker-compose.prod.yml ps
 ```
 
-### 4. Configure Domain
-
-Update `docker/Caddyfile` with your domain:
-
-```caddyfile
-{
-    email your-email@example.com
-}
-
-yourdomain.com {
-    # Landing page (static files)
-    reverse_proxy landing:80
-
-    # React app
-    handle /app/* {
-        reverse_proxy app:80
-    }
-
-    # API
-    handle /api/* {
-        reverse_proxy api:4000
-    }
-}
-```
-
-### 5. AWS IAM Role Setup
+### 8. AWS IAM Role Setup
 
 Users need to create an IAM role in their AWS account for ScanOrbit to assume:
 
@@ -399,27 +487,250 @@ Users need to create an IAM role in their AWS account for ScanOrbit to assume:
 - `PATCH /findings/:id` — Update finding status
 - `POST /findings/bulk-update` — Bulk update status
 
-## Testing Infrastructure
+## Testing
 
-A Terraform configuration is provided to create test AWS infrastructure with intentional issues:
+### Step 1: Set Up AWS Credentials for Local Development
+
+For local testing, you need AWS credentials that ScanOrbit workers can use.
+
+**Option A: Use IAM User (simpler for testing)**
+
+1. Create an IAM user in your AWS account:
+   ```bash
+   aws iam create-user --user-name scanorbit-test-user
+   ```
+
+2. Attach the read-only policy:
+   ```bash
+   aws iam put-user-policy --user-name scanorbit-test-user --policy-name ScanOrbitReadOnly --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "ec2:DescribeInstances",
+           "ec2:DescribeVolumes",
+           "ec2:DescribeAddresses",
+           "ec2:DescribeRegions",
+           "ec2:DescribeSnapshots",
+           "ec2:DescribeSecurityGroups",
+           "rds:DescribeDBInstances",
+           "rds:DescribeDBSnapshots",
+           "s3:ListAllMyBuckets",
+           "s3:GetBucketLocation",
+           "s3:GetBucketTagging",
+           "elasticloadbalancing:DescribeLoadBalancers",
+           "elasticloadbalancing:DescribeTags",
+           "acm:ListCertificates",
+           "acm:DescribeCertificate"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }'
+   ```
+
+3. Create access keys:
+   ```bash
+   aws iam create-access-key --user-name scanorbit-test-user
+   ```
+
+4. Add credentials to your `.env` file:
+   ```env
+   AWS_ACCESS_KEY_ID=AKIA...
+   AWS_SECRET_ACCESS_KEY=...
+   AWS_REGION=eu-central-1
+   ```
+
+**Option B: Use IAM Role with AssumeRole (production-like)**
+
+1. Create an IAM role with the trust policy (replace `YOUR_AWS_ACCOUNT_ID`):
+   ```bash
+   aws iam create-role --role-name ScanOrbitTestRole --assume-role-policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:root"
+         },
+         "Action": "sts:AssumeRole",
+         "Condition": {
+           "StringEquals": {
+             "sts:ExternalId": "scanorbit-test-external-id"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+2. Attach the permission policy:
+   ```bash
+   aws iam put-role-policy --role-name ScanOrbitTestRole --policy-name ScanOrbitReadOnly --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "ec2:DescribeInstances",
+           "ec2:DescribeVolumes",
+           "ec2:DescribeAddresses",
+           "ec2:DescribeRegions",
+           "ec2:DescribeSnapshots",
+           "ec2:DescribeSecurityGroups",
+           "rds:DescribeDBInstances",
+           "rds:DescribeDBSnapshots",
+           "s3:ListAllMyBuckets",
+           "s3:GetBucketLocation",
+           "s3:GetBucketTagging",
+           "elasticloadbalancing:DescribeLoadBalancers",
+           "elasticloadbalancing:DescribeTags",
+           "acm:ListCertificates",
+           "acm:DescribeCertificate"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }'
+   ```
+
+3. Use credentials that can assume the role in `.env`:
+   ```env
+   AWS_ACCESS_KEY_ID=AKIA...
+   AWS_SECRET_ACCESS_KEY=...
+   AWS_REGION=eu-central-1
+   ```
+
+### Step 2: Deploy Test Infrastructure (Optional)
+
+A Terraform configuration creates AWS resources with intentional issues for ScanOrbit to detect:
+
+| Resource | Issue Type | Expected Finding |
+|----------|-----------|------------------|
+| EC2 Instance (orphaned) | Missing tags | Untagged resource |
+| EBS Volume (orphaned) | Not attached | Orphaned volume |
+| Elastic IP | Not associated | Unused EIP (cost waste) |
+| Security Group | 0.0.0.0/0 ingress | Open to world |
+| S3 Bucket (untagged) | No tags | Untagged resource |
+| S3 Bucket (US region) | Non-EU region | GDPR violation |
+| EBS Snapshot (old) | Stale snapshot | Cost optimization |
 
 ```bash
 cd terraform
 
-# Initialize
+# Initialize Terraform
 terraform init
 
-# Review what will be created
+# Review the plan
 terraform plan
 
-# Deploy test infrastructure
+# Deploy test resources (~$30-50/month if left running)
 terraform apply
 
-# After testing, clean up
-terraform destroy
+# Note the outputs - you'll need the Account ID
 ```
 
-See `terraform/README.md` for details on the test resources created.
+### Step 3: Configure ScanOrbit
+
+1. Start the application:
+   ```bash
+   make dev-infra
+   make db-migrate
+   make docker-up
+   ```
+
+2. Create an account via the UI at http://localhost:3000 or via API:
+   ```bash
+   curl -X POST http://localhost:4000/auth/signup \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "test@example.com",
+       "password": "password123",
+       "name": "Test User"
+     }'
+   ```
+
+3. Login and get a token:
+   ```bash
+   TOKEN=$(curl -s -X POST http://localhost:4000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email": "test@example.com", "password": "password123"}' \
+     | jq -r '.token')
+   ```
+
+4. Add your AWS account (replace with your Account ID and Role ARN):
+   ```bash
+   curl -X POST http://localhost:4000/aws/accounts \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{
+       "name": "Test AWS Account",
+       "accountId": "123456789012",
+       "roleArn": "arn:aws:iam::123456789012:role/ScanOrbitTestRole",
+       "externalId": "scanorbit-test-external-id"
+     }'
+   ```
+
+### Step 4: Run a Scan
+
+1. Trigger a scan:
+   ```bash
+   # Get the AWS account ID from the previous response
+   AWS_ACCOUNT_UUID="..."
+
+   curl -X POST "http://localhost:4000/aws/accounts/$AWS_ACCOUNT_UUID/scan" \
+     -H "Authorization: Bearer $TOKEN"
+   ```
+
+2. Monitor scan progress:
+   ```bash
+   # Check worker logs
+   docker logs -f scanorbit-scanner
+   docker logs -f scanorbit-analyzer
+   ```
+
+3. View results:
+   ```bash
+   # List discovered resources
+   curl "http://localhost:4000/resources" \
+     -H "Authorization: Bearer $TOKEN" | jq
+
+   # List findings
+   curl "http://localhost:4000/findings" \
+     -H "Authorization: Bearer $TOKEN" | jq
+
+   # Get statistics
+   curl "http://localhost:4000/findings/stats" \
+     -H "Authorization: Bearer $TOKEN" | jq
+   ```
+
+### Step 5: Clean Up Test Resources
+
+```bash
+cd terraform
+terraform destroy
+
+# Also remove the IAM user if created
+aws iam delete-access-key --user-name scanorbit-test-user --access-key-id AKIA...
+aws iam delete-user-policy --user-name scanorbit-test-user --policy-name ScanOrbitReadOnly
+aws iam delete-user --user-name scanorbit-test-user
+```
+
+### Expected Test Results
+
+After scanning the Terraform-created infrastructure, you should see findings like:
+
+| Finding Type | Severity | Resource |
+|--------------|----------|----------|
+| `orphaned_volume` | Medium | EBS volume not attached to any instance |
+| `unused_eip` | Low | Elastic IP not associated (costs $3.65/month) |
+| `untagged_resource` | Low | EC2 instance missing required tags |
+| `untagged_resource` | Low | S3 bucket missing tags |
+| `open_security_group` | High | Security group allows 0.0.0.0/0 |
+| `non_eu_resource` | Medium | S3 bucket in us-east-1 (GDPR violation) |
+
+See `terraform/README.md` for more details on test resources.
 
 ## Security Considerations
 

@@ -1,9 +1,21 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { setCookie } from 'hono/cookie';
 import { requireAuth } from '../middlewares/auth.js';
 import { orgService } from '../services/orgService.js';
 import type { Variables } from '../types/index.js';
+
+// Helper to set JWT cookie (same as in auth routes)
+const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
+  setCookie(c, 'jwt', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+};
 
 const orgsRoute = new Hono<{ Variables: Variables }>();
 
@@ -11,9 +23,28 @@ const orgsRoute = new Hono<{ Variables: Variables }>();
 orgsRoute.use(requireAuth);
 
 // Validation schemas
+const createOrgSchema = z.object({
+  orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(255),
+  fullName: z.string().min(1, 'Full name is required').max(255).optional(),
+  title: z.enum(['devops', 'cto', 'developer', 'security', 'personal', 'other']).optional(),
+});
+
 const updateOrgSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   logoUrl: z.string().url().max(255).optional().nullable(),
+});
+
+// POST /orgs - Create organization (Step 4 of signup flow)
+orgsRoute.post('/', zValidator('json', createOrgSchema), async (c) => {
+  const userId = c.get('userId');
+  const { orgName, fullName, title } = c.req.valid('json');
+
+  const result = await orgService.createOrg(userId, orgName, fullName, title);
+
+  // Set the new JWT cookie with orgId
+  setAuthCookie(c, result.token);
+
+  return c.json({ data: result.org, token: result.token }, 201);
 });
 
 // GET /orgs - List user's organizations

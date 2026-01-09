@@ -18,11 +18,30 @@ interface FindingsTableProps {
 }
 
 const typeLabels: Record<string, string> = {
+  // Orphan findings
   orphaned_volume: "Orphaned Volume",
   orphaned_eip: "Orphaned EIP",
   orphaned_snapshot: "Orphaned Snapshot",
+  // SSL findings
   ssl_expiry: "SSL Expiry",
+  // Compliance findings
   data_residency_violation: "Data Residency",
+  // Security findings
+  unencrypted_resource: "Unencrypted Resource",
+  public_access: "Public Access",
+  permissive_security_group: "Permissive Security Group",
+  open_all_ports: "Open All Ports",
+  // Cost findings
+  unused_resource: "Unused Resource",
+  stopped_instance: "Stopped Instance",
+  unused_log_group: "Unused Log Group",
+  // Tagging findings
+  missing_tag: "Missing Tag",
+  // IAM findings
+  old_access_key: "Old Access Key",
+  unused_access_key: "Unused Access Key",
+  unused_iam_role: "Unused IAM Role",
+  user_without_mfa: "User Without MFA",
 };
 
 export function FindingsTable({ findings, onSelectFinding }: FindingsTableProps) {
@@ -60,7 +79,7 @@ export function FindingsTable({ findings, onSelectFinding }: FindingsTableProps)
                 <FindingStatusBadge status={finding.status} />
               </TableCell>
               <TableCell className="hidden lg:table-cell text-right">
-                {finding.details.estimatedSavings ? (
+                {typeof finding.details.estimatedSavings === "number" ? (
                   <span className="flex items-center justify-end gap-1 text-green-600">
                     <DollarSign className="h-3 w-3" />
                     {formatCurrency(finding.details.estimatedSavings)}

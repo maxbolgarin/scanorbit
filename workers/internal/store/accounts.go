@@ -68,7 +68,13 @@ func (s *accountStore) UpdateStatus(ctx context.Context, id string, status strin
 		WHERE id = $1
 	`
 
-	_, err := s.db.Pool().Exec(ctx, query, id, status, lastError)
+	// Convert empty string to nil for NULL in database
+	var errPtr *string
+	if lastError != "" {
+		errPtr = &lastError
+	}
+
+	_, err := s.db.Pool().Exec(ctx, query, id, status, errPtr)
 	if err != nil {
 		return fmt.Errorf("update status: %w", err)
 	}

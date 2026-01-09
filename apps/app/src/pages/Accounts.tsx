@@ -19,7 +19,7 @@ import {
 
 export default function Accounts() {
   const navigate = useNavigate();
-  const { accounts, isLoading, disconnectAccount } = useAwsAccounts();
+  const { accounts, isLoading, deleteAccount } = useAwsAccounts();
   const triggerScan = useTriggerScan();
 
   const [rescanningId, setRescanningId] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export default function Accounts() {
   const handleDisconnect = async () => {
     if (!disconnectAccountId) return;
     try {
-      await disconnectAccount(disconnectAccountId);
+      await deleteAccount(disconnectAccountId);
       toast({
         title: "Account disconnected",
         description: "The AWS account has been disconnected.",

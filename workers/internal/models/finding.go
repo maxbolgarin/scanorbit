@@ -20,6 +20,22 @@ const (
 	FindingOrphanedSnapshot FindingType = "orphaned_snapshot"
 	FindingSSLExpiry        FindingType = "ssl_expiry"
 	FindingDataResidency    FindingType = "data_residency_violation"
+	// Security findings
+	FindingUnencryptedResource FindingType = "unencrypted_resource"
+	FindingPublicAccess        FindingType = "public_access"
+	FindingPermissiveSG        FindingType = "permissive_security_group"
+	FindingOpenAllPorts        FindingType = "open_all_ports"
+	// Cost findings
+	FindingUnusedResource   FindingType = "unused_resource"
+	FindingStoppedInstance  FindingType = "stopped_instance"
+	FindingUnusedLogGroup   FindingType = "unused_log_group"
+	// Tagging findings
+	FindingMissingTag FindingType = "missing_tag"
+	// IAM findings
+	FindingOldAccessKey    FindingType = "old_access_key"
+	FindingUnusedAccessKey FindingType = "unused_access_key"
+	FindingUnusedIAMRole   FindingType = "unused_iam_role"
+	FindingUserWithoutMFA  FindingType = "user_without_mfa"
 )
 
 // FindingStatus represents the status of a finding.

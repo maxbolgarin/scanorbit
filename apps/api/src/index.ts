@@ -56,14 +56,65 @@ console.log(`Starting ScanOrbit API server...`);
 console.log(`Environment: ${config.nodeEnv}`);
 console.log(`Port: ${port}`);
 
-serve(
-  {
-    fetch: app.fetch,
-    port,
-  },
-  (info) => {
-    console.log(`Server is running on http://localhost:${info.port}`);
+// Helper function to handle port in use errors
+function handlePortError(err: NodeJS.ErrnoException, port: number): never {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Error: Port ${port} is already in use.`);
+    console.error(`\nPlease either:`);
+    console.error(`  1. Stop the process using port ${port}`);
+    console.error(`  2. Set a different port via PORT environment variable`);
+    console.error(`  3. Find and kill the process: lsof -ti:${port} | xargs kill -9\n`);
+    process.exit(1);
   }
-);
+  throw err;
+}
+
+// Handle uncaught exceptions (fallback)
+process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    handlePortError(err, port);
+  } else {
+    console.error('\n❌ Uncaught exception:', err);
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  if (reason && typeof reason === 'object' && 'code' in reason) {
+    const err = reason as NodeJS.ErrnoException;
+    if (err.code === 'EADDRINUSE') {
+      handlePortError(err, port);
+    }
+  }
+  console.error('\n❌ Unhandled rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+try {
+  const server = serve(
+    {
+      fetch: app.fetch,
+      port,
+    },
+    (info) => {
+      console.log(`Server is running on http://localhost:${info.port}`);
+    }
+  );
+
+  // Handle server errors if server instance supports it
+  if (server && typeof server === 'object' && 'on' in server) {
+    (server as any).on('error', (err: NodeJS.ErrnoException) => {
+      handlePortError(err, port);
+    });
+  }
+} catch (err) {
+  const error = err as NodeJS.ErrnoException;
+  if (error.code === 'EADDRINUSE') {
+    handlePortError(error, port);
+  } else {
+    console.error('\n❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
 
 export default app;

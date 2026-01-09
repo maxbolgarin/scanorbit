@@ -59,6 +59,10 @@ awsAccountsRoute.get('/:id', async (c) => {
     throw new HTTP400Error('No organization selected');
   }
 
+  if (!accountId) {
+    throw new HTTP400Error('Account ID is required');
+  }
+
   const account = await awsAccountService.getAccount(orgId, accountId);
   return c.json({ data: account });
 });
@@ -70,6 +74,10 @@ awsAccountsRoute.delete('/:id', async (c) => {
 
   if (!orgId) {
     throw new HTTP400Error('No organization selected');
+  }
+
+  if (!accountId) {
+    throw new HTTP400Error('Account ID is required');
   }
 
   await awsAccountService.deleteAccount(orgId, accountId);
@@ -85,6 +93,10 @@ awsAccountsRoute.post('/:id/test', async (c) => {
     throw new HTTP400Error('No organization selected');
   }
 
+  if (!accountId) {
+    throw new HTTP400Error('Account ID is required');
+  }
+
   const result = await awsAccountService.testConnection(orgId, accountId);
   return c.json({ data: result });
 });
@@ -96,6 +108,10 @@ awsAccountsRoute.post('/:id/scan', async (c) => {
 
   if (!orgId) {
     throw new HTTP400Error('No organization selected');
+  }
+
+  if (!accountId) {
+    throw new HTTP400Error('Account ID is required');
   }
 
   const scan = await awsAccountService.enqueueScan(orgId, accountId);
@@ -111,21 +127,58 @@ awsAccountsRoute.get('/:id/scans', async (c) => {
     throw new HTTP400Error('No organization selected');
   }
 
+  if (!accountId) {
+    throw new HTTP400Error('Account ID is required');
+  }
+
   const scans = await awsAccountService.getScanHistory(orgId, accountId);
   return c.json({ data: scans });
 });
 
-// GET /aws/scans/:scanId - Get specific scan details
-awsAccountsRoute.get('/scans/:scanId', async (c) => {
-  const orgId = c.get('orgId');
-  const scanId = c.req.param('scanId');
-
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
-
-  const scan = await awsAccountService.getScan(orgId, scanId);
-  return c.json({ data: scan });
+// Validation schema for analysis
+const analyzeSchema = z.object({
+  type: z.enum(['orphans', 'ssl', 'residency', 'all']).optional().default('all'),
+  allowedRegions: z.array(z.string()).optional(),
 });
+
+// POST /aws/accounts/:id/analyze - Trigger analysis for AWS account
+awsAccountsRoute.post(
+  '/:id/analyze',
+  zValidator('json', analyzeSchema),
+  async (c) => {
+    const orgId = c.get('orgId');
+    const accountId = c.req.param('id');
+
+    if (!orgId) {
+      throw new HTTP400Error('No organization selected');
+    }
+
+    if (!accountId) {
+      throw new HTTP400Error('Account ID is required');
+    }
+
+    const { type, allowedRegions } = c.req.valid('json');
+
+    if (type === 'all') {
+      await awsAccountService.enqueueAllAnalyses(orgId, accountId);
+      return c.json({ message: 'All analyses enqueued' }, 202);
+    }
+
+    const analysisTypeMap = {
+      orphans: 'analyze_orphans',
+      ssl: 'analyze_ssl',
+      residency: 'analyze_residency',
+    } as const;
+
+    await awsAccountService.enqueueAnalysis(
+      orgId,
+      accountId,
+      analysisTypeMap[type],
+      allowedRegions
+    );
+
+    return c.json({ message: `${type} analysis enqueued` }, 202);
+  }
+);
 
 export default awsAccountsRoute;

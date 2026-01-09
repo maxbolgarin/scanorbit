@@ -1,157 +1,205 @@
-import { randomDelay } from "./utils";
-
-// Set to true to bypass auth and use mock admin user
-const DEV_BYPASS_AUTH = true;
-
-import {
-  mockUser,
-  mockOrg,
-  mockAwsAccounts,
-  mockResources,
-  mockCertificates,
-  mockFindings,
-  mockScans,
-  mockDashboardSummary,
-  mockRecommendedActions,
-} from "./mock-data";
+import axios, { AxiosError } from "axios";
 import type {
   User,
   Org,
+  OrgMember,
   AwsAccount,
   Resource,
-  Certificate,
   Finding,
   Scan,
-  DashboardSummary,
   LoginCredentials,
   SignupCredentials,
-  AuthResponse,
+  LoginResponse,
+  SignupResponse,
+  MeResponse,
   CreateAwsAccountInput,
-  ConnectAwsRoleInput,
   TestConnectionResult,
   FindingFilters,
   ResourceFilters,
   FindingStatus,
+  PaginatedResponse,
+  ResourceStats,
+  FindingStats,
 } from "@/types";
-import type { RecommendedAction } from "./mock-data";
 
-// Simulated local storage for auth state
-const AUTH_TOKEN_KEY = "scanorbit_token";
-const AUTH_USER_KEY = "scanorbit_user";
+// API base URL from environment
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-// Helper to check if user is "authenticated"
-function isAuthenticated(): boolean {
-  return !!localStorage.getItem(AUTH_TOKEN_KEY);
-}
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true, // Send cookies with requests
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-function requireAuth(): void {
-  if (DEV_BYPASS_AUTH) return;
-  if (!isAuthenticated()) {
-    throw new Error("Unauthorized");
+// Error handler helper
+function handleApiError(error: unknown): never {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data;
+
+    // Handle validation errors with details array
+    if (data?.details && Array.isArray(data.details)) {
+      const messages = data.details.map((d: { message?: string }) => d.message).filter(Boolean);
+      throw new Error(messages.join(', ') || data.message || 'Validation failed');
+    }
+
+    // Handle standard error responses
+    const message = typeof data?.message === 'string'
+      ? data.message
+      : typeof data?.error === 'string'
+        ? data.error
+        : error.message;
+    throw new Error(message);
   }
+  throw error;
 }
 
 // ============================================
 // Auth API
 // ============================================
 
-export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
-  await randomDelay();
-
-  // Simulate validation
-  if (!credentials.email || !credentials.password) {
-    throw new Error("Email and password are required");
+export async function login(credentials: LoginCredentials): Promise<LoginResponse> {
+  try {
+    const { data } = await api.post<LoginResponse>("/auth/login", credentials);
+    return data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  if (credentials.password.length < 8) {
-    throw new Error("Invalid credentials");
-  }
-
-  const token = "mock_jwt_token_" + Date.now();
-  const user = { ...mockUser, email: credentials.email };
-
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-
-  return { user, org: mockOrg, token };
 }
 
-export async function signup(credentials: SignupCredentials): Promise<AuthResponse> {
-  await randomDelay();
-
-  // Simulate validation
-  if (!credentials.email || !credentials.password) {
-    throw new Error("Email and password are required");
+export async function signup(credentials: SignupCredentials): Promise<SignupResponse> {
+  try {
+    const { data } = await api.post<SignupResponse>("/auth/signup", credentials);
+    return data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  if (credentials.password.length < 8) {
-    throw new Error("Password must be at least 8 characters");
-  }
-
-  const token = "mock_jwt_token_" + Date.now();
-  const user: User = {
-    id: "user_new_" + Date.now(),
-    email: credentials.email,
-    name: credentials.name || credentials.email.split("@")[0],
-    createdAt: new Date().toISOString(),
-  };
-
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-
-  // New user doesn't have an org yet
-  return { user, org: null, token };
 }
 
 export async function logout(): Promise<void> {
-  await randomDelay(200, 500);
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_USER_KEY);
+  try {
+    await api.post("/auth/logout");
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
-export async function getMe(): Promise<{ user: User; org: Org | null }> {
-  await randomDelay(300, 800);
-
-  // Dev bypass: auto-authenticate as admin with org
-  if (DEV_BYPASS_AUTH) {
-    return { user: mockUser, org: mockOrg };
+export async function getMe(): Promise<MeResponse> {
+  try {
+    const { data } = await api.get<MeResponse>("/auth/me");
+    return data;
+  } catch (error) {
+    handleApiError(error);
   }
+}
 
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-  if (!token) {
-    throw new Error("Unauthorized");
+export async function switchOrg(orgId: string): Promise<{ token: string }> {
+  try {
+    const { data } = await api.post<{ token: string }>("/auth/switch-org", { orgId });
+    return data;
+  } catch (error) {
+    handleApiError(error);
   }
+}
 
-  const userStr = localStorage.getItem(AUTH_USER_KEY);
-  const user = userStr ? JSON.parse(userStr) : mockUser;
+// ============================================
+// New Signup Flow API
+// ============================================
 
-  // Check if user has completed onboarding (has org)
-  const hasOrg = localStorage.getItem("scanorbit_has_org") === "true";
+export async function sendVerificationCode(email: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data } = await api.post<{ success: boolean; message: string }>("/auth/send-code", { email });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
 
-  return { user, org: hasOrg ? mockOrg : null };
+export async function verifyCode(email: string, code: string): Promise<{ success: boolean; signupToken: string }> {
+  try {
+    const { data } = await api.post<{ success: boolean; signupToken: string }>("/auth/verify-code", { email, code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function completeSignup(signupToken: string, password: string): Promise<{ user: User; token: string }> {
+  try {
+    const { data } = await api.post<{ user: User; token: string }>("/auth/complete-signup", { signupToken, password });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function resendVerificationCode(email: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data } = await api.post<{ success: boolean; message: string }>("/auth/resend-code", { email });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export type JobTitle = 'devops' | 'cto' | 'developer' | 'security' | 'personal' | 'other';
+
+export async function createOrg(input: {
+  orgName: string;
+  fullName?: string;
+  title?: JobTitle;
+}): Promise<{ org: Org; token: string }> {
+  try {
+    const { data } = await api.post<{ data: Org; token: string }>("/orgs", input);
+    return { org: data.data, token: data.token };
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 // ============================================
 // Organization API
 // ============================================
 
-export async function createOrganization(name: string): Promise<Org> {
-  await randomDelay();
-  requireAuth();
-
-  if (!name || name.trim().length < 2) {
-    throw new Error("Organization name must be at least 2 characters");
+export async function getOrgs(): Promise<Org[]> {
+  try {
+    const { data } = await api.get<{ data: Org[] }>("/orgs");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
   }
+}
 
-  const org: Org = {
-    id: "org_" + Date.now(),
-    name: name.trim(),
-    createdAt: new Date().toISOString(),
-  };
+export async function getOrg(orgId: string): Promise<Org> {
+  try {
+    const { data } = await api.get<{ data: Org }>(`/orgs/${orgId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
 
-  localStorage.setItem("scanorbit_has_org", "true");
+export async function updateOrganization(updates: { name?: string; logoUrl?: string }): Promise<Org> {
+  try {
+    // Get current org from the first org (simplified - in real app you'd track active org)
+    const orgs = await getOrgs();
+    if (orgs.length === 0) throw new Error("No organization found");
+    const { data } = await api.patch<{ data: Org }>(`/orgs/${orgs[0].id}`, updates);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
 
-  return org;
+export async function getOrgMembers(orgId: string): Promise<OrgMember[]> {
+  try {
+    const { data } = await api.get<{ data: OrgMember[] }>(`/orgs/${orgId}/members`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 // ============================================
@@ -159,354 +207,289 @@ export async function createOrganization(name: string): Promise<Org> {
 // ============================================
 
 export async function getAwsAccounts(): Promise<AwsAccount[]> {
-  await randomDelay();
-  requireAuth();
-  return [...mockAwsAccounts];
+  try {
+    const { data } = await api.get<{ data: AwsAccount[] }>("/aws/accounts");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
-export async function getAwsAccount(id: string): Promise<AwsAccount | null> {
-  await randomDelay();
-  requireAuth();
-  return mockAwsAccounts.find((a) => a.id === id) || null;
+export async function getAwsAccount(accountId: string): Promise<AwsAccount> {
+  try {
+    const { data } = await api.get<{ data: AwsAccount }>(`/aws/accounts/${accountId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 export async function createAwsAccount(input: CreateAwsAccountInput): Promise<AwsAccount> {
-  await randomDelay();
-  requireAuth();
-
-  if (!input.name || !input.awsAccountId) {
-    throw new Error("Name and AWS Account ID are required");
+  try {
+    const { data } = await api.post<{ data: AwsAccount }>("/aws/accounts", input);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  if (!/^\d{12}$/.test(input.awsAccountId)) {
-    throw new Error("AWS Account ID must be a 12-digit number");
-  }
-
-  const account: AwsAccount = {
-    id: "aws_new_" + Date.now(),
-    orgId: mockOrg.id,
-    name: input.name,
-    awsAccountId: input.awsAccountId,
-    roleArn: "",
-    status: "pending",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  return account;
 }
 
-export async function connectAwsRole(
-  accountId: string,
-  input: ConnectAwsRoleInput
-): Promise<AwsAccount> {
-  await randomDelay();
-  requireAuth();
-
-  if (!input.roleArn) {
-    throw new Error("Role ARN is required");
+export async function deleteAwsAccount(accountId: string): Promise<void> {
+  try {
+    await api.delete(`/aws/accounts/${accountId}`);
+  } catch (error) {
+    handleApiError(error);
   }
-
-  if (!input.roleArn.startsWith("arn:aws:iam::")) {
-    throw new Error("Invalid Role ARN format");
-  }
-
-  const account = mockAwsAccounts.find((a) => a.id === accountId);
-  if (!account) {
-    throw new Error("Account not found");
-  }
-
-  return {
-    ...account,
-    roleArn: input.roleArn,
-    externalId: input.externalId,
-    status: "ok",
-    updatedAt: new Date().toISOString(),
-  };
 }
 
-export async function testAwsConnection(_accountId: string): Promise<TestConnectionResult> {
-  await randomDelay(1000, 2000);
-  requireAuth();
-
-  // Simulate 90% success rate
-  const success = Math.random() > 0.1;
-
-  if (success) {
-    return {
-      success: true,
-      message: "Successfully connected to AWS account",
-      regions: ["eu-west-1", "eu-central-1", "us-east-1", "us-west-2"],
-    };
+export async function testAwsConnection(accountId: string): Promise<TestConnectionResult> {
+  try {
+    const { data } = await api.post<{ data: TestConnectionResult }>(`/aws/accounts/${accountId}/test`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  return {
-    success: false,
-    message: "Failed to assume role. Please check the Role ARN and trust policy.",
-  };
 }
 
-export async function disconnectAwsAccount(_accountId: string): Promise<void> {
-  await randomDelay();
-  requireAuth();
-  // In real app, this would remove the account
-}
-
-// ============================================
-// Scans API
-// ============================================
-
-export async function triggerScan(awsAccountId: string): Promise<Scan> {
-  await randomDelay();
-  requireAuth();
-
-  return {
-    id: "scan_new_" + Date.now(),
-    awsAccountId,
-    status: "queued",
-    progress: 0,
-    startedAt: new Date().toISOString(),
-  };
-}
-
-export async function getScanStatus(scanId: string): Promise<Scan> {
-  await randomDelay(500, 1000);
-  requireAuth();
-
-  // Simulate scan progress
-  const existingScan = mockScans.find((s) => s.id === scanId);
-  if (existingScan) {
-    return existingScan;
+export async function triggerScan(accountId: string): Promise<Scan> {
+  try {
+    const { data } = await api.post<{ data: Scan }>(`/aws/accounts/${accountId}/scan`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  // For new scans, simulate progress
-  const progressKey = `scan_progress_${scanId}`;
-  let progress = parseInt(localStorage.getItem(progressKey) || "0", 10);
-  progress = Math.min(100, progress + Math.floor(Math.random() * 20) + 10);
-  localStorage.setItem(progressKey, progress.toString());
-
-  const steps = [
-    "Discovering EC2 instances...",
-    "Scanning EBS volumes...",
-    "Checking RDS databases...",
-    "Analyzing S3 buckets...",
-    "Inspecting load balancers...",
-    "Reviewing SSL certificates...",
-    "Detecting orphaned resources...",
-    "Analyzing data residency...",
-    "Finalizing results...",
-  ];
-
-  const stepIndex = Math.floor((progress / 100) * steps.length);
-  const currentStep = progress < 100 ? steps[Math.min(stepIndex, steps.length - 1)] : undefined;
-
-  return {
-    id: scanId,
-    awsAccountId: "aws_1",
-    status: progress >= 100 ? "completed" : "running",
-    progress,
-    currentStep,
-    resourcesDiscovered: progress >= 100 ? 15 : Math.floor(progress / 10),
-    findingsCount: progress >= 100 ? 8 : Math.floor(progress / 20),
-    startedAt: new Date(Date.now() - 60000).toISOString(),
-    completedAt: progress >= 100 ? new Date().toISOString() : undefined,
-  };
 }
 
-export async function getScanHistory(awsAccountId: string): Promise<Scan[]> {
-  await randomDelay();
-  requireAuth();
-  return mockScans.filter((s) => s.awsAccountId === awsAccountId);
+export async function getScanHistory(accountId: string): Promise<Scan[]> {
+  try {
+    const { data } = await api.get<{ data: Scan[] }>(`/aws/accounts/${accountId}/scans`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getScan(scanId: string): Promise<Scan> {
+  try {
+    const { data } = await api.get<{ data: Scan }>(`/aws/scans/${scanId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getActiveScans(): Promise<Scan[]> {
+  try {
+    const { data } = await api.get<{ data: Scan[] }>("/aws/scans/active");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getRecentScans(limit: number = 10): Promise<Scan[]> {
+  try {
+    const { data } = await api.get<{ data: Scan[] }>(`/aws/scans/recent?limit=${limit}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 // ============================================
 // Resources API
 // ============================================
 
-export async function getResources(filters?: ResourceFilters): Promise<Resource[]> {
-  await randomDelay();
-  requireAuth();
+export async function getResources(filters?: ResourceFilters): Promise<PaginatedResponse<Resource>> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.region) params.set("region", filters.region);
+    if (filters?.service) params.set("service", filters.service);
+    if (filters?.state) params.set("state", filters.state);
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
 
-  let resources = [...mockResources];
-
-  if (filters) {
-    if (filters.service) {
-      resources = resources.filter((r) => r.service === filters.service);
-    }
-    if (filters.region) {
-      resources = resources.filter((r) => r.region === filters.region);
-    }
-    if (filters.awsAccountId) {
-      resources = resources.filter((r) => r.awsAccountId === filters.awsAccountId);
-    }
-    if (filters.state) {
-      resources = resources.filter((r) => r.state === filters.state);
-    }
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      resources = resources.filter(
-        (r) =>
-          r.name.toLowerCase().includes(search) ||
-          r.resourceId.toLowerCase().includes(search)
-      );
-    }
+    const { data } = await api.get<PaginatedResponse<Resource>>(`/resources?${params.toString()}`);
+    return data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  return resources;
 }
 
-export async function getResource(id: string): Promise<Resource | null> {
-  await randomDelay();
-  requireAuth();
-  return mockResources.find((r) => r.id === id) || null;
+export async function getResource(resourceId: string): Promise<Resource> {
+  try {
+    const { data } = await api.get<{ data: Resource }>(`/resources/${resourceId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceStats(): Promise<ResourceStats> {
+  try {
+    const { data } = await api.get<{ data: ResourceStats }>("/resources/stats");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getDistinctRegions(): Promise<string[]> {
+  try {
+    const { data } = await api.get<{ data: string[] }>("/resources/regions");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getDistinctServices(): Promise<string[]> {
+  try {
+    const { data } = await api.get<{ data: string[] }>("/resources/services");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 // ============================================
 // Findings API
 // ============================================
 
-export async function getFindings(filters?: FindingFilters): Promise<Finding[]> {
-  await randomDelay();
-  requireAuth();
+export async function getFindings(filters?: FindingFilters): Promise<PaginatedResponse<Finding>> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.severity) params.set("severity", filters.severity);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
 
-  let findings = [...mockFindings];
-
-  if (filters) {
-    if (filters.type) {
-      findings = findings.filter((f) => f.type === filters.type);
-    }
-    if (filters.severity) {
-      findings = findings.filter((f) => f.severity === filters.severity);
-    }
-    if (filters.status) {
-      findings = findings.filter((f) => f.status === filters.status);
-    }
-    if (filters.awsAccountId) {
-      findings = findings.filter((f) => f.awsAccountId === filters.awsAccountId);
-    }
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      findings = findings.filter(
-        (f) =>
-          f.summary.toLowerCase().includes(search) ||
-          f.details.description.toLowerCase().includes(search)
-      );
-    }
+    const { data } = await api.get<PaginatedResponse<Finding>>(`/findings?${params.toString()}`);
+    return data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  return findings;
 }
 
-export async function getFinding(id: string): Promise<Finding | null> {
-  await randomDelay();
-  requireAuth();
-  return mockFindings.find((f) => f.id === id) || null;
+export async function getFinding(findingId: string): Promise<Finding> {
+  try {
+    const { data } = await api.get<{ data: Finding }>(`/findings/${findingId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getFindingStats(): Promise<FindingStats> {
+  try {
+    const { data } = await api.get<{ data: FindingStats }>("/findings/stats");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 export async function updateFindingStatus(
-  id: string,
+  findingId: string,
   status: FindingStatus,
-  snoozeDays?: number
+  snoozedUntil?: Date
 ): Promise<Finding> {
-  await randomDelay();
-  requireAuth();
-
-  const finding = mockFindings.find((f) => f.id === id);
-  if (!finding) {
-    throw new Error("Finding not found");
+  try {
+    const { data } = await api.patch<{ data: Finding }>(`/findings/${findingId}`, {
+      status,
+      snoozedUntil,
+    });
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  const updated: Finding = {
-    ...finding,
-    status,
-    resolvedAt: status === "resolved" ? new Date().toISOString() : undefined,
-    resolvedBy: status === "resolved" ? mockUser.email : undefined,
-    snoozedUntil:
-      status === "snoozed" && snoozeDays
-        ? new Date(Date.now() + snoozeDays * 86400000).toISOString()
-        : undefined,
-  };
-
-  return updated;
 }
 
-// ============================================
-// Certificates API
-// ============================================
-
-export async function getCertificates(): Promise<Certificate[]> {
-  await randomDelay();
-  requireAuth();
-  return [...mockCertificates];
-}
-
-export async function getCertificate(id: string): Promise<Certificate | null> {
-  await randomDelay();
-  requireAuth();
-  return mockCertificates.find((c) => c.id === id) || null;
-}
-
-// ============================================
-// Dashboard API
-// ============================================
-
-export async function getDashboardSummary(): Promise<DashboardSummary> {
-  await randomDelay();
-  requireAuth();
-  return { ...mockDashboardSummary };
-}
-
-export async function getRecommendedActions(): Promise<RecommendedAction[]> {
-  await randomDelay();
-  requireAuth();
-  return [...mockRecommendedActions];
-}
-
-// ============================================
-// Settings API
-// ============================================
-
-export async function updateProfile(data: { name?: string; email?: string }): Promise<User> {
-  await randomDelay();
-  requireAuth();
-
-  const userStr = localStorage.getItem(AUTH_USER_KEY);
-  const user = userStr ? JSON.parse(userStr) : mockUser;
-
-  const updated = {
-    ...user,
-    ...data,
-  };
-
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
-
-  return updated;
-}
-
-export async function changePassword(
-  currentPassword: string,
-  newPassword: string
-): Promise<void> {
-  await randomDelay();
-  requireAuth();
-
-  if (currentPassword.length < 8) {
-    throw new Error("Current password is incorrect");
+export async function bulkUpdateFindingStatus(
+  findingIds: string[],
+  status: FindingStatus
+): Promise<{ updatedCount: number }> {
+  try {
+    const { data } = await api.post<{ data: { updatedCount: number } }>("/findings/bulk-update", {
+      findingIds,
+      status,
+    });
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
   }
-
-  if (newPassword.length < 8) {
-    throw new Error("New password must be at least 8 characters");
-  }
-
-  // In real app, this would update the password
 }
 
-export async function updateOrganization(data: { name: string }): Promise<Org> {
-  await randomDelay();
-  requireAuth();
+// ============================================
+// Dashboard API (computed from other endpoints)
+// ============================================
 
-  return {
-    ...mockOrg,
-    name: data.name,
-  };
+export async function getDashboardSummary(): Promise<{
+  totalResources: number;
+  resourcesTrend: number;
+  orphanedResources: number;
+  orphanedSavings: number;
+  expiringCertificates: number;
+  urgentCertificates: number;
+  residencyViolations: number;
+}> {
+  try {
+    // Fetch stats from backend
+    const [resourceStats, findingStats] = await Promise.all([
+      getResourceStats(),
+      getFindingStats(),
+    ]);
+
+    // Compute dashboard metrics from stats
+    const orphanedCount =
+      (findingStats.byType["orphaned_volume"] || 0) +
+      (findingStats.byType["orphaned_eip"] || 0) +
+      (findingStats.byType["orphaned_snapshot"] || 0);
+
+    return {
+      totalResources: resourceStats.totalCount,
+      resourcesTrend: 0, // Would need historical data
+      orphanedResources: orphanedCount,
+      orphanedSavings: 0, // Would need to compute from findings details
+      expiringCertificates: findingStats.byType["ssl_expiry"] || 0,
+      urgentCertificates: 0, // Would need to filter by urgency
+      residencyViolations: findingStats.byType["data_residency_violation"] || 0,
+    };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getRecommendedActions(): Promise<Finding[]> {
+  try {
+    // Get open findings sorted by severity
+    const { data: findings } = await getFindings({
+      status: "open",
+      limit: 10,
+    });
+
+    // Sort by severity (high first)
+    const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Profile API
+// ============================================
+
+export async function updateProfile(_updates: { name?: string; email?: string }): Promise<User> {
+  // Note: Backend doesn't have a profile update endpoint yet
+  // This would need to be implemented on the backend
+  throw new Error("Profile update not implemented on backend");
+}
+
+export async function changePassword(_currentPassword: string, _newPassword: string): Promise<void> {
+  // Note: Backend doesn't have a password change endpoint yet
+  // This would need to be implemented on the backend
+  throw new Error("Password change not implemented on backend");
 }

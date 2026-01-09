@@ -62,6 +62,10 @@ func main() {
 	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeOrphans, analyzers.NewOrphanAnalyzer(st, logger))
 	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeSSL, analyzers.NewSSLAnalyzer(st, logger))
 	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeResidency, analyzers.NewResidencyAnalyzer(st, logger))
+	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeSecurity, analyzers.NewSecurityAnalyzer(st, logger))
+	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeCost, analyzers.NewCostAnalyzer(st, logger))
+	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeTagging, analyzers.NewTaggingAnalyzer(st, logger))
+	orchestrator.RegisterAnalyzer(models.JobTypeAnalyzeIAM, analyzers.NewIAMAnalyzer(st, logger))
 
 	// Graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -80,6 +84,10 @@ func main() {
 		models.JobTypeAnalyzeOrphans,
 		models.JobTypeAnalyzeSSL,
 		models.JobTypeAnalyzeResidency,
+		models.JobTypeAnalyzeSecurity,
+		models.JobTypeAnalyzeCost,
+		models.JobTypeAnalyzeTagging,
+		models.JobTypeAnalyzeIAM,
 	}, orchestrator.HandleJob)
 
 	if err != nil && err != context.Canceled {

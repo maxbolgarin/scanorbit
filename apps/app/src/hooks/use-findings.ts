@@ -25,12 +25,12 @@ export function useUpdateFindingStatus() {
     mutationFn: ({
       id,
       status,
-      snoozeDays,
+      snoozedUntil,
     }: {
       id: string;
       status: FindingStatus;
-      snoozeDays?: number;
-    }) => api.updateFindingStatus(id, status, snoozeDays),
+      snoozedUntil?: Date;
+    }) => api.updateFindingStatus(id, status, snoozedUntil),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["findings"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -39,19 +39,27 @@ export function useUpdateFindingStatus() {
 }
 
 export function useOpenFindings() {
-  const { data: findings } = useFindings({ status: "open" });
-  return findings || [];
+  const { data } = useFindings({ status: "open" });
+  return data?.data || [];
+}
+
+export function useFindingStats() {
+  return useQuery({
+    queryKey: ["finding-stats"],
+    queryFn: api.getFindingStats,
+  });
 }
 
 export function useFindingCounts() {
-  const { data: findings } = useFindings();
+  const { data: stats } = useFindingStats();
 
-  if (!findings) {
+  if (!stats) {
     return {
       total: 0,
       open: 0,
       resolved: 0,
       snoozed: 0,
+      ignored: 0,
       high: 0,
       medium: 0,
       low: 0,
@@ -59,12 +67,13 @@ export function useFindingCounts() {
   }
 
   return {
-    total: findings.length,
-    open: findings.filter((f) => f.status === "open").length,
-    resolved: findings.filter((f) => f.status === "resolved").length,
-    snoozed: findings.filter((f) => f.status === "snoozed").length,
-    high: findings.filter((f) => f.severity === "high" && f.status === "open").length,
-    medium: findings.filter((f) => f.severity === "medium" && f.status === "open").length,
-    low: findings.filter((f) => f.severity === "low" && f.status === "open").length,
+    total: stats.totalCount,
+    open: stats.byStatus["open"] || 0,
+    resolved: stats.byStatus["resolved"] || 0,
+    snoozed: stats.byStatus["snoozed"] || 0,
+    ignored: stats.byStatus["ignored"] || 0,
+    high: stats.bySeverity["high"] || 0,
+    medium: stats.bySeverity["medium"] || 0,
+    low: stats.bySeverity["low"] || 0,
   };
 }

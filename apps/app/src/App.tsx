@@ -16,6 +16,7 @@ const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Resources = lazy(() => import("@/pages/Resources"));
 const ResourceDetail = lazy(() => import("@/pages/ResourceDetail"));
 const Findings = lazy(() => import("@/pages/Findings"));
+const Scans = lazy(() => import("@/pages/Scans"));
 const Accounts = lazy(() => import("@/pages/Accounts"));
 const Settings = lazy(() => import("@/pages/Settings"));
 
@@ -48,8 +49,8 @@ function App() {
           <Route
             path="/signup"
             element={
-              isAuthenticated ? (
-                <Navigate to={hasOrg ? "/dashboard" : "/onboarding/org"} replace />
+              isAuthenticated && hasOrg ? (
+                <Navigate to="/dashboard" replace />
               ) : (
                 <Signup />
               )
@@ -96,6 +97,7 @@ function App() {
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
             <Route path="findings" element={<Findings />} />
+            <Route path="scans" element={<Scans />} />
             <Route path="accounts" element={<Accounts />} />
             <Route path="settings" element={<Settings />} />
           </Route>

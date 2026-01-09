@@ -178,30 +178,55 @@ go get github.com/aws/aws-sdk-go-v2/service/acm
 go get github.com/aws/aws-sdk-go-v2/service/sts
 ```
 
-### 4.3 Project Structure (Scanner Worker)
+### 4.3 Project Structure
 
 ```
-/scanner-worker
-├── main.go                  # Entry point
-├── job/
-│   └── job.go              # Job struct + enums
-├── worker/
-│   ├── scanner.go          # Main scanner logic
-│   └── regional.go         # Regional scanning (fan-out)
-├── aws/
-│   ├── client.go           # AWS SDK client setup + AssumeRole
-│   ├── ec2.go              # EC2 discovery + parsing
-│   ├── rds.go              # RDS discovery
-│   ├── s3.go               # S3 discovery
-│   ├── alb.go              # Load balancer discovery
-│   └── acm.go              # Certificate discovery
-├── db/
-│   ├── conn.go             # Postgres connection
-│   └── repository.go       # Insert/update operations
-├── queue/
-│   └── redis.go            # Redis consumer
-└── config/
-    └── config.go           # Environment + logging
+workers/
+├── cmd/
+│   ├── scanner/
+│   │   └── main.go          # Scanner entry point
+│   └── analyzer/
+│       └── main.go          # Analyzer entry point
+├── internal/
+│   ├── analyzers/
+│   │   ├── analyzer.go      # Analyzer interface
+│   │   ├── orchestrator.go  # Analysis orchestration
+│   │   ├── orphans.go       # Orphaned resources detection
+│   │   ├── residency.go     # Data residency checks
+│   │   └── ssl.go           # SSL certificate analysis
+│   ├── awsclient/
+│   │   ├── client.go        # AWS SDK client + AssumeRole
+│   │   ├── regions.go       # Region listing
+│   │   ├── ec2.go           # EC2 discovery
+│   │   ├── rds.go           # RDS discovery
+│   │   ├── s3.go            # S3 discovery
+│   │   ├── alb.go           # ALB discovery
+│   │   └── acm.go           # ACM certificate discovery
+│   ├── config/
+│   │   └── config.go        # Environment config + logging
+│   ├── models/
+│   │   ├── job.go           # Job types
+│   │   ├── resource.go      # Resource model
+│   │   ├── finding.go       # Finding model
+│   │   └── certificate.go   # Certificate model
+│   ├── queue/
+│   │   ├── queue.go         # Queue interface
+│   │   └── redis.go         # Redis implementation
+│   ├── scanner/
+│   │   ├── scanner.go       # Main scanner logic
+│   │   └── result.go        # Scan result types
+│   └── store/
+│       ├── store.go         # Store interface
+│       ├── postgres.go      # Postgres connection (pgx/v5)
+│       ├── accounts.go      # AWS accounts queries
+│       ├── resources.go     # Resources upsert
+│       ├── certificates.go  # Certificates upsert
+│       ├── findings.go      # Findings upsert
+│       └── scans.go         # Scan status updates
+├── Dockerfile
+├── Makefile
+├── go.mod
+└── go.sum
 ```
 
 ### 4.4 Code Sketch (Scanner Worker)
@@ -215,20 +240,20 @@ type ScanAccountJob struct {
     OrgID     string `json:"org_id"`
 }
 
-// worker/scanner.go
-package worker
+// internal/scanner/scanner.go
+package scanner
 
 import (
     "context"
     "sync"
     "github.com/aws/aws-sdk-go-v2/aws"
-    "github.com/aws/aws-sdk-go-v2/service/ec2"
-    "github.com/aws/aws-sdk-go-v2/service/rds"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/rs/zerolog/log"
 )
 
 type Scanner struct {
-    db  *sql.DB
-    cfg aws.Config
+    pool *pgxpool.Pool
+    cfg  aws.Config
 }
 
 // ScanAccount is the main entry point
@@ -454,17 +479,18 @@ func (s *Scanner) scanEC2(ctx context.Context, cfg aws.Config, region string) ([
 ### 5.2 Analyzer Code Sketch
 
 ```go
-// worker/analyzer.go
-package worker
+// internal/analyzers/analyzer.go
+package analyzers
 
 import (
     "context"
-    "database/sql"
     "time"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/rs/zerolog/log"
 )
 
 type Analyzer struct {
-    db *sql.DB
+    pool *pgxpool.Pool
 }
 
 type Finding struct {
@@ -478,13 +504,13 @@ type Finding struct {
 
 // AnalyzeOrphans detects orphaned resources
 func (a *Analyzer) AnalyzeOrphans(ctx context.Context, accountID, orgID string) error {
-    // 1. Fetch all resources for account
+    // 1. Fetch all resources for account using pgx
     query := `
         SELECT id, service, resource_id, region, created_at, tags
         FROM resources
         WHERE aws_account_id = $1 AND org_id = $2
     `
-    rows, err := a.db.QueryContext(ctx, query, accountID, orgID)
+    rows, err := a.pool.Query(ctx, query, accountID, orgID)
     if err != nil {
         return fmt.Errorf("query resources: %w", err)
     }
@@ -499,11 +525,11 @@ func (a *Analyzer) AnalyzeOrphans(ctx context.Context, accountID, orgID string) 
             resourceID  string
             region      string
             createdAt   time.Time
-            tagsJSON    json.RawMessage
+            tagsJSON    []byte
         )
 
         if err := rows.Scan(&id, &service, &resourceID, &region, &createdAt, &tagsJSON); err != nil {
-            log.Printf("Scan error: %v", err)
+            log.Error().Err(err).Msg("scan error")
             continue
         }
 
@@ -526,11 +552,11 @@ func (a *Analyzer) AnalyzeOrphans(ctx context.Context, accountID, orgID string) 
     // 3. Persist findings
     for _, f := range findings {
         if err := a.persistFinding(ctx, orgID, accountID, &f); err != nil {
-            log.Printf("Persist finding failed: %v", err)
+            log.Error().Err(err).Msg("persist finding failed")
         }
     }
 
-    log.Printf("Orphan analysis complete: %d findings", len(findings))
+    log.Info().Int("count", len(findings)).Msg("orphan analysis complete")
     return nil
 }
 
@@ -565,15 +591,15 @@ func (a *Analyzer) persistFinding(ctx context.Context, orgID, accountID string, 
     detailsJSON, _ := json.Marshal(f.Details)
 
     query := `
-        INSERT INTO findings 
+        INSERT INTO findings
         (org_id, aws_account_id, resource_id, type, severity, summary, details, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
         ON CONFLICT (org_id, aws_account_id, resource_id, type)
         DO UPDATE SET updated_at = NOW()
     `
 
-    _, err := a.db.ExecContext(ctx, query,
-        orgID, accountID, f.ResourceID, f.Type, f.Severity, f.Summary, string(detailsJSON))
+    _, err := a.pool.Exec(ctx, query,
+        orgID, accountID, f.ResourceID, f.Type, f.Severity, f.Summary, detailsJSON)
     return err
 }
 ```
@@ -587,7 +613,7 @@ func (a *Analyzer) AnalyzeSSL(ctx context.Context, accountID, orgID string) erro
         FROM certificates
         WHERE aws_account_id = $1 AND org_id = $2
     `
-    rows, err := a.db.QueryContext(ctx, query, accountID, orgID)
+    rows, err := a.pool.Query(ctx, query, accountID, orgID)
     if err != nil {
         return fmt.Errorf("query certificates: %w", err)
     }
@@ -601,7 +627,7 @@ func (a *Analyzer) AnalyzeSSL(ctx context.Context, accountID, orgID string) erro
         var notAfter time.Time
 
         if err := rows.Scan(&id, &notAfter, &domain); err != nil {
-            log.Printf("Scan error: %v", err)
+            log.Error().Err(err).Msg("scan error")
             continue
         }
 
@@ -637,7 +663,7 @@ func (a *Analyzer) AnalyzeSSL(ctx context.Context, accountID, orgID string) erro
 
     for _, f := range findings {
         if err := a.persistFinding(ctx, orgID, accountID, &f); err != nil {
-            log.Printf("Persist finding failed: %v", err)
+            log.Error().Err(err).Msg("persist finding failed")
         }
     }
 
@@ -704,79 +730,67 @@ func (q *JobQueue) ConsumeJobs(ctx context.Context, jobType string, handler func
 ### 6.2 Worker Main Loop
 
 ```go
-// main.go
+// cmd/scanner/main.go
 package main
 
 import (
     "context"
-    "encoding/json"
-    "log"
     "os"
     "os/signal"
     "syscall"
+
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/rs/zerolog"
+    "github.com/rs/zerolog/log"
+
+    "github.com/maxbolgarin/scanorbit/internal/config"
+    "github.com/maxbolgarin/scanorbit/internal/queue"
+    "github.com/maxbolgarin/scanorbit/internal/scanner"
+    "github.com/maxbolgarin/scanorbit/internal/store"
 )
 
 func main() {
+    // Setup zerolog
+    zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+    log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    // Setup database
-    db, err := setupDB()
+    cfg := config.Load()
+
+    // Setup database (pgx pool)
+    pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
     if err != nil {
-        log.Fatalf("Database setup failed: %v", err)
+        log.Fatal().Err(err).Msg("database setup failed")
     }
-    defer db.Close()
+    defer pool.Close()
 
     // Setup Redis
-    rdb, err := setupRedis()
+    rdb, err := queue.NewRedisClient(cfg.RedisURL)
     if err != nil {
-        log.Fatalf("Redis setup failed: %v", err)
+        log.Fatal().Err(err).Msg("redis setup failed")
     }
     defer rdb.Close()
 
     // Setup workers
-    scanner := worker.NewScanner(db)
-    analyzer := worker.NewAnalyzer(db)
-    queue := queue.NewJobQueue(rdb)
+    st := store.New(pool)
+    sc := scanner.New(st, cfg)
+    jq := queue.New(rdb)
 
     // Graceful shutdown on SIGTERM/SIGINT
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-    // Start job consumers
-    go consumeScanJobs(ctx, queue, scanner)
-    go consumeAnalyzeJobs(ctx, queue, analyzer)
+    // Start job consumer
+    go jq.Consume(ctx, "scan_account", sc.HandleJob)
 
-    log.Println("Workers started. Waiting for jobs...")
+    log.Info().Msg("scanner worker started, waiting for jobs...")
 
     // Wait for shutdown signal
     <-sigChan
-    log.Println("Shutting down gracefully...")
+    log.Info().Msg("shutting down gracefully...")
     cancel()
-}
-
-func consumeScanJobs(ctx context.Context, q *queue.JobQueue, s *worker.Scanner) {
-    q.ConsumeJobs(ctx, "scan_account", func(payload []byte) error {
-        var job job.ScanAccountJob
-        if err := json.Unmarshal(payload, &job); err != nil {
-            return fmt.Errorf("unmarshal job: %w", err)
-        }
-
-        log.Printf("Processing scan job: account=%s", job.AccountID)
-        return s.ScanAccount(ctx, &job)
-    })
-}
-
-func consumeAnalyzeJobs(ctx context.Context, q *queue.JobQueue, a *worker.Analyzer) {
-    q.ConsumeJobs(ctx, "analyze_orphans", func(payload []byte) error {
-        var job job.AnalyzeJob
-        if err := json.Unmarshal(payload, &job); err != nil {
-            return fmt.Errorf("unmarshal job: %w", err)
-        }
-
-        log.Printf("Processing analyze job: account=%s", job.AccountID)
-        return a.AnalyzeOrphans(ctx, job.AccountID, job.OrgID)
-    })
 }
 ```
 
@@ -786,31 +800,52 @@ func consumeAnalyzeJobs(ctx context.Context, q *queue.JobQueue, a *worker.Analyz
 
 ### 7.1 Docker Container (Dockerfile)
 
+The workers use a multi-stage Dockerfile that builds both scanner and analyzer:
+
 ```dockerfile
-FROM golang:1.22-alpine AS builder
-
+# Build stage
+FROM golang:1.23-alpine AS builder
 WORKDIR /app
-COPY go.mod go.sum ./
+ENV GOTOOLCHAIN=auto
+RUN apk add --no-cache git
+COPY go.mod go.sum* ./
 RUN go mod download
-
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o scanner-worker main.go
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+# Build scanner
+FROM builder AS build-scanner
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /scanner ./cmd/scanner
+
+# Build analyzer
+FROM builder AS build-analyzer
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /analyzer ./cmd/analyzer
+
+# Scanner production image
+FROM alpine:3.21 AS scanner
+RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
-COPY --from=builder /app/scanner-worker .
+COPY --from=build-scanner /scanner .
+USER nobody:nobody
+ENTRYPOINT ["./scanner"]
 
-CMD ["./scanner-worker"]
+# Analyzer production image
+FROM alpine:3.21 AS analyzer
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+COPY --from=build-analyzer /analyzer .
+USER nobody:nobody
+ENTRYPOINT ["./analyzer"]
 ```
 
 ### 7.2 Docker Compose Entry (docker-compose.yml)
 
 ```yaml
 scanner-worker:
-  build: ./workers/scanner
+  build:
+    context: ./workers
+    target: scanner
   environment:
-    DATABASE_URL: postgresql://user:pass@postgres:5432/scanorbit
+    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/scanorbit
     REDIS_URL: redis://redis:6379
     AWS_REGION: eu-west-1
     LOG_LEVEL: info
@@ -820,10 +855,13 @@ scanner-worker:
   restart: always
 
 analyzer-worker:
-  build: ./workers/analyzer
+  build:
+    context: ./workers
+    target: analyzer
   environment:
-    DATABASE_URL: postgresql://user:pass@postgres:5432/scanorbit
+    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/scanorbit
     REDIS_URL: redis://redis:6379
+    LOG_LEVEL: info
   depends_on:
     - postgres
     - redis
@@ -842,16 +880,27 @@ analyzer-worker:
 
 ### 8.1 Logging
 
-Use structured logging (JSON) for easy aggregation:
+Use **zerolog** for structured JSON logging:
 
 ```go
-import "log/slog"
+import "github.com/rs/zerolog/log"
 
-log.Info("scan started",
-    "account_id", accountID,
-    "region", region,
-    "duration_seconds", elapsed,
-)
+// Configure zerolog at startup (internal/config/config.go)
+zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+// Structured logging in workers
+log.Info().
+    Str("account_id", accountID).
+    Str("region", region).
+    Float64("duration_seconds", elapsed).
+    Msg("scan started")
+
+// Error logging
+log.Error().
+    Err(err).
+    Str("region", region).
+    Msg("failed to scan region")
 ```
 
 ### 8.2 Metrics to Track
@@ -867,8 +916,13 @@ log.Info("scan started",
 Add periodic health check to database/Redis:
 
 ```go
-func healthCheck(ctx context.Context, db *sql.DB, rdb *redis.Client) error {
-    if err := db.PingContext(ctx); err != nil {
+import (
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/redis/go-redis/v9"
+)
+
+func healthCheck(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client) error {
+    if err := pool.Ping(ctx); err != nil {
         return fmt.Errorf("database unhealthy: %w", err)
     }
     if err := rdb.Ping(ctx).Err(); err != nil {
@@ -943,11 +997,14 @@ Mock AWS SDK with `github.com/aws/aws-sdk-go-v2/aws` mocks or use test fixtures.
 
 | Library | Purpose | Version |
 |---------|---------|---------|
-| `github.com/aws/aws-sdk-go-v2` | AWS API access | v2.x (v1 EOL) |
-| `github.com/redis/go-redis` | Redis client | v9.x |
-| `github.com/lib/pq` | Postgres driver | Latest |
-| `log/slog` (built-in) | Structured logging | Go 1.21+ |
+| `github.com/aws/aws-sdk-go-v2` | AWS API access | v2.x (v1 EOL July 2025) |
+| `github.com/jackc/pgx/v5` | PostgreSQL driver (pure Go) | v5.8.x |
+| `github.com/redis/go-redis/v9` | Redis client | v9.x |
+| `github.com/rs/zerolog` | Structured JSON logging | v1.34.x |
+| `github.com/google/uuid` | UUID generation | v1.6.x |
 | `sync.WaitGroup` (built-in) | Goroutine synchronization | Built-in |
+
+**Note:** The codebase uses **pgx/v5** instead of `lib/pq` for better performance and native PostgreSQL protocol support.
 
 ---
 

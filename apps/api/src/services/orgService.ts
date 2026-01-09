@@ -1,8 +1,24 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP403Error, HTTP404Error } from '../lib/errors.js';
-import { orgs, userOrgMembers } from '../db/schema.js';
+import { orgs, userOrgMembers, users } from '../db/schema.js';
 import type { Org } from '../db/schema.js';
+import { jwt } from '../lib/jwt.js';
+
+// Generate URL-safe slug from org name
+function generateSlug(name: string): string {
+  const baseSlug = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, 50);
+
+  // Add random suffix to ensure uniqueness
+  const suffix = Date.now().toString(36);
+  return `${baseSlug}-${suffix}`;
+}
 
 interface UpdateOrgData {
   name?: string;
@@ -10,6 +26,59 @@ interface UpdateOrgData {
 }
 
 export const orgService = {
+  /**
+   * Create an org and add user as admin (with optional title and fullName update)
+   * Returns the org and a new JWT token with the orgId set
+   */
+  async createOrg(
+    userId: string,
+    orgName: string,
+    fullName?: string,
+    title?: string
+  ): Promise<{ org: Pick<Org, 'id' | 'name' | 'slug'>; token: string }> {
+    const slug = generateSlug(orgName.trim());
+
+    // Create org
+    const [org] = await db
+      .insert(orgs)
+      .values({
+        name: orgName.trim(),
+        slug,
+      })
+      .returning({
+        id: orgs.id,
+        name: orgs.name,
+        slug: orgs.slug,
+      });
+
+    // Add user as admin with title
+    await db.insert(userOrgMembers).values({
+      userId,
+      orgId: org.id,
+      role: 'admin',
+      title: title || null,
+    });
+
+    // Update user's full name if provided
+    if (fullName) {
+      await db
+        .update(users)
+        .set({
+          fullName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    }
+
+    // Generate new JWT with orgId
+    const token = await jwt.sign({
+      userId,
+      orgId: org.id,
+    });
+
+    return { org, token };
+  },
+
   async getOrg(orgId: string, userId: string): Promise<Org> {
     // Verify user has access to org
     const [membership] = await db

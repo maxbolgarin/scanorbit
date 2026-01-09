@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, jsonb, numeric, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, numeric, uniqueIndex, index, integer, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Users
@@ -7,6 +7,9 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   fullName: varchar('full_name', { length: 255 }),
+  emailVerified: boolean('email_verified').default(false).notNull(),
+  emailVerificationCode: varchar('email_verification_code', { length: 6 }),
+  emailVerificationExpiresAt: timestamp('email_verification_expires_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -40,6 +43,7 @@ export const userOrgMembers = pgTable('user_org_members', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
   role: varchar('role', { length: 50 }).default('member').notNull(), // 'admin', 'member'
+  title: varchar('title', { length: 50 }), // 'devops', 'cto', 'developer', 'security', 'personal', 'other' (analytics only)
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
   uniqueIndex('user_org_members_user_org_idx').on(table.userId, table.orgId),
@@ -96,6 +100,10 @@ export const scans = pgTable('scans', {
   startedAt: timestamp('started_at'),
   completedAt: timestamp('completed_at'),
   resourcesDiscovered: integer('resources_discovered').default(0).notNull(),
+  // Diff fields - compared to previous scan
+  resourcesDelta: integer('resources_delta').default(0).notNull(), // positive = new resources, negative = removed
+  findingsNew: integer('findings_new').default(0).notNull(),
+  findingsResolved: integer('findings_resolved').default(0).notNull(),
   errorMessage: text('error_message'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
@@ -120,7 +128,7 @@ export const resources = pgTable('resources', {
   orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
   awsAccountId: uuid('aws_account_id').notNull().references(() => awsAccounts.id, { onDelete: 'cascade' }),
   resourceId: varchar('resource_id', { length: 255 }).notNull(), // ARN or provider ID
-  service: varchar('service', { length: 50 }).notNull(), // 'ec2', 'ebs', 'rds', 's3', 'alb', 'acm'
+  service: varchar('service', { length: 50 }).notNull(), // 'ec2', 'ebs', 'eip', 'rds', 'rds_snapshot', 's3', 'alb', 'acm', 'lambda', 'cloudwatch_logs', 'cloudwatch_alarm', 'iam_user', 'iam_role', 'iam_policy', 'iam_access_key', 'security_group', 'secret', 'kms_key'
   region: varchar('region', { length: 50 }),
   name: varchar('name', { length: 255 }),
   state: varchar('state', { length: 50 }), // 'available', 'running', 'pending', etc.
@@ -189,7 +197,7 @@ export const findings = pgTable('findings', {
   awsAccountId: uuid('aws_account_id').notNull().references(() => awsAccounts.id, { onDelete: 'cascade' }),
   resourceId: uuid('resource_id').references(() => resources.id, { onDelete: 'set null' }),
   certificateId: uuid('certificate_id').references(() => certificates.id, { onDelete: 'set null' }),
-  type: varchar('type', { length: 50 }).notNull(), // 'orphaned_volume', 'ssl_expiry', 'data_residency_violation'
+  type: varchar('type', { length: 50 }).notNull(), // 'orphaned_volume', 'orphaned_eip', 'orphaned_snapshot', 'ssl_expiry', 'data_residency_violation', 'unencrypted_resource', 'public_access', 'permissive_security_group', 'open_all_ports', 'unused_resource', 'stopped_instance', 'unused_log_group', 'missing_tag', 'old_access_key', 'unused_access_key', 'unused_iam_role', 'user_without_mfa'
   severity: varchar('severity', { length: 50 }).notNull(), // 'low', 'medium', 'high'
   summary: text('summary').notNull(),
   details: jsonb('details').default({}).notNull(),
@@ -227,7 +235,7 @@ export const findingsRelations = relations(findings, ({ one }) => ({
 // Jobs (for background workers)
 export const jobs = pgTable('jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  type: varchar('type', { length: 50 }).notNull(), // 'scan_account', 'analyze_orphans'
+  type: varchar('type', { length: 50 }).notNull(), // 'scan_account', 'analyze_orphans', 'analyze_ssl', 'analyze_residency', 'analyze_security', 'analyze_cost', 'analyze_tagging', 'analyze_iam'
   payload: jsonb('payload').notNull(),
   status: varchar('status', { length: 50 }).default('queued').notNull(), // 'queued', 'running', 'complete', 'error'
   result: jsonb('result'),
@@ -239,6 +247,36 @@ export const jobs = pgTable('jobs', {
   index('jobs_status_idx').on(table.status),
   index('jobs_type_idx').on(table.type),
 ]);
+
+// Consent Logs (GDPR compliance)
+export const consentLogs = pgTable('consent_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  email: varchar('email', { length: 255 }).notNull(),
+  // Consent details
+  consentType: varchar('consent_type', { length: 50 }).notNull(), // 'terms_and_privacy', 'marketing', etc.
+  consentVersion: varchar('consent_version', { length: 50 }).notNull(), // e.g., '1.0', '2024-01-01'
+  consentGiven: boolean('consent_given').notNull(),
+  // GDPR required fields
+  ipAddress: varchar('ip_address', { length: 45 }), // IPv6 max length
+  userAgent: text('user_agent'),
+  // Timestamps
+  consentedAt: timestamp('consented_at').defaultNow().notNull(),
+  // Additional metadata
+  metadata: jsonb('metadata').default({}).notNull(), // Additional context (signup source, etc.)
+}, (table) => [
+  index('consent_logs_user_id_idx').on(table.userId),
+  index('consent_logs_email_idx').on(table.email),
+  index('consent_logs_consent_type_idx').on(table.consentType),
+  index('consent_logs_consented_at_idx').on(table.consentedAt),
+]);
+
+export const consentLogsRelations = relations(consentLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [consentLogs.userId],
+    references: [users.id],
+  }),
+}));
 
 // Type exports for use in services
 export type User = typeof users.$inferSelect;
@@ -259,3 +297,5 @@ export type Finding = typeof findings.$inferSelect;
 export type NewFinding = typeof findings.$inferInsert;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
+export type ConsentLog = typeof consentLogs.$inferSelect;
+export type NewConsentLog = typeof consentLogs.$inferInsert;

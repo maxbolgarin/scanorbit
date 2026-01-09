@@ -128,16 +128,21 @@ This ensures compliance with:
 | Data Type | Retention Period | Reason |
 |-----------|------------------|--------|
 | **Account Information** | Until account deletion | Required to operate your account |
-| **Scan Results** | 90 days | Enables trend analysis and historical comparison |
-| **Findings** | 90 days | Allows you to track resolution progress |
+| **Scan Results** | Based on plan (7-90 days) | Enables trend analysis and historical comparison |
+| **Findings** | Based on plan (7-90 days) | Allows you to track resolution progress |
 | **API Logs** | 30 days | Debugging and security monitoring |
 | **Authentication Logs** | 30 days | Security and fraud detection |
 | **Backups** | 30 days after deletion | Disaster recovery purposes |
 
+**Retention by Plan:**
+- **Free:** 7 days
+- **Pro:** 30 days
+- **Team:** 90 days
+
 **Deletion:**
 - When you delete your account, all personal data is removed within 7 days
 - Backups are kept for 30 days for disaster recovery
-- Scan data is permanently deleted after 90 days of inactivity
+- Scan data is permanently deleted after plan retention period expires
 
 ---
 
@@ -179,7 +184,7 @@ As an EU resident or user, you have the following rights:
 ### 6.1 Right to Access
 **Request a copy of all your personal data we hold.**
 
-Email: privacy@scanorbit.cloud
+Email: dpa@scanorbit.cloud
 Response time: Within 30 days
 
 ### 6.2 Right to Erasure
@@ -245,10 +250,10 @@ You can disable:
 - Incident response procedures
 
 ### 7.3 Future Compliance
-- **SOC2 Type II Audit:** Q2 2026
-- **ISO 27001 Certification:** Q3 2026
-- **Penetration Testing:** Q1 2026
-- **Bug Bounty Program:** Coming soon
+- **SOC2 Type II Audit:** Late 2026
+- **ISO 27001 Certification:** Late 2026
+- **Penetration Testing:** Mid 2026
+- **Bug Bounty Program:** Mid 2026
 
 ---
 
@@ -258,22 +263,20 @@ You can disable:
 We connect to your AWS account using **read-only IAM role** and can only view:
 - EC2 instances and metadata
 - EBS volumes and snapshots
-- S3 buckets and configurations
+- S3 buckets (location and tags only, not contents)
 - RDS databases (metadata only, no data)
-- Load balancers and listeners
-- ACM certificates
-- Security groups
-- IAM roles and policies
+- Load balancers and configurations
+- ACM certificates (metadata only)
 - Resource tags
 
 ### 8.2 What We Cannot Do
-- Terminate instances
+- Terminate or modify instances
 - Delete volumes or snapshots
 - Modify security settings
 - Access S3 object contents
 - Read database contents
-- Change resource configurations
-- Escalate IAM permissions
+- Change any resource configurations
+- Perform any write operations
 
 ### 8.3 Your AWS Credentials
 - **IAM Role:** We use the role you provide (you maintain full control)
@@ -345,19 +348,16 @@ We may update this policy to reflect:
 
 ## 13. Contact Us
 
-**Privacy Inquiries:**
-Email: privacy@scanorbit.cloud
-
-**Data Subject Requests (GDPR):**
+**Privacy & Data Subject Requests (GDPR):**
 Email: dpa@scanorbit.cloud
 Response time: Within 30 days
+
+**General Inquiries:**
+Email: hello@scanorbit.cloud
 
 **Mailing Address:**
 ScanOrbit
 Amsterdam, Netherlands
-
-**Data Protection Officer (if appointed):**
-Contact: dpo@scanorbit.cloud
 
 ---
 

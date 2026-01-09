@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -16,15 +17,21 @@ import (
 
 // Scanner orchestrates AWS resource scanning.
 type Scanner struct {
-	awsClient   *awsclient.Client
-	store       *store.Store
-	ec2Scanner  *awsclient.EC2Scanner
-	rdsScanner  *awsclient.RDSScanner
-	s3Scanner   *awsclient.S3Scanner
-	albScanner  *awsclient.ALBScanner
-	acmScanner  *awsclient.ACMScanner
-	concurrency int
-	logger      zerolog.Logger
+	awsClient             *awsclient.Client
+	store                 *store.Store
+	ec2Scanner            *awsclient.EC2Scanner
+	rdsScanner            *awsclient.RDSScanner
+	s3Scanner             *awsclient.S3Scanner
+	albScanner            *awsclient.ALBScanner
+	acmScanner            *awsclient.ACMScanner
+	lambdaScanner         *awsclient.LambdaScanner
+	cloudwatchScanner     *awsclient.CloudWatchScanner
+	iamScanner            *awsclient.IAMScanner
+	securityGroupScanner  *awsclient.SecurityGroupScanner
+	secretsManagerScanner *awsclient.SecretsManagerScanner
+	kmsScanner            *awsclient.KMSScanner
+	concurrency           int
+	logger                zerolog.Logger
 }
 
 // NewScanner creates a new Scanner.
@@ -35,21 +42,35 @@ func NewScanner(
 	logger zerolog.Logger,
 ) *Scanner {
 	return &Scanner{
-		awsClient:   awsClient,
-		store:       st,
-		ec2Scanner:  awsclient.NewEC2Scanner(logger),
-		rdsScanner:  awsclient.NewRDSScanner(logger),
-		s3Scanner:   awsclient.NewS3Scanner(logger),
-		albScanner:  awsclient.NewALBScanner(logger),
-		acmScanner:  awsclient.NewACMScanner(logger),
-		concurrency: concurrency,
-		logger:      logger.With().Str("component", "scanner").Logger(),
+		awsClient:             awsClient,
+		store:                 st,
+		ec2Scanner:            awsclient.NewEC2Scanner(logger),
+		rdsScanner:            awsclient.NewRDSScanner(logger),
+		s3Scanner:             awsclient.NewS3Scanner(logger),
+		albScanner:            awsclient.NewALBScanner(logger),
+		acmScanner:            awsclient.NewACMScanner(logger),
+		lambdaScanner:         awsclient.NewLambdaScanner(logger),
+		cloudwatchScanner:     awsclient.NewCloudWatchScanner(logger),
+		iamScanner:            awsclient.NewIAMScanner(logger),
+		securityGroupScanner:  awsclient.NewSecurityGroupScanner(logger),
+		secretsManagerScanner: awsclient.NewSecretsManagerScanner(logger),
+		kmsScanner:            awsclient.NewKMSScanner(logger),
+		concurrency:           concurrency,
+		logger:                logger.With().Str("component", "scanner").Logger(),
 	}
 }
 
 // ScanAccount scans all resources for an AWS account.
 func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) error {
 	startedAt := time.Now()
+
+	// Validate job payload
+	if job.AccountID == "" {
+		return errors.New("account_id is required but was empty")
+	}
+	if job.OrgID == "" {
+		return errors.New("org_id is required but was empty")
+	}
 
 	s.logger.Info().
 		Str("account_id", job.AccountID).
@@ -116,11 +137,37 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		close(resultsChan)
 	}()
 
-	// 6. S3 scan (global, once)
-	var s3Resources []*models.Resource
-	s3Resources, err = s.s3Scanner.ScanBuckets(ctx, cfg)
+	// 6. Global scans (S3 and IAM - not region-specific)
+	var globalResources []*models.Resource
+
+	// S3 scan (global, once)
+	s3Resources, err := s.s3Scanner.ScanBuckets(ctx, cfg)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("s3 scan failed")
+	} else {
+		globalResources = append(globalResources, s3Resources...)
+	}
+
+	// IAM scans (global, not region-specific)
+	iamUsers, err := s.iamScanner.ScanUsers(ctx, cfg)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("iam users scan failed")
+	} else {
+		globalResources = append(globalResources, iamUsers...)
+	}
+
+	iamRoles, err := s.iamScanner.ScanRoles(ctx, cfg)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("iam roles scan failed")
+	} else {
+		globalResources = append(globalResources, iamRoles...)
+	}
+
+	iamAccessKeys, err := s.iamScanner.ScanAccessKeys(ctx, cfg)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("iam access keys scan failed")
+	} else {
+		globalResources = append(globalResources, iamAccessKeys...)
 	}
 
 	// 7. Fan-in: collect and persist results
@@ -155,12 +202,12 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		}
 	}
 
-	// Persist S3 resources
-	for _, r := range s3Resources {
+	// Persist global resources (S3, IAM)
+	for _, r := range globalResources {
 		r.OrgID = job.OrgID
 		r.AWSAccountID = job.AccountID
 		if err := s.store.Resources.Upsert(ctx, r); err != nil {
-			s.logger.Error().Err(err).Str("resource_id", r.ResourceID).Msg("failed to upsert s3 resource")
+			s.logger.Error().Err(err).Str("resource_id", r.ResourceID).Msg("failed to upsert global resource")
 			continue
 		}
 		totalResources++
@@ -296,6 +343,90 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		}
 		mu.Lock()
 		result.Certificates = append(result.Certificates, certs...)
+		mu.Unlock()
+	}()
+
+	// Lambda Functions
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.lambdaScanner.ScanFunctions(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("lambda scan failed")
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// CloudWatch Log Groups
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.cloudwatchScanner.ScanLogGroups(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch logs scan failed")
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// CloudWatch Alarms
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.cloudwatchScanner.ScanAlarms(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch alarms scan failed")
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// Security Groups
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.securityGroupScanner.ScanSecurityGroups(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("security groups scan failed")
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// Secrets Manager
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.secretsManagerScanner.ScanSecrets(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("secrets manager scan failed")
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// KMS Keys
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.kmsScanner.ScanKeys(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("kms scan failed")
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
 		mu.Unlock()
 	}()
 

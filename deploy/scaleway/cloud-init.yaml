@@ -1,0 +1,154 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - git
+  - make
+
+write_files:
+  # Docker daemon configuration
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+
+  # GHCR login script
+  - path: /opt/setup-ghcr.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+
+      echo "=========================================="
+      echo "  GitHub Container Registry Setup"
+      echo "=========================================="
+      echo ""
+      echo "To authenticate with GHCR, you need a GitHub Personal Access Token (PAT)"
+      echo "with 'read:packages' scope."
+      echo ""
+      echo "1. Create a PAT at: https://github.com/settings/tokens/new"
+      echo "   - Select 'read:packages' scope"
+      echo "   - Copy the token"
+      echo ""
+      echo "2. Run this command with your credentials:"
+      echo ""
+      echo "   echo 'YOUR_PAT' | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin"
+      echo ""
+      echo "3. Verify login:"
+      echo "   cat ~/.docker/config.json"
+      echo ""
+      echo "4. Start the application:"
+      echo "   cd /opt/scanorbit && docker compose -f docker-compose.prod.yml up -d"
+      echo ""
+      echo "=========================================="
+
+  # Application setup script
+  - path: /opt/setup-app.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+
+      APP_DIR="/opt/scanorbit"
+
+      # Create application directory
+      mkdir -p $APP_DIR
+      cd $APP_DIR
+
+      # Create data directories
+      mkdir -p data/postgres data/redis logs
+
+      echo "Setup complete. Application directory: $APP_DIR"
+      echo ""
+      echo "Next steps:"
+      echo "1. Configure GHCR: /opt/setup-ghcr.sh"
+      echo "2. Copy docker-compose.prod.yml, Caddyfile, and .env.prod to $APP_DIR"
+      echo "3. Start: docker compose -f docker-compose.prod.yml up -d"
+
+  # Deploy script
+  - path: /opt/deploy.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+
+      APP_DIR="/opt/scanorbit"
+      cd $APP_DIR
+
+      echo "Pulling latest images..."
+      docker compose -f docker-compose.prod.yml pull
+
+      echo "Restarting services..."
+      docker compose -f docker-compose.prod.yml up -d
+
+      echo "Cleaning up old images..."
+      docker image prune -f
+
+      echo "Deploy complete!"
+
+runcmd:
+  # Install Docker using official method
+  - curl -fsSL https://get.docker.com | sh
+
+  # Enable and start Docker
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Install Docker Compose plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+  # Verify installations
+  - docker --version
+  - docker compose version
+
+  # Run application setup
+  - /opt/setup-app.sh
+
+  # Configure firewall (ufw)
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+final_message: |
+  ScanOrbit VM initialized successfully!
+
+  ==========================================
+  DEPLOYMENT WITH GHCR (CI/CD)
+  ==========================================
+
+  1. SSH into the server:
+     ssh root@<public_ip>
+
+  2. Configure GHCR authentication:
+     /opt/setup-ghcr.sh
+     echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+
+  3. Copy deployment files to /opt/scanorbit:
+     - docker-compose.prod.yml
+     - Caddyfile
+     - .env.prod (from .env.example)
+
+  4. Start services:
+     cd /opt/scanorbit
+     docker compose -f docker-compose.prod.yml up -d
+
+  5. Auto-updates:
+     Watchtower will automatically pull new images every 5 minutes
+     when you push to main branch.
+
+  ==========================================

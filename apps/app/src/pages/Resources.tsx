@@ -1,60 +1,270 @@
-import { useState } from "react";
-import { ResourceFilters } from "@/components/resources/ResourceFilters";
-import { ResourcesTable } from "@/components/resources/ResourcesTable";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { ResourceFiltersAdvanced } from "@/components/resources/ResourceFiltersAdvanced";
+import { ResourcesTableAdvanced } from "@/components/resources/ResourcesTableAdvanced";
+import { ResourceStatsCards } from "@/components/resources/ResourceStatsCards";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useResources, useResourceRegions, useResourceServices } from "@/hooks/use-resources";
-import type { ResourceFilters as Filters } from "@/types";
-import { Server } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
+import {
+  useResources,
+  useResourceRegions,
+  useResourceServices,
+  useResourceStats,
+} from "@/hooks/use-resources";
+import { formatCurrency } from "@/lib/utils";
+import type { ResourceFilters as Filters, ServiceType, Resource } from "@/types";
+import { Server, RefreshCw, LayoutGrid, List, BarChart3 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+
+type ViewMode = "table" | "grid";
 
 export default function Resources() {
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<Filters>({});
-  const { data: resources, isLoading } = useResources(filters);
-  const regions = useResourceRegions();
-  const services = useResourceServices();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [showStats, setShowStats] = useState(true);
+
+  // Fetch all resources (we'll filter client-side for search)
+  const { data: resourcesResponse, isLoading, isFetching } = useResources(filters);
+  const allResources = resourcesResponse?.data || [];
+  const { data: regions = [] } = useResourceRegions();
+  const { data: services = [] } = useResourceServices();
+  const { data: stats, isLoading: statsLoading } = useResourceStats();
+
+  // Client-side search filter
+  const filteredResources = useMemo(() => {
+    if (!searchQuery.trim()) return allResources;
+
+    const query = searchQuery.toLowerCase();
+    return allResources.filter(
+      (resource) =>
+        resource.name?.toLowerCase().includes(query) ||
+        resource.resourceId.toLowerCase().includes(query) ||
+        resource.service.toLowerCase().includes(query)
+    );
+  }, [allResources, searchQuery]);
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["resources"] });
+    queryClient.invalidateQueries({ queryKey: ["resource-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["resource-regions"] });
+    queryClient.invalidateQueries({ queryKey: ["resource-services"] });
+  };
+
+  const hasAnyResources = stats?.totalCount && stats.totalCount > 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Resources</h1>
+          <p className="text-muted-foreground">
+            Browse and manage your AWS infrastructure
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Stats toggle */}
+          <Button
+            variant={showStats ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowStats(!showStats)}
+            className="hidden sm:flex"
+          >
+            <BarChart3 className="mr-2 h-4 w-4" />
+            {showStats ? "Hide Stats" : "Show Stats"}
+          </Button>
+
+          {/* View toggle */}
+          <div className="flex items-center rounded-lg border p-1">
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("table")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("grid")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Refresh button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isFetching}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats cards */}
+      {showStats && (
+        <ResourceStatsCards stats={stats} isLoading={statsLoading} />
+      )}
+
+      {/* Main content */}
+      {hasAnyResources || isLoading ? (
+        <div className="space-y-4">
+          {/* Filters */}
+          <ResourceFiltersAdvanced
+            filters={filters}
+            onFiltersChange={setFilters}
+            regions={regions}
+            services={services as ServiceType[]}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            totalCount={stats?.totalCount || 0}
+            filteredCount={filteredResources.length}
+          />
+
+          {/* Table or grid view */}
+          {viewMode === "table" ? (
+            <ResourcesTableAdvanced
+              resources={filteredResources}
+              isLoading={isLoading}
+            />
+          ) : (
+            <ResourcesGridView
+              resources={filteredResources}
+              isLoading={isLoading}
+            />
+          )}
+        </div>
+      ) : (
+        <EmptyStateWithAction />
+      )}
+    </div>
+  );
+}
+
+// Empty state with navigation action
+function EmptyStateWithAction() {
+  const navigate = useNavigate();
+  return (
+    <EmptyState
+      icon={Server}
+      title="No resources found"
+      description="Connect an AWS account and run a scan to discover your infrastructure resources."
+      actionLabel="Connect AWS Account"
+      onAction={() => navigate("/accounts")}
+    />
+  );
+}
+
+// Grid view component
+function ResourcesGridView({
+  resources,
+  isLoading,
+}: {
+  resources: Resource[];
+  isLoading?: boolean;
+}) {
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="animate-pulse rounded-lg border bg-card p-4 space-y-3"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded bg-muted" />
+              <div className="space-y-1.5">
+                <div className="h-4 w-24 rounded bg-muted" />
+                <div className="h-3 w-16 rounded bg-muted" />
+              </div>
+            </div>
+            <div className="h-3 w-full rounded bg-muted" />
+            <div className="flex gap-2">
+              <div className="h-5 w-16 rounded bg-muted" />
+              <div className="h-5 w-20 rounded bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (resources.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-lg border bg-muted/30">
+        <p className="text-muted-foreground">No resources match your filters</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Resources</h1>
-        <p className="text-muted-foreground">
-          Browse all discovered AWS infrastructure
-        </p>
-      </div>
-
-      <ResourceFilters
-        filters={filters}
-        onFiltersChange={setFilters}
-        regions={regions}
-        services={services}
-      />
-
-      {resources && resources.length > 0 ? (
-        <>
-          <div className="text-sm text-muted-foreground">
-            Showing {resources.length} resources
-          </div>
-          <ResourcesTable resources={resources} />
-        </>
-      ) : (
-        <EmptyState
-          icon={Server}
-          title="No resources found"
-          description={
-            filters.search || filters.service || filters.region
-              ? "Try adjusting your filters"
-              : "Connect an AWS account to discover resources"
-          }
-        />
-      )}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {resources.map((resource) => (
+        <Card
+          key={resource.id}
+          className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+          onClick={() => navigate(`/resources/${resource.id}`)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-muted p-2">
+                <ServiceIcon
+                  service={resource.service}
+                  className="h-6 w-6"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">
+                  {resource.name || resource.resourceId}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {getServiceLabel(resource.service)}
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground font-mono truncate">
+              {resource.resourceId}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {resource.region && (
+                <Badge variant="outline" className="text-xs">
+                  {resource.region}
+                </Badge>
+              )}
+              {resource.state && (
+                <Badge
+                  variant={
+                    resource.state === "running" || resource.state === "active"
+                      ? "success"
+                      : "secondary"
+                  }
+                  className="text-xs capitalize"
+                >
+                  {resource.state}
+                </Badge>
+              )}
+              {resource.costEstimateMonthly && (
+                <Badge variant="outline" className="text-xs">
+                  {formatCurrency(parseFloat(resource.costEstimateMonthly))}/mo
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

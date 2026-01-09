@@ -6,6 +6,7 @@ import * as api from "@/lib/api";
 interface AuthState {
   user: User | null;
   org: Org | null;
+  orgs: Org[];
   isAuthenticated: boolean;
   hasOrg: boolean;
   isLoading: boolean;
@@ -13,20 +14,23 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<void>;
+  signup: (email: string, password: string, fullName?: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
-  createOrg: (name: string) => Promise<void>;
+  switchOrg: (orgId: string) => Promise<void>;
   setOrg: (org: Org) => void;
+  setUser: (user: User) => void;
+  setToken: (token: string) => void;
   updateUser: (user: User) => void;
   clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       org: null,
+      orgs: [],
       isAuthenticated: false,
       hasOrg: false,
       isLoading: false,
@@ -36,11 +40,14 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await api.login({ email, password });
+          // Pick first org as active org
+          const activeOrg = response.orgs.length > 0 ? response.orgs[0] : null;
           set({
             user: response.user,
-            org: response.org,
+            org: activeOrg,
+            orgs: response.orgs,
             isAuthenticated: true,
-            hasOrg: !!response.org,
+            hasOrg: !!activeOrg,
             isLoading: false,
           });
         } catch (err) {
@@ -52,13 +59,16 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signup: async (email: string, password: string, name?: string) => {
+      signup: async (email: string, password: string, fullName?: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.signup({ email, password, name });
+          const response = await api.signup({ email, password, fullName });
+          // Signup returns single org (or null if not created)
+          const orgs = response.org ? [response.org] : [];
           set({
             user: response.user,
             org: response.org,
+            orgs,
             isAuthenticated: true,
             hasOrg: !!response.org,
             isLoading: false,
@@ -80,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             org: null,
+            orgs: [],
             isAuthenticated: false,
             hasOrg: false,
             isLoading: false,
@@ -92,17 +103,23 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const response = await api.getMe();
+          const currentOrg = get().org;
+          // Keep current org if still in orgs list, otherwise pick first
+          const activeOrg = response.orgs.find(o => o.id === currentOrg?.id)
+            || (response.orgs.length > 0 ? response.orgs[0] : null);
           set({
             user: response.user,
-            org: response.org,
+            org: activeOrg,
+            orgs: response.orgs,
             isAuthenticated: true,
-            hasOrg: !!response.org,
+            hasOrg: !!activeOrg,
             isLoading: false,
           });
         } catch {
           set({
             user: null,
             org: null,
+            orgs: [],
             isAuthenticated: false,
             hasOrg: false,
             isLoading: false,
@@ -110,18 +127,24 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      createOrg: async (name: string) => {
+      switchOrg: async (orgId: string) => {
         set({ isLoading: true, error: null });
         try {
-          const org = await api.createOrganization(name);
-          set({
-            org,
-            hasOrg: true,
-            isLoading: false,
-          });
+          await api.switchOrg(orgId);
+          const orgs = get().orgs;
+          const newOrg = orgs.find(o => o.id === orgId);
+          if (newOrg) {
+            set({
+              org: newOrg,
+              hasOrg: true,
+              isLoading: false,
+            });
+          } else {
+            set({ isLoading: false });
+          }
         } catch (err) {
           set({
-            error: err instanceof Error ? err.message : "Failed to create organization",
+            error: err instanceof Error ? err.message : "Failed to switch organization",
             isLoading: false,
           });
           throw err;
@@ -129,7 +152,16 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setOrg: (org: Org) => {
-        set({ org, hasOrg: true });
+        set({ org, hasOrg: true, orgs: [...get().orgs, org] });
+      },
+
+      setUser: (user: User) => {
+        set({ user, isAuthenticated: true });
+      },
+
+      setToken: (_token: string) => {
+        // Token is managed via httpOnly cookies, nothing to store
+        // This method is kept for API compatibility
       },
 
       updateUser: (user: User) => {

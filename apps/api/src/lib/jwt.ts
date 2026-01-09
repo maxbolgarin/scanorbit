@@ -6,6 +6,11 @@ export interface JWTPayload {
   orgId: string | null;
 }
 
+export interface SignupTokenPayload {
+  email: string;
+  type: 'signup';
+}
+
 const secret = new TextEncoder().encode(config.jwtSecret);
 
 function parseExpiry(expiry: string): number {
@@ -42,6 +47,26 @@ export const jwt = {
     return {
       userId: payload.userId as string,
       orgId: payload.orgId as string | null,
+    };
+  },
+
+  async signSignupToken(email: string): Promise<string> {
+    const payload: SignupTokenPayload = { email, type: 'signup' };
+    return new jose.SignJWT(payload as unknown as jose.JWTPayload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('30m') // 30 minutes
+      .sign(secret);
+  },
+
+  async verifySignupToken(token: string): Promise<SignupTokenPayload> {
+    const { payload } = await jose.jwtVerify(token, secret);
+    if (payload.type !== 'signup') {
+      throw new Error('Invalid token type');
+    }
+    return {
+      email: payload.email as string,
+      type: 'signup',
     };
   },
 };

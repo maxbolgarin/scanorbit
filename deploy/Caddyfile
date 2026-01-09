@@ -1,0 +1,36 @@
+# Global options
+{
+	email {$ADMIN_EMAIL:admin@scanorbit.cloud}
+}
+
+# Landing page - root domain
+{$DOMAIN} {
+	reverse_proxy landing:80
+}
+
+# WWW redirect to root
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+# React App - app subdomain
+app.{$DOMAIN} {
+	reverse_proxy app:80
+}
+
+# API - api subdomain
+api.{$DOMAIN} {
+	reverse_proxy api:4000
+
+	# CORS headers for API
+	header {
+		Access-Control-Allow-Origin {$CORS_ORIGIN:*}
+		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+		Access-Control-Allow-Headers "Authorization, Content-Type"
+		Access-Control-Max-Age "86400"
+	}
+
+	# Handle preflight OPTIONS
+	@options method OPTIONS
+	respond @options 204
+}

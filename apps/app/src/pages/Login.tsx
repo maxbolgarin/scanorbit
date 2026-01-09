@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Orbit } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,10 +25,10 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">SO</span>
-          </div>
-          <span className="text-2xl font-bold">ScanOrbit</span>
+          <Orbit className="h-10 w-10 text-cyber-cyan" />
+          <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+            ScanOrbit
+          </span>
         </div>
 
         <Card>

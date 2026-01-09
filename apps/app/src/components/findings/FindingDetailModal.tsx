@@ -23,17 +23,48 @@ import {
 interface FindingDetailModalProps {
   finding: Finding | null;
   onClose: () => void;
-  onUpdateStatus: (id: string, status: FindingStatus, snoozeDays?: number) => void;
+  onUpdateStatus: (id: string, status: FindingStatus, snoozedUntil?: Date) => void;
   isUpdating?: boolean;
 }
 
 const typeLabels: Record<string, string> = {
+  // Orphan findings
   orphaned_volume: "Orphaned Volume",
   orphaned_eip: "Orphaned EIP",
   orphaned_snapshot: "Orphaned Snapshot",
+  // SSL findings
   ssl_expiry: "SSL Certificate Expiry",
+  // Compliance findings
   data_residency_violation: "Data Residency Violation",
+  // Security findings
+  unencrypted_resource: "Unencrypted Resource",
+  public_access: "Public Access",
+  permissive_security_group: "Permissive Security Group",
+  open_all_ports: "Open All Ports",
+  // Cost findings
+  unused_resource: "Unused Resource",
+  stopped_instance: "Stopped Instance",
+  unused_log_group: "Unused Log Group",
+  // Tagging findings
+  missing_tag: "Missing Tag",
+  // IAM findings
+  old_access_key: "Old Access Key",
+  unused_access_key: "Unused Access Key",
+  unused_iam_role: "Unused IAM Role",
+  user_without_mfa: "User Without MFA",
 };
+
+// Helper to safely get string from details
+function getDetailString(details: Record<string, unknown>, key: string): string | null {
+  const value = details[key];
+  return typeof value === "string" ? value : null;
+}
+
+// Helper to safely get number from details
+function getDetailNumber(details: Record<string, unknown>, key: string): number | null {
+  const value = details[key];
+  return typeof value === "number" ? value : null;
+}
 
 export function FindingDetailModal({
   finding,
@@ -43,12 +74,21 @@ export function FindingDetailModal({
 }: FindingDetailModalProps) {
   if (!finding) return null;
 
+  const description = getDetailString(finding.details, "description");
+  const recommendation = getDetailString(finding.details, "recommendation");
+  const region = getDetailString(finding.details, "region");
+  const estimatedSavings = getDetailNumber(finding.details, "estimatedSavings");
+  const expiresAt = getDetailString(finding.details, "expiresAt");
+  const awsConsoleUrl = getDetailString(finding.details, "awsConsoleUrl");
+
   const handleResolve = () => {
     onUpdateStatus(finding.id, "resolved");
   };
 
   const handleSnooze = (days: number) => {
-    onUpdateStatus(finding.id, "snoozed", days);
+    const snoozedUntil = new Date();
+    snoozedUntil.setDate(snoozedUntil.getDate() + days);
+    onUpdateStatus(finding.id, "snoozed", snoozedUntil);
   };
 
   const handleIgnore = () => {
@@ -71,52 +111,56 @@ export function FindingDetailModal({
 
         <div className="space-y-4">
           {/* Description */}
-          <div>
-            <h4 className="mb-2 font-medium">Description</h4>
-            <p className="text-sm text-muted-foreground">
-              {finding.details.description}
-            </p>
-          </div>
+          {description && (
+            <div>
+              <h4 className="mb-2 font-medium">Description</h4>
+              <p className="text-sm text-muted-foreground">
+                {description}
+              </p>
+            </div>
+          )}
 
-          <Separator />
+          {(description || recommendation) && <Separator />}
 
           {/* Recommendation */}
-          <div>
-            <h4 className="mb-2 flex items-center gap-2 font-medium">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              Recommendation
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {finding.details.recommendation}
-            </p>
-          </div>
+          {recommendation && (
+            <div>
+              <h4 className="mb-2 flex items-center gap-2 font-medium">
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                Recommendation
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {recommendation}
+              </p>
+            </div>
+          )}
 
-          <Separator />
+          {recommendation && <Separator />}
 
           {/* Details */}
           <div className="grid gap-3 sm:grid-cols-2">
-            {finding.details.region && (
+            {region && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Region</p>
-                <p className="mt-1">{finding.details.region}</p>
+                <p className="mt-1">{region}</p>
               </div>
             )}
-            {finding.details.estimatedSavings && (
+            {estimatedSavings !== null && estimatedSavings > 0 && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Estimated Savings
                 </p>
                 <p className="mt-1 text-green-600 font-medium">
-                  {formatCurrency(finding.details.estimatedSavings)}/month
+                  {formatCurrency(estimatedSavings)}/month
                 </p>
               </div>
             )}
-            {finding.details.expiresAt && (
+            {expiresAt && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Expires At
                 </p>
-                <p className="mt-1">{formatDateTime(finding.details.expiresAt)}</p>
+                <p className="mt-1">{formatDateTime(expiresAt)}</p>
               </div>
             )}
             <div>
@@ -129,11 +173,6 @@ export function FindingDetailModal({
                   Resolved At
                 </p>
                 <p className="mt-1">{formatDateTime(finding.resolvedAt)}</p>
-                {finding.resolvedBy && (
-                  <p className="text-xs text-muted-foreground">
-                    by {finding.resolvedBy}
-                  </p>
-                )}
               </div>
             )}
             {finding.snoozedUntil && (
@@ -146,12 +185,12 @@ export function FindingDetailModal({
             )}
           </div>
 
-          {finding.details.awsConsoleUrl && (
+          {awsConsoleUrl && (
             <>
               <Separator />
               <Button variant="outline" asChild className="w-full">
                 <a
-                  href={finding.details.awsConsoleUrl}
+                  href={awsConsoleUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

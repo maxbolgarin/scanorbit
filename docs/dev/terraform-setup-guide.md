@@ -455,23 +455,18 @@ resource "aws_internet_gateway" "test" {
 # Bucket 1: GOOD - Tagged, versioning enabled, EU region
 resource "aws_s3_bucket" "good" {
   bucket_prefix = "scanorbit-test-good-"
+
+  tags = merge(local.common_tags, {
+    Name     = "scanorbit-test-bucket-good"
+    Team     = "Platform"
+    CostCode = "ENG-001"
+  })
 }
 
 resource "aws_s3_bucket_versioning" "good" {
   bucket = aws_s3_bucket.good.id
   versioning_configuration {
     status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_tagging" "good" {
-  bucket = aws_s3_bucket.good.id
-  tagging {
-    tags = merge(local.common_tags, {
-      Name     = "scanorbit-test-bucket-good"
-      Team     = "Platform"
-      CostCode = "ENG-001"
-    })
   }
 }
 

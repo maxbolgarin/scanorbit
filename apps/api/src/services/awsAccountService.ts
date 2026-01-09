@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
@@ -182,7 +182,7 @@ export const awsAccountService = {
 
   async enqueueScan(orgId: string, accountId: string): Promise<Scan> {
     // Verify account exists and belongs to org
-    const account = await this.getAccount(orgId, accountId);
+    await this.getAccount(orgId, accountId);
 
     // Create scan record
     const [scan] = await db
@@ -194,33 +194,71 @@ export const awsAccountService = {
       })
       .returning();
 
-    // Create job record
-    const [job] = await db
+    // Create job record in database for tracking
+    await db
       .insert(jobs)
       .values({
         type: 'scan_account',
         payload: {
-          scanId: scan.id,
-          orgId,
-          awsAccountId: accountId,
-          roleArn: account.roleArn,
-          externalId: account.externalId,
+          account_id: accountId,
+          org_id: orgId,
         },
         status: 'queued',
       })
       .returning();
 
     // Push to Redis queue for workers to pick up
-    await redis.lpush('jobs:scan_account', JSON.stringify({
-      jobId: job.id,
-      scanId: scan.id,
-      orgId,
-      awsAccountId: accountId,
-      roleArn: account.roleArn,
-      externalId: account.externalId,
+    // Go workers expect snake_case: account_id, org_id
+    await redis.rpush('jobs:scan_account', JSON.stringify({
+      account_id: accountId,
+      org_id: orgId,
     }));
 
     return scan;
+  },
+
+  async enqueueAnalysis(
+    orgId: string,
+    accountId: string,
+    analysisType: 'analyze_orphans' | 'analyze_ssl' | 'analyze_residency' | 'analyze_security' | 'analyze_cost' | 'analyze_tagging' | 'analyze_iam',
+    allowedRegions?: string[]
+  ): Promise<void> {
+    // Verify account exists and belongs to org
+    await this.getAccount(orgId, accountId);
+
+    // Build the job payload
+    const payload: Record<string, unknown> = {
+      account_id: accountId,
+      org_id: orgId,
+    };
+
+    // Add residency policy for residency analysis
+    if (analysisType === 'analyze_residency' && allowedRegions) {
+      payload.policy = { allowed_regions: allowedRegions };
+    }
+
+    // Create job record in database for tracking
+    await db.insert(jobs).values({
+      type: analysisType,
+      payload,
+      status: 'queued',
+    });
+
+    // Push to Redis queue for workers to pick up
+    await redis.rpush(`jobs:${analysisType}`, JSON.stringify(payload));
+  },
+
+  async enqueueAllAnalyses(orgId: string, accountId: string): Promise<void> {
+    // Enqueue all analysis types
+    await Promise.all([
+      this.enqueueAnalysis(orgId, accountId, 'analyze_orphans'),
+      this.enqueueAnalysis(orgId, accountId, 'analyze_ssl'),
+      this.enqueueAnalysis(orgId, accountId, 'analyze_residency'),
+      this.enqueueAnalysis(orgId, accountId, 'analyze_security'),
+      this.enqueueAnalysis(orgId, accountId, 'analyze_cost'),
+      this.enqueueAnalysis(orgId, accountId, 'analyze_tagging'),
+      this.enqueueAnalysis(orgId, accountId, 'analyze_iam'),
+    ]);
   },
 
   async getScanHistory(orgId: string, accountId: string): Promise<Scan[]> {
@@ -257,5 +295,27 @@ export const awsAccountService = {
     }
 
     return scan;
+  },
+
+  async getActiveScans(orgId: string): Promise<Scan[]> {
+    return db
+      .select()
+      .from(scans)
+      .where(
+        and(
+          eq(scans.orgId, orgId),
+          inArray(scans.status, ['pending', 'running'])
+        )
+      )
+      .orderBy(desc(scans.createdAt));
+  },
+
+  async getRecentScans(orgId: string, limit: number = 10): Promise<Scan[]> {
+    return db
+      .select()
+      .from(scans)
+      .where(eq(scans.orgId, orgId))
+      .orderBy(desc(scans.createdAt))
+      .limit(limit);
   },
 };

@@ -23,7 +23,8 @@
     "build:app": "pnpm --filter @scanorbit/app build",
     "build:api": "pnpm --filter @scanorbit/api build",
     "db:migrate": "pnpm --filter @scanorbit/api db:migrate",
-    "db:generate": "pnpm --filter @scanorbit/api db:generate"
+    "db:generate": "pnpm --filter @scanorbit/api db:generate",
+    "db:reset": "pnpm --filter @scanorbit/api db:reset"
   },
   "devDependencies": {
     "@types/node": "^22.19.3",

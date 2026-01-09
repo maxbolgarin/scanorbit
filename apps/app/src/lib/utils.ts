@@ -38,6 +38,22 @@ export function formatRelativeTime(date: string | Date): string {
   return formatDate(date);
 }
 
+export function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMins = minutes % 60;
+    return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    const remainingSecs = seconds % 60;
+    return remainingSecs > 0 ? `${minutes}m ${remainingSecs}s` : `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
 export function formatCurrency(amount: number, currency = "EUR"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",

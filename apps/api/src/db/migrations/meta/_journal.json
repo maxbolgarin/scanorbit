@@ -8,6 +8,34 @@
       "when": 1767814809739,
       "tag": "0000_hard_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1767873194058,
+      "tag": "0001_adorable_red_shift",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767901764107,
+      "tag": "0002_abnormal_nehzno",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1767904137814,
+      "tag": "0003_true_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1767953514176,
+      "tag": "0004_whole_red_shift",
+      "breakpoints": true
     }
   ]
 }

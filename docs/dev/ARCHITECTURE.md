@@ -1,6 +1,6 @@
-# MVP Plan – AWS Infrastructure Scanner SaaS — ScanOrbit
+# ScanOrbit – AWS Infrastructure Scanner SaaS Architecture
 
-## 1. Product Scope (MVP)
+## 1. Product Overview
 
 **Goal:** Agentless AWS scanner that, via read‑only APIs, provides:
 
@@ -9,15 +9,17 @@
 3. SSL certificates discovery + expiry alerts.
 4. Basic data residency check (EU vs non‑EU regions for data‑holding services).
 
-**Tech stack:**
+**Tech Stack:**
 
-- Landing: **Astro**
-- Web app: **React**
-- Backend API: **Node.js + TypeScript + Hono**
-- DB: **Postgres**
-- Cache / jobs coordination: **Redis**
-- Workers: **Golang**
-- Deployment: **Single EU VM + Docker Compose**, GDPR‑conscious (EU VPS, disk encryption, backups in EU).
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Landing | Astro + Tailwind CSS | 5.x, 4.x |
+| Web App | React + React Router + TanStack Query + Zustand | 19.x, 7.x |
+| Backend API | Node.js + TypeScript + Hono + Drizzle ORM | 22.x |
+| Database | PostgreSQL | 17.x |
+| Cache/Queue | Redis | 7.x |
+| Workers | Go + AWS SDK v2 + pgx + zerolog | 1.24.x |
+| Deployment | Docker Compose, EU VPS | - |
 
 ***
 
@@ -124,10 +126,11 @@
 ### 4.1 Project Structure
 
 ```txt
-/api
+apps/api/
   src/
     index.ts           # Hono app entry
     routes/
+      index.ts         # Route aggregation
       auth.ts
       orgs.ts
       aws-accounts.ts
@@ -136,16 +139,25 @@
     services/
       authService.ts
       awsAccountService.ts
+      orgService.ts
       resourceService.ts
       findingService.ts
     lib/
-      db.ts            # Postgres client
-      redis.ts         # Redis client
-      awsSts.ts        # assumeRole helper
+      db.ts            # Drizzle client
+      redis.ts         # ioredis client
+      jwt.ts           # jose JWT helpers
+      config.ts        # Environment config
+      errors.ts        # Error classes
+    db/
+      schema.ts        # Drizzle schema definitions
     middlewares/
-      authMiddleware.ts
+      auth.ts
+      errorHandler.ts
+    types/
+      index.ts
   package.json
   tsconfig.json
+  drizzle.config.cjs
 ```
 
 ### 4.2 Key Endpoints (MVP)
@@ -305,16 +317,16 @@ Production changes (in `docker-compose.prod.yml`):
 
 ## 8. Implementation Phases
 
-### Phase 1 (Week 1–2) – Skeleton
+### Phase 1 – Core Infrastructure
 
-- Repo setup with packages: `landing`, `app`, `api`, `workers`.
+- Repo setup with packages: `apps/landing`, `apps/app`, `apps/api`, `workers`.
 - Docker Compose with Postgres + Redis.
 - API:
-  - Auth (simple email/password).
+  - Auth (email/password with JWT).
   - Org + AWS account CRUD.
 - Test endpoint: `POST /aws/accounts/:id/test` (STS AssumeRole+DescribeRegions).
 
-### Phase 2 (Week 3–4) – Inventory + Orphans
+### Phase 2 – Inventory + Orphans
 
 - Implement scanner worker for:
   - EC2, EBS, RDS, S3.
@@ -322,16 +334,16 @@ Production changes (in `docker-compose.prod.yml`):
 - Implement orphan analyzer.
 - React UI for resources + orphan findings.
 
-### Phase 3 (Week 5–6) – SSL + Data Residency
+### Phase 3 – SSL + Data Residency
 
 - Implement ACM + optional endpoint TLS scan.
 - Implement `certificates` table and SSL analyzer.
 - Implement data residency analyzer.
 - UI: dashboard widgets for expiring certs & violations.
 
-### Phase 4 (Week 7–8) – Hardening & First Users
+### Phase 4 – Hardening & Production
 
 - Audit logs & basic rate limiting.
 - Deploy to EU VPS via Docker Compose.
 - Add privacy/security pages.
-- Invite 3–5 design partners to onboard.
+- Invite design partners to onboard.

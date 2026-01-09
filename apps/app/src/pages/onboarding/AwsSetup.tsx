@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -11,45 +11,171 @@ import { AwsAccountForm } from "@/components/onboarding/AwsAccountForm";
 import { PolicyGuide } from "@/components/onboarding/PolicyGuide";
 import { TestConnection } from "@/components/onboarding/TestConnection";
 import { useAwsAccounts, useTriggerScan } from "@/hooks/use-aws-accounts";
-import { Cloud } from "lucide-react";
-import type { AwsAccount } from "@/types";
+import * as api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Cloud, Orbit, X } from "lucide-react";
+import type { CreateAwsAccountInput } from "@/types";
 
 type Step = "details" | "policy" | "connect";
 
+const STORAGE_KEY = "scanorbit_aws_onboarding";
+
+interface OnboardingState {
+  step: Step;
+  accountDetails: { name: string; awsAccountId: string; externalId: string } | null;
+}
+
+function loadOnboardingState(): OnboardingState | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
+
+function saveOnboardingState(state: OnboardingState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function clearOnboardingState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export default function AwsSetup() {
   const navigate = useNavigate();
-  const { createAccount, testConnection, connectRole, isCreating, isConnecting } =
-    useAwsAccounts();
+  const { createAccount, testConnection, deleteAccount, isCreating, isTesting } = useAwsAccounts();
   const triggerScan = useTriggerScan();
 
-  const [step, setStep] = useState<Step>("details");
-  const [account, setAccount] = useState<AwsAccount | null>(null);
+  // Initialize state from localStorage
+  const savedState = loadOnboardingState();
+  const [step, setStep] = useState<Step>(savedState?.step || "details");
+  const [accountDetails, setAccountDetails] = useState<{ name: string; awsAccountId: string; externalId: string } | null>(
+    savedState?.accountDetails || null
+  );
+  const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCreateAccount = async (data: { name: string; awsAccountId: string }) => {
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    saveOnboardingState({ step, accountDetails });
+  }, [step, accountDetails]);
+
+  // Clear state and navigate to dashboard
+  const handleClose = useCallback(() => {
+    clearOnboardingState();
+    navigate("/dashboard");
+  }, [navigate]);
+
+  const handleAccountDetails = async (data: { name: string; awsAccountId: string }) => {
+    // Generate a unique external ID for this account connection
+    const externalId = crypto.randomUUID();
+    setAccountDetails({ ...data, externalId });
+    setStep("policy");
+  };
+
+  const handleTestConnection = async (roleArn: string): Promise<{ success: boolean; message: string }> => {
+    if (!accountDetails) return { success: false, message: "No account details" };
+
     setError(null);
     try {
-      const newAccount = await createAccount(data);
-      setAccount(newAccount);
-      setStep("policy");
+      let accountId = createdAccountId;
+      let isNewAccount = false;
+
+      // Only create account if we haven't already
+      if (!accountId) {
+        try {
+          const input: CreateAwsAccountInput = {
+            name: accountDetails.name,
+            awsAccountId: accountDetails.awsAccountId,
+            externalId: accountDetails.externalId,
+            roleArn,
+          };
+          const account = await createAccount(input);
+          accountId = account.id;
+          isNewAccount = true;
+        } catch (createErr) {
+          const errorMessage = createErr instanceof Error ? createErr.message : "";
+
+          // If account already exists, find it and use it
+          if (errorMessage.toLowerCase().includes("already connected") ||
+              errorMessage.toLowerCase().includes("already exists")) {
+            // Get existing accounts and find the matching one
+            const accounts = await api.getAwsAccounts();
+            const existingAccount = accounts.find(
+              (acc) => acc.awsAccountId === accountDetails.awsAccountId
+            );
+
+            if (existingAccount) {
+              accountId = existingAccount.id;
+              setCreatedAccountId(accountId);
+              // Test the existing account
+              const result = await testConnection(accountId);
+              return result;
+            }
+          }
+          throw createErr;
+        }
+      }
+
+      const result = await testConnection(accountId);
+
+      if (result.success) {
+        // Keep the account if test succeeded
+        setCreatedAccountId(accountId);
+      } else if (isNewAccount) {
+        // Delete the account if test failed on a new account
+        // so user can fix their IAM role and try again
+        try {
+          await deleteAccount(accountId);
+        } catch {
+          // Ignore delete errors
+        }
+      }
+
+      return result;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create account");
+      const message = err instanceof Error ? err.message : "Connection test failed";
+      return { success: false, message };
     }
   };
 
-  const handleTestConnection = async (_roleArn: string) => {
-    if (!account) return { success: false, message: "No account" };
-    return await testConnection(account.id);
-  };
-
   const handleConnect = async (roleArn: string) => {
-    if (!account) return;
+    if (!accountDetails) return;
     setError(null);
+
     try {
-      const connectedAccount = await connectRole(account.id, { roleArn });
+      let accountId = createdAccountId;
+
+      // Create account if not already created (shouldn't happen if test was run first)
+      if (!accountId) {
+        const input: CreateAwsAccountInput = {
+          name: accountDetails.name,
+          awsAccountId: accountDetails.awsAccountId,
+          externalId: accountDetails.externalId,
+          roleArn,
+        };
+        const account = await createAccount(input);
+        accountId = account.id;
+      }
+
+      // Clear onboarding state on success
+      clearOnboardingState();
       // Trigger initial scan
-      const scan = await triggerScan.mutateAsync(connectedAccount.id);
-      navigate(`/onboarding/scan/${scan.id}`);
+      await triggerScan.mutateAsync(accountId);
+      // Go to dashboard - scan will be visible there
+      navigate("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
     }
@@ -77,10 +203,10 @@ export default function AwsSetup() {
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">SO</span>
-          </div>
-          <span className="text-2xl font-bold">ScanOrbit</span>
+          <Orbit className="h-10 w-10 text-cyber-cyan" />
+          <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+            ScanOrbit
+          </span>
         </div>
 
         {/* Progress indicator */}
@@ -110,7 +236,16 @@ export default function AwsSetup() {
           </div>
         </div>
 
-        <Card>
+        <Card className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-2 h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={handleClose}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <Cloud className="h-6 w-6 text-primary" />
@@ -121,25 +256,25 @@ export default function AwsSetup() {
           <CardContent>
             {step === "details" && (
               <AwsAccountForm
-                onSubmit={handleCreateAccount}
-                isLoading={isCreating}
+                onSubmit={handleAccountDetails}
+                isLoading={false}
                 error={error}
               />
             )}
-            {step === "policy" && account && (
+            {step === "policy" && accountDetails && (
               <PolicyGuide
-                awsAccountId={account.awsAccountId}
+                externalId={accountDetails.externalId}
                 onNext={() => setStep("connect")}
                 onBack={() => setStep("details")}
               />
             )}
-            {step === "connect" && account && (
+            {step === "connect" && accountDetails && (
               <TestConnection
-                awsAccountId={account.awsAccountId}
+                awsAccountId={accountDetails.awsAccountId}
                 onTest={handleTestConnection}
                 onSubmit={handleConnect}
                 onBack={() => setStep("policy")}
-                isLoading={isConnecting || triggerScan.isPending}
+                isLoading={isCreating || isTesting || triggerScan.isPending}
               />
             )}
           </CardContent>

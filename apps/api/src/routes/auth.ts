@@ -13,6 +13,16 @@ const signupSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   fullName: z.string().min(1, 'Full name is required').optional(),
+  orgName: z.string().min(2, 'Organization name must be at least 2 characters').optional(),
+});
+
+const verifyEmailSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
+const resendVerificationSchema = z.object({
+  email: z.string().email('Invalid email format'),
 });
 
 const loginSchema = z.object({
@@ -22,6 +32,25 @@ const loginSchema = z.object({
 
 const switchOrgSchema = z.object({
   orgId: z.string().uuid('Invalid organization ID'),
+});
+
+// New signup flow schemas
+const sendCodeSchema = z.object({
+  email: z.string().email('Invalid email format'),
+});
+
+const verifyCodeSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
+const completeSignupSchema = z.object({
+  signupToken: z.string().min(1, 'Signup token is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+const resendCodeSchema = z.object({
+  email: z.string().email('Invalid email format'),
 });
 
 // Helper to set JWT cookie
@@ -37,12 +66,13 @@ const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
 
 // POST /auth/signup
 authRoute.post('/signup', zValidator('json', signupSchema), async (c) => {
-  const { email, password, fullName } = c.req.valid('json');
+  const { email, password, fullName, orgName } = c.req.valid('json');
 
-  const { user, org, token } = await authService.signup(
+  const { user, org, token, message } = await authService.signup(
     email,
     password,
-    fullName ?? ''
+    fullName ?? '',
+    orgName
   );
 
   setAuthCookie(c, token);
@@ -52,9 +82,28 @@ authRoute.post('/signup', zValidator('json', signupSchema), async (c) => {
       user,
       org,
       token,
+      message,
     },
     201
   );
+});
+
+// POST /auth/verify-email
+authRoute.post('/verify-email', zValidator('json', verifyEmailSchema), async (c) => {
+  const { email, code } = c.req.valid('json');
+
+  const result = await authService.verifyEmail(email, code);
+
+  return c.json(result);
+});
+
+// POST /auth/resend-verification
+authRoute.post('/resend-verification', zValidator('json', resendVerificationSchema), async (c) => {
+  const { email } = c.req.valid('json');
+
+  const result = await authService.resendVerificationCode(email);
+
+  return c.json(result);
 });
 
 // POST /auth/login
@@ -101,5 +150,56 @@ authRoute.post(
     return c.json({ token });
   }
 );
+
+// ============================================
+// New Signup Flow Endpoints
+// ============================================
+
+// POST /auth/send-code - Send verification code to email (Step 1)
+authRoute.post('/send-code', zValidator('json', sendCodeSchema), async (c) => {
+  const { email } = c.req.valid('json');
+
+  const result = await authService.sendVerificationCode(email);
+
+  return c.json(result);
+});
+
+// POST /auth/verify-code - Verify code and get signup token (Step 2)
+authRoute.post('/verify-code', zValidator('json', verifyCodeSchema), async (c) => {
+  const { email, code } = c.req.valid('json');
+
+  const result = await authService.verifySignupCode(email, code);
+
+  return c.json(result);
+});
+
+// POST /auth/complete-signup - Complete signup with password (Step 3)
+authRoute.post('/complete-signup', zValidator('json', completeSignupSchema), async (c) => {
+  const { signupToken, password } = c.req.valid('json');
+
+  // Extract consent info for GDPR logging
+  const ipAddress = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    || c.req.header('x-real-ip')
+    || 'unknown';
+  const userAgent = c.req.header('user-agent') || 'unknown';
+
+  const { user, token } = await authService.completeSignup(signupToken, password, {
+    ipAddress,
+    userAgent,
+  });
+
+  setAuthCookie(c, token);
+
+  return c.json({ user, token }, 201);
+});
+
+// POST /auth/resend-code - Resend verification code
+authRoute.post('/resend-code', zValidator('json', resendCodeSchema), async (c) => {
+  const { email } = c.req.valid('json');
+
+  const result = await authService.resendSignupCode(email);
+
+  return c.json(result);
+});
 
 export default authRoute;
