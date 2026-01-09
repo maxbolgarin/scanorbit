@@ -29,7 +29,7 @@ type Certificate struct {
 
 // DaysUntilExpiry returns the number of days until the certificate expires.
 func (c *Certificate) DaysUntilExpiry() float64 {
-	return c.NotAfter.Sub(time.Now()).Hours() / 24
+	return time.Until(c.NotAfter).Hours() / 24
 }
 
 // IsExpired returns true if the certificate has expired.

@@ -103,7 +103,7 @@ try {
 
   // Handle server errors if server instance supports it
   if (server && typeof server === 'object' && 'on' in server) {
-    (server as any).on('error', (err: NodeJS.ErrnoException) => {
+    (server as { on: (event: string, handler: (err: NodeJS.ErrnoException) => void) => void }).on('error', (err: NodeJS.ErrnoException) => {
       handlePortError(err, port);
     });
   }

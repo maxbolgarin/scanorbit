@@ -55,7 +55,11 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to connect to redis")
 	}
-	defer q.Close()
+	defer func() {
+		if err := q.Close(); err != nil {
+			logger.Error().Err(err).Msg("failed to close queue")
+		}
+	}()
 
 	// Setup orchestrator with analyzers
 	orchestrator := analyzers.NewOrchestrator(st, logger)
