@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -45,7 +46,6 @@ jobs:
   build-api:
     name: Build API
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,8 +70,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
             type=raw,value=latest
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -87,7 +87,6 @@ jobs:
   build-app:
     name: Build App
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -112,8 +111,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/app
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
             type=raw,value=latest
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -131,7 +130,6 @@ jobs:
   build-landing:
     name: Build Landing
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -156,8 +154,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/landing
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
             type=raw,value=latest
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -173,7 +171,6 @@ jobs:
   build-workers:
     name: Build Workers
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -201,8 +198,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.worker }}
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
             type=raw,value=latest
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
