@@ -326,7 +326,7 @@ Push to main → GitHub Actions builds images → Pushes to GHCR → Watchtower 
 ### 1. Infrastructure Setup (Scaleway)
 
 ```bash
-cd terraform/scaleway
+cd deploy/scaleway
 
 # Configure variables
 cp terraform.tfvars.example terraform.tfvars
@@ -355,14 +355,14 @@ terraform output public_ip
 
 ```bash
 # SSH into the VM
-ssh root@$(terraform output -raw public_ip)
+ssh root@scanorbit.cloud
 
 # Login to GitHub Container Registry
 # Create PAT at: https://github.com/settings/tokens (scope: read:packages)
 echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 
 # Copy deployment files (from local machine)
-scp docker-compose.prod.yml Caddyfile .env.example root@<IP>:/opt/scanorbit/
+scp docker-compose.prod.yml Caddyfile .env.example root@scanorbit.cloud:/opt/scanorbit/
 
 # Configure environment
 cd /opt/scanorbit

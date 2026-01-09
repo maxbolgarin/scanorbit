@@ -253,3 +253,9 @@ redis-queue-status:
 # Generate JWT secret
 gen-secret:
 	@openssl rand -base64 32
+
+# =============================================================================
+# Development
+# =============================================================================
+ssh:
+	ssh root@scanorbit.cloud
