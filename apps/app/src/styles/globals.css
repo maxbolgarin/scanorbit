@@ -1,6 +1,6 @@
 /* Import Geist fonts */
-@import url("https://fonts.cdnfonts.com/css/geist-sans");
-@import url("https://fonts.cdnfonts.com/css/geist-mono");
+@import "@fontsource/geist-sans";
+@import "@fontsource/geist-mono";
 
 @tailwind base;
 @tailwind components;

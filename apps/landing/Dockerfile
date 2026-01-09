@@ -22,6 +22,12 @@ COPY apps/landing ./apps/landing
 # Build the application
 RUN pnpm --filter @scanorbit/landing run build
 
+# Font files for @fontsource are referenced from the generated CSS as "./files/<font-file>".
+# Astro outputs CSS into dist/_assets/*.css, so we must place the font files in dist/_assets/files.
+RUN mkdir -p ./apps/landing/dist/_assets/files && \
+    cp -R ./apps/landing/node_modules/@fontsource/geist-sans/files/* ./apps/landing/dist/_assets/files/ && \
+    cp -R ./apps/landing/node_modules/@fontsource/geist-mono/files/* ./apps/landing/dist/_assets/files/
+
 # Production stage - serve with nginx
 FROM nginx:alpine AS production
 

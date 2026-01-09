@@ -26,6 +26,12 @@ ENV VITE_API_URL=$VITE_API_URL
 # Build the application
 RUN pnpm --filter @scanorbit/app run build
 
+# Font files for @fontsource are referenced from the generated CSS as "./files/<font-file>".
+# Vite outputs CSS into dist/assets/*.css, so we must place the font files in dist/assets/files.
+RUN mkdir -p ./apps/app/dist/assets/files && \
+    cp -R ./apps/app/node_modules/@fontsource/geist-sans/files/* ./apps/app/dist/assets/files/ && \
+    cp -R ./apps/app/node_modules/@fontsource/geist-mono/files/* ./apps/app/dist/assets/files/
+
 # Production stage - serve with nginx
 FROM nginx:alpine AS production
 

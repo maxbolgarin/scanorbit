@@ -22,7 +22,7 @@ services:
 
   # Database Migrations (runs before API starts)
   migrate:
-    image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-develop}
     restart: "no"
     environment:
       - NODE_ENV=production
@@ -39,7 +39,7 @@ services:
 
   # Node.js API
   api:
-    image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-develop}
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -63,7 +63,7 @@ services:
 
   # React SPA
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY}/app:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY}/app:${IMAGE_TAG:-develop}
     restart: unless-stopped
     networks:
       - scanorbit
@@ -72,7 +72,7 @@ services:
 
   # Astro Landing Page
   landing:
-    image: ghcr.io/${GITHUB_REPOSITORY}/landing:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY}/landing:${IMAGE_TAG:-develop}
     restart: unless-stopped
     networks:
       - scanorbit
@@ -81,7 +81,7 @@ services:
 
   # Go Scanner Worker
   scanner:
-    image: ghcr.io/${GITHUB_REPOSITORY}/scanner:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY}/scanner:${IMAGE_TAG:-develop}
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -99,7 +99,7 @@ services:
 
   # Go Analyzer Worker
   analyzer:
-    image: ghcr.io/${GITHUB_REPOSITORY}/analyzer:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY}/analyzer:${IMAGE_TAG:-develop}
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL}

@@ -3,8 +3,39 @@
 	email {$ADMIN_EMAIL:admin@scanorbit.cloud}
 }
 
+# Common hardening: block dotfiles and obvious scanner probes early (before upstreams)
+(block_scanners) {
+	# Deny any dotfile paths (e.g. /.env, /.git, /.vscode, etc.)
+	@dotfiles path_regexp dotfiles ^/\.
+	respond @dotfiles 404
+
+	# Common vulnerability scanner paths (safe to 404 for SPA + API)
+	@scanpaths path \
+		/_all_dbs \
+		/actuator* \
+		/api-docs* \
+		/debug* \
+		/ecp* \
+		/info.php \
+		/login.action \
+		/owa* \
+		/server-status* \
+		/swagger* \
+		/swagger-ui* \
+		/telescope* \
+		/v2/api-docs* \
+		/v3/api-docs* \
+		/webjars* \
+		/wp-* \
+		/wp-admin* \
+		/wp-login* \
+		/xmlrpc.php
+	respond @scanpaths 404
+}
+
 # Landing page - root domain
 {$DOMAIN} {
+	import block_scanners
 	reverse_proxy landing:80
 }
 
@@ -15,11 +46,13 @@ www.{$DOMAIN} {
 
 # React App - app subdomain
 app.{$DOMAIN} {
+	import block_scanners
 	reverse_proxy app:80
 }
 
 # API - api subdomain
 api.{$DOMAIN} {
+	import block_scanners
 	reverse_proxy api:4000
 
 	# CORS headers for API
