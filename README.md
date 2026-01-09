@@ -182,6 +182,9 @@ scp deploy/docker-compose.prod.yml deploy/Caddyfile .env.prod root@scanorbit.clo
 # Configure environment
 cd /opt/scanorbit
 
+# Environment variables
+mv .env.prod .env
+
 # Start services (migrations run automatically before API starts)
 docker compose -f docker-compose.prod.yml up -d
 
