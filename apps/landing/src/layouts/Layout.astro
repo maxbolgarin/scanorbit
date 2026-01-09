@@ -4,6 +4,10 @@ interface Props {
   description?: string;
 }
 
+import "@fontsource/geist-sans";
+import "@fontsource/geist-mono";
+import "../styles/global.css";
+
 const {
   title = "ScanOrbit - Agentless AWS Infrastructure Scanner",
   description = "Discover orphaned resources, expiring SSL certificates, and GDPR residency violations in your AWS infrastructure. EU-hosted, read-only, GDPR compliant.",
@@ -39,7 +43,3 @@ const {
     <slot />
   </body>
 </html>
-
-<style is:global>
-  @import "../styles/global.css";
-</style>

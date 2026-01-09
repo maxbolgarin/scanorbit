@@ -47,6 +47,11 @@ www.{$DOMAIN} {
 # React App - app subdomain
 app.{$DOMAIN} {
 	import block_scanners
+	# Route API paths to the API service (so they don't hit the SPA's nginx).
+	@api_paths path /api/* /auth/* /orgs* /aws/* /resources* /findings*
+	reverse_proxy @api_paths api:4000
+
+	# Everything else is the SPA.
 	reverse_proxy app:80
 }
 

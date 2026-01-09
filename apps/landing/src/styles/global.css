@@ -1,8 +1,8 @@
-@import "@fontsource/geist-sans";
-@import "@fontsource/geist-mono";
 @import "tailwindcss";
 
-:root {
+/* Tailwind v4 theme tokens.
+   This enables utilities like `bg-orbit-purple`, `text-cloud-gray`, `animate-float`, etc. */
+@theme {
   /* Colors - ScanOrbit Brand Palette */
   --color-deep-space: #0a0f1e;
   --color-midnight: #1a1f3a;
@@ -15,7 +15,7 @@
   --color-slate-gray: #94a3b8;
 
   /* Fonts */
-  --font-sans: "Geist", system-ui, sans-serif;
+  --font-sans: "Geist Sans", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
 
   /* Animations */
