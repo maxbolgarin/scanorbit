@@ -27,6 +27,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+    working_dir: /app/apps/api
     command: node dist/db/migrate.js
     depends_on:
       postgres:

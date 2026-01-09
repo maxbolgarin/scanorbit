@@ -36,11 +36,11 @@ COPY apps/api/package.json ./apps/api/
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built files
-COPY --from=builder /app/apps/api/dist ./dist
+# Copy built files (keep workspace layout so Node can resolve deps from apps/api/node_modules)
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Copy migrations folder (needed for migration script)
-COPY --from=builder /app/apps/api/src/db/migrations ./src/db/migrations
+COPY --from=builder /app/apps/api/src/db/migrations ./apps/api/src/db/migrations
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -54,5 +54,6 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
 
-# Start the application
+# Start the application (run from workspace)
+WORKDIR /app/apps/api
 CMD ["node", "dist/index.js"]
