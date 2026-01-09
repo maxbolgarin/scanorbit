@@ -5,14 +5,17 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-# Copy package files
-COPY package.json pnpm-lock.yaml* ./
+# Copy root-level package files (monorepo)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Copy app-specific package.json
+COPY apps/api/package.json ./apps/api/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
-COPY . .
+COPY apps/api ./apps/api
 
 # Build TypeScript
 RUN pnpm build
@@ -24,17 +27,20 @@ WORKDIR /app
 # Install pnpm for production deps
 RUN npm install -g pnpm@latest
 
-# Copy package files
-COPY package.json pnpm-lock.yaml* ./
+# Copy root-level package files (monorepo)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Copy app-specific package.json
+COPY apps/api/package.json ./apps/api/
 
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/api/dist ./dist
 
 # Copy migrations folder (needed for migration script)
-COPY --from=builder /app/src/db/migrations ./src/db/migrations
+COPY --from=builder /app/apps/api/src/db/migrations ./src/db/migrations
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
