@@ -22,11 +22,40 @@ import type {
   FindingStats,
 } from "@/types";
 
+function normalizeApiUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const v = value.trim();
+  if (!v) return undefined;
+
+  // Already absolute (or scheme-relative) URL
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(v) || v.startsWith("//")) return v;
+
+  // Same-origin proxy path
+  if (v.startsWith("/")) return v;
+
+  // Bare host (e.g. "api.scanorbit.cloud" or "localhost:4000") → add scheme
+  const host = v.split("/")[0];
+  const isLocal =
+    host === "localhost" ||
+    host.startsWith("localhost:") ||
+    host === "127.0.0.1" ||
+    host.startsWith("127.0.0.1:") ||
+    host === "0.0.0.0" ||
+    host.startsWith("0.0.0.0:") ||
+    host === "[::1]" ||
+    host.startsWith("[::1]:");
+
+  return `${isLocal ? "http" : "https"}://${v}`;
+}
+
 // API base URL from environment.
 //
 // Prefer same-origin `/api` so the SPA can be deployed behind a reverse proxy (nginx)
 // without relying on build-time env wiring, and so local dev can use Vite's proxy.
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+//
+// Also normalize accidental values like "api.scanorbit.cloud" (missing scheme), which
+// would otherwise be treated as a relative path ("/api.scanorbit.cloud/...") by the browser.
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) || "/api";
 
 // Create axios instance with default config
 const api = axios.create({
