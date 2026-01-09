@@ -33,6 +33,9 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy built files
 COPY --from=builder /app/dist ./dist
 
+# Copy migrations folder (needed for migration script)
+COPY --from=builder /app/src/db/migrations ./src/db/migrations
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001

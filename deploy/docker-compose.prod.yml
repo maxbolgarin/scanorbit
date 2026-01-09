@@ -20,6 +20,22 @@ services:
     networks:
       - scanorbit
 
+  # Database Migrations (runs before API starts)
+  migrate:
+    image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
+    restart: "no"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    command: node dist/db/migrate.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+    profiles:
+      - migrate-only  # Allow running migrations separately: docker compose --profile migrate-only up migrate
+
   # Node.js API
   api:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
@@ -33,6 +49,8 @@ services:
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - CORS_ORIGIN=${CORS_ORIGIN}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:

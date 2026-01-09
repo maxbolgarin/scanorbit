@@ -1,6 +1,47 @@
 # ScanOrbit
 
+![CI](https://github.com/maxbolgarin/scanorbit/actions/workflows/ci.yml/badge.svg)
+
 Agentless AWS Infrastructure Scanner SaaS — discover resources, detect security issues, and ensure compliance.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Production Deployment](#production-deployment)
+  - [CI/CD Architecture](#cicd-architecture)
+  - [Infrastructure Setup](#1-infrastructure-setup-scaleway)
+  - [GitHub Repository Setup](#2-github-repository-setup)
+  - [Server Setup](#3-server-setup-first-time)
+  - [Environment Variables](#4-environment-variables-envprod)
+  - [Auto-Updates with Watchtower](#5-auto-updates-with-watchtower)
+  - [DNS Configuration](#6-dns-configuration)
+  - [Monitoring & Logs](#7-monitoring--logs)
+  - [AWS IAM Role Setup](#8-aws-iam-role-setup)
+- [Development Setup](#development-setup)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start](#quick-start)
+- [Git Flow & Release Cycle](#git-flow--release-cycle)
+  - [Branches](#branches)
+  - [Workflow](#workflow)
+  - [Development Flow](#development-flow)
+  - [Release Flow](#release-flow)
+  - [Commit Convention](#commit-convention)
+  - [CI/CD Pipelines](#cicd-pipelines)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Available Commands](#available-commands)
+- [API Endpoints](#api-endpoints)
+- [Testing](#testing)
+- [Security Considerations](#security-considerations)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+## Additional Documentation
+
+- [Scaleway Deployment Guide](deploy/scaleway/README.md) — Detailed infrastructure deployment instructions
+- [Test Infrastructure Guide](deploy/test/README.md) — AWS test resources setup
 
 ## Overview
 
@@ -63,6 +104,194 @@ ScanOrbit is a cloud security platform that scans your AWS infrastructure to:
 | Database | PostgreSQL 17 |
 | Cache/Queue | Redis 7 |
 | Proxy | Caddy 2 (production) |
+
+## Production Deployment
+
+ScanOrbit uses **GitHub Container Registry (GHCR)** with **Watchtower** for automatic deployments.
+
+### CI/CD Architecture
+
+```
+Push to main → GitHub Actions builds images → Pushes to GHCR → Watchtower pulls & restarts
+```
+
+| Component | Role |
+|-----------|------|
+| GitHub Actions | Builds Docker images on push to `main` |
+| GHCR | Stores container images (`ghcr.io/org/scanorbit-*`) |
+| Watchtower | Auto-pulls new images every 5 minutes |
+| Caddy | Reverse proxy with automatic Let's Encrypt TLS |
+
+### 1. Infrastructure Setup (Scaleway)
+
+```bash
+cd deploy/scaleway
+
+# Configure variables
+cp terraform.tfvars.example terraform.tfvars
+vim terraform.tfvars  # Set domain, ssh_key_ids, etc.
+
+# Deploy infrastructure
+terraform init
+terraform apply
+
+# Note the public IP
+terraform output public_ip
+```
+
+Configure these DNS records (Scaleway DNS or your provider):
+
+| Record | Type | Value |
+|--------|------|-------|
+| `scanorbit.cloud` | A | VM Public IP |
+| `www.scanorbit.cloud` | CNAME | scanorbit.cloud |
+| `app.scanorbit.cloud` | A | VM Public IP |
+| `api.scanorbit.cloud` | A | VM Public IP |
+
+### 2. GitHub Repository Setup
+
+1. **Enable GitHub Packages**
+   - Go to **Settings → Actions → General**
+   - Enable "Read and write permissions" for `GITHUB_TOKEN`
+
+2. **Add Repository Variables** (Settings → Secrets and variables → Actions → Variables)
+   - `VITE_API_URL` = `https://api.scanorbit.cloud`
+
+3. **Push to main** — GitHub Actions will build and push images to GHCR
+
+### 3. Server Setup (First Time)
+
+```bash
+# SSH into the VM
+ssh root@scanorbit.cloud
+
+# Login to GitHub Container Registry
+# Create PAT at: https://github.com/settings/tokens (scope: read:packages)
+echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+
+# Option A: Copy deployment files (from local machine)
+scp deploy/docker-compose.prod.yml deploy/Caddyfile .env.prod root@scanorbit.cloud:/opt/scanorbit/
+
+# Option B: Clone repository using SSH (requires SSH key setup)
+# 1. Generate SSH key: ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/id_ed25519_github
+# 2. Add public key to GitHub: https://github.com/maxbolgarin/scanorbit/settings/keys (Deploy Key) or https://github.com/settings/ssh/new
+# 3. Configure SSH: echo -e "Host github.com\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/id_ed25519_github\n  IdentitiesOnly yes" >> ~/.ssh/config
+# 4. Test: ssh -T git@github.com
+# 5. Clone: git clone git@github.com:maxbolgarin/scanorbit.git /opt/scanorbit
+
+# Configure environment
+cd /opt/scanorbit
+
+# Start services (migrations run automatically before API starts)
+docker compose -f docker-compose.prod.yml up -d
+
+# Migrations are automatically run by the 'migrate' service before the API starts
+# To run migrations manually (if needed):
+# docker compose -f docker-compose.prod.yml --profile migrate-only up migrate
+```
+
+### 4. Auto-Updates with Watchtower
+
+Watchtower runs inside Docker Compose and automatically:
+- Polls GHCR every 5 minutes for new images
+- Pulls and restarts containers with new versions
+- Performs rolling restarts (zero downtime)
+
+**Manual deploy** (if needed):
+```bash
+cd /opt/scanorbit
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+### 5. Monitoring & Logs
+
+```bash
+# View all logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# View specific service
+docker compose -f docker-compose.prod.yml logs -f api
+
+# Check Watchtower activity
+docker compose -f docker-compose.prod.yml logs -f watchtower
+
+# Service status
+docker compose -f docker-compose.prod.yml ps
+```
+
+
+## Development Setup
+
+### Prerequisites
+
+- **Node.js** >= 25.0.0
+- **pnpm** >= 9.0.0
+- **Go** >= 1.25
+- **Docker** & Docker Compose
+- **AWS Account** (for testing)
+
+### Quick Start
+
+#### 1. Clone and Install
+
+```bash
+git clone https://github.com/maxbolgarin/scanorbit.git
+cd scanorbit
+
+# Install dependencies
+make install
+```
+
+#### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your settings (defaults work for local development)
+```
+
+#### 3. Start Infrastructure
+
+```bash
+# Start PostgreSQL and Redis
+make dev-infra
+
+# Run database migrations
+make db-migrate
+```
+
+#### 4. Start Services
+
+**Option A: All services via Docker**
+```bash
+make docker-up
+```
+
+**Option B: Individual services for development**
+```bash
+# Terminal 1 - API
+make dev-api
+
+# Terminal 2 - React App
+make dev-app
+
+# Terminal 3 - Landing Page
+make dev-landing
+
+# Terminal 4 - Scanner Worker
+make dev-scanner
+
+# Terminal 5 - Analyzer Worker
+make dev-analyzer
+```
+
+#### 5. Access Services
+
+| Service | URL |
+|---------|-----|
+| React App | http://localhost:3000 |
+| Landing Page | http://localhost:4321 |
+| API | http://localhost:4000 |
+| API Health | http://localhost:4000/health |
 
 ## Git Flow & Release Cycle
 
@@ -140,25 +369,6 @@ feature/123 ──┘        │
 | `chore` | Maintenance | None |
 | `BREAKING CHANGE` | Breaking change | Major (X.0.0) |
 
-### Examples
-
-```bash
-# Feature (minor version bump)
-git commit -m "feat(auth): add OAuth2 login support"
-
-# Bug fix (patch version bump)
-git commit -m "fix(scanner): handle empty regions list"
-
-# Breaking change (major version bump)
-git commit -m "feat(api)!: change authentication endpoint
-
-BREAKING CHANGE: /auth/login now requires email instead of username"
-
-# No version bump
-git commit -m "docs: update API documentation"
-git commit -m "chore: update dependencies"
-```
-
 ### CI/CD Pipelines
 
 | Workflow | Trigger | Actions |
@@ -190,77 +400,6 @@ scanorbit/
 ├── docker/           # Docker configurations
 └── docs/             # Documentation
 ```
-
-## Prerequisites
-
-- **Node.js** >= 22.0.0
-- **pnpm** >= 9.0.0
-- **Go** >= 1.23
-- **Docker** & Docker Compose
-- **AWS Account** (for testing)
-
-## Quick Start (Development)
-
-### 1. Clone and Install
-
-```bash
-git clone https://github.com/maxbolgarin/scanorbit.git
-cd scanorbit
-
-# Install dependencies
-make install
-```
-
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-# Edit .env with your settings (defaults work for local development)
-```
-
-### 3. Start Infrastructure
-
-```bash
-# Start PostgreSQL and Redis
-make dev-infra
-
-# Run database migrations
-make db-migrate
-```
-
-### 4. Start Services
-
-**Option A: All services via Docker**
-```bash
-make docker-up
-```
-
-**Option B: Individual services for development**
-```bash
-# Terminal 1 - API
-make dev-api
-
-# Terminal 2 - React App
-make dev-app
-
-# Terminal 3 - Landing Page
-make dev-landing
-
-# Terminal 4 - Scanner Worker
-make dev-scanner
-
-# Terminal 5 - Analyzer Worker
-make dev-analyzer
-```
-
-### 5. Access Services
-
-| Service | URL |
-|---------|-----|
-| React App | http://localhost:3000 |
-| Landing Page | http://localhost:4321 |
-| API | http://localhost:4000 |
-| API Health | http://localhost:4000/health |
 
 ## Environment Variables
 
@@ -305,204 +444,6 @@ make dev-analyzer
 | `POSTGRES_USER` | PostgreSQL username | `scanorbit` |
 | `POSTGRES_PASSWORD` | PostgreSQL password | `scanorbit` |
 | `POSTGRES_DB` | PostgreSQL database name | `scanorbit` |
-
-## Production Deployment
-
-ScanOrbit uses **GitHub Container Registry (GHCR)** with **Watchtower** for automatic deployments.
-
-### CI/CD Architecture
-
-```
-Push to main → GitHub Actions builds images → Pushes to GHCR → Watchtower pulls & restarts
-```
-
-| Component | Role |
-|-----------|------|
-| GitHub Actions | Builds Docker images on push to `main` |
-| GHCR | Stores container images (`ghcr.io/org/scanorbit-*`) |
-| Watchtower | Auto-pulls new images every 5 minutes |
-| Caddy | Reverse proxy with automatic Let's Encrypt TLS |
-
-### 1. Infrastructure Setup (Scaleway)
-
-```bash
-cd deploy/scaleway
-
-# Configure variables
-cp terraform.tfvars.example terraform.tfvars
-vim terraform.tfvars  # Set domain, ssh_key_ids, etc.
-
-# Deploy infrastructure
-terraform init
-terraform apply
-
-# Note the public IP
-terraform output public_ip
-```
-
-### 2. GitHub Repository Setup
-
-1. **Enable GitHub Packages**
-   - Go to **Settings → Actions → General**
-   - Enable "Read and write permissions" for `GITHUB_TOKEN`
-
-2. **Add Repository Variables** (Settings → Secrets and variables → Actions → Variables)
-   - `VITE_API_URL` = `https://api.yourdomain.com`
-
-3. **Push to main** — GitHub Actions will build and push images to GHCR
-
-### 3. Server Setup (First Time)
-
-```bash
-# SSH into the VM
-ssh root@scanorbit.cloud
-
-# Login to GitHub Container Registry
-# Create PAT at: https://github.com/settings/tokens (scope: read:packages)
-echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
-
-# Copy deployment files (from local machine)
-scp docker-compose.prod.yml Caddyfile .env.example root@scanorbit.cloud:/opt/scanorbit/
-
-# Configure environment
-cd /opt/scanorbit
-cp .env.example .env.prod
-vim .env.prod  # Fill in secrets (see below)
-
-# Start services
-docker compose -f docker-compose.prod.yml up -d
-
-# Run database migrations
-docker compose -f docker-compose.prod.yml exec api node dist/db/migrate.js
-```
-
-### 4. Environment Variables (.env.prod)
-
-```bash
-# Domain
-DOMAIN=scanorbit.cloud
-ADMIN_EMAIL=admin@scanorbit.cloud
-
-# GitHub Container Registry
-GITHUB_REPOSITORY=your-org/scanorbit
-IMAGE_TAG=latest
-
-# Database
-POSTGRES_USER=scanorbit
-POSTGRES_PASSWORD=<generate-strong-password>
-POSTGRES_DB=scanorbit
-DATABASE_URL=postgresql://scanorbit:<password>@postgres:5432/scanorbit
-
-# Redis
-REDIS_URL=redis://redis:6379
-
-# JWT (generate with: openssl rand -hex 32)
-JWT_SECRET=<generated-secret>
-JWT_REFRESH_SECRET=<generated-secret>
-
-# CORS
-CORS_ORIGIN=https://app.scanorbit.cloud
-
-# AWS
-AWS_REGION=eu-west-1
-```
-
-### 5. Auto-Updates with Watchtower
-
-Watchtower runs inside Docker Compose and automatically:
-- Polls GHCR every 5 minutes for new images
-- Pulls and restarts containers with new versions
-- Performs rolling restarts (zero downtime)
-
-**Manual deploy** (if needed):
-```bash
-cd /opt/scanorbit
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-```
-
-### 6. DNS Configuration
-
-Configure these DNS records (Scaleway DNS or your provider):
-
-| Record | Type | Value |
-|--------|------|-------|
-| `scanorbit.cloud` | A | VM Public IP |
-| `www.scanorbit.cloud` | CNAME | scanorbit.cloud |
-| `app.scanorbit.cloud` | A | VM Public IP |
-| `api.scanorbit.cloud` | A | VM Public IP |
-
-Caddy automatically provisions Let's Encrypt certificates for all domains.
-
-### 7. Monitoring & Logs
-
-```bash
-# View all logs
-docker compose -f docker-compose.prod.yml logs -f
-
-# View specific service
-docker compose -f docker-compose.prod.yml logs -f api
-
-# Check Watchtower activity
-docker compose -f docker-compose.prod.yml logs -f watchtower
-
-# Service status
-docker compose -f docker-compose.prod.yml ps
-```
-
-### 8. AWS IAM Role Setup
-
-Users need to create an IAM role in their AWS account for ScanOrbit to assume:
-
-**Trust Policy:**
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::YOUR_SCANORBIT_ACCOUNT:root"
-      },
-      "Action": "sts:AssumeRole",
-      "Condition": {
-        "StringEquals": {
-          "sts:ExternalId": "USER_GENERATED_EXTERNAL_ID"
-        }
-      }
-    }
-  ]
-}
-```
-
-**Permission Policy (Read-Only):**
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeInstances",
-        "ec2:DescribeVolumes",
-        "ec2:DescribeAddresses",
-        "ec2:DescribeRegions",
-        "ec2:DescribeSnapshots",
-        "rds:DescribeDBInstances",
-        "rds:DescribeDBSnapshots",
-        "s3:ListAllMyBuckets",
-        "s3:GetBucketLocation",
-        "s3:GetBucketTagging",
-        "elasticloadbalancing:DescribeLoadBalancers",
-        "elasticloadbalancing:DescribeTags",
-        "acm:ListCertificates",
-        "acm:DescribeCertificate"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
 
 ## Available Commands
 
@@ -720,7 +661,7 @@ A Terraform configuration creates AWS resources with intentional issues for Scan
 | EBS Snapshot (old) | Stale snapshot | Cost optimization |
 
 ```bash
-cd terraform
+cd deploy/test
 
 # Initialize Terraform
 terraform init
