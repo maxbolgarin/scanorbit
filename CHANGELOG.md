@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4](https://github.com/maxbolgarin/scanorbit/compare/v1.0.3...v1.0.4) (2026-01-09)
+
+### Bug Fixes
+
+* fixes ([4f77f4b](https://github.com/maxbolgarin/scanorbit/commit/4f77f4bb2a252876ded05149d33ce915bd016c0d))
+
+### Continuous Integration
+
+* make better ([a2c3e23](https://github.com/maxbolgarin/scanorbit/commit/a2c3e23bdc67c4f418e80fb798e8a8e4a6800a22))
+
 ## [1.0.3](https://github.com/maxbolgarin/scanorbit/compare/v1.0.2...v1.0.3) (2026-01-09)
 
 ### Bug Fixes
