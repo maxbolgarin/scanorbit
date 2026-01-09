@@ -64,6 +64,109 @@ ScanOrbit is a cloud security platform that scans your AWS infrastructure to:
 | Cache/Queue | Redis 7 |
 | Proxy | Caddy 2 (production) |
 
+## Git Flow & Release Cycle
+
+ScanOrbit follows a **Git Flow** branching strategy with **semantic versioning**.
+
+### Branches
+
+| Branch | Purpose | Image Tag |
+|--------|---------|-----------|
+| `main` | Production releases | `latest`, `v1.2.3` |
+| `develop` | Development integration | `develop`, `dev-<sha>` |
+| `feature/*` | New features | - |
+| `fix/*` | Bug fixes | - |
+
+### Workflow
+
+```
+feature/xyz ──┐
+              │
+fix/abc ──────┼──► develop ──► main ──► v1.2.3 (release)
+              │        │
+feature/123 ──┘        │
+                       ▼
+                  Build images
+                  (develop tag)
+```
+
+### Development Flow
+
+1. **Create feature branch** from `develop`:
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/my-feature
+   ```
+
+2. **Make changes** and commit using conventional commits:
+   ```bash
+   git commit -m "feat(api): add user authentication"
+   git commit -m "fix(app): resolve login redirect issue"
+   ```
+
+3. **Push and create PR** to `develop`:
+   ```bash
+   git push origin feature/my-feature
+   # Create PR: feature/my-feature → develop
+   ```
+
+4. **Merge to develop** — triggers build with `develop` tag
+
+### Release Flow
+
+1. **Create PR** from `develop` to `main`
+
+2. **Merge to main** — triggers:
+   - Semantic Release analyzes commits
+   - Creates version tag (e.g., `v1.2.3`)
+   - Generates CHANGELOG.md
+   - Creates GitHub Release
+   - Builds images with version tag + `latest`
+
+3. **Watchtower** auto-deploys `latest` to production
+
+### Commit Convention
+
+| Type | Description | Version Bump |
+|------|-------------|--------------|
+| `feat` | New feature | Minor (0.X.0) |
+| `fix` | Bug fix | Patch (0.0.X) |
+| `perf` | Performance improvement | Patch |
+| `refactor` | Code refactoring | Patch |
+| `docs` | Documentation | None |
+| `style` | Code style | None |
+| `test` | Tests | None |
+| `chore` | Maintenance | None |
+| `BREAKING CHANGE` | Breaking change | Major (X.0.0) |
+
+### Examples
+
+```bash
+# Feature (minor version bump)
+git commit -m "feat(auth): add OAuth2 login support"
+
+# Bug fix (patch version bump)
+git commit -m "fix(scanner): handle empty regions list"
+
+# Breaking change (major version bump)
+git commit -m "feat(api)!: change authentication endpoint
+
+BREAKING CHANGE: /auth/login now requires email instead of username"
+
+# No version bump
+git commit -m "docs: update API documentation"
+git commit -m "chore: update dependencies"
+```
+
+### CI/CD Pipelines
+
+| Workflow | Trigger | Actions |
+|----------|---------|---------|
+| `ci.yml` | All branches, PRs | Lint, typecheck, test, build check |
+| `develop.yml` | Push to `develop` | Build images with `develop` tag |
+| `deploy.yml` | Push to `main` | Semantic release, build images with version |
+
 ## Project Structure
 
 ```

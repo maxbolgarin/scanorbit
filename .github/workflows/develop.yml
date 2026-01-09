@@ -1,51 +1,17 @@
-name: Release
+name: Develop
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
-  # Run semantic-release to create version tag and GitHub release
-  release:
-    name: Semantic Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    outputs:
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/changelog @semantic-release/git @semantic-release/github conventional-changelog-conventionalcommits
-
-      - name: Semantic Release
-        id: semantic
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
-
-  # Build and push Docker images with version tags
+  # Build and push Docker images with develop tag
   build-api:
     name: Build API
-    needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,8 +36,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
-            type=raw,value=latest
+            type=raw,value=develop
+            type=sha,prefix=dev-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -85,8 +51,6 @@ jobs:
 
   build-app:
     name: Build App
-    needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -111,8 +75,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/app
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
-            type=raw,value=latest
+            type=raw,value=develop
+            type=sha,prefix=dev-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -122,14 +86,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_API_URL=${{ vars.VITE_API_URL_DEV }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   build-landing:
     name: Build Landing
-    needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -154,8 +116,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/landing
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
-            type=raw,value=latest
+            type=raw,value=develop
+            type=sha,prefix=dev-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -169,8 +131,6 @@ jobs:
 
   build-workers:
     name: Build Workers
-    needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -198,8 +158,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.worker }}
           tags: |
-            type=raw,value=${{ needs.release.outputs.new_release_version }}
-            type=raw,value=latest
+            type=raw,value=develop
+            type=sha,prefix=dev-
 
       - name: Build and push
         uses: docker/build-push-action@v6
