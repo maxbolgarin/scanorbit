@@ -1,11 +1,19 @@
-import { config as dotenvConfig } from 'dotenv';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load .env from monorepo root (4 levels up: lib -> src -> api -> apps -> root)
-dotenvConfig({ path: resolve(__dirname, '../../../../.env') });
+// Load .env from monorepo root in development only.
+// In production (Docker), configuration should come from real environment variables,
+// and `dotenv` is not installed in the production image (`pnpm install --prod`).
+if ((process.env.NODE_ENV ?? 'development') !== 'production') {
+  try {
+    const { config: dotenvConfig } = await import('dotenv');
+    dotenvConfig({ path: resolve(__dirname, '../../../../.env') });
+  } catch {
+    // Ignore if dotenv isn't installed or .env isn't present (e.g., some CI environments).
+  }
+}
 
 export const config = {
   // Server
