@@ -48,6 +48,10 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		return fmt.Errorf("unmarshal job: %w", err)
 	}
 
+	if err := job.Validate(); err != nil {
+		return fmt.Errorf("invalid job payload: %w", err)
+	}
+
 	o.logger.Info().
 		Str("analyzer", analyzer.Name()).
 		Str("account_id", job.AccountID).

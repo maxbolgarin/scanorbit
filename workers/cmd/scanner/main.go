@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -85,6 +84,19 @@ func main() {
 
 	logger.Info().Msg("scanner worker started")
 
+	// Dead letter handler - stores failed jobs in database
+	deadLetterHandler := func(ctx context.Context, job *queue.Job, jobErr error) {
+		deadJob := &store.DeadLetterJob{
+			JobType: string(job.Type),
+			Payload: job.Payload,
+			Error:   jobErr.Error(),
+			Retries: job.RetryCount,
+		}
+		if err := st.DeadLetters.Create(ctx, deadJob); err != nil {
+			logger.Error().Err(err).Str("job_type", string(job.Type)).Msg("failed to store dead letter job")
+		}
+	}
+
 	// Consume jobs
 	err = q.Consume(ctx, []models.JobType{models.JobTypeScanAccount}, func(ctx context.Context, job *queue.Job) error {
 		var scanJob models.ScanAccountJob
@@ -94,13 +106,7 @@ func main() {
 		}
 
 		// Validate job payload
-		if scanJob.AccountID == "" {
-			err := errors.New("account_id is required but was empty")
-			logger.Error().Err(err).Msg("invalid job payload")
-			return err
-		}
-		if scanJob.OrgID == "" {
-			err := errors.New("org_id is required but was empty")
+		if err := scanJob.Validate(); err != nil {
 			logger.Error().Err(err).Msg("invalid job payload")
 			return err
 		}
@@ -111,7 +117,7 @@ func main() {
 			Msg("processing scan job")
 
 		return scnr.ScanAccount(ctx, &scanJob)
-	})
+	}, deadLetterHandler)
 
 	if err != nil && err != context.Canceled {
 		logger.Fatal().Err(err).Msg("queue consumer error")

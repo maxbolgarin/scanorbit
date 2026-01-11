@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -116,7 +116,7 @@ export function FindingsTableAdvanced({
   }, [sortedFindings, currentPage, pageSize]);
 
   // Reset page when findings change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [findings.length]);
 

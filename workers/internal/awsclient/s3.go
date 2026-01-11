@@ -58,16 +58,17 @@ func (s *S3Scanner) ScanBuckets(ctx context.Context, cfg aws.Config) ([]*models.
 }
 
 // getBucketRegion retrieves the region for a bucket.
+// Returns "unknown" if region cannot be determined due to errors.
 func (s *S3Scanner) getBucketRegion(ctx context.Context, svc *s3.Client, bucketName string) string {
 	locOutput, err := svc.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
 		Bucket: aws.String(bucketName),
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).Str("bucket", bucketName).Msg("failed to get bucket location")
-		return "us-east-1" // Default
+		return "unknown" // Return unknown instead of assuming us-east-1
 	}
 
-	// Empty LocationConstraint means us-east-1
+	// Empty LocationConstraint means us-east-1 (this is AWS behavior)
 	if locOutput.LocationConstraint == "" {
 		return "us-east-1"
 	}

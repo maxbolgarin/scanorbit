@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { FindingStatus, AwsAccountStatus } from "@/types";
 
@@ -24,10 +25,10 @@ const findingStatusConfig = {
   },
 };
 
-export function FindingStatusBadge({ status }: FindingStatusBadgeProps) {
+export const FindingStatusBadge = memo(function FindingStatusBadge({ status }: FindingStatusBadgeProps) {
   const config = findingStatusConfig[status];
   return <Badge variant={config.variant}>{config.label}</Badge>;
-}
+});
 
 interface AccountStatusBadgeProps {
   status: AwsAccountStatus;
@@ -48,7 +49,7 @@ const accountStatusConfig = {
   },
 };
 
-export function AccountStatusBadge({ status }: AccountStatusBadgeProps) {
+export const AccountStatusBadge = memo(function AccountStatusBadge({ status }: AccountStatusBadgeProps) {
   const config = accountStatusConfig[status];
   return <Badge variant={config.variant}>{config.label}</Badge>;
-}
+});

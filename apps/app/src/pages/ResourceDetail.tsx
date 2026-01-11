@@ -17,6 +17,30 @@ import { useFindings } from "@/hooks/use-findings";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { ArrowLeft, ExternalLink, Tag } from "lucide-react";
 
+// Valid AWS regions whitelist for URL construction security
+const VALID_AWS_REGIONS = new Set([
+  "us-east-1", "us-east-2", "us-west-1", "us-west-2",
+  "af-south-1", "ap-east-1", "ap-south-1", "ap-south-2",
+  "ap-southeast-1", "ap-southeast-2", "ap-southeast-3", "ap-southeast-4",
+  "ap-northeast-1", "ap-northeast-2", "ap-northeast-3",
+  "ca-central-1", "ca-west-1",
+  "eu-central-1", "eu-central-2", "eu-west-1", "eu-west-2", "eu-west-3",
+  "eu-south-1", "eu-south-2", "eu-north-1",
+  "il-central-1", "me-central-1", "me-south-1",
+  "sa-east-1",
+]);
+
+/**
+ * Build AWS console URL with validated region to prevent URL injection.
+ * Returns null if region is invalid.
+ */
+function buildAwsConsoleUrl(region: string | null | undefined): string | null {
+  if (!region || !VALID_AWS_REGIONS.has(region)) {
+    return null;
+  }
+  return `https://${region}.console.aws.amazon.com`;
+}
+
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -73,16 +97,18 @@ export default function ResourceDetail() {
             </div>
           </div>
         </div>
-        <Button variant="outline" asChild>
-          <a
-            href={`https://${resource.region}.console.aws.amazon.com`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Open in AWS
-          </a>
-        </Button>
+        {buildAwsConsoleUrl(resource.region) && (
+          <Button variant="outline" asChild>
+            <a
+              href={buildAwsConsoleUrl(resource.region)!}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open in AWS
+            </a>
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

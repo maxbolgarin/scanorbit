@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto, { timingSafeEqual } from 'crypto';
 import bcrypt from 'bcrypt';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../lib/db.js';
@@ -16,6 +16,20 @@ const VERIFICATION_CODE_EXPIRY_HOURS = 24;
 // Generate a 6-digit verification code using cryptographically secure random
 function generateVerificationCode(): string {
   return crypto.randomInt(100000, 999999).toString();
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks
+ * Used for verification codes to prevent attackers from timing
+ * how long comparison takes to narrow down valid codes
+ */
+function secureCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  return timingSafeEqual(bufA, bufB);
 }
 
 // Generate URL-safe slug from org name
@@ -169,7 +183,8 @@ export const authService = {
       throw new HTTP400Error('Verification code expired. Please request a new one.');
     }
 
-    if (user.emailVerificationCode !== code) {
+    // Use constant-time comparison to prevent timing attacks
+    if (!secureCompare(user.emailVerificationCode, code)) {
       throw new HTTP400Error('Invalid verification code');
     }
 
@@ -399,8 +414,8 @@ export const authService = {
       throw new HTTP400Error('Verification code expired. Please request a new one.');
     }
 
-    // Compare codes
-    if (storedCode !== code) {
+    // Compare codes using constant-time comparison to prevent timing attacks
+    if (!secureCompare(storedCode, code)) {
       const remaining = attempts.attemptsRemaining - 1;
       throw new HTTP400Error(
         `Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
@@ -483,6 +498,83 @@ export const authService = {
     });
 
     return { user, token };
+  },
+
+  /**
+   * Change user password
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> {
+    // Get user with password hash
+    const [user] = await db
+      .select({
+        id: users.id,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP401Error('User not found');
+    }
+
+    // Verify current password
+    const match = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!match) {
+      throw new HTTP400Error('Current password is incorrect');
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Update password
+    await db
+      .update(users)
+      .set({
+        passwordHash: newPasswordHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    return { success: true, message: 'Password changed successfully' };
+  },
+
+  /**
+   * Update user profile (name only - email change requires verification)
+   */
+  async updateProfile(
+    userId: string,
+    updates: { fullName?: string }
+  ): Promise<{ user: Pick<User, 'id' | 'email' | 'fullName'> }> {
+    // Build update object
+    const updateData: { fullName?: string; updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.fullName !== undefined) {
+      updateData.fullName = updates.fullName;
+    }
+
+    // Update user
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+      });
+
+    if (!updatedUser) {
+      throw new HTTP401Error('User not found');
+    }
+
+    return { user: updatedUser };
   },
 
   /**

@@ -10,11 +10,22 @@ import {
 } from "@/components/ui/card";
 import { Orbit } from "lucide-react";
 
+/**
+ * Validate that a redirect path is internal to prevent open redirect attacks.
+ * Only allows paths starting with "/" that don't contain protocol indicators.
+ */
+function isValidInternalPath(path: string | undefined): path is string {
+  if (!path || typeof path !== "string") return false;
+  // Must start with "/" and not contain protocol indicators
+  return path.startsWith("/") && !path.includes("://") && !path.startsWith("//");
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
+  const requestedPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
+  const from = isValidInternalPath(requestedPath) ? requestedPath : "/dashboard";
 
   const handleSuccess = () => {
     navigate(from, { replace: true });

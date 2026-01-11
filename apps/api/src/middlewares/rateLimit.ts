@@ -1,6 +1,7 @@
 import type { Context, Next } from 'hono';
 import { redis } from '../lib/redis.js';
-import { HTTP429Error } from '../lib/errors.js';
+import { HTTP429Error, HTTP503Error } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 import type { Variables } from '../types/index.js';
 
 interface RateLimitOptions {
@@ -14,6 +15,47 @@ interface RateLimitOptions {
   keyExtractor?: (c: Context<{ Variables: Variables }>) => string;
   /** Custom error message */
   message?: string;
+}
+
+// Circuit breaker state for Redis failures
+// When Redis fails repeatedly, we fail-closed to prevent brute force attacks
+const circuitBreaker = {
+  failures: 0,
+  lastFailure: 0,
+  threshold: 5, // Number of failures before circuit opens
+  resetTimeout: 60000, // 1 minute before attempting to reset
+};
+
+/**
+ * Check if circuit breaker is open (Redis is unavailable)
+ * Circuit resets after resetTimeout if no new failures
+ */
+function isCircuitOpen(): boolean {
+  if (circuitBreaker.failures >= circuitBreaker.threshold) {
+    const timeSinceLastFailure = Date.now() - circuitBreaker.lastFailure;
+    if (timeSinceLastFailure > circuitBreaker.resetTimeout) {
+      // Try to reset the circuit
+      circuitBreaker.failures = 0;
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Record a Redis failure
+ */
+function recordFailure(): void {
+  circuitBreaker.failures++;
+  circuitBreaker.lastFailure = Date.now();
+}
+
+/**
+ * Record a Redis success (reset failure count)
+ */
+function recordSuccess(): void {
+  circuitBreaker.failures = 0;
 }
 
 /**
@@ -61,6 +103,15 @@ export function rateLimit(options: RateLimitOptions) {
   } = options;
 
   return async (c: Context<{ Variables: Variables }>, next: Next) => {
+    // Check circuit breaker first - if Redis has been failing, fail-closed for security
+    if (isCircuitOpen()) {
+      logger.error('Circuit breaker open - Redis unavailable, failing closed', undefined, {
+        keyPrefix,
+        failures: circuitBreaker.failures,
+      });
+      throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
+    }
+
     try {
       // Get identifier (IP or custom)
       const identifier = keyExtractor ? keyExtractor(c) : getClientIP(c);
@@ -77,6 +128,9 @@ export function rateLimit(options: RateLimitOptions) {
       // Get remaining TTL for headers
       const ttl = await redis.ttl(key);
 
+      // Record successful Redis operation
+      recordSuccess();
+
       // Set rate limit headers
       c.header('X-RateLimit-Limit', maxRequests.toString());
       c.header('X-RateLimit-Remaining', Math.max(0, maxRequests - count).toString());
@@ -90,12 +144,25 @@ export function rateLimit(options: RateLimitOptions) {
 
       await next();
     } catch (err) {
-      // If Redis fails, allow the request (fail open)
-      // Log the error but don't block the request
-      if (err instanceof HTTP429Error) {
+      // Re-throw HTTP errors (rate limit exceeded, service unavailable)
+      if (err instanceof HTTP429Error || err instanceof HTTP503Error) {
         throw err;
       }
-      console.error('[RateLimit] Redis error, failing open:', err);
+
+      // Record Redis failure for circuit breaker
+      recordFailure();
+      logger.error('Redis rate limit error', err as Error, {
+        keyPrefix,
+        failures: circuitBreaker.failures,
+        threshold: circuitBreaker.threshold,
+      });
+
+      // If we've hit the threshold, fail closed for security
+      if (isCircuitOpen()) {
+        throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
+      }
+
+      // Allow a few failures before failing closed (graceful degradation)
       await next();
     }
   };

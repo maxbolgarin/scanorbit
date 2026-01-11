@@ -514,14 +514,19 @@ export async function getRecommendedActions(): Promise<Finding[]> {
 // Profile API
 // ============================================
 
-export async function updateProfile(_updates: { name?: string; email?: string }): Promise<User> {
-  // Note: Backend doesn't have a profile update endpoint yet
-  // This would need to be implemented on the backend
-  throw new Error("Profile update not implemented on backend");
+export async function updateProfile(updates: { fullName?: string }): Promise<User> {
+  try {
+    const { data } = await api.patch<{ user: User }>("/auth/profile", updates);
+    return data.user;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
-export async function changePassword(_currentPassword: string, _newPassword: string): Promise<void> {
-  // Note: Backend doesn't have a password change endpoint yet
-  // This would need to be implemented on the backend
-  throw new Error("Password change not implemented on backend");
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  try {
+    await api.post("/auth/change-password", { currentPassword, newPassword });
+  } catch (error) {
+    handleApiError(error);
+  }
 }

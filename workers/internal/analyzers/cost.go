@@ -122,7 +122,8 @@ func (a *CostAnalyzer) checkUnusedLambda(r *models.Resource, now time.Time) []*m
 				"last_modified":       lastModifiedStr,
 				"days_since_modified": daysSinceModified,
 				"memory_size":         raw["memory_size"],
-				"recommendation":      "Review this function and delete if no longer needed. Unused Lambda functions incur storage costs.",
+				"note":                "This is based on code modification time, not invocation frequency. Check CloudWatch metrics for actual usage.",
+				"recommendation":      "Review this function's CloudWatch invocation metrics. Delete if no longer needed to save storage costs.",
 			},
 			Status: models.FindingStatusOpen,
 		}}

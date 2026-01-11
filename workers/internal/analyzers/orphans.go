@@ -2,6 +2,7 @@ package analyzers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -86,15 +87,34 @@ func (a *OrphanAnalyzer) checkOrphanedEBS(r *models.Resource, now time.Time) *mo
 		return nil
 	}
 
-	age := now.Sub(r.CreatedAt)
+	// Try to get unattached_since from raw data for more accurate tracking
+	var unattachedSince time.Time
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err == nil {
+		if unattachedStr, ok := raw["unattached_since"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339, unattachedStr); err == nil {
+				unattachedSince = parsed
+			}
+		}
+	}
+
+	// Fallback to CreatedAt if no unattached_since timestamp available
+	if unattachedSince.IsZero() {
+		unattachedSince = r.CreatedAt
+	}
+
+	age := now.Sub(unattachedSince)
 	ageDays := int(age.Hours() / 24)
 
 	if ageDays <= orphanedEBSAgeDays {
 		return nil
 	}
 
-	// Estimate cost: ~$0.10/GB/month for gp2
-	estimatedCost := 10.0 // Rough estimate without volume size
+	// Estimate cost based on volume size if available
+	estimatedCost := 10.0 // Default rough estimate
+	if size, ok := raw["size"].(float64); ok && size > 0 {
+		estimatedCost = size * 0.10 // ~$0.10/GB/month for gp2
+	}
 
 	resourceID := r.ID
 	return &models.Finding{
@@ -102,12 +122,12 @@ func (a *OrphanAnalyzer) checkOrphanedEBS(r *models.Resource, now time.Time) *mo
 		ResourceID: &resourceID,
 		Type:       models.FindingOrphanedVolume,
 		Severity:   models.SeverityMedium,
-		Summary:    fmt.Sprintf("Unattached EBS volume %s (age: %d days)", r.ResourceID, ageDays),
+		Summary:    fmt.Sprintf("Unattached EBS volume %s (unattached for %d days)", r.ResourceID, ageDays),
 		Details: map[string]any{
 			"resource_id":            r.ResourceID,
 			"name":                   r.Name,
 			"region":                 r.Region,
-			"age_days":               ageDays,
+			"unattached_days":        ageDays,
 			"state":                  r.State,
 			"estimated_monthly_cost": estimatedCost,
 			"recommendation":         "Delete this volume if no longer needed to save costs",

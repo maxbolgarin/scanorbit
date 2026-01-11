@@ -1,5 +1,7 @@
 package models
 
+import "errors"
+
 // JobType represents the type of background job.
 type JobType string
 
@@ -30,4 +32,26 @@ type AnalyzeJob struct {
 // ResidencyPolicy defines allowed regions for data residency checks.
 type ResidencyPolicy struct {
 	AllowedRegions []string `json:"allowed_regions"`
+}
+
+// Validate checks that required fields are present in ScanAccountJob.
+func (j *ScanAccountJob) Validate() error {
+	if j.AccountID == "" {
+		return errors.New("account_id is required")
+	}
+	if j.OrgID == "" {
+		return errors.New("org_id is required")
+	}
+	return nil
+}
+
+// Validate checks that required fields are present in AnalyzeJob.
+func (j *AnalyzeJob) Validate() error {
+	if j.AccountID == "" {
+		return errors.New("account_id is required")
+	}
+	if j.OrgID == "" {
+		return errors.New("org_id is required")
+	}
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -77,13 +78,33 @@ func (s *EC2Scanner) ScanVolumes(ctx context.Context, cfg aws.Config, region str
 		}
 
 		for _, volume := range output.Volumes {
-			raw, _ := json.Marshal(volume)
-
 			// Determine state: "available" means unattached (potential orphan)
 			state := string(volume.State)
-			if len(volume.Attachments) == 0 && state == "available" {
+			isUnattached := len(volume.Attachments) == 0 && state == "available"
+			if isUnattached {
 				state = "unattached"
 			}
+
+			// Build raw data with additional metadata
+			rawData := map[string]any{
+				"volume_id":       aws.ToString(volume.VolumeId),
+				"size":            volume.Size,
+				"state":           string(volume.State),
+				"volume_type":     string(volume.VolumeType),
+				"availability_zone": aws.ToString(volume.AvailabilityZone),
+				"encrypted":       volume.Encrypted,
+				"iops":            volume.Iops,
+				"throughput":      volume.Throughput,
+				"create_time":     volume.CreateTime,
+				"attachments":     volume.Attachments,
+			}
+
+			// Add unattached_since timestamp for orphan detection
+			if isUnattached {
+				rawData["unattached_since"] = time.Now().Format(time.RFC3339)
+			}
+
+			raw, _ := json.Marshal(rawData)
 
 			resource := &models.Resource{
 				ResourceID: aws.ToString(volume.VolumeId),

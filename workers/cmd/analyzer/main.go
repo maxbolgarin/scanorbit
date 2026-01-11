@@ -83,6 +83,19 @@ func main() {
 
 	logger.Info().Msg("analyzer worker started")
 
+	// Dead letter handler - stores failed jobs in database
+	deadLetterHandler := func(ctx context.Context, job *queue.Job, jobErr error) {
+		deadJob := &store.DeadLetterJob{
+			JobType: string(job.Type),
+			Payload: job.Payload,
+			Error:   jobErr.Error(),
+			Retries: job.RetryCount,
+		}
+		if err := st.DeadLetters.Create(ctx, deadJob); err != nil {
+			logger.Error().Err(err).Str("job_type", string(job.Type)).Msg("failed to store dead letter job")
+		}
+	}
+
 	// Consume all analyzer jobs
 	err = q.Consume(ctx, []models.JobType{
 		models.JobTypeAnalyzeOrphans,
@@ -92,7 +105,7 @@ func main() {
 		models.JobTypeAnalyzeCost,
 		models.JobTypeAnalyzeTagging,
 		models.JobTypeAnalyzeIAM,
-	}, orchestrator.HandleJob)
+	}, orchestrator.HandleJob, deadLetterHandler)
 
 	if err != nil && err != context.Canceled {
 		logger.Fatal().Err(err).Msg("queue consumer error")

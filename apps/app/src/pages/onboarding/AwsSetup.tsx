@@ -72,6 +72,18 @@ export default function AwsSetup() {
     saveOnboardingState({ step, accountDetails });
   }, [step, accountDetails]);
 
+  // Clear localStorage when component unmounts if AWS account was successfully connected
+  // This handles edge cases like browser navigation after successful connection
+  useEffect(() => {
+    return () => {
+      // If we have a created account ID, the connection was successful
+      // Clear localStorage to prevent stale data
+      if (createdAccountId) {
+        clearOnboardingState();
+      }
+    };
+  }, [createdAccountId]);
+
   // Clear state and navigate to dashboard
   const handleClose = useCallback(() => {
     clearOnboardingState();
@@ -170,10 +182,13 @@ export default function AwsSetup() {
         accountId = account.id;
       }
 
-      // Clear onboarding state on success
-      clearOnboardingState();
-      // Trigger initial scan
+      // Trigger initial scan first
       await triggerScan.mutateAsync(accountId);
+
+      // Clear onboarding state only after everything succeeds
+      // This ensures users can retry if scan trigger fails
+      clearOnboardingState();
+
       // Go to dashboard - scan will be visible there
       navigate("/dashboard");
     } catch (err) {

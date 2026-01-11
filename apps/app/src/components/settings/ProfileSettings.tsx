@@ -57,7 +57,8 @@ export function ProfileSettings() {
   const handleProfileSubmit = async (data: ProfileFormData) => {
     setIsUpdatingProfile(true);
     try {
-      const updatedUser = await api.updateProfile(data);
+      // Map form fields to API fields
+      const updatedUser = await api.updateProfile({ fullName: data.name });
       updateUser(updatedUser);
       toast({
         title: "Profile updated",

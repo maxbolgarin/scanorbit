@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
@@ -92,7 +92,7 @@ export function ResourcesTableAdvanced({ resources, isLoading }: ResourcesTableA
   }, [sortedResources, currentPage, pageSize]);
 
   // Reset page when resources change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [resources.length]);
 

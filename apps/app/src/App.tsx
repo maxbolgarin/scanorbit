@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Layout } from "@/components/common/Layout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
 // Lazy load pages for code splitting
 const Login = lazy(() => import("@/pages/Login"));
@@ -32,7 +33,7 @@ function App() {
   const { isAuthenticated, hasOrg } = useAuthStore();
 
   return (
-    <>
+    <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public routes */}
@@ -107,7 +108,7 @@ function App() {
         </Routes>
       </Suspense>
       <Toaster />
-    </>
+    </ErrorBoundary>
   );
 }
 

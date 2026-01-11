@@ -3,6 +3,7 @@ package awsclient
 import (
 	"context"
 	"encoding/json"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -170,56 +171,82 @@ func (s *IAMScanner) ScanAccessKeys(ctx context.Context, cfg aws.Config) ([]*mod
 		}
 	}
 
+	// Process users concurrently with limited parallelism
+	const maxConcurrency = 10
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	var resources []*models.Resource
 
-	// Get access keys for each user
 	for _, userName := range users {
-		keysOutput, err := client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
-			UserName: aws.String(userName),
-		})
-		if err != nil {
-			s.logger.Warn().Err(err).Str("user", userName).Msg("failed to list access keys")
-			continue
-		}
+		wg.Add(1)
+		go func(user string) {
+			defer wg.Done()
+			sem <- struct{}{}        // Acquire
+			defer func() { <-sem }() // Release
 
-		for _, key := range keysOutput.AccessKeyMetadata {
-			keyID := aws.ToString(key.AccessKeyId)
-			r := models.NewResource(keyID, models.ServiceIAMAccessKey, "global")
-			r.Name = keyID
-			r.State = string(key.Status)
-
-			// Get last used info
-			lastUsedOutput, err := client.GetAccessKeyLastUsed(ctx, &iam.GetAccessKeyLastUsedInput{
-				AccessKeyId: key.AccessKeyId,
-			})
-
-			rawData := map[string]any{
-				"access_key_id": keyID,
-				"user_name":     userName,
-				"status":        string(key.Status),
-				"create_date":   key.CreateDate,
+			userResources := s.scanUserAccessKeys(ctx, client, user)
+			if len(userResources) > 0 {
+				mu.Lock()
+				resources = append(resources, userResources...)
+				mu.Unlock()
 			}
-			if err == nil && lastUsedOutput.AccessKeyLastUsed != nil {
-				if lastUsedOutput.AccessKeyLastUsed.LastUsedDate != nil {
-					rawData["last_used_date"] = lastUsedOutput.AccessKeyLastUsed.LastUsedDate
-				}
-				if lastUsedOutput.AccessKeyLastUsed.ServiceName != nil {
-					rawData["last_used_service"] = aws.ToString(lastUsedOutput.AccessKeyLastUsed.ServiceName)
-				}
-				if lastUsedOutput.AccessKeyLastUsed.Region != nil {
-					rawData["last_used_region"] = aws.ToString(lastUsedOutput.AccessKeyLastUsed.Region)
-				}
-			}
-			raw, _ := json.Marshal(rawData)
-			r.Raw = raw
-
-			resources = append(resources, r)
-		}
+		}(userName)
 	}
+
+	wg.Wait()
 
 	s.logger.Debug().
 		Int("access_keys", len(resources)).
 		Msg("scanned IAM access keys")
 
 	return resources, nil
+}
+
+// scanUserAccessKeys scans access keys for a single user.
+func (s *IAMScanner) scanUserAccessKeys(ctx context.Context, client *iam.Client, userName string) []*models.Resource {
+	keysOutput, err := client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
+		UserName: aws.String(userName),
+	})
+	if err != nil {
+		s.logger.Warn().Err(err).Str("user", userName).Msg("failed to list access keys")
+		return nil
+	}
+
+	var resources []*models.Resource
+	for _, key := range keysOutput.AccessKeyMetadata {
+		keyID := aws.ToString(key.AccessKeyId)
+		r := models.NewResource(keyID, models.ServiceIAMAccessKey, "global")
+		r.Name = keyID
+		r.State = string(key.Status)
+
+		// Get last used info
+		lastUsedOutput, err := client.GetAccessKeyLastUsed(ctx, &iam.GetAccessKeyLastUsedInput{
+			AccessKeyId: key.AccessKeyId,
+		})
+
+		rawData := map[string]any{
+			"access_key_id": keyID,
+			"user_name":     userName,
+			"status":        string(key.Status),
+			"create_date":   key.CreateDate,
+		}
+		if err == nil && lastUsedOutput.AccessKeyLastUsed != nil {
+			if lastUsedOutput.AccessKeyLastUsed.LastUsedDate != nil {
+				rawData["last_used_date"] = lastUsedOutput.AccessKeyLastUsed.LastUsedDate
+			}
+			if lastUsedOutput.AccessKeyLastUsed.ServiceName != nil {
+				rawData["last_used_service"] = aws.ToString(lastUsedOutput.AccessKeyLastUsed.ServiceName)
+			}
+			if lastUsedOutput.AccessKeyLastUsed.Region != nil {
+				rawData["last_used_region"] = aws.ToString(lastUsedOutput.AccessKeyLastUsed.Region)
+			}
+		}
+		raw, _ := json.Marshal(rawData)
+		r.Raw = raw
+
+		resources = append(resources, r)
+	}
+
+	return resources
 }

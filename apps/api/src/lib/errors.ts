@@ -56,3 +56,10 @@ export class HTTP500Error extends HTTPError {
     this.name = 'HTTP500Error';
   }
 }
+
+export class HTTP503Error extends HTTPError {
+  constructor(message: string = 'Service Unavailable') {
+    super(503, message);
+    this.name = 'HTTP503Error';
+  }
+}

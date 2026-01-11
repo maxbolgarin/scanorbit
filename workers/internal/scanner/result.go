@@ -8,10 +8,11 @@ import (
 
 // RegionResult holds the results from scanning a single region.
 type RegionResult struct {
-	Region       string
-	Resources    []*models.Resource
-	Certificates []*models.Certificate
-	Error        error
+	Region        string
+	Resources     []*models.Resource
+	Certificates  []*models.Certificate
+	Error         error    // Set if the entire region scan failed
+	ScannerErrors []string // Errors from individual scanners (partial failures)
 }
 
 // ScanResult holds the aggregated results from scanning an account.

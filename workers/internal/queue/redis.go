@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -15,7 +16,14 @@ import (
 const (
 	jobKeyPrefix = "jobs:"
 	blpopTimeout = 5 * time.Second
+	maxRetries   = 3
 )
+
+// jobEnvelope wraps payload with retry metadata for Redis storage.
+type jobEnvelope struct {
+	Payload    []byte `json:"payload"`
+	RetryCount int    `json:"retry_count"`
+}
 
 // RedisQueue implements Queue using Redis.
 type RedisQueue struct {
@@ -55,16 +63,30 @@ func NewRedisQueue(redisURL string, logger zerolog.Logger) (*RedisQueue, error) 
 
 // Enqueue adds a job to the queue.
 func (q *RedisQueue) Enqueue(ctx context.Context, jobType models.JobType, payload []byte) error {
+	return q.enqueueWithRetry(ctx, jobType, payload, 0)
+}
+
+// enqueueWithRetry adds a job to the queue with a specific retry count.
+func (q *RedisQueue) enqueueWithRetry(ctx context.Context, jobType models.JobType, payload []byte, retryCount int) error {
+	envelope := jobEnvelope{
+		Payload:    payload,
+		RetryCount: retryCount,
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("marshal envelope: %w", err)
+	}
+
 	key := jobKeyPrefix + string(jobType)
-	if err := q.client.RPush(ctx, key, payload).Err(); err != nil {
+	if err := q.client.RPush(ctx, key, data).Err(); err != nil {
 		return fmt.Errorf("rpush: %w", err)
 	}
-	q.logger.Debug().Str("job_type", string(jobType)).Msg("job enqueued")
+	q.logger.Debug().Str("job_type", string(jobType)).Int("retry_count", retryCount).Msg("job enqueued")
 	return nil
 }
 
 // Consume starts consuming jobs from the queue.
-func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, handler Handler) error {
+func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, handler Handler, deadLetterHandler DeadLetterHandler) error {
 	keys := make([]string, len(jobTypes))
 	for i, jt := range jobTypes {
 		keys[i] = jobKeyPrefix + string(jt)
@@ -97,17 +119,49 @@ func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, han
 
 		// result[0] is the key, result[1] is the value
 		jobType := models.JobType(strings.TrimPrefix(result[0], jobKeyPrefix))
-		job := &Job{
-			Type:    jobType,
-			Payload: []byte(result[1]),
+
+		// Parse envelope to get retry count
+		var envelope jobEnvelope
+		if err := json.Unmarshal([]byte(result[1]), &envelope); err != nil {
+			// Fallback for old format without envelope
+			envelope = jobEnvelope{
+				Payload:    []byte(result[1]),
+				RetryCount: 0,
+			}
 		}
 
-		q.logger.Debug().Str("job_type", string(jobType)).Msg("processing job")
+		job := &Job{
+			Type:       jobType,
+			Payload:    envelope.Payload,
+			RetryCount: envelope.RetryCount,
+		}
+
+		q.logger.Debug().
+			Str("job_type", string(jobType)).
+			Int("retry_count", job.RetryCount).
+			Msg("processing job")
 
 		if err := handler(ctx, job); err != nil {
-			q.logger.Error().Err(err).Str("job_type", string(jobType)).Msg("job handler error, re-enqueueing")
-			// Simple retry: re-enqueue the job
-			if enqErr := q.Enqueue(ctx, job.Type, job.Payload); enqErr != nil {
+			if job.RetryCount >= maxRetries {
+				q.logger.Error().
+					Err(err).
+					Str("job_type", string(jobType)).
+					Int("retry_count", job.RetryCount).
+					Msg("job failed after max retries, sending to dead letter")
+
+				if deadLetterHandler != nil {
+					deadLetterHandler(ctx, job, err)
+				}
+				continue
+			}
+
+			q.logger.Warn().
+				Err(err).
+				Str("job_type", string(jobType)).
+				Int("retry_count", job.RetryCount).
+				Msg("job handler error, re-enqueueing with incremented retry count")
+
+			if enqErr := q.enqueueWithRetry(ctx, job.Type, job.Payload, job.RetryCount+1); enqErr != nil {
 				q.logger.Error().Err(enqErr).Msg("failed to re-enqueue job")
 			}
 		}

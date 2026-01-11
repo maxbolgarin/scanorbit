@@ -15,6 +15,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	// regionScanTimeout is the maximum time allowed for scanning a single region
+	regionScanTimeout = 10 * time.Minute
+	// globalScanTimeout is the maximum time allowed for global scans (S3, IAM)
+	globalScanTimeout = 15 * time.Minute
+)
+
 // Scanner orchestrates AWS resource scanning.
 type Scanner struct {
 	awsClient             *awsclient.Client
@@ -126,7 +133,15 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 			sem <- struct{}{}        // Acquire
 			defer func() { <-sem }() // Release
 
-			result := s.scanRegion(ctx, cfg, r)
+			// Create a context with timeout for this region scan
+			regionCtx, cancel := context.WithTimeout(ctx, regionScanTimeout)
+			defer cancel()
+
+			result := s.scanRegion(regionCtx, cfg, r)
+			if regionCtx.Err() == context.DeadlineExceeded {
+				s.logger.Warn().Str("region", r).Msg("region scan timed out")
+				result.Error = fmt.Errorf("scan timed out after %v", regionScanTimeout)
+			}
 			resultsChan <- result
 		}(region)
 	}
@@ -140,8 +155,12 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	// 6. Global scans (S3 and IAM - not region-specific)
 	var globalResources []*models.Resource
 
+	// Create a context with timeout for global scans
+	globalCtx, globalCancel := context.WithTimeout(ctx, globalScanTimeout)
+	defer globalCancel()
+
 	// S3 scan (global, once)
-	s3Resources, err := s.s3Scanner.ScanBuckets(ctx, cfg)
+	s3Resources, err := s.s3Scanner.ScanBuckets(globalCtx, cfg)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("s3 scan failed")
 	} else {
@@ -149,21 +168,21 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	}
 
 	// IAM scans (global, not region-specific)
-	iamUsers, err := s.iamScanner.ScanUsers(ctx, cfg)
+	iamUsers, err := s.iamScanner.ScanUsers(globalCtx, cfg)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("iam users scan failed")
 	} else {
 		globalResources = append(globalResources, iamUsers...)
 	}
 
-	iamRoles, err := s.iamScanner.ScanRoles(ctx, cfg)
+	iamRoles, err := s.iamScanner.ScanRoles(globalCtx, cfg)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("iam roles scan failed")
 	} else {
 		globalResources = append(globalResources, iamRoles...)
 	}
 
-	iamAccessKeys, err := s.iamScanner.ScanAccessKeys(ctx, cfg)
+	iamAccessKeys, err := s.iamScanner.ScanAccessKeys(globalCtx, cfg)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("iam access keys scan failed")
 	} else {
@@ -173,12 +192,22 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	// 7. Fan-in: collect and persist results
 	totalResources := 0
 	var scanErrors []error
+	var partialFailures int
 
 	for result := range resultsChan {
 		if result.Error != nil {
 			s.logger.Warn().Err(result.Error).Str("region", result.Region).Msg("region scan failed")
 			scanErrors = append(scanErrors, result.Error)
 			continue
+		}
+
+		// Log partial failures (individual scanner errors within a region)
+		if len(result.ScannerErrors) > 0 {
+			s.logger.Warn().
+				Str("region", result.Region).
+				Strs("scanner_errors", result.ScannerErrors).
+				Msg("region scan completed with partial failures")
+			partialFailures += len(result.ScannerErrors)
 		}
 
 		// Persist resources
@@ -220,6 +249,9 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	if len(scanErrors) > 0 {
 		status = "partial"
 		errMsg = fmt.Sprintf("%d region(s) failed", len(scanErrors))
+	} else if partialFailures > 0 {
+		status = "partial"
+		errMsg = fmt.Sprintf("%d scanner(s) failed across regions", partialFailures)
 	}
 
 	if err := s.store.Scans.UpdateStatus(ctx, scan.ID, status, totalResources, errMsg); err != nil {
@@ -235,6 +267,7 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	s.logger.Info().
 		Str("account_id", job.AccountID).
 		Int("resources", totalResources).
+		Int("partial_failures", partialFailures).
 		Dur("duration", completedAt.Sub(startedAt)).
 		Str("status", status).
 		Msg("scan completed")
@@ -248,6 +281,13 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
+	// Helper to record scanner errors
+	recordError := func(scanner string, err error) {
+		mu.Lock()
+		result.ScannerErrors = append(result.ScannerErrors, fmt.Sprintf("%s: %v", scanner, err))
+		mu.Unlock()
+	}
+
 	// EC2 Instances
 	wg.Add(1)
 	go func() {
@@ -255,6 +295,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.ec2Scanner.ScanInstances(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("ec2 instances scan failed")
+			recordError("ec2_instances", err)
 			return
 		}
 		mu.Lock()
@@ -269,6 +310,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.ec2Scanner.ScanVolumes(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("ebs volumes scan failed")
+			recordError("ebs_volumes", err)
 			return
 		}
 		mu.Lock()
@@ -283,6 +325,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.ec2Scanner.ScanEIPs(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("eip scan failed")
+			recordError("eips", err)
 			return
 		}
 		mu.Lock()
@@ -297,6 +340,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.rdsScanner.ScanInstances(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("rds instances scan failed")
+			recordError("rds_instances", err)
 			return
 		}
 		mu.Lock()
@@ -311,6 +355,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.rdsScanner.ScanSnapshots(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("rds snapshots scan failed")
+			recordError("rds_snapshots", err)
 			return
 		}
 		mu.Lock()
@@ -325,6 +370,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.albScanner.ScanLoadBalancers(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("alb scan failed")
+			recordError("alb", err)
 			return
 		}
 		mu.Lock()
@@ -339,6 +385,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		certs, err := s.acmScanner.ScanCertificates(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("acm scan failed")
+			recordError("acm", err)
 			return
 		}
 		mu.Lock()
@@ -353,6 +400,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.lambdaScanner.ScanFunctions(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("lambda scan failed")
+			recordError("lambda", err)
 			return
 		}
 		mu.Lock()
@@ -367,6 +415,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.cloudwatchScanner.ScanLogGroups(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch logs scan failed")
+			recordError("cloudwatch_logs", err)
 			return
 		}
 		mu.Lock()
@@ -381,6 +430,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.cloudwatchScanner.ScanAlarms(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch alarms scan failed")
+			recordError("cloudwatch_alarms", err)
 			return
 		}
 		mu.Lock()
@@ -395,6 +445,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.securityGroupScanner.ScanSecurityGroups(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("security groups scan failed")
+			recordError("security_groups", err)
 			return
 		}
 		mu.Lock()
@@ -409,6 +460,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.secretsManagerScanner.ScanSecrets(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("secrets manager scan failed")
+			recordError("secrets_manager", err)
 			return
 		}
 		mu.Lock()
@@ -423,6 +475,7 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		resources, err := s.kmsScanner.ScanKeys(ctx, cfg, region)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("kms scan failed")
+			recordError("kms", err)
 			return
 		}
 		mu.Lock()

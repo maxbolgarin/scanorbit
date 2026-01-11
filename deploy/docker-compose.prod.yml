@@ -27,6 +27,10 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+      # Required by config.js even though migrations don't use them
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - REDIS_URL=${REDIS_URL}
     working_dir: /app/apps/api
     command: node dist/db/migrate.js
     depends_on:
@@ -34,6 +38,8 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
+    labels:
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
     # Note: don't put this behind a `profile`. The `api` service depends on `migrate`,
     # and Docker Compose treats non-enabled profile services as undefined.
 
@@ -60,7 +66,7 @@ services:
     networks:
       - scanorbit
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # React SPA
   app:
@@ -69,7 +75,7 @@ services:
     networks:
       - scanorbit
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Astro Landing Page
   landing:
@@ -78,7 +84,7 @@ services:
     networks:
       - scanorbit
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Scanner Worker
   scanner:
@@ -96,7 +102,7 @@ services:
     networks:
       - scanorbit
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Analyzer Worker
   analyzer:
@@ -113,7 +119,7 @@ services:
     networks:
       - scanorbit
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # PostgreSQL Database (with SSL/TLS)
   postgres:
@@ -245,16 +251,20 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
+    labels:
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Watchtower - Auto-update containers from GHCR
-  # Using nickfedor/watchtower fork (containrrr/watchtower is archived)
   watchtower:
-    image: nickfedor/watchtower:latest
+    image: containrrr/watchtower:latest
     restart: unless-stopped
     environment:
+      # Required: Docker 27+ requires API version 1.44+
+      - DOCKER_API_VERSION=1.47
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_POLL_INTERVAL=300
-      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_LABELS=true
+      - WATCHTOWER_SCOPE=scanorbit
       # Ensures registry credentials are passed when pulling (important for private GHCR images
       # and for avoiding "unauthorized" pulls when the daemon doesn't have cached auth).
       - WATCHTOWER_REGISTRY_AUTH=true

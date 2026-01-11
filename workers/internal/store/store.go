@@ -75,6 +75,7 @@ type Store struct {
 	Resources    ResourceStore
 	Certificates CertificateStore
 	Findings     FindingStore
+	DeadLetters  DeadLetterStore
 }
 
 // NewStore creates a new Store with all repositories.
@@ -85,5 +86,6 @@ func NewStore(db *DB) *Store {
 		Resources:    newResourceStore(db),
 		Certificates: newCertificateStore(db),
 		Findings:     newFindingStore(db),
+		DeadLetters:  newDeadLetterStore(db),
 	}
 }

@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { secureHeaders } from 'hono/secure-headers';
 import routes from './routes/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { auditLog } from './middlewares/auditLog.js';
@@ -10,7 +11,38 @@ import type { Variables } from './types/index.js';
 
 const app = new Hono<{ Variables: Variables }>();
 
-// Global middleware
+// Security headers middleware - prevents XSS, clickjacking, MIME sniffing
+app.use(
+  '*',
+  secureHeaders({
+    // Strict Transport Security - force HTTPS
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+    // Prevent clickjacking
+    xFrameOptions: 'DENY',
+    // Prevent MIME type sniffing
+    xContentTypeOptions: 'nosniff',
+    // Referrer policy for privacy
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    // Cross-Origin policies
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginResourcePolicy: 'same-origin',
+    // Content Security Policy
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  })
+);
+
+// CORS middleware
 app.use(
   cors({
     origin: config.frontendUrl,

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { FindingSeverity } from "@/types";
 
@@ -20,7 +21,7 @@ const severityConfig = {
   },
 };
 
-export function SeverityBadge({ severity }: SeverityBadgeProps) {
+export const SeverityBadge = memo(function SeverityBadge({ severity }: SeverityBadgeProps) {
   const config = severityConfig[severity];
   return <Badge variant={config.variant}>{config.label}</Badge>;
-}
+});

@@ -54,6 +54,15 @@ const resendCodeSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
+const updateProfileSchema = z.object({
+  fullName: z.string().min(1, 'Full name must not be empty').optional(),
+});
+
 // Helper to set JWT cookie
 const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
   setCookie(c, 'jwt', token, {
@@ -202,5 +211,40 @@ authRoute.post('/resend-code', rateLimiters.sendCode, zValidator('json', resendC
 
   return c.json(result);
 });
+
+// ============================================
+// Password & Profile Endpoints
+// ============================================
+
+// POST /auth/change-password - Change user password
+authRoute.post(
+  '/change-password',
+  requireAuth,
+  rateLimiters.passwordReset,
+  zValidator('json', changePasswordSchema),
+  async (c) => {
+    const userId = c.get('userId');
+    const { currentPassword, newPassword } = c.req.valid('json');
+
+    const result = await authService.changePassword(userId, currentPassword, newPassword);
+
+    return c.json(result);
+  }
+);
+
+// PATCH /auth/profile - Update user profile
+authRoute.patch(
+  '/profile',
+  requireAuth,
+  zValidator('json', updateProfileSchema),
+  async (c) => {
+    const userId = c.get('userId');
+    const updates = c.req.valid('json');
+
+    const result = await authService.updateProfile(userId, updates);
+
+    return c.json(result);
+  }
+);
 
 export default authRoute;

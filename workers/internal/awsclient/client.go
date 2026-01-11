@@ -3,10 +3,12 @@ package awsclient
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/rs/zerolog"
 )
@@ -19,7 +21,17 @@ type Client struct {
 
 // NewClient creates a new AWS client.
 func NewClient(ctx context.Context, logger zerolog.Logger) (*Client, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
+	// Configure retry with exponential backoff for throttling errors
+	retryer := retry.NewStandard(func(o *retry.StandardOptions) {
+		o.MaxAttempts = 5
+		o.MaxBackoff = 30 * time.Second
+	})
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRetryer(func() aws.Retryer {
+			return retryer
+		}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
@@ -30,31 +42,21 @@ func NewClient(ctx context.Context, logger zerolog.Logger) (*Client, error) {
 	}, nil
 }
 
-// AssumeRole assumes an IAM role and returns temporary credentials.
+// AssumeRole assumes an IAM role and returns auto-refreshing credentials.
 func (c *Client) AssumeRole(ctx context.Context, roleARN, externalID string) (aws.CredentialsProvider, error) {
 	stsClient := sts.NewFromConfig(c.baseConfig)
 
-	input := &sts.AssumeRoleInput{
-		RoleArn:         aws.String(roleARN),
-		RoleSessionName: aws.String("scanorbit-scanner"),
-		DurationSeconds: aws.Int32(3600), // 1 hour
-	}
-	if externalID != "" {
-		input.ExternalId = aws.String(externalID)
-	}
-
 	c.logger.Debug().Str("role_arn", roleARN).Msg("assuming role")
 
-	result, err := stsClient.AssumeRole(ctx, input)
-	if err != nil {
-		return nil, fmt.Errorf("assume role: %w", err)
+	// Use AssumeRoleProvider which automatically refreshes credentials before expiry
+	opts := func(o *stscreds.AssumeRoleOptions) {
+		o.RoleSessionName = "scanorbit-scanner"
+		if externalID != "" {
+			o.ExternalID = aws.String(externalID)
+		}
 	}
 
-	return credentials.NewStaticCredentialsProvider(
-		*result.Credentials.AccessKeyId,
-		*result.Credentials.SecretAccessKey,
-		*result.Credentials.SessionToken,
-	), nil
+	return stscreds.NewAssumeRoleProvider(stsClient, roleARN, opts), nil
 }
 
 // GetConfigForAccount returns an AWS config with assumed role credentials.

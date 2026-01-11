@@ -22,10 +22,11 @@ interface SignupState {
   signupToken: string;
 }
 
+// Note: signupToken is intentionally NOT persisted to sessionStorage for security.
+// Only non-sensitive data (step, email) is persisted. The token lives only in memory.
 interface PersistedSignupState {
   step: SignupStep;
   email: string;
-  signupToken: string;
   timestamp: number;
 }
 
@@ -51,11 +52,11 @@ function loadPersistedState(): PersistedSignupState | null {
   }
 }
 
-function savePersistedState(step: SignupStep, state: SignupState): void {
+function savePersistedState(step: SignupStep, email: string): void {
+  // Only persist non-sensitive data - signupToken stays in memory only
   const persisted: PersistedSignupState = {
     step,
-    email: state.email,
-    signupToken: state.signupToken,
+    email,
     timestamp: Date.now(),
   };
   sessionStorage.setItem(SIGNUP_STATE_KEY, JSON.stringify(persisted));
@@ -79,14 +80,15 @@ export default function Signup() {
     // Try to restore from sessionStorage
     const persisted = loadPersistedState();
     if (persisted) {
-      // Don't restore step 3 without a valid signupToken
-      if (persisted.step === 3 && !persisted.signupToken) {
+      // signupToken is not persisted for security - if user was on step 3,
+      // they need to re-verify their email to get a new token
+      if (persisted.step >= 3) {
         return { step: 2 as SignupStep, email: persisted.email, signupToken: "" };
       }
       return {
         step: persisted.step,
         email: persisted.email,
-        signupToken: persisted.signupToken,
+        signupToken: "", // Token only lives in memory
       };
     }
 
@@ -100,12 +102,12 @@ export default function Signup() {
     signupToken: initial.signupToken,
   });
 
-  // Persist state changes
+  // Persist state changes (without sensitive signupToken)
   useEffect(() => {
     if (step < 4) {
-      savePersistedState(step, state);
+      savePersistedState(step, state.email);
     }
-  }, [step, state]);
+  }, [step, state.email]);
 
   const handleEmailNext = (email: string) => {
     setState((prev) => ({ ...prev, email }));

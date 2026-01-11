@@ -248,6 +248,19 @@ export const jobs = pgTable('jobs', {
   index('jobs_type_idx').on(table.type),
 ]);
 
+// Dead Letter Jobs (jobs that failed after max retries)
+export const deadLetterJobs = pgTable('dead_letter_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobType: varchar('job_type', { length: 50 }).notNull(),
+  payload: jsonb('payload').notNull(),
+  error: text('error').notNull(),
+  retries: integer('retries').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('dead_letter_jobs_job_type_idx').on(table.jobType),
+  index('dead_letter_jobs_created_at_idx').on(table.createdAt),
+]);
+
 // Consent Logs (GDPR compliance)
 export const consentLogs = pgTable('consent_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -400,6 +413,8 @@ export type Finding = typeof findings.$inferSelect;
 export type NewFinding = typeof findings.$inferInsert;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
+export type DeadLetterJob = typeof deadLetterJobs.$inferSelect;
+export type NewDeadLetterJob = typeof deadLetterJobs.$inferInsert;
 export type ConsentLog = typeof consentLogs.$inferSelect;
 export type NewConsentLog = typeof consentLogs.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
