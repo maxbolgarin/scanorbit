@@ -20,6 +20,7 @@ const Findings = lazy(() => import("@/pages/Findings"));
 const Scans = lazy(() => import("@/pages/Scans"));
 const Accounts = lazy(() => import("@/pages/Accounts"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const Profile = lazy(() => import("@/pages/Profile"));
 
 function PageLoader() {
   return (
@@ -101,6 +102,7 @@ function App() {
             <Route path="scans" element={<Scans />} />
             <Route path="accounts" element={<Accounts />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
 
           {/* Catch all */}

@@ -142,7 +142,7 @@ export default function Dashboard() {
               Connect your AWS accounts to start discovering resources and identifying
               security, cost, and compliance issues.
             </p>
-            <Button className="mt-6" onClick={() => navigate("/settings/accounts")}>
+            <Button className="mt-6" onClick={() => navigate("/accounts")}>
               <Settings className="mr-2 h-4 w-4" />
               Connect AWS Account
             </Button>
