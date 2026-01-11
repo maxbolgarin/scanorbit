@@ -170,6 +170,7 @@ export default function Signup() {
                 signupToken={state.signupToken}
                 email={state.email}
                 onNext={handlePasswordNext}
+                onTokenError={handleBackToEmail}
               />
             )}
 

@@ -6,10 +6,6 @@ import {
   users,
   orgs,
   userOrgMembers,
-  awsAccounts,
-  resources,
-  findings,
-  scans,
   auditLogs,
   dataDeletionRequests,
   consentLogs,
@@ -261,7 +257,15 @@ const auditLogsQuerySchema = z.object({
   offset: z.coerce.number().min(0).default(0),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.startDate && data.endDate) {
+      return new Date(data.startDate) <= new Date(data.endDate);
+    }
+    return true;
+  },
+  { message: 'startDate must be before or equal to endDate' }
+);
 
 gdpr.get('/audit-logs', zValidator('query', auditLogsQuerySchema), async (c) => {
   const userId = c.get('userId');

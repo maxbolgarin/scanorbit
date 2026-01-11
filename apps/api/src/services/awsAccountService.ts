@@ -158,7 +158,7 @@ export const awsAccountService = {
 
       return {
         success: true,
-        awsAccountId: identityResponse.Account,
+        awsAccountId: identityResponse.Account ?? 'unknown',
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -195,7 +195,7 @@ export const awsAccountService = {
       .returning();
 
     // Create job record in database for tracking
-    await db
+    const [job] = await db
       .insert(jobs)
       .values({
         type: 'scan_account',
@@ -209,10 +209,20 @@ export const awsAccountService = {
 
     // Push to Redis queue for workers to pick up
     // Go workers expect snake_case: account_id, org_id
-    await redis.rpush('jobs:scan_account', JSON.stringify({
-      account_id: accountId,
-      org_id: orgId,
-    }));
+    try {
+      await redis.rpush('jobs:scan_account', JSON.stringify({
+        account_id: accountId,
+        org_id: orgId,
+      }));
+    } catch (redisError) {
+      // Redis failed - mark scan and job as failed to prevent inconsistency
+      console.error('[enqueueScan] Redis error, marking scan as failed:', redisError);
+      await Promise.all([
+        db.update(scans).set({ status: 'failed' }).where(eq(scans.id, scan.id)),
+        db.update(jobs).set({ status: 'failed' }).where(eq(jobs.id, job.id)),
+      ]);
+      throw new HTTP400Error('Failed to queue scan job. Please try again.');
+    }
 
     return scan;
   },
@@ -238,14 +248,21 @@ export const awsAccountService = {
     }
 
     // Create job record in database for tracking
-    await db.insert(jobs).values({
+    const [job] = await db.insert(jobs).values({
       type: analysisType,
       payload,
       status: 'queued',
-    });
+    }).returning();
 
     // Push to Redis queue for workers to pick up
-    await redis.rpush(`jobs:${analysisType}`, JSON.stringify(payload));
+    try {
+      await redis.rpush(`jobs:${analysisType}`, JSON.stringify(payload));
+    } catch (redisError) {
+      // Redis failed - mark job as failed
+      console.error(`[enqueueAnalysis] Redis error for ${analysisType}, marking job as failed:`, redisError);
+      await db.update(jobs).set({ status: 'failed' }).where(eq(jobs.id, job.id));
+      throw new HTTP400Error(`Failed to queue ${analysisType} job. Please try again.`);
+    }
   },
 
   async enqueueAllAnalyses(orgId: string, accountId: string): Promise<void> {

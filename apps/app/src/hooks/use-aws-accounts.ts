@@ -2,23 +2,31 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAwsStore } from "@/stores/aws-store";
 import * as api from "@/lib/api";
 import type { CreateAwsAccountInput } from "@/types";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useAwsAccounts() {
   const { setAccounts } = useAwsStore();
+  const storeAccounts = useAwsStore((state) => state.accounts);
   const queryClient = useQueryClient();
+  const prevDataRef = useRef<typeof query.data>(undefined);
 
   const query = useQuery({
     queryKey: ["aws-accounts"],
     queryFn: api.getAwsAccounts,
   });
 
-  // Sync with store
+  // Sync with store only when data actually changes
   useEffect(() => {
-    if (query.data) {
-      setAccounts(query.data);
+    if (query.data && query.data !== prevDataRef.current) {
+      // Only update store if IDs differ (avoid unnecessary updates for same data)
+      const newIds = query.data.map(a => a.id).sort().join(',');
+      const oldIds = storeAccounts.map(a => a.id).sort().join(',');
+      if (newIds !== oldIds || query.data.length !== storeAccounts.length) {
+        setAccounts(query.data);
+      }
+      prevDataRef.current = query.data;
     }
-  }, [query.data, setAccounts]);
+  }, [query.data, setAccounts, storeAccounts]);
 
   const createMutation = useMutation({
     mutationFn: api.createAwsAccount,

@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"strings"
 	"time"
@@ -27,6 +28,13 @@ func NewRedisQueue(redisURL string, logger zerolog.Logger) (*RedisQueue, error) 
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis URL: %w", err)
+	}
+
+	// Accept self-signed certificates for internal TLS
+	if strings.HasPrefix(redisURL, "rediss://") {
+		opts.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 	}
 
 	client := redis.NewClient(opts)

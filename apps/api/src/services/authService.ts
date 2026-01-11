@@ -1,5 +1,6 @@
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
@@ -12,9 +13,9 @@ import { consentService } from './consentService.js';
 const SALT_ROUNDS = 10;
 const VERIFICATION_CODE_EXPIRY_HOURS = 24;
 
-// Generate a 6-digit verification code
+// Generate a 6-digit verification code using cryptographically secure random
 function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 // Generate URL-safe slug from org name
@@ -27,8 +28,8 @@ function generateSlug(name: string): string {
     .replace(/-+/g, '-')
     .substring(0, 50);
 
-  // Add random suffix to ensure uniqueness
-  const suffix = Date.now().toString(36);
+  // Add cryptographically random suffix to ensure uniqueness
+  const suffix = crypto.randomUUID().substring(0, 8);
   return `${baseSlug}-${suffix}`;
 }
 
@@ -72,52 +73,57 @@ export const authService = {
       Date.now() + VERIFICATION_CODE_EXPIRY_HOURS * 60 * 60 * 1000
     );
 
-    // Create user with verification code
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: email.toLowerCase(),
-        passwordHash,
-        fullName,
-        emailVerified: false,
-        emailVerificationCode: verificationCode,
-        emailVerificationExpiresAt: verificationExpiresAt,
-      })
-      .returning({
-        id: users.id,
-        email: users.email,
-        fullName: users.fullName,
-      });
-
-    let org: Pick<Org, 'id' | 'name' | 'slug'> | null = null;
-
-    // Create org if name provided
-    if (orgName && orgName.trim().length >= 2) {
-      const slug = generateSlug(orgName.trim());
-
-      const [createdOrg] = await db
-        .insert(orgs)
+    // Use transaction to ensure data consistency
+    const { user, org } = await db.transaction(async (tx) => {
+      // Create user with verification code
+      const [createdUser] = await tx
+        .insert(users)
         .values({
-          name: orgName.trim(),
-          slug,
+          email: email.toLowerCase(),
+          passwordHash,
+          fullName,
+          emailVerified: false,
+          emailVerificationCode: verificationCode,
+          emailVerificationExpiresAt: verificationExpiresAt,
         })
         .returning({
-          id: orgs.id,
-          name: orgs.name,
-          slug: orgs.slug,
+          id: users.id,
+          email: users.email,
+          fullName: users.fullName,
         });
 
-      org = createdOrg;
+      let createdOrg: Pick<Org, 'id' | 'name' | 'slug'> | null = null;
 
-      // Add user to org as admin
-      await db.insert(userOrgMembers).values({
-        userId: user.id,
-        orgId: org.id,
-        role: 'admin',
-      });
-    }
+      // Create org if name provided
+      if (orgName && orgName.trim().length >= 2) {
+        const slug = generateSlug(orgName.trim());
 
-    // Send verification email
+        const [newOrg] = await tx
+          .insert(orgs)
+          .values({
+            name: orgName.trim(),
+            slug,
+          })
+          .returning({
+            id: orgs.id,
+            name: orgs.name,
+            slug: orgs.slug,
+          });
+
+        createdOrg = newOrg;
+
+        // Add user to org as admin
+        await tx.insert(userOrgMembers).values({
+          userId: createdUser.id,
+          orgId: createdOrg.id,
+          role: 'admin',
+        });
+      }
+
+      return { user: createdUser, org: createdOrg };
+    });
+
+    // Send verification email (outside transaction - external operation)
     await emailService.sendVerificationEmail(email, verificationCode, fullName);
 
     // Sign JWT
@@ -312,11 +318,14 @@ export const authService = {
   },
 
   async switchOrg(userId: string, orgId: string): Promise<string> {
-    // Verify user has access to org
+    // Verify user has access to the SPECIFIC org being switched to
     const [membership] = await db
       .select({ id: userOrgMembers.id })
       .from(userOrgMembers)
-      .where(eq(userOrgMembers.userId, userId))
+      .where(and(
+        eq(userOrgMembers.userId, userId),
+        eq(userOrgMembers.orgId, orgId)
+      ))
       .limit(1);
 
     if (!membership) {
@@ -345,7 +354,8 @@ export const authService = {
       .limit(1);
 
     if (existing.length > 0) {
-      throw new HTTP400Error('This email is already registered. Try logging in.');
+      // Use generic message to prevent user enumeration
+      throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
     }
 
     // Check resend cooldown
@@ -433,7 +443,8 @@ export const authService = {
       .limit(1);
 
     if (existing.length > 0) {
-      throw new HTTP400Error('This email is already registered.');
+      // Use generic message to prevent user enumeration
+      throw new HTTP400Error('Unable to complete registration. Please try again or contact support.');
     }
 
     // Hash password
@@ -488,7 +499,8 @@ export const authService = {
       .limit(1);
 
     if (existing.length > 0) {
-      throw new HTTP400Error('This email is already registered. Try logging in.');
+      // Use generic message to prevent user enumeration
+      throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
     }
 
     // Check cooldown

@@ -15,8 +15,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     // Always check auth on mount to validate persisted state
     const doCheck = async () => {
-      await checkAuth();
-      setHasChecked(true);
+      try {
+        await checkAuth();
+      } catch {
+        // checkAuth already handles errors internally by clearing auth state
+        // Any error here means auth failed, which is handled by the redirect below
+      } finally {
+        setHasChecked(true);
+      }
     };
     doCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps

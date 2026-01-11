@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP403Error, HTTP404Error } from '../lib/errors.js';
@@ -15,8 +16,8 @@ function generateSlug(name: string): string {
     .replace(/-+/g, '-')
     .substring(0, 50);
 
-  // Add random suffix to ensure uniqueness
-  const suffix = Date.now().toString(36);
+  // Add cryptographically random suffix to ensure uniqueness
+  const suffix = crypto.randomUUID().substring(0, 8);
   return `${baseSlug}-${suffix}`;
 }
 
@@ -38,39 +39,44 @@ export const orgService = {
   ): Promise<{ org: Pick<Org, 'id' | 'name' | 'slug'>; token: string }> {
     const slug = generateSlug(orgName.trim());
 
-    // Create org
-    const [org] = await db
-      .insert(orgs)
-      .values({
-        name: orgName.trim(),
-        slug,
-      })
-      .returning({
-        id: orgs.id,
-        name: orgs.name,
-        slug: orgs.slug,
+    // Use transaction to ensure data consistency
+    const org = await db.transaction(async (tx) => {
+      // Create org
+      const [createdOrg] = await tx
+        .insert(orgs)
+        .values({
+          name: orgName.trim(),
+          slug,
+        })
+        .returning({
+          id: orgs.id,
+          name: orgs.name,
+          slug: orgs.slug,
+        });
+
+      // Add user as admin with title
+      await tx.insert(userOrgMembers).values({
+        userId,
+        orgId: createdOrg.id,
+        role: 'admin',
+        title: title || null,
       });
 
-    // Add user as admin with title
-    await db.insert(userOrgMembers).values({
-      userId,
-      orgId: org.id,
-      role: 'admin',
-      title: title || null,
+      // Update user's full name if provided
+      if (fullName) {
+        await tx
+          .update(users)
+          .set({
+            fullName,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId));
+      }
+
+      return createdOrg;
     });
 
-    // Update user's full name if provided
-    if (fullName) {
-      await db
-        .update(users)
-        .set({
-          fullName,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
-    }
-
-    // Generate new JWT with orgId
+    // Generate new JWT with orgId (outside transaction - doesn't need to be rolled back)
     const token = await jwt.sign({
       userId,
       orgId: org.id,

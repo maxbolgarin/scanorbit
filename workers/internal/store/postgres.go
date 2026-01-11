@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,6 +28,13 @@ func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	config.MaxConnLifetime = time.Hour
 	config.MaxConnIdleTime = 30 * time.Minute
 	config.HealthCheckPeriod = time.Minute
+
+	// Accept self-signed certificates for internal TLS
+	if strings.Contains(databaseURL, "sslmode=require") {
+		config.ConnConfig.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

@@ -5,6 +5,16 @@ import { consentLogs } from '../db/schema.js';
 // Current version of terms and privacy policy
 const CURRENT_TERMS_VERSION = '1.0';
 
+// Mask email for logging (PII protection)
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return '***@***';
+  const masked = localPart.length > 2
+    ? `${localPart[0]}***${localPart[localPart.length - 1]}`
+    : '***';
+  return `${masked}@${domain}`;
+}
+
 interface ConsentMetadata {
   signupSource?: string;
   referrer?: string;
@@ -51,7 +61,7 @@ export const consentService = {
       },
     });
 
-    console.log(`Consent logged: ${consentType} for ${email} (given: ${consentGiven})`);
+    console.log(`Consent logged: ${consentType} for ${maskEmail(email)} (given: ${consentGiven})`);
   },
 
   /**

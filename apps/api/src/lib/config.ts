@@ -26,8 +26,12 @@ export const config = {
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 
-  // JWT
-  jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
+  // JWT - MUST be set in production
+  jwtSecret: process.env.JWT_SECRET || (
+    process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('JWT_SECRET environment variable is required in production'); })()
+      : 'dev-only-jwt-secret-do-not-use-in-production'
+  ),
   jwtExpiry: process.env.JWT_EXPIRY || '7d',
 
   // AWS

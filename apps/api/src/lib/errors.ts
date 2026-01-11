@@ -43,6 +43,13 @@ export class HTTP409Error extends HTTPError {
   }
 }
 
+export class HTTP429Error extends HTTPError {
+  constructor(message: string = 'Too Many Requests') {
+    super(429, message);
+    this.name = 'HTTP429Error';
+  }
+}
+
 export class HTTP500Error extends HTTPError {
   constructor(message: string = 'Internal Server Error') {
     super(500, message);

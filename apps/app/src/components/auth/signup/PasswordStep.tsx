@@ -30,9 +30,10 @@ interface PasswordStepProps {
   signupToken: string;
   email: string;
   onNext: () => void;
+  onTokenError?: () => void;
 }
 
-export function PasswordStep({ signupToken, email, onNext }: PasswordStepProps) {
+export function PasswordStep({ signupToken, email, onNext, onTokenError }: PasswordStepProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -67,7 +68,15 @@ export function PasswordStep({ signupToken, email, onNext }: PasswordStepProps) 
       setToken(result.token);
       onNext();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create account");
+      const message = err instanceof Error ? err.message : "Failed to create account";
+      setError(message);
+      // Token-related errors require restarting the signup flow
+      const isTokenError = message.toLowerCase().includes("token") ||
+                           message.toLowerCase().includes("expired") ||
+                           message.toLowerCase().includes("invalid");
+      if (isTokenError && onTokenError) {
+        onTokenError();
+      }
     } finally {
       setIsLoading(false);
     }

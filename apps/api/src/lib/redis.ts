@@ -1,12 +1,25 @@
 import Redis from 'ioredis';
 import { config } from './config.js';
 
+// Determine if TLS is used (rediss:// protocol)
+const isTLS = config.redisUrl.startsWith('rediss://');
+
+// In production, verify TLS certificates unless explicitly disabled via env var
+const rejectUnauthorized = config.nodeEnv === 'production'
+  ? process.env.REDIS_TLS_REJECT_UNAUTHORIZED !== 'false'
+  : false; // Allow self-signed in development
+
 export const redis = new Redis(config.redisUrl, {
   maxRetriesPerRequest: 3,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;
   },
+  ...(isTLS && {
+    tls: {
+      rejectUnauthorized,
+    },
+  }),
 });
 
 redis.on('error', (err) => {

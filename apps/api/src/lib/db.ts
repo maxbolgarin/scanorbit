@@ -5,11 +5,24 @@ import * as schema from '../db/schema.js';
 
 const { Pool } = pg;
 
+// Check if SSL is required (sslmode in connection string)
+const useSSL = config.databaseUrl.includes('sslmode=require');
+
+// In production, verify TLS certificates unless explicitly disabled via env var
+const rejectUnauthorized = config.nodeEnv === 'production'
+  ? process.env.DB_TLS_REJECT_UNAUTHORIZED !== 'false'
+  : false; // Allow self-signed in development
+
 const pool = new Pool({
   connectionString: config.databaseUrl,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+  ...(useSSL && {
+    ssl: {
+      rejectUnauthorized,
+    },
+  }),
 });
 
 pool.on('error', (err) => {

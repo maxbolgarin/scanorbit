@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { authService } from '../services/authService.js';
 import { requireAuth } from '../middlewares/auth.js';
+import { rateLimiters } from '../middlewares/rateLimit.js';
 import type { Variables } from '../types/index.js';
 
 const authRoute = new Hono<{ Variables: Variables }>();
@@ -64,8 +65,8 @@ const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
   });
 };
 
-// POST /auth/signup
-authRoute.post('/signup', zValidator('json', signupSchema), async (c) => {
+// POST /auth/signup - Rate limited to prevent spam
+authRoute.post('/signup', rateLimiters.sendCode, zValidator('json', signupSchema), async (c) => {
   const { email, password, fullName, orgName } = c.req.valid('json');
 
   const { user, org, token, message } = await authService.signup(
@@ -88,8 +89,8 @@ authRoute.post('/signup', zValidator('json', signupSchema), async (c) => {
   );
 });
 
-// POST /auth/verify-email
-authRoute.post('/verify-email', zValidator('json', verifyEmailSchema), async (c) => {
+// POST /auth/verify-email - Rate limited to prevent brute force
+authRoute.post('/verify-email', rateLimiters.verifyCode, zValidator('json', verifyEmailSchema), async (c) => {
   const { email, code } = c.req.valid('json');
 
   const result = await authService.verifyEmail(email, code);
@@ -97,8 +98,8 @@ authRoute.post('/verify-email', zValidator('json', verifyEmailSchema), async (c)
   return c.json(result);
 });
 
-// POST /auth/resend-verification
-authRoute.post('/resend-verification', zValidator('json', resendVerificationSchema), async (c) => {
+// POST /auth/resend-verification - Rate limited to prevent spam
+authRoute.post('/resend-verification', rateLimiters.sendCode, zValidator('json', resendVerificationSchema), async (c) => {
   const { email } = c.req.valid('json');
 
   const result = await authService.resendVerificationCode(email);
@@ -106,8 +107,8 @@ authRoute.post('/resend-verification', zValidator('json', resendVerificationSche
   return c.json(result);
 });
 
-// POST /auth/login
-authRoute.post('/login', zValidator('json', loginSchema), async (c) => {
+// POST /auth/login - Rate limited to prevent brute force
+authRoute.post('/login', rateLimiters.login, zValidator('json', loginSchema), async (c) => {
   const { email, password } = c.req.valid('json');
 
   const { user, orgs, token } = await authService.login(email, password);
@@ -155,8 +156,8 @@ authRoute.post(
 // New Signup Flow Endpoints
 // ============================================
 
-// POST /auth/send-code - Send verification code to email (Step 1)
-authRoute.post('/send-code', zValidator('json', sendCodeSchema), async (c) => {
+// POST /auth/send-code - Send verification code to email (Step 1) - Rate limited
+authRoute.post('/send-code', rateLimiters.sendCode, zValidator('json', sendCodeSchema), async (c) => {
   const { email } = c.req.valid('json');
 
   const result = await authService.sendVerificationCode(email);
@@ -164,8 +165,8 @@ authRoute.post('/send-code', zValidator('json', sendCodeSchema), async (c) => {
   return c.json(result);
 });
 
-// POST /auth/verify-code - Verify code and get signup token (Step 2)
-authRoute.post('/verify-code', zValidator('json', verifyCodeSchema), async (c) => {
+// POST /auth/verify-code - Verify code and get signup token (Step 2) - Rate limited
+authRoute.post('/verify-code', rateLimiters.verifyCode, zValidator('json', verifyCodeSchema), async (c) => {
   const { email, code } = c.req.valid('json');
 
   const result = await authService.verifySignupCode(email, code);
@@ -173,8 +174,8 @@ authRoute.post('/verify-code', zValidator('json', verifyCodeSchema), async (c) =
   return c.json(result);
 });
 
-// POST /auth/complete-signup - Complete signup with password (Step 3)
-authRoute.post('/complete-signup', zValidator('json', completeSignupSchema), async (c) => {
+// POST /auth/complete-signup - Complete signup with password (Step 3) - Rate limited
+authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', completeSignupSchema), async (c) => {
   const { signupToken, password } = c.req.valid('json');
 
   // Extract consent info for GDPR logging
@@ -193,8 +194,8 @@ authRoute.post('/complete-signup', zValidator('json', completeSignupSchema), asy
   return c.json({ user, token }, 201);
 });
 
-// POST /auth/resend-code - Resend verification code
-authRoute.post('/resend-code', zValidator('json', resendCodeSchema), async (c) => {
+// POST /auth/resend-code - Resend verification code - Rate limited
+authRoute.post('/resend-code', rateLimiters.sendCode, zValidator('json', resendCodeSchema), async (c) => {
   const { email } = c.req.valid('json');
 
   const result = await authService.resendSignupCode(email);

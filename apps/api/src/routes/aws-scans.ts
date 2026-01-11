@@ -29,7 +29,9 @@ awsScansRoute.get('/recent', async (c) => {
     throw new HTTP400Error('No organization selected');
   }
 
-  const limit = parseInt(c.req.query('limit') || '10', 10);
+  const limitRaw = parseInt(c.req.query('limit') || '10', 10);
+  // Validate limit: must be between 1 and 100, default to 10 if invalid
+  const limit = Math.min(Math.max(isNaN(limitRaw) ? 10 : limitRaw, 1), 100);
   const recentScans = await awsAccountService.getRecentScans(orgId, limit);
   return c.json({ data: recentScans });
 });

@@ -1,9 +1,12 @@
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, inArray } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { findings, resources, certificates } from '../db/schema.js';
 import type { Finding } from '../db/schema.js';
 import type { FindingFilters, PaginatedResponse, FindingStatus } from '../types/index.js';
+
+// Valid finding status values
+const VALID_STATUSES = ['open', 'resolved', 'snoozed', 'ignored'] as const;
 
 interface UpdateFindingData {
   status?: FindingStatus;
@@ -115,9 +118,8 @@ export const findingService = {
   ): Promise<Finding> {
     // Validate status transition
     if (data.status) {
-      const validStatuses = ['open', 'resolved', 'snoozed', 'ignored'];
-      if (!validStatuses.includes(data.status)) {
-        throw new HTTP400Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+      if (!VALID_STATUSES.includes(data.status as typeof VALID_STATUSES[number])) {
+        throw new HTTP400Error(`Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
     }
 
@@ -244,9 +246,8 @@ export const findingService = {
     findingIds: string[],
     status: FindingStatus
   ): Promise<number> {
-    const validStatuses = ['open', 'resolved', 'snoozed', 'ignored'];
-    if (!validStatuses.includes(status)) {
-      throw new HTTP400Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    if (!VALID_STATUSES.includes(status as typeof VALID_STATUSES[number])) {
+      throw new HTTP400Error(`Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`);
     }
 
     const updateData: Record<string, unknown> = {
@@ -258,26 +259,18 @@ export const findingService = {
       updateData.resolvedAt = new Date();
     }
 
-    let updatedCount = 0;
-
-    // Update each finding (ensuring org ownership)
-    for (const findingId of findingIds) {
-      const result = await db
-        .update(findings)
-        .set(updateData)
-        .where(
-          and(
-            eq(findings.id, findingId),
-            eq(findings.orgId, orgId)
-          )
+    // Update all findings in a single query (ensuring org ownership)
+    const result = await db
+      .update(findings)
+      .set(updateData)
+      .where(
+        and(
+          inArray(findings.id, findingIds),
+          eq(findings.orgId, orgId)
         )
-        .returning({ id: findings.id });
+      )
+      .returning({ id: findings.id });
 
-      if (result.length > 0) {
-        updatedCount++;
-      }
-    }
-
-    return updatedCount;
+    return result.length;
   },
 };

@@ -59,7 +59,7 @@ function getResourceIdFromPath(path: string): string | null {
 }
 
 // Check if path should be excluded from audit logging
-function shouldExclude(path: string, method: string): boolean {
+function shouldExclude(path: string): boolean {
   // Exclude high-frequency read endpoints to reduce log volume
   const excludePatterns = [
     /^\/api\/health/,           // Health checks
@@ -110,7 +110,7 @@ export const auditLog = async (
   const method = c.req.method;
 
   // Skip excluded paths
-  if (shouldExclude(path, method)) {
+  if (shouldExclude(path)) {
     return next();
   }
 

@@ -7,9 +7,8 @@ import {
   dataDeletionRequests,
   users,
   userOrgMembers,
-  awsAccounts,
 } from '../db/schema.js';
-import { eq, and, lt, lte, isNotNull, sql, inArray } from 'drizzle-orm';
+import { eq, and, lt, lte, isNotNull, sql } from 'drizzle-orm';
 import { config } from '../lib/config.js';
 
 /**
@@ -278,8 +277,6 @@ export async function getRetentionStats(): Promise<{
   oldFindings: number;
   oldAuditLogs: number;
 }> {
-  const now = new Date();
-
   const resourcesCutoff = new Date();
   resourcesCutoff.setDate(resourcesCutoff.getDate() - RETENTION_RESOURCES_DAYS);
 

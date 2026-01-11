@@ -58,18 +58,32 @@ export default function Dashboard() {
   const handleScanAll = async () => {
     if (!accounts || accounts.length === 0) return;
 
-    for (const account of accounts) {
-      try {
-        await triggerScan.mutateAsync(account.id);
-      } catch {
-        // Continue with other accounts
-      }
+    const results = await Promise.allSettled(
+      accounts.map(account => triggerScan.mutateAsync(account.id))
+    );
+
+    const succeeded = results.filter(r => r.status === "fulfilled").length;
+    const failed = results.filter(r => r.status === "rejected").length;
+
+    if (failed === 0) {
+      toast({
+        title: "Scans started",
+        description: `Started scanning ${succeeded} AWS account(s).`,
+        type: "success",
+      });
+    } else if (succeeded === 0) {
+      toast({
+        title: "Scans failed",
+        description: `Failed to start scans for all ${failed} account(s). Please try again.`,
+        type: "error",
+      });
+    } else {
+      toast({
+        title: "Scans partially started",
+        description: `Started ${succeeded} scan(s), ${failed} failed to start.`,
+        type: "warning",
+      });
     }
-    toast({
-      title: "Scans started",
-      description: `Started scanning ${accounts.length} AWS account(s).`,
-      type: "success",
-    });
   };
 
   const handleRefresh = () => {

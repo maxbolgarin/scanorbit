@@ -23,6 +23,16 @@ interface EmailResult {
   error?: string;
 }
 
+// Mask email for logging (PII protection)
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return '***@***';
+  const masked = localPart.length > 2
+    ? `${localPart[0]}***${localPart[localPart.length - 1]}`
+    : '***';
+  return `${masked}@${domain}`;
+}
+
 // Create reusable transporter
 let transporter: Transporter | null = null;
 
@@ -332,7 +342,7 @@ export const emailService = {
         html,
       });
 
-      console.log(`Email sent to ${email}, messageId: ${info.messageId}`);
+      console.log(`Email sent to ${maskEmail(email)}, messageId: ${info.messageId}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
       console.error('Failed to send verification email:', error);
@@ -375,7 +385,7 @@ export const emailService = {
         html,
       });
 
-      console.log(`Email sent to ${email}, messageId: ${info.messageId}`);
+      console.log(`Email sent to ${maskEmail(email)}, messageId: ${info.messageId}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
       console.error('Failed to send password reset email:', error);

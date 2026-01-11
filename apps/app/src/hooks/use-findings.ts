@@ -33,6 +33,7 @@ export function useUpdateFindingStatus() {
     }) => api.updateFindingStatus(id, status, snoozedUntil),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["findings"] });
+      queryClient.invalidateQueries({ queryKey: ["finding-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
