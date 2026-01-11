@@ -50,6 +50,12 @@ export const config = {
 
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
+
+  // GDPR Compliance - Data Retention (days)
+  retentionResourcesDays: parseInt(process.env.RETENTION_RESOURCES_DAYS || '90', 10),
+  retentionFindingsResolvedDays: parseInt(process.env.RETENTION_FINDINGS_RESOLVED_DAYS || '180', 10),
+  retentionScansDays: parseInt(process.env.RETENTION_SCANS_DAYS || '365', 10),
+  retentionAuditLogsDays: parseInt(process.env.RETENTION_AUDIT_LOGS_DAYS || '730', 10), // 2 years minimum for GDPR
 } as const;
 
 export type Config = typeof config;

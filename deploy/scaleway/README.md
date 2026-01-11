@@ -1,44 +1,88 @@
 # ScanOrbit Scaleway Infrastructure
 
-Terraform configuration for deploying ScanOrbit on Scaleway Cloud.
+Terraform configuration for deploying ScanOrbit on Scaleway Cloud with GDPR compliance.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│           Scaleway Cloud (EU)           │
-└─────────────────────────────────────────┘
-                    │
-     ┌──────────────┼──────────────┐
-     │              │              │
-┌────▼────┐   ┌─────▼─────┐   ┌────▼────┐
-│   DNS   │   │ Reserved  │   │ Security│
-│ Records │   │    IP     │   │  Group  │
-└────┬────┘   └─────┬─────┘   └────┬────┘
-     │              │              │
-     └──────────────┼──────────────┘
-                    │
-           ┌────────▼────────┐
-           │   DEV1-M VM     │
-           │  (Docker Host)  │
-           └────────┬────────┘
-                    │
-        ┌───────────┴───────────┐
-        │    Docker Compose     │
-        │  ┌─────────────────┐  │
-        │  │ Caddy (80/443)  │──┼──► HTTPS + Let's Encrypt
-        │  └────────┬────────┘  │
-        │           │           │
-        │  ┌────────▼────────┐  │
-        │  │ API (Node.js)   │  │
-        │  │ App (React)     │  │
-        │  │ Landing (Astro) │  │
-        │  │ Workers (Go)    │  │
-        │  │ PostgreSQL      │  │
-        │  │ Redis           │  │
-        │  └─────────────────┘  │
-        └───────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Scaleway Cloud (EU - Amsterdam)                  │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+   ┌────▼────┐          ┌─────▼─────┐         ┌────▼────┐
+   │   DNS   │          │ Reserved  │         │ Security│
+   │ Records │          │    IP     │         │  Group  │
+   └────┬────┘          └─────┬─────┘         └────┬────┘
+        │                     │                    │
+        └─────────────────────┼────────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │     DEV1-M VM     │
+                    │   (Docker Host)   │
+                    │                   │
+                    │ [Encrypted Block  │
+                    │     Storage]      │
+                    └─────────┬─────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              │        Docker Compose         │
+              │                               │
+              │  ┌─────────────────────────┐  │
+              │  │   Caddy (80/443)        │──┼──► HTTPS + Let's Encrypt
+              │  └───────────┬─────────────┘  │
+              │              │                │
+              │  ┌───────────▼─────────────┐  │
+              │  │ API (Node.js + Hono)    │  │
+              │  │ + Audit Logging         │  │
+              │  │ + GDPR Endpoints        │  │
+              │  └───────────┬─────────────┘  │
+              │              │                │
+              │     [TLS Required]            │
+              │              │                │
+              │  ┌───────────▼─────────────┐  │
+              │  │ PostgreSQL 17 (SSL)     │  │
+              │  │ + Query Logging         │  │
+              │  └───────────┬─────────────┘  │
+              │              │                │
+              │  ┌───────────▼─────────────┐  │
+              │  │ Redis 7 (TLS + Auth)    │  │
+              │  └───────────┬─────────────┘  │
+              │              │                │
+              │  ┌───────────▼─────────────┐  │
+              │  │ Backup Container        │  │
+              │  │ (Daily @ 02:00 UTC)     │  │
+              │  └───────────┬─────────────┘  │
+              │              │                │
+              │  ┌───────────▼─────────────┐  │
+              │  │ Retention Cleanup       │  │
+              │  │ (Daily @ 03:00 UTC)     │  │
+              │  └─────────────────────────┘  │
+              └───────────────┬───────────────┘
+                              │ [HTTPS + Encrypted]
+                              ▼
+              ┌───────────────────────────────┐
+              │   Scaleway Object Storage     │
+              │   (Encrypted Backups)         │
+              │   30/90/365 day lifecycle     │
+              └───────────────────────────────┘
 ```
+
+## GDPR Compliance Features
+
+| Requirement | Implementation | Status |
+|-------------|----------------|--------|
+| EU Data Residency | Amsterdam (nl-ams) region | ✅ |
+| Encryption at Rest | Encrypted block storage | ✅ |
+| Encryption in Transit | TLS for PostgreSQL, Redis, external | ✅ |
+| Automated Backups | Daily encrypted backups to S3 | ✅ |
+| Audit Logging | All API requests logged | ✅ |
+| Data Retention | Configurable auto-cleanup | ✅ |
+| Right to Erasure | GDPR deletion API | ✅ |
+| Right to Portability | Data export API | ✅ |
+
+See [GDPR Compliance Documentation](../../docs/gdpr-compliance.md) for details.
 
 ## Prerequisites
 
@@ -51,23 +95,19 @@ Terraform configuration for deploying ScanOrbit on Scaleway Cloud.
 
 #### macOS (Homebrew)
 ```bash
-brew install scaleway/tap/scw
+brew install scw
 ```
 
 #### Linux
 ```bash
-# Download and install
 curl -o /usr/local/bin/scw -L "https://github.com/scaleway/scaleway-cli/releases/latest/download/scw-linux-x86_64"
 chmod +x /usr/local/bin/scw
 ```
 
 #### Windows
 ```powershell
-# Using Scoop
 scoop bucket add scaleway https://github.com/scaleway/scoop-bucket.git
 scoop install scaleway-cli
-
-# Or download from: https://github.com/scaleway/scaleway-cli/releases
 ```
 
 #### Verify Installation
@@ -78,12 +118,6 @@ scw version
 ### Setting up Scaleway Credentials
 
 ```bash
-# Option 1: Environment variables
-export SCW_ACCESS_KEY="your-access-key"
-export SCW_SECRET_KEY="your-secret-key"
-export SCW_DEFAULT_PROJECT_ID="your-project-id"
-
-# Option 2: Scaleway CLI config (~/.config/scw/config.yaml)
 scw init
 ```
 
@@ -96,12 +130,12 @@ scw iam ssh-key list
 # Or find at: https://console.scaleway.com/iam/ssh-keys
 ```
 
-## Usage
+## Deployment
 
 ### 1. Configure Variables
 
 ```bash
-cd terraform/scaleway
+cd deploy/scaleway
 
 # Copy example config
 cp terraform.tfvars.example terraform.tfvars
@@ -110,103 +144,133 @@ cp terraform.tfvars.example terraform.tfvars
 vim terraform.tfvars
 ```
 
-### 2. Initialize Terraform
+Required variables:
+```hcl
+domain           = "scanorbit.cloud"
+ssh_public_keys  = ["ssh-ed25519 AAAAC3..."]
+environment      = "production"
+```
+
+### 2. Initialize and Apply Terraform
 
 ```bash
+# Initialize Terraform
 terraform init
-```
 
-### 3. Plan Changes
-
-```bash
+# Review the plan
 terraform plan
-```
 
-### 4. Apply Infrastructure
-
-```bash
+# Apply infrastructure
 terraform apply
 ```
 
-### 5. Deploy Application
-
-After Terraform creates the infrastructure:
+### 3. Note Outputs
 
 ```bash
-# Get the public IP
+# Get all outputs
+terraform output
+
+# Key values for .env configuration:
 terraform output public_ip
-
-# SSH into the server
-ssh root@$(terraform output -raw public_ip)
+terraform output backup_bucket_name
+terraform output backup_bucket_endpoint
+terraform output backup_access_key
+terraform output -raw backup_secret_key
 ```
 
-#### Step 1: View the GitHub Deploy Key
+### 4. Prepare Environment File
 
-The VM automatically generates an SSH key for GitHub. View it:
+On your local machine, create `.env` from the example:
 
 ```bash
-/opt/setup-ssh.sh
+cp .env.example .env
+vim .env
 ```
 
-This will display output like:
+**Required GDPR-related variables:**
+```bash
+# Database with SSL
+DATABASE_URL=postgresql://scanorbit:PASSWORD@postgres:5432/scanorbit?sslmode=require
 
+# Redis with TLS
+REDIS_PASSWORD=<strong-password>
+REDIS_URL=rediss://:PASSWORD@redis:6379
+
+# Backup encryption (generate with: openssl rand -hex 32)
+BACKUP_ENCRYPTION_KEY=<64-char-hex>
+
+# Scaleway S3 for backups (from terraform output)
+SCW_ACCESS_KEY=<from-terraform-output>
+SCW_SECRET_KEY=<from-terraform-output>
+SCW_BUCKET_NAME=<from-terraform-output>
+SCW_REGION=nl-ams
+
+# Data retention (days)
+RETENTION_RESOURCES_DAYS=90
+RETENTION_FINDINGS_RESOLVED_DAYS=180
+RETENTION_SCANS_DAYS=365
+RETENTION_AUDIT_LOGS_DAYS=730
 ```
-==========================================
-  GitHub Deploy Key Setup Instructions
-==========================================
 
-1. Copy this public key:
+### 5. Copy Deployment Files to Server
 
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... scanorbit-vm
-
-2. Add it to your GitHub repository:
-   - Go to: https://github.com/YOUR_ORG/scanorbit/settings/keys
-   - Click 'Add deploy key'
-   - Title: 'ScanOrbit Production Server'
-   - Paste the key above
-   - Check 'Allow write access' if needed
-   - Click 'Add key'
-```
-
-#### Step 2: Add Deploy Key to GitHub
-
-1. Go to your repository: `https://github.com/YOUR_ORG/scanorbit/settings/keys`
-2. Click **"Add deploy key"**
-3. Fill in the form:
-   - **Title**: `ScanOrbit Production Server`
-   - **Key**: Paste the public key from the VM
-   - **Allow write access**: Check if you need push capability
-4. Click **"Add key"**
-
-#### Step 3: Test GitHub Connection
+Copy only the required files (scripts are pre-installed via cloud-init):
 
 ```bash
-ssh -T git@github.com
-# Expected: "Hi YOUR_ORG/scanorbit! You've successfully authenticated..."
+PUBLIC_IP=$(terraform output -raw public_ip)
+
+# Copy docker-compose, Caddyfile, and environment
+scp deploy/docker-compose.prod.yml deploy/Caddyfile \
+    deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
+
+scp .env deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
 ```
 
-#### Step 4: Clone the Repository
+### 6. Generate TLS Certificates
+
+SSH into the server and generate certificates (scripts are pre-installed):
 
 ```bash
-# Using the clone script (recommended)
-GITHUB_REPO=git@github.com:YOUR_ORG/scanorbit.git /opt/clone-repo.sh
+ssh deploy@$(terraform output -raw public_ip)
 
-# Or manually
-cd /opt/scanorbit
-git clone git@github.com:YOUR_ORG/scanorbit.git .
+cd /opt/scanorbit/deploy
+./scripts/generate-certs.sh
 ```
 
-#### Step 5: Configure and Start
+This creates:
+- `certs/postgres/` - PostgreSQL CA and server certificates
+- `certs/redis/` - Redis CA and server certificates
+
+### 7. Configure GHCR and Start Services
 
 ```bash
-cd /opt/scanorbit
+# Login to GitHub Container Registry
+echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u maxbolgarin --password-stdin
 
-# Configure environment
-cp .env.example .env.prod
-vim .env.prod  # Add your secrets
-
-# Start services
+# Start all services (migrations run automatically)
 docker compose -f docker-compose.prod.yml up -d
+
+# Verify services are healthy
+docker compose -f docker-compose.prod.yml ps
+```
+
+### 8. Verify GDPR Components
+
+```bash
+# Check backup container
+docker compose -f docker-compose.prod.yml logs postgres-backup
+
+# Check retention cleanup
+docker compose -f docker-compose.prod.yml logs retention-cleanup
+
+# Verify TLS connections
+docker compose -f docker-compose.prod.yml exec postgres \
+  psql -U scanorbit -c "SELECT ssl_is_used();"
+
+# Test Redis TLS
+docker compose -f docker-compose.prod.yml exec redis \
+  redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key \
+  --cacert /tls/ca.crt -a $REDIS_PASSWORD ping
 ```
 
 ## Resources Created
@@ -216,6 +280,11 @@ docker compose -f docker-compose.prod.yml up -d
 | `scaleway_instance_ip` | Reserved IP | Static public IPv4 |
 | `scaleway_instance_security_group` | Firewall | Allow SSH, HTTP, HTTPS |
 | `scaleway_instance_server` | DEV1-M VM | Docker host |
+| `scaleway_instance_volume` | Block Storage | Encrypted data volume |
+| `scaleway_object_bucket` | S3 Bucket | Encrypted backup storage |
+| `scaleway_object_bucket_policy` | Bucket Policy | Access control |
+| `scaleway_iam_application` | IAM App | Backup service account |
+| `scaleway_iam_api_key` | API Key | Backup credentials |
 | `scaleway_domain_record` | DNS A | Root domain |
 | `scaleway_domain_record` | DNS CNAME | www subdomain |
 | `scaleway_domain_record` | DNS A | app subdomain |
@@ -225,10 +294,10 @@ docker compose -f docker-compose.prod.yml up -d
 
 | Record | Type | Value |
 |--------|------|-------|
-| `scanorbit.io` | A | VM Public IP |
-| `www.scanorbit.io` | CNAME | scanorbit.io |
-| `app.scanorbit.io` | A | VM Public IP |
-| `api.scanorbit.io` | A | VM Public IP |
+| `scanorbit.cloud` | A | VM Public IP |
+| `www.scanorbit.cloud` | CNAME | scanorbit.cloud |
+| `app.scanorbit.cloud` | A | VM Public IP |
+| `api.scanorbit.cloud` | A | VM Public IP |
 
 ## Instance Types
 
@@ -245,10 +314,13 @@ docker compose -f docker-compose.prod.yml up -d
 # View all outputs
 terraform output
 
-# Get specific values
+# Key outputs
 terraform output public_ip
 terraform output ssh_command
 terraform output domain_url
+terraform output backup_bucket_name
+terraform output backup_bucket_endpoint
+terraform output data_volume_id
 ```
 
 ## Maintenance
@@ -256,28 +328,73 @@ terraform output domain_url
 ### SSH Access
 
 ```bash
-ssh root@$(terraform output -raw public_ip)
+ssh deploy@$(terraform output -raw public_ip)
 ```
 
 ### View Logs
 
 ```bash
-# On the server
-cd /opt/scanorbit
+# All services
 docker compose -f docker-compose.prod.yml logs -f
+
+# Specific service
+docker compose -f docker-compose.prod.yml logs -f api
+
+# Backup logs
+docker compose -f docker-compose.prod.yml logs -f postgres-backup
+
+# Retention cleanup logs
+docker compose -f docker-compose.prod.yml logs -f retention-cleanup
+```
+
+### Manual Backup
+
+```bash
+# Trigger backup manually
+docker compose -f docker-compose.prod.yml exec postgres-backup \
+  /usr/local/bin/backup.sh
+
+# List backups in S3
+aws s3 ls s3://${SCW_BUCKET_NAME}/ \
+  --endpoint-url https://s3.nl-ams.scw.cloud
+```
+
+### Restore from Backup
+
+```bash
+# List available backups
+./scripts/restore.sh --list
+
+# Restore specific backup
+./scripts/restore.sh scanorbit_backup_20240115_020000.sql.gz.gpg
+```
+
+### Manual Retention Cleanup
+
+```bash
+docker compose -f docker-compose.prod.yml exec retention-cleanup \
+  node dist/jobs/retention-cleanup.js
 ```
 
 ### Update Application
 
 ```bash
-# On the server - using the clone script (handles pull if repo exists)
-/opt/clone-repo.sh
-
-# Or manually
 cd /opt/scanorbit
 git pull
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
+```
+
+### Regenerate TLS Certificates
+
+```bash
+cd /opt/scanorbit/deploy
+
+# Regenerate (will overwrite existing)
+./scripts/generate-certs.sh
+
+# Restart services to pick up new certs
+docker compose -f docker-compose.prod.yml restart postgres redis
 ```
 
 ### Destroy Infrastructure
@@ -292,65 +409,130 @@ terraform destroy
 |----------|--------------|
 | DEV1-M Instance | ~€7 |
 | Reserved IP | ~€3 |
+| Block Storage (20GB) | ~€2 |
+| Object Storage (~10GB) | ~€1 |
 | DNS | Free |
-| **Total** | **~€10/month** |
+| **Total** | **~€13/month** |
 
 ## Troubleshooting
 
-### Terraform warning about multiple variable sources
+### TLS Certificate Issues
 
-If you see a warning like:
+```bash
+# Check certificate validity
+openssl x509 -in deploy/certs/postgres/server.crt -text -noout
+
+# Verify PostgreSQL SSL
+docker compose -f docker-compose.prod.yml exec postgres \
+  psql -U scanorbit -c "SHOW ssl;"
+
+# Check Redis TLS
+docker compose -f docker-compose.prod.yml logs redis | grep -i tls
 ```
-Warning: Multiple variable sources detected...
-Variable              AvailableSources                                                        Using
-SCW_DEFAULT_REGION    Active Profile in config.yaml, Profile defined in provider{} block      Profile defined in provider{} block
-SCW_DEFAULT_ZONE      Active Profile in config.yaml, Profile defined in provider{} block      Profile defined in provider{} block
+
+### Backup Failures
+
+```bash
+# Check backup logs
+docker compose -f docker-compose.prod.yml logs postgres-backup
+
+# Test S3 connectivity
+docker compose -f docker-compose.prod.yml exec postgres-backup \
+  aws s3 ls s3://${SCW_BUCKET_NAME}/ \
+  --endpoint-url https://s3.nl-ams.scw.cloud
+
+# Verify encryption key is set
+docker compose -f docker-compose.prod.yml exec postgres-backup \
+  printenv BACKUP_ENCRYPTION_KEY
 ```
 
-This is **harmless** - Terraform is correctly using the values from the provider block in `versions.tf`, which takes precedence over your Scaleway CLI config file. The provider block explicitly sets `zone` and `region` from Terraform variables, making the configuration explicit and reproducible.
+### Retention Cleanup Issues
 
-**To resolve the warning** (optional):
-- The warning can be safely ignored, OR
-- Remove the `zone` and `region` from your Scaleway CLI config if you want to rely solely on Terraform variables:
-  ```bash
-  # Edit ~/.config/scw/config.yaml and remove default_zone and default_region
-  # Or use environment variables instead
-  export SCW_DEFAULT_REGION=""
-  export SCW_DEFAULT_ZONE=""
-  ```
+```bash
+# Check retention logs
+docker compose -f docker-compose.prod.yml logs retention-cleanup
+
+# Run manually with verbose output
+docker compose -f docker-compose.prod.yml exec retention-cleanup \
+  node dist/jobs/retention-cleanup.js
+```
 
 ### DNS not resolving
 
 DNS propagation can take up to 48 hours. Check with:
 
 ```bash
-dig scanorbit.io
-nslookup scanorbit.io
+dig scanorbit.cloud
+nslookup scanorbit.cloud
 ```
 
-### SSL certificate not issued
+### SSL certificate not issued (Caddy)
 
 Ensure ports 80 and 443 are accessible:
 
 ```bash
-# On the server
 sudo ufw status
-curl -I http://scanorbit.io
+curl -I http://scanorbit.cloud
 ```
 
 ### Docker not starting
 
 ```bash
-# Check Docker status
 sudo systemctl status docker
-
-# View Docker logs
 sudo journalctl -u docker
 ```
 
-## Security Notes
+## Security Hardening
 
-- SSH is open to all IPs (0.0.0.0/0) - use SSH keys only
-- All traffic to the VM is routed through Caddy with TLS
-- PostgreSQL and Redis are not exposed externally
-- Regular security updates via `apt upgrade`
+The VM is configured with the following security measures:
+
+### SSH Security
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Login User | `deploy` | Non-root user with sudo access |
+| Root Login | **Disabled** | `PermitRootLogin no` |
+| Password Auth | **Disabled** | SSH keys only |
+| Max Auth Tries | 3 | Limits brute-force attempts |
+| Allowed Users | `deploy` | Only deploy user can SSH |
+
+### Automatic Protections
+
+| Feature | Description |
+|---------|-------------|
+| **fail2ban** | Blocks IPs after 3 failed SSH attempts (1 hour ban) |
+| **UFW Firewall** | Only ports 22, 80, 443 open |
+| **Unattended Upgrades** | Security patches applied daily |
+| **Strong Ciphers** | Modern cryptographic algorithms only |
+
+### Internal Encryption
+
+| Component | Encryption |
+|-----------|------------|
+| PostgreSQL | TLS 1.2+ with self-signed CA |
+| Redis | TLS 1.2+ with password auth |
+| Backups | AES-256 GPG encryption |
+| Block Storage | Scaleway-managed encryption |
+
+### Security Audit
+
+Run the built-in security audit script:
+
+```bash
+ssh deploy@$(terraform output -raw public_ip)
+/opt/security-audit.sh
+```
+
+This shows:
+- SSH configuration status
+- fail2ban banned IPs
+- Firewall rules
+- Recent failed login attempts
+- Unattended upgrade status
+
+### Network Security
+
+- All public traffic routed through Caddy with automatic TLS
+- PostgreSQL and Redis only accessible via Docker network with TLS
+- Default deny incoming, allow outgoing firewall policy
+- Internal services require TLS authentication

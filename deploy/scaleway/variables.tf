@@ -32,11 +32,6 @@ variable "admin_email" {
   type        = string
 }
 
-variable "ssh_key_ids" {
-  description = "List of Scaleway SSH key IDs to add to the instance"
-  type        = list(string)
-}
-
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
@@ -49,8 +44,24 @@ variable "environment" {
   default     = "prod"
 }
 
-variable "github_repo" {
-  description = "GitHub repository SSH URL for cloning"
-  type        = string
-  default     = "git@github.com:YOUR_ORG/scanorbit.git"
+variable "ssh_public_keys" {
+  description = "List of SSH public keys for the deploy user (the actual key content, not Scaleway IDs)"
+  type        = list(string)
+  default     = []
+}
+
+# =============================================================================
+# GDPR Compliance Variables
+# =============================================================================
+
+variable "data_volume_size" {
+  description = "Size of the encrypted data volume in GB"
+  type        = number
+  default     = 20
+}
+
+variable "enable_backups" {
+  description = "Enable automated backups to Object Storage"
+  type        = bool
+  default     = true
 }

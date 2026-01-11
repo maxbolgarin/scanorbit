@@ -59,16 +59,4 @@ app.{$DOMAIN} {
 api.{$DOMAIN} {
 	import block_scanners
 	reverse_proxy api:4000
-
-	# CORS headers for API
-	header {
-		Access-Control-Allow-Origin {$CORS_ORIGIN:*}
-		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-		Access-Control-Allow-Headers "Authorization, Content-Type"
-		Access-Control-Max-Age "86400"
-	}
-
-	# Handle preflight OPTIONS
-	@options method OPTIONS
-	respond @options 204
 }

@@ -49,6 +49,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - CORS_ORIGIN=${CORS_ORIGIN}
+      - FRONTEND_URL=${FRONTEND_URL}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -114,16 +115,36 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
-  # PostgreSQL Database
+  # PostgreSQL Database (with SSL/TLS)
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        # Copy certs to local dir and fix permissions for postgres user
+        mkdir -p /var/lib/postgresql/certs
+        cp /certs-source/* /var/lib/postgresql/certs/
+        chown postgres:postgres /var/lib/postgresql/certs/*
+        chmod 600 /var/lib/postgresql/certs/server.key
+        chmod 644 /var/lib/postgresql/certs/server.crt /var/lib/postgresql/certs/ca.crt
+        # Start PostgreSQL with SSL
+        exec docker-entrypoint.sh postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/var/lib/postgresql/certs/server.crt \
+          -c ssl_key_file=/var/lib/postgresql/certs/server.key \
+          -c ssl_ca_file=/var/lib/postgresql/certs/ca.crt \
+          -c log_statement=mod \
+          -c log_connections=on \
+          -c log_disconnections=on
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-scanorbit}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-scanorbit}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./certs/postgres:/certs-source:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scanorbit} -d ${POSTGRES_DB:-scanorbit}"]
       interval: 10s
@@ -132,31 +153,114 @@ services:
     networks:
       - scanorbit
 
-  # Redis Cache & Queue
+  # Redis Cache & Queue (with TLS + Password)
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        # Copy certs to local dir and fix permissions for redis user
+        mkdir -p /data/certs
+        cp /tls-source/* /data/certs/
+        chown redis:redis /data/certs/*
+        chmod 600 /data/certs/redis.key
+        chmod 644 /data/certs/redis.crt /data/certs/ca.crt
+        # Start Redis with TLS
+        exec redis-server \
+          --appendonly yes \
+          --requirepass "${REDIS_PASSWORD}" \
+          --tls-port 6379 \
+          --port 0 \
+          --tls-cert-file /data/certs/redis.crt \
+          --tls-key-file /data/certs/redis.key \
+          --tls-ca-cert-file /data/certs/ca.crt \
+          --tls-auth-clients no
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
+      - ./certs/redis:/tls-source:ro
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--tls", "--cert", "/data/certs/redis.crt", "--key", "/data/certs/redis.key", "--cacert", "/data/certs/ca.crt", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - scanorbit
 
+  # PostgreSQL Backup Service (GDPR Compliance)
+  postgres-backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - PGHOST=postgres
+      - PGUSER=${POSTGRES_USER:-scanorbit}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGDATABASE=${POSTGRES_DB:-scanorbit}
+      - PGSSLMODE=require
+      - PGSSLROOTCERT=/certs/ca.crt
+      - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
+      - SCW_ACCESS_KEY=${SCW_ACCESS_KEY}
+      - SCW_SECRET_KEY=${SCW_SECRET_KEY}
+      - SCW_BUCKET_NAME=${SCW_BUCKET_NAME:-scanorbit-backups}
+      - SCW_REGION=${SCW_REGION:-nl-ams}
+    volumes:
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./scripts/crontab:/etc/crontabs/root:ro
+      - ./certs/postgres:/certs:ro
+      - backup_temp:/backups
+    entrypoint: ["crond", "-f", "-l", "2"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
+  # GDPR Data Retention Cleanup (runs daily at 03:00 UTC)
+  retention-cleanup:
+    image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - RETENTION_RESOURCES_DAYS=${RETENTION_RESOURCES_DAYS:-90}
+      - RETENTION_FINDINGS_RESOLVED_DAYS=${RETENTION_FINDINGS_RESOLVED_DAYS:-180}
+      - RETENTION_SCANS_DAYS=${RETENTION_SCANS_DAYS:-365}
+      - RETENTION_AUDIT_LOGS_DAYS=${RETENTION_AUDIT_LOGS_DAYS:-730}
+    working_dir: /app/apps/api
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Install crond (already in Alpine)
+        # Create crontab for daily retention cleanup at 03:00 UTC
+        echo "0 3 * * * cd /app/apps/api && node dist/jobs/retention-cleanup.js >> /var/log/retention.log 2>&1" | crontab -
+        # Run crond in foreground
+        crond -f -l 2
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
   # Watchtower - Auto-update containers from GHCR
+  # Using nickfedor/watchtower fork (containrrr/watchtower is archived)
   watchtower:
-    image: containrrr/watchtower
+    image: nickfedor/watchtower:latest
     restart: unless-stopped
     environment:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_LABEL_ENABLE=true
+      # Ensures registry credentials are passed when pulling (important for private GHCR images
+      # and for avoiding "unauthorized" pulls when the daemon doesn't have cached auth).
+      - WATCHTOWER_REGISTRY_AUTH=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_ROLLING_RESTART=true
+      # Rolling restarts disabled - incompatible with containers that have dependencies
+      # - WATCHTOWER_ROLLING_RESTART=true
       - WATCHTOWER_TIMEOUT=60s
       - WATCHTOWER_NOTIFICATIONS=shoutrrr
       - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
@@ -172,6 +276,7 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  backup_temp:
 
 networks:
   scanorbit:

@@ -5,6 +5,7 @@ import awsAccountsRoute from './aws-accounts.js';
 import awsScansRoute from './aws-scans.js';
 import resourcesRoute from './resources.js';
 import findingsRoute from './findings.js';
+import gdprRoute from './gdpr.js';
 import type { Variables } from '../types/index.js';
 
 const routes = new Hono<{ Variables: Variables }>();
@@ -16,5 +17,8 @@ routes.route('/aws/accounts', awsAccountsRoute);
 routes.route('/aws/scans', awsScansRoute);
 routes.route('/resources', resourcesRoute);
 routes.route('/findings', findingsRoute);
+
+// GDPR compliance routes (data export, deletion requests, audit logs)
+routes.route('/gdpr', gdprRoute);
 
 export default routes;

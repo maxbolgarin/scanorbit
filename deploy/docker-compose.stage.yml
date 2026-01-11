@@ -148,15 +148,17 @@ services:
       - scanorbit
 
   # Watchtower - Auto-update containers from GHCR
+  # Using nickfedor/watchtower fork (containrrr/watchtower is archived)
   watchtower:
-    image: containrrr/watchtower
+    image: nickfedor/watchtower:latest
     restart: unless-stopped
     environment:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_LABEL_ENABLE=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_ROLLING_RESTART=true
+      # Rolling restarts disabled - incompatible with containers that have dependencies
+      # - WATCHTOWER_ROLLING_RESTART=true
       - WATCHTOWER_TIMEOUT=60s
       - WATCHTOWER_NOTIFICATIONS=shoutrrr
       - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}

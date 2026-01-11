@@ -9,7 +9,4 @@ terraform {
   }
 }
 
-provider "scaleway" {
-  zone   = var.scw_zone
-  region = var.scw_region
-}
+provider "scaleway" {}

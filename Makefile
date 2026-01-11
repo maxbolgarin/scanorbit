@@ -48,6 +48,7 @@ help:
 	@echo "  $(BLUE)docker-logs$(RESET)     Follow container logs"
 	@echo "  $(BLUE)docker-ps$(RESET)       Show running containers"
 	@echo "  $(BLUE)docker-clean$(RESET)    Remove containers and volumes"
+	@echo "  $(BLUE)docker-update-watchtower$(RESET)  Update Watchtower to latest version"
 	@echo ""
 	@echo "$(YELLOW)Database:$(RESET)"
 	@echo "  $(BLUE)db-migrate$(RESET)      Run database migrations"
@@ -189,6 +190,12 @@ docker-clean:
 	docker compose down -v --remove-orphans
 	docker system prune -f
 
+docker-update-watchtower:
+	@echo "$(YELLOW)Updating Watchtower to latest version...$(RESET)"
+	docker pull nickfedor/watchtower:latest
+	docker compose -f deploy/docker-compose.prod.yml up -d --force-recreate --no-deps watchtower
+	@echo "$(GREEN)Watchtower updated!$(RESET)"
+
 # =============================================================================
 # Database
 # =============================================================================
@@ -259,3 +266,17 @@ gen-secret:
 # =============================================================================
 ssh:
 	ssh root@scanorbit.cloud
+
+move-docker-compose:
+	scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml 
+
+move-caddyfile:
+	scp deploy/Caddyfile deploy@scanorbit.cloud:/opt/scanorbit/deploy/Caddyfile
+
+move-env:
+	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
+
+move-ssh-key:
+	scp deploy/.ssh/id_ed25519_github.pub deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github.pub
+	scp deploy/.ssh/id_ed25519_github deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github
+	scp deploy/.ssh/config deploy@scanorbit.cloud:/home/deploy/.ssh/config

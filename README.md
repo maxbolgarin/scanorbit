@@ -13,12 +13,12 @@ Agentless AWS Infrastructure Scanner SaaS — discover resources, detect securit
   - [CI/CD Architecture](#cicd-architecture)
   - [Infrastructure Setup](#1-infrastructure-setup-scaleway)
   - [GitHub Repository Setup](#2-github-repository-setup)
-  - [Server Setup](#3-server-setup-first-time)
-  - [Environment Variables](#4-environment-variables-envprod)
-  - [Auto-Updates with Watchtower](#5-auto-updates-with-watchtower)
-  - [DNS Configuration](#6-dns-configuration)
-  - [Monitoring & Logs](#7-monitoring--logs)
-  - [AWS IAM Role Setup](#8-aws-iam-role-setup)
+  - [Prepare Environment File](#3-prepare-environment-file)
+  - [Copy Deployment Files](#4-copy-deployment-files-to-server)
+  - [Generate TLS Certificates](#5-generate-tls-certificates)
+  - [Start Services](#6-start-services)
+  - [Auto-Updates with Watchtower](#7-auto-updates-with-watchtower)
+  - [Monitoring & Logs](#8-monitoring--logs)
 - [Development Setup](#development-setup)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
@@ -41,6 +41,7 @@ Agentless AWS Infrastructure Scanner SaaS — discover resources, detect securit
 ## Additional Documentation
 
 - [Scaleway Deployment Guide](deploy/scaleway/README.md) — Detailed infrastructure deployment instructions
+- [GDPR Compliance Guide](docs/gdpr-compliance.md) — Data protection, backups, retention policies
 - [Test Infrastructure Guide](deploy/test/README.md) — AWS test resources setup
 
 ## Overview
@@ -129,7 +130,7 @@ cd deploy/scaleway
 
 # Configure variables
 cp terraform.tfvars.example terraform.tfvars
-vim terraform.tfvars  # Set domain, ssh_key_ids, etc.
+vim terraform.tfvars  # Set domain, ssh_public_keys, etc.
 
 # Deploy infrastructure
 terraform init
@@ -159,41 +160,69 @@ Configure these DNS records (Scaleway DNS or your provider):
 
 3. **Push to main** — GitHub Actions will build and push images to GHCR
 
-### 3. Server Setup (First Time)
+### 3. Prepare Environment File
+
+On your local machine, configure the environment file:
 
 ```bash
-# SSH into the VM
-ssh root@scanorbit.cloud
+cp .env.example .env
+vim .env  # Set all required values (see Environment Variables section)
 
+# Key GDPR-related variables to configure:
+# - REDIS_PASSWORD (strong password)
+# - BACKUP_ENCRYPTION_KEY (openssl rand -hex 32)
+# - SCW_ACCESS_KEY, SCW_SECRET_KEY, SCW_BUCKET_NAME (from terraform output)
+```
+
+### 4. Copy Deployment Files to Server
+
+Copy only the required files (scripts are pre-installed via Terraform cloud-init):
+
+```bash
+# Get the public IP from terraform output
+PUBLIC_IP=$(cd deploy/scaleway && terraform output -raw public_ip)
+
+# Copy docker-compose, Caddyfile, and environment
+scp deploy/docker-compose.prod.yml deploy/Caddyfile \
+    deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
+
+scp .env deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
+```
+
+### 5. Generate TLS Certificates
+
+SSH into the server and generate certificates (scripts are pre-installed):
+
+```bash
+ssh deploy@scanorbit.cloud
+
+cd /opt/scanorbit/deploy
+./scripts/generate-certs.sh
+
+# This creates:
+# - certs/postgres/ (CA + server cert for PostgreSQL SSL)
+# - certs/redis/ (CA + server cert for Redis TLS)
+```
+
+### 6. Start Services
+
+```bash
 # Login to GitHub Container Registry
 # Create PAT at: https://github.com/settings/tokens (scope: read:packages)
 echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 
-# Option A: Copy deployment files (from local machine)
-scp deploy/docker-compose.prod.yml deploy/Caddyfile .env.prod root@scanorbit.cloud:/opt/scanorbit/
-
-# Option B: Clone repository using SSH (requires SSH key setup)
-# 1. Generate SSH key: ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/id_ed25519_github
-# 2. Add public key to GitHub: https://github.com/maxbolgarin/scanorbit/settings/keys (Deploy Key) or https://github.com/settings/ssh/new
-# 3. Configure SSH: echo -e "Host github.com\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/id_ed25519_github\n  IdentitiesOnly yes" >> ~/.ssh/config
-# 4. Test: ssh -T git@github.com
-# 5. Clone: git clone git@github.com:maxbolgarin/scanorbit.git /opt/scanorbit
-
-# Configure environment
-cd /opt/scanorbit
-
-# Environment variables
-mv .env.prod .env
-
-# Start services (migrations run automatically before API starts)
+# Start all services (migrations run automatically before API starts)
 docker compose -f docker-compose.prod.yml up -d
 
-# Migrations are automatically run by the 'migrate' service before the API starts
-# To run migrations manually (if needed):
-# docker compose -f docker-compose.prod.yml --profile migrate-only up migrate
+# Verify all services are healthy
+docker compose -f docker-compose.prod.yml ps
+
+# Check GDPR components are running
+docker compose -f docker-compose.prod.yml logs postgres-backup
+docker compose -f docker-compose.prod.yml logs retention-cleanup
 ```
 
-### 4. Auto-Updates with Watchtower
+### 7. Auto-Updates with Watchtower
 
 Watchtower runs inside Docker Compose and automatically:
 - Polls GHCR every 5 minutes for new images
@@ -206,7 +235,7 @@ cd /opt/scanorbit
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
-### 5. Monitoring & Logs
+### 8. Monitoring & Logs
 
 ```bash
 # View all logs
@@ -217,6 +246,12 @@ docker compose -f docker-compose.prod.yml logs -f api
 
 # Check Watchtower activity
 docker compose -f docker-compose.prod.yml logs -f watchtower
+
+# GDPR: Check backup status
+docker compose -f docker-compose.prod.yml logs postgres-backup
+
+# GDPR: Check retention cleanup
+docker compose -f docker-compose.prod.yml logs retention-cleanup
 
 # Service status
 docker compose -f docker-compose.prod.yml ps
@@ -448,6 +483,21 @@ scanorbit/
 | `POSTGRES_PASSWORD` | PostgreSQL password | `scanorbit` |
 | `POSTGRES_DB` | PostgreSQL database name | `scanorbit` |
 
+### GDPR Compliance (Production)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_PASSWORD` | Redis password (required for TLS) | - |
+| `BACKUP_ENCRYPTION_KEY` | AES-256 key for backups (`openssl rand -hex 32`) | - |
+| `SCW_ACCESS_KEY` | Scaleway access key for S3 backups | - |
+| `SCW_SECRET_KEY` | Scaleway secret key for S3 backups | - |
+| `SCW_BUCKET_NAME` | S3 bucket name for backups | `scanorbit-backups` |
+| `SCW_REGION` | Scaleway region | `nl-ams` |
+| `RETENTION_RESOURCES_DAYS` | Days to keep stale resources | `90` |
+| `RETENTION_FINDINGS_RESOLVED_DAYS` | Days to keep resolved findings | `180` |
+| `RETENTION_SCANS_DAYS` | Days to keep scan records | `365` |
+| `RETENTION_AUDIT_LOGS_DAYS` | Days to keep audit logs | `730` |
+
 ## Available Commands
 
 ### Development
@@ -533,6 +583,13 @@ scanorbit/
 - `GET /findings/stats` — Finding statistics
 - `PATCH /findings/:id` — Update finding status
 - `POST /findings/bulk-update` — Bulk update status
+
+### GDPR Compliance
+- `GET /gdpr/export` — Export user's personal data (Article 20)
+- `POST /gdpr/delete` — Request account deletion (Article 17)
+- `DELETE /gdpr/delete/:id` — Cancel deletion request
+- `GET /gdpr/deletion-status` — Check deletion request status
+- `GET /gdpr/audit-logs` — View user's audit logs
 
 ## Testing
 
@@ -781,11 +838,26 @@ See `terraform/README.md` for more details on test resources.
 
 ## Security Considerations
 
-- **Read-Only Access** — ScanOrbit only requires read permissions
+### Infrastructure Security
+- **Read-Only Access** — ScanOrbit only requires read permissions to scan AWS
 - **Role Assumption** — Uses IAM roles with external ID, no stored credentials
-- **EU Data Residency** — Deploy on EU VPS for GDPR compliance
-- **Encrypted Storage** — Enable disk encryption on production servers
+- **SSH Hardening** — Root disabled, key-only auth, fail2ban protection
+- **Firewall** — Only ports 22, 80, 443 open via UFW
+
+### GDPR Compliance
+- **EU Data Residency** — Deployed in Amsterdam (nl-ams) region
+- **Encryption at Rest** — Encrypted block storage for all data
+- **Encryption in Transit** — TLS for PostgreSQL, Redis, and external traffic
+- **Automated Backups** — Daily encrypted backups to S3 with 30/90/365 day retention
+- **Audit Logging** — All API requests logged with user, action, timestamp, IP
+- **Data Retention** — Automatic cleanup of stale data per configurable policies
+- **Right to Erasure** — API for account deletion with 30-day grace period
+- **Right to Portability** — API for complete data export in JSON format
+
+### Best Practices
 - **Secure Secrets** — Use strong, unique JWT secrets in production
+- **TLS Certificates** — Generate internal certificates before deployment
+- **Backup Encryption** — Use strong AES-256 key for backup encryption
 
 ## Troubleshooting
 

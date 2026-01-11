@@ -1,5 +1,17 @@
 #cloud-config
 
+# =============================================================================
+# Security-Hardened Cloud-Init for ScanOrbit VM
+# =============================================================================
+# Features:
+# - Non-root deploy user with sudo access
+# - SSH key-only authentication (password disabled)
+# - Root login disabled
+# - fail2ban for brute-force protection
+# - Automatic security updates
+# - UFW firewall
+# =============================================================================
+
 package_update: true
 package_upgrade: true
 
@@ -11,8 +23,87 @@ packages:
   - lsb-release
   - git
   - make
+  - fail2ban
+  - unattended-upgrades
+  - apt-listchanges
+
+# Create non-root user for deployments
+users:
+  - name: deploy
+    groups: [sudo, docker]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+%{ for key in ssh_public_keys ~}
+      - ${key}
+%{ endfor ~}
 
 write_files:
+  # SSH hardening configuration
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    content: |
+      # Disable root login
+      PermitRootLogin no
+
+      # Disable password authentication (key-only)
+      PasswordAuthentication no
+      ChallengeResponseAuthentication no
+      UsePAM yes
+
+      # Only allow deploy user
+      AllowUsers deploy
+
+      # Security settings
+      X11Forwarding no
+      MaxAuthTries 3
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+
+      # Use strong ciphers
+      Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+      MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+      KexAlgorithms curve25519-sha256@libssh.org,diffie-hellman-group16-sha512
+
+  # fail2ban jail configuration
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 1h
+      findtime = 10m
+      maxretry = 3
+      backend = systemd
+
+      [sshd]
+      enabled = true
+      port = 22
+      filter = sshd
+      maxretry = 3
+      bantime = 1h
+
+  # Unattended upgrades configuration
+  - path: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+          "$${distro_id}:$${distro_codename}";
+          "$${distro_id}:$${distro_codename}-security";
+          "$${distro_id}ESMApps:$${distro_codename}-apps-security";
+          "$${distro_id}ESM:$${distro_codename}-infra-security";
+      };
+      Unattended-Upgrade::Package-Blacklist {
+      };
+      Unattended-Upgrade::DevRelease "auto";
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Automatic-Reboot "false";
+      Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+
+  # Enable automatic updates
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+
   # Docker daemon configuration
   - path: /etc/docker/daemon.json
     content: |
@@ -24,35 +115,33 @@ write_files:
         }
       }
 
-  # GHCR login script
-  - path: /opt/setup-ghcr.sh
+  # =============================================================================
+  # GDPR Compliance Scripts (loaded from deploy/scripts/)
+  # =============================================================================
+
+  # TLS Certificate Generation Script
+  - path: /opt/scanorbit/deploy/scripts/generate-certs.sh
     permissions: "0755"
     content: |
-      #!/bin/bash
-      set -e
+      ${indent(6, script_gen_certs)}
 
-      echo "=========================================="
-      echo "  GitHub Container Registry Setup"
-      echo "=========================================="
-      echo ""
-      echo "To authenticate with GHCR, you need a GitHub Personal Access Token (PAT)"
-      echo "with 'read:packages' scope."
-      echo ""
-      echo "1. Create a PAT at: https://github.com/settings/tokens/new"
-      echo "   - Select 'read:packages' scope"
-      echo "   - Copy the token"
-      echo ""
-      echo "2. Run this command with your credentials:"
-      echo ""
-      echo "   echo 'YOUR_PAT' | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin"
-      echo ""
-      echo "3. Verify login:"
-      echo "   cat ~/.docker/config.json"
-      echo ""
-      echo "4. Start the application:"
-      echo "   cd /opt/scanorbit && docker compose -f docker-compose.prod.yml up -d"
-      echo ""
-      echo "=========================================="
+  # PostgreSQL Backup Script
+  - path: /opt/scanorbit/deploy/scripts/backup.sh
+    permissions: "0755"
+    content: |
+      ${indent(6, script_backup)}
+
+  # PostgreSQL Restore Script
+  - path: /opt/scanorbit/deploy/scripts/restore.sh
+    permissions: "0755"
+    content: |
+      ${indent(6, script_restore)}
+
+  # Backup Crontab
+  - path: /opt/scanorbit/deploy/scripts/crontab
+    permissions: "0644"
+    content: |
+      ${indent(6, script_crontab)}
 
   # Application setup script
   - path: /opt/setup-app.sh
@@ -62,20 +151,24 @@ write_files:
       set -e
 
       APP_DIR="/opt/scanorbit"
+      DEPLOY_DIR="$$APP_DIR/deploy"
 
-      # Create application directory
-      mkdir -p $APP_DIR
-      cd $APP_DIR
+      # Create application directory structure
+      sudo mkdir -p $$APP_DIR
+      sudo chown deploy:deploy $$APP_DIR
+      cd $$APP_DIR
 
-      # Create data directories
+      # Create required directories
       mkdir -p data/postgres data/redis logs
+      mkdir -p deploy/certs/postgres deploy/certs/redis
+      mkdir -p deploy/scripts
 
-      echo "Setup complete. Application directory: $APP_DIR"
+      echo "Setup complete. Application directory: $$APP_DIR"
       echo ""
       echo "Next steps:"
-      echo "1. Configure GHCR: /opt/setup-ghcr.sh"
-      echo "2. Copy docker-compose.prod.yml, Caddyfile, and .env.prod to $APP_DIR"
-      echo "3. Start: docker compose -f docker-compose.prod.yml up -d"
+      echo "1. Copy deployment files: scp docker-compose.prod.yml Caddyfile .env deploy@IP:/opt/scanorbit/deploy/"
+      echo "2. Generate TLS certs: $$DEPLOY_DIR/scripts/generate-certs.sh"
+      echo "3. Start services: cd deploy && docker compose -f docker-compose.prod.yml up -d"
 
   # Deploy script
   - path: /opt/deploy.sh
@@ -85,7 +178,7 @@ write_files:
       set -e
 
       APP_DIR="/opt/scanorbit"
-      cd $APP_DIR
+      cd $$APP_DIR
 
       echo "Pulling latest images..."
       docker compose -f docker-compose.prod.yml pull
@@ -98,9 +191,39 @@ write_files:
 
       echo "Deploy complete!"
 
+  # Security audit script
+  - path: /opt/security-audit.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      echo "=========================================="
+      echo "  Security Audit Report"
+      echo "=========================================="
+      echo ""
+      echo "=== SSH Configuration ==="
+      echo "Root login: $(grep -E '^PermitRootLogin' /etc/ssh/sshd_config.d/99-hardening.conf 2>/dev/null || echo 'default')"
+      echo "Password auth: $(grep -E '^PasswordAuthentication' /etc/ssh/sshd_config.d/99-hardening.conf 2>/dev/null || echo 'default')"
+      echo ""
+      echo "=== fail2ban Status ==="
+      sudo fail2ban-client status sshd 2>/dev/null || echo "fail2ban not running"
+      echo ""
+      echo "=== Firewall Status ==="
+      sudo ufw status verbose
+      echo ""
+      echo "=== Recent Failed SSH Attempts ==="
+      sudo journalctl -u ssh --since "24 hours ago" | grep -i "failed\|invalid" | tail -10 || echo "No recent failures"
+      echo ""
+      echo "=== Unattended Upgrades ==="
+      cat /var/log/unattended-upgrades/unattended-upgrades.log 2>/dev/null | tail -5 || echo "No upgrade logs yet"
+      echo ""
+      echo "=========================================="
+
 runcmd:
   # Install Docker using official method
   - curl -fsSL https://get.docker.com | sh
+
+  # Add deploy user to docker group (in case it wasn't created yet)
+  - usermod -aG docker deploy || true
 
   # Enable and start Docker
   - systemctl enable docker
@@ -115,40 +238,73 @@ runcmd:
   - docker --version
   - docker compose version
 
-  # Run application setup
-  - /opt/setup-app.sh
+  # Run application setup as deploy user
+  - sudo -u deploy /opt/setup-app.sh
+
+  # Enable and start fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+  # Enable unattended upgrades
+  - systemctl enable unattended-upgrades
+  - systemctl start unattended-upgrades
+
+  # Restart SSH to apply hardening
+  - systemctl restart ssh
 
   # Configure firewall (ufw)
-  - ufw allow 22/tcp
-  - ufw allow 80/tcp
-  - ufw allow 443/tcp
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp comment 'SSH'
+  - ufw allow 80/tcp comment 'HTTP'
+  - ufw allow 443/tcp comment 'HTTPS'
   - ufw --force enable
 
+  # Set proper permissions on scripts
+  - chown deploy:deploy /opt/setup-app.sh /opt/deploy.sh /opt/security-audit.sh
+
+  # Set ownership on GDPR scripts and directories
+  - chown -R deploy:deploy /opt/scanorbit
+
 final_message: |
-  ScanOrbit VM initialized successfully!
-
   ==========================================
-  DEPLOYMENT WITH GHCR (CI/CD)
+  ScanOrbit VM Initialized (GDPR Compliant)
   ==========================================
 
-  1. SSH into the server:
-     ssh root@<public_ip>
+  SECURITY & COMPLIANCE FEATURES:
+  - SSH: Key-only auth, root login disabled
+  - fail2ban: Blocks IPs after 3 failed attempts
+  - Firewall: Only ports 22, 80, 443 open
+  - Auto-updates: Security patches applied daily
+  - GDPR: Backup/restore scripts pre-installed
+  - TLS: Certificate generator ready
 
-  2. Configure GHCR authentication:
-     /opt/setup-ghcr.sh
+  IMPORTANT: SSH as 'deploy' user (not root):
+    ssh deploy@scanorbit.cloud
+
+  DEPLOYMENT STEPS:
+  1. Copy deployment files from local machine:
+     scp deploy/docker-compose.prod.yml deploy/Caddyfile .env \
+         deploy@scanorbit.cloud:/opt/scanorbit/deploy/
+
+  2. SSH into the server:
+     ssh deploy@scanorbit.cloud
+
+  3. Generate TLS certificates (scripts pre-installed):
+     cd /opt/scanorbit/deploy
+     ./scripts/generate-certs.sh
+
+  4. Configure GHCR authentication:
      echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 
-  3. Copy deployment files to /opt/scanorbit:
-     - docker-compose.prod.yml
-     - Caddyfile
-     - .env.prod (from .env.example)
-
-  4. Start services:
-     cd /opt/scanorbit
+  5. Start services:
      docker compose -f docker-compose.prod.yml up -d
 
-  5. Auto-updates:
-     Watchtower will automatically pull new images every 5 minutes
-     when you push to main branch.
+  6. Verify GDPR components:
+     docker compose -f docker-compose.prod.yml logs postgres-backup
+     docker compose -f docker-compose.prod.yml logs retention-cleanup
+
+  7. Run security audit:
+     /opt/security-audit.sh
 
   ==========================================

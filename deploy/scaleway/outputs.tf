@@ -9,8 +9,8 @@ output "public_ip" {
 }
 
 output "ssh_command" {
-  description = "SSH command to connect to the instance"
-  value       = "ssh root@${scaleway_instance_ip.main.address}"
+  description = "SSH command to connect to the instance (as deploy user)"
+  value       = "ssh deploy@${scaleway_instance_ip.main.address}"
 }
 
 output "domain_url" {
@@ -36,4 +36,29 @@ output "dns_records" {
     app  = "app.${var.domain} -> ${scaleway_instance_ip.main.address}"
     api  = "api.${var.domain} -> ${scaleway_instance_ip.main.address}"
   }
+}
+
+# =============================================================================
+# GDPR Compliance Outputs
+# =============================================================================
+
+output "backup_bucket_name" {
+  description = "Name of the S3 bucket for backups"
+  value       = scaleway_object_bucket.backups.name
+}
+
+output "backup_bucket_endpoint" {
+  description = "S3 endpoint for backups"
+  value       = "s3.${var.scw_region}.scw.cloud"
+}
+
+output "backup_access_key" {
+  description = "Access key for backup S3 operations"
+  value       = scaleway_iam_api_key.backup.access_key
+}
+
+output "backup_secret_key" {
+  description = "Secret key for backup S3 operations"
+  value       = scaleway_iam_api_key.backup.secret_key
+  sensitive   = true
 }

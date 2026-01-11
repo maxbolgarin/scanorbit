@@ -8,9 +8,16 @@ resource "scaleway_instance_server" "main" {
   ip_id             = scaleway_instance_ip.main.id
   security_group_id = scaleway_instance_security_group.main.id
 
-  # Cloud-init configuration
+  # Cloud-init configuration with SSH keys and GDPR scripts
+  # Scripts are loaded from deploy/scripts/ (canonical source)
   user_data = {
-    cloud-init = file("${path.module}/cloud-init.yaml")
+    cloud-init = templatefile("${path.module}/cloud-init.yaml", {
+      ssh_public_keys    = var.ssh_public_keys
+      script_gen_certs   = file("${path.module}/../scripts/generate-certs.sh")
+      script_backup      = file("${path.module}/../scripts/backup.sh")
+      script_restore     = file("${path.module}/../scripts/restore.sh")
+      script_crontab     = file("${path.module}/../scripts/crontab")
+    })
   }
 
   # Root volume (included in instance type)
@@ -23,6 +30,7 @@ resource "scaleway_instance_server" "main" {
   tags = [
     "project:${var.project_name}",
     "environment:${var.environment}",
+    "gdpr:compliant",
   ]
 
   lifecycle {

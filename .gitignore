@@ -19,6 +19,8 @@ build/
 .env.production
 .env.prod
 
+.ssh
+
 # IDE
 .idea/
 .vscode/*

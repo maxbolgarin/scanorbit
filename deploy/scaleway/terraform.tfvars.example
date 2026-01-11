@@ -15,15 +15,13 @@ domain = "scanorbit.cloud"
 # Email for Let's Encrypt certificate notifications
 admin_email = "admin@scanorbit.cloud"
 
-# SSH key IDs from your Scaleway account
-# Find these at: https://console.scaleway.com/iam/ssh-keys
-ssh_key_ids = [
-  "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+# SSH public keys for the 'deploy' user (the actual key content)
+# These keys will be added to /home/deploy/.ssh/authorized_keys
+# Get your public key with: cat ~/.ssh/id_ed25519.pub
+ssh_public_keys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1... your-email@example.com",
 ]
 
 # Project metadata
 project_name = "scanorbit"
 environment  = "prod"
-
-# GitHub repository SSH URL
-github_repo = "git@github.com:YOUR_ORG/scanorbit.git"

@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import routes from './routes/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { auditLog } from './middlewares/auditLog.js';
 import { config } from './lib/config.js';
 import type { Variables } from './types/index.js';
 
@@ -22,6 +23,9 @@ app.use(
 );
 
 app.use(logger());
+
+// GDPR Compliance: Audit logging for all API requests
+app.use('/api/*', auditLog);
 
 // Health check endpoint
 app.get('/health', (c) => {
