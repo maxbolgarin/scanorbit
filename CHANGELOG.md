@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3](https://github.com/maxbolgarin/scanorbit/compare/v1.1.2...v1.1.3) (2026-01-11)
+
+### Bug Fixes
+
+* CA certs ([b204b02](https://github.com/maxbolgarin/scanorbit/commit/b204b02838c531e0068b54f6bef9b1a02a25a73d))
+
 ## [1.1.2](https://github.com/maxbolgarin/scanorbit/compare/v1.1.1...v1.1.2) (2026-01-11)
 
 ### Bug Fixes
