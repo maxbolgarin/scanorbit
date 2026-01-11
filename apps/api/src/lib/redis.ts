@@ -1,13 +1,14 @@
+import { readFileSync } from 'fs';
 import Redis from 'ioredis';
 import { config } from './config.js';
 
 // Determine if TLS is used (rediss:// protocol)
 const isTLS = config.redisUrl.startsWith('rediss://');
 
-// In production, verify TLS certificates unless explicitly disabled via env var
-const rejectUnauthorized = config.nodeEnv === 'production'
-  ? process.env.REDIS_TLS_REJECT_UNAUTHORIZED !== 'false'
-  : false; // Allow self-signed in development
+// Load CA certificate if specified (for self-signed cert validation)
+const caCert = process.env.REDIS_CA_CERT
+  ? readFileSync(process.env.REDIS_CA_CERT)
+  : undefined;
 
 export const redis = new Redis(config.redisUrl, {
   maxRetriesPerRequest: 3,
@@ -17,7 +18,8 @@ export const redis = new Redis(config.redisUrl, {
   },
   ...(isTLS && {
     tls: {
-      rejectUnauthorized,
+      rejectUnauthorized: true,
+      ca: caCert,
     },
   }),
 });

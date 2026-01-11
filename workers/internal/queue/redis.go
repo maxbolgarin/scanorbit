@@ -3,8 +3,10 @@ package queue
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -32,17 +34,28 @@ type RedisQueue struct {
 }
 
 // NewRedisQueue creates a new Redis-based job queue.
-func NewRedisQueue(redisURL string, logger zerolog.Logger) (*RedisQueue, error) {
+// If caCertPath is provided and the URL uses rediss://, the CA certificate will be used for TLS verification.
+func NewRedisQueue(redisURL, caCertPath string, logger zerolog.Logger) (*RedisQueue, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis URL: %w", err)
 	}
 
-	// Accept self-signed certificates for internal TLS
+	// Configure TLS for rediss:// URLs
 	if strings.HasPrefix(redisURL, "rediss://") {
-		opts.TLSConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		tlsConfig := &tls.Config{}
+		if caCertPath != "" {
+			caCert, err := os.ReadFile(caCertPath)
+			if err != nil {
+				return nil, fmt.Errorf("read CA cert: %w", err)
+			}
+			certPool := x509.NewCertPool()
+			if !certPool.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to parse CA certificate")
+			}
+			tlsConfig.RootCAs = certPool
 		}
+		opts.TLSConfig = tlsConfig
 	}
 
 	client := redis.NewClient(opts)

@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { config } from './config.js';
@@ -8,10 +9,10 @@ const { Pool } = pg;
 // Check if SSL is required (sslmode in connection string)
 const useSSL = config.databaseUrl.includes('sslmode=require');
 
-// In production, verify TLS certificates unless explicitly disabled via env var
-const rejectUnauthorized = config.nodeEnv === 'production'
-  ? process.env.DB_TLS_REJECT_UNAUTHORIZED !== 'false'
-  : false; // Allow self-signed in development
+// Load CA certificate if specified (for self-signed cert validation)
+const caCert = process.env.DB_CA_CERT
+  ? readFileSync(process.env.DB_CA_CERT)
+  : undefined;
 
 const pool = new Pool({
   connectionString: config.databaseUrl,
@@ -20,7 +21,8 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
   ...(useSSL && {
     ssl: {
-      rejectUnauthorized,
+      rejectUnauthorized: true,
+      ca: caCert,
     },
   }),
 });

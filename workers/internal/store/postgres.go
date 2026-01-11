@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -16,7 +18,8 @@ type DB struct {
 }
 
 // NewDB creates a new database connection pool.
-func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
+// If caCertPath is provided and sslmode=require is in the URL, the CA certificate will be used for TLS verification.
+func NewDB(ctx context.Context, databaseURL, caCertPath string) (*DB, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database URL: %w", err)
@@ -29,11 +32,21 @@ func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 	config.MaxConnIdleTime = 30 * time.Minute
 	config.HealthCheckPeriod = time.Minute
 
-	// Accept self-signed certificates for internal TLS
+	// Configure TLS for SSL connections
 	if strings.Contains(databaseURL, "sslmode=require") {
-		config.ConnConfig.TLSConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		tlsConfig := &tls.Config{}
+		if caCertPath != "" {
+			caCert, err := os.ReadFile(caCertPath)
+			if err != nil {
+				return nil, fmt.Errorf("read CA cert: %w", err)
+			}
+			certPool := x509.NewCertPool()
+			if !certPool.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to parse CA certificate")
+			}
+			tlsConfig.RootCAs = certPool
 		}
+		config.ConnConfig.TLSConfig = tlsConfig
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)

@@ -43,7 +43,7 @@ func main() {
 	defer cancel()
 
 	// Setup database
-	db, err := store.NewDB(ctx, cfg.DatabaseURL)
+	db, err := store.NewDB(ctx, cfg.DatabaseURL, cfg.DBCACert)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to connect to database")
 	}
@@ -53,7 +53,7 @@ func main() {
 	st := store.NewStore(db)
 
 	// Setup Redis queue
-	q, err := queue.NewRedisQueue(cfg.RedisURL, logger)
+	q, err := queue.NewRedisQueue(cfg.RedisURL, cfg.RedisCACert, logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to connect to redis")
 	}

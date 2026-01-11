@@ -10,7 +10,9 @@ import (
 // Config holds all configuration for the workers.
 type Config struct {
 	DatabaseURL     string
+	DBCACert        string
 	RedisURL        string
+	RedisCACert     string
 	LogLevel        string
 	ScanConcurrency int
 	ShutdownTimeout time.Duration
@@ -20,7 +22,9 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL:     getEnv("DATABASE_URL", ""),
+		DBCACert:        getEnv("DB_CA_CERT", ""),
 		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
+		RedisCACert:     getEnv("REDIS_CA_CERT", ""),
 		LogLevel:        getEnv("LOG_LEVEL", "info"),
 		ScanConcurrency: getEnvInt("SCAN_CONCURRENCY", 10),
 		ShutdownTimeout: time.Duration(getEnvInt("SHUTDOWN_TIMEOUT_SECONDS", 30)) * time.Second,
