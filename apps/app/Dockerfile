@@ -21,7 +21,9 @@ COPY apps/app ./apps/app
 
 # Build arguments for environment variables
 ARG VITE_API_URL
+ARG VITE_SCANORBIT_AWS_ACCOUNT_ID
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_SCANORBIT_AWS_ACCOUNT_ID=$VITE_SCANORBIT_AWS_ACCOUNT_ID
 
 # Build the application
 RUN pnpm --filter @scanorbit/app run build
