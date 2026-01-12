@@ -81,6 +81,13 @@ help:
 	@echo "  $(BLUE)logs-errors$(RESET)     View error logs only"
 	@echo "  $(BLUE)logs-tail$(RESET)       Tail logs in real-time"
 	@echo ""
+	@echo "$(YELLOW)SSH Tunnels (Production):$(RESET)"
+	@echo "  $(BLUE)tunnel-grafana$(RESET)    Open tunnel to prod Grafana (localhost:3001)"
+	@echo "  $(BLUE)tunnel-prometheus$(RESET) Open tunnel to prod Prometheus (localhost:9092)"
+	@echo "  $(BLUE)tunnel-loki$(RESET)       Open tunnel to prod Loki (localhost:3100)"
+	@echo "  $(BLUE)tunnel-monitoring$(RESET) Open tunnels to all monitoring services"
+	@echo "  $(BLUE)tunnel-all$(RESET)        Open tunnels to all prod services"
+	@echo ""
 	@echo "$(YELLOW)Utilities:$(RESET)"
 	@echo "  $(BLUE)clean$(RESET)           Clean all build artifacts"
 	@echo "  $(BLUE)health$(RESET)          Check health of all services"
@@ -387,6 +394,51 @@ monitoring-up:
 
 monitoring-down:
 	docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring down
+
+# SSH tunnels for production monitoring
+tunnel-grafana:
+	@echo "$(YELLOW)Opening SSH tunnel to production Grafana...$(RESET)"
+	@echo "  Grafana will be available at: http://localhost:3001"
+	@echo "  Press Ctrl+C to close the tunnel"
+	@echo ""
+	ssh -N -L 3001:localhost:3001 root@scanorbit.cloud
+
+tunnel-prometheus:
+	@echo "$(YELLOW)Opening SSH tunnel to production Prometheus...$(RESET)"
+	@echo "  Prometheus will be available at: http://localhost:9092"
+	@echo "  Press Ctrl+C to close the tunnel"
+	@echo ""
+	ssh -N -L 9092:localhost:9092 root@scanorbit.cloud
+
+tunnel-loki:
+	@echo "$(YELLOW)Opening SSH tunnel to production Loki...$(RESET)"
+	@echo "  Loki will be available at: http://localhost:3100"
+	@echo "  Press Ctrl+C to close the tunnel"
+	@echo ""
+	ssh -N -L 3100:localhost:3100 root@scanorbit.cloud
+
+tunnel-monitoring:
+	@echo "$(YELLOW)Opening SSH tunnels to all production monitoring services...$(RESET)"
+	@echo "  Grafana:    http://localhost:3001"
+	@echo "  Prometheus: http://localhost:9092"
+	@echo "  Loki:       http://localhost:3100"
+	@echo ""
+	@echo "  Press Ctrl+C to close all tunnels"
+	@echo ""
+	ssh -N -L 3001:localhost:3001 -L 9092:localhost:9092 -L 3100:localhost:3100 root@scanorbit.cloud
+
+tunnel-all:
+	@echo "$(YELLOW)Opening SSH tunnels to all production services...$(RESET)"
+	@echo "  API:        http://localhost:4000"
+	@echo "  Grafana:    http://localhost:3001"
+	@echo "  Prometheus: http://localhost:9092"
+	@echo "  Loki:       http://localhost:3100"
+	@echo "  Scanner:    http://localhost:9090/metrics"
+	@echo "  Analyzer:   http://localhost:9091/metrics"
+	@echo ""
+	@echo "  Press Ctrl+C to close all tunnels"
+	@echo ""
+	ssh -N -L 4000:localhost:4000 -L 3001:localhost:3001 -L 9092:localhost:9092 -L 3100:localhost:3100 -L 9090:localhost:9090 -L 9091:localhost:9091 root@scanorbit.cloud
 
 # Generate JWT secret
 gen-secret:
