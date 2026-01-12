@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,12 +11,19 @@ import (
 
 	"github.com/maxbolgarin/scanorbit/internal/awsclient"
 	"github.com/maxbolgarin/scanorbit/internal/config"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/queue"
 	"github.com/maxbolgarin/scanorbit/internal/recovery"
 	"github.com/maxbolgarin/scanorbit/internal/scanner"
 	"github.com/maxbolgarin/scanorbit/internal/store"
 	"github.com/rs/zerolog"
+)
+
+const (
+	serviceName    = "scanner"
+	serviceVersion = "0.1.0"
+	metricsPort    = 9090
 )
 
 func main() {
@@ -39,6 +47,21 @@ func main() {
 	default:
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
+
+	// Initialize metrics
+	metrics.Init(metrics.Config{
+		ServiceName: serviceName,
+		Environment: cfg.LogLevel, // Use log level as environment indicator
+		Version:     serviceVersion,
+	})
+
+	// Start metrics server
+	metricsServer := metrics.NewServer(metricsPort, serviceName, serviceVersion, cfg.LogLevel, logger)
+	go func() {
+		if err := metricsServer.Start(); err != nil && err != http.ErrServerClosed {
+			logger.Error().Err(err).Msg("metrics server error")
+		}
+	}()
 
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -100,7 +123,7 @@ func main() {
 		cancel()
 	}()
 
-	logger.Info().Msg("scanner worker started")
+	logger.Info().Int("metrics_port", metricsPort).Msg("scanner worker started")
 
 	// Dead letter handler - stores failed jobs in database
 	deadLetterHandler := func(ctx context.Context, job *queue.Job, jobErr error) {
@@ -117,28 +140,49 @@ func main() {
 
 	// Consume jobs
 	err = q.Consume(ctx, []models.JobType{models.JobTypeScanAccount}, func(ctx context.Context, job *queue.Job) error {
+		// Start tracking job metrics
+		done := metrics.TrackJobProcessing(serviceName, string(job.Type))
+
 		var scanJob models.ScanAccountJob
 		if err := json.Unmarshal(job.Payload, &scanJob); err != nil {
 			logger.Error().Err(err).Msg("failed to unmarshal job payload")
+			metrics.JobErrors.WithLabelValues(serviceName, string(job.Type), "unmarshal_error").Inc()
+			done("error")
 			return err
 		}
 
 		// Validate job payload
 		if err := scanJob.Validate(); err != nil {
 			logger.Error().Err(err).Msg("invalid job payload")
+			metrics.JobErrors.WithLabelValues(serviceName, string(job.Type), "validation_error").Inc()
+			done("error")
 			return err
 		}
-
 		logger.Info().
 			Str("account_id", scanJob.AccountID).
 			Str("org_id", scanJob.OrgID).
 			Msg("processing scan job")
 
-		return scnr.ScanAccount(ctx, &scanJob)
+		if err := scnr.ScanAccount(ctx, &scanJob); err != nil {
+			metrics.JobErrors.WithLabelValues(serviceName, string(job.Type), "scan_error").Inc()
+			done("error")
+			return err
+		}
+
+		done("success")
+		return nil
+
 	}, deadLetterHandler)
 
 	if err != nil && err != context.Canceled {
 		logger.Fatal().Err(err).Msg("queue consumer error")
+	}
+
+	// Shutdown metrics server
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer shutdownCancel()
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error().Err(err).Msg("failed to shutdown metrics server")
 	}
 
 	logger.Info().Msg("scanner worker stopped")

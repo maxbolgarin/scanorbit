@@ -62,10 +62,23 @@ help:
 	@echo "  $(BLUE)tf-apply$(RESET)        Apply Terraform configuration"
 	@echo "  $(BLUE)tf-destroy$(RESET)      Destroy test infrastructure"
 	@echo ""
+	@echo "$(YELLOW)Monitoring & Metrics:$(RESET)"
+	@echo "  $(BLUE)status$(RESET)          Show detailed status of all services"
+	@echo "  $(BLUE)status-api$(RESET)      Show API service status"
+	@echo "  $(BLUE)status-scanner$(RESET)  Show scanner worker status"
+	@echo "  $(BLUE)status-analyzer$(RESET) Show analyzer worker status"
+	@echo "  $(BLUE)metrics$(RESET)         Fetch Prometheus metrics from all services"
+	@echo "  $(BLUE)metrics-api$(RESET)     Fetch API service metrics"
+	@echo "  $(BLUE)metrics-scanner$(RESET) Fetch scanner worker metrics"
+	@echo "  $(BLUE)metrics-analyzer$(RESET) Fetch analyzer worker metrics"
+	@echo "  $(BLUE)status-prod$(RESET)     Show production service status"
+	@echo "  $(BLUE)config-show$(RESET)     Show service configuration"
+	@echo ""
 	@echo "$(YELLOW)Utilities:$(RESET)"
 	@echo "  $(BLUE)clean$(RESET)           Clean all build artifacts"
 	@echo "  $(BLUE)health$(RESET)          Check health of all services"
 	@echo "  $(BLUE)redis-cli$(RESET)       Connect to Redis CLI"
+	@echo "  $(BLUE)redis-queue-status$(RESET) Show job queue lengths"
 	@echo ""
 
 # =============================================================================
@@ -256,6 +269,81 @@ redis-queue-status:
 	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_orphans 2>/dev/null | xargs -I {} echo "  analyze_orphans: {} jobs"
 	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_ssl 2>/dev/null | xargs -I {} echo "  analyze_ssl: {} jobs"
 	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_residency 2>/dev/null | xargs -I {} echo "  analyze_residency: {} jobs"
+	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_security 2>/dev/null | xargs -I {} echo "  analyze_security: {} jobs"
+	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_cost 2>/dev/null | xargs -I {} echo "  analyze_cost: {} jobs"
+	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_tagging 2>/dev/null | xargs -I {} echo "  analyze_tagging: {} jobs"
+	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_iam 2>/dev/null | xargs -I {} echo "  analyze_iam: {} jobs"
+
+# =============================================================================
+# Monitoring & Metrics
+# =============================================================================
+status:
+	@echo "$(YELLOW)ScanOrbit Service Status$(RESET)"
+	@echo "========================="
+	@echo ""
+	@echo "$(BLUE)API Service:$(RESET)"
+	@curl -s http://localhost:4000/status 2>/dev/null | jq . || echo "  Not running"
+	@echo ""
+	@echo "$(BLUE)Scanner Worker:$(RESET)"
+	@curl -s http://localhost:9090/status 2>/dev/null | jq . || echo "  Not running"
+	@echo ""
+	@echo "$(BLUE)Analyzer Worker:$(RESET)"
+	@curl -s http://localhost:9091/status 2>/dev/null | jq . || echo "  Not running"
+
+status-api:
+	@curl -s http://localhost:4000/status | jq .
+
+status-scanner:
+	@curl -s http://localhost:9090/status | jq .
+
+status-analyzer:
+	@curl -s http://localhost:9091/status | jq .
+
+metrics:
+	@echo "$(YELLOW)Fetching metrics from all services...$(RESET)"
+	@echo ""
+	@echo "$(BLUE)API Metrics (http://localhost:4000/metrics):$(RESET)"
+	@curl -s http://localhost:4000/metrics 2>/dev/null | head -50 || echo "  Not running"
+	@echo ""
+	@echo "$(BLUE)Scanner Metrics (http://localhost:9090/metrics):$(RESET)"
+	@curl -s http://localhost:9090/metrics 2>/dev/null | head -50 || echo "  Not running"
+	@echo ""
+	@echo "$(BLUE)Analyzer Metrics (http://localhost:9091/metrics):$(RESET)"
+	@curl -s http://localhost:9091/metrics 2>/dev/null | head -50 || echo "  Not running"
+
+metrics-api:
+	@curl -s http://localhost:4000/metrics
+
+metrics-scanner:
+	@curl -s http://localhost:9090/metrics
+
+metrics-analyzer:
+	@curl -s http://localhost:9091/metrics
+
+# Production status (using production ports/hosts)
+status-prod:
+	@echo "$(YELLOW)Production Service Status$(RESET)"
+	@echo "=========================="
+	@echo ""
+	@echo "$(BLUE)API Service:$(RESET)"
+	@curl -s http://api:4000/status 2>/dev/null | jq . || curl -s http://localhost:4000/status 2>/dev/null | jq . || echo "  Not available"
+	@echo ""
+	@echo "$(BLUE)Scanner Worker:$(RESET)"
+	@curl -s http://scanner:9090/status 2>/dev/null | jq . || curl -s http://localhost:9090/status 2>/dev/null | jq . || echo "  Not available"
+	@echo ""
+	@echo "$(BLUE)Analyzer Worker:$(RESET)"
+	@curl -s http://analyzer:9091/status 2>/dev/null | jq . || curl -s http://localhost:9091/status 2>/dev/null | jq . || echo "  Not available"
+
+# Show all running parameters and config
+config-show:
+	@echo "$(YELLOW)Service Configuration$(RESET)"
+	@echo "====================="
+	@echo ""
+	@echo "$(BLUE)Environment Variables (from .env):$(RESET)"
+	@test -f .env && grep -v '^#' .env | grep -v '^$$' | sed 's/=.*/=***/' || echo "  No .env file found"
+	@echo ""
+	@echo "$(BLUE)Docker Compose Services:$(RESET)"
+	@docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "  Docker not running"
 
 # Generate JWT secret
 gen-secret:

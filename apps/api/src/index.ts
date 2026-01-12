@@ -6,7 +6,11 @@ import { secureHeaders } from 'hono/secure-headers';
 import routes from './routes/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { auditLog } from './middlewares/auditLog.js';
+import { metricsMiddleware } from './middlewares/metrics.js';
 import { config } from './lib/config.js';
+import { getMetrics, getContentType, dbPoolConnections, queueLength } from './lib/metrics.js';
+import { pool } from './lib/db.js';
+import { redis } from './lib/redis.js';
 import type { Variables } from './types/index.js';
 
 const app = new Hono<{ Variables: Variables }>();
@@ -55,6 +59,7 @@ app.use(
 );
 
 app.use(logger());
+app.use(metricsMiddleware);
 
 // GDPR Compliance: Audit logging for all API requests
 // Note: Routes are mounted at root (e.g., /auth, /orgs), not under /api
@@ -67,6 +72,109 @@ app.get('/health', (c) => {
     timestamp: new Date().toISOString(),
     env: config.nodeEnv,
   });
+});
+
+// Metrics endpoint (Prometheus format)
+app.get('/metrics', async (c) => {
+  try {
+    // Update pool metrics
+    dbPoolConnections.labels({ state: 'total' }).set(pool.totalCount);
+    dbPoolConnections.labels({ state: 'idle' }).set(pool.idleCount);
+    dbPoolConnections.labels({ state: 'waiting' }).set(pool.waitingCount);
+
+    // Update queue metrics
+    const queues = [
+      'jobs:scan_account',
+      'jobs:analyze_orphans',
+      'jobs:analyze_ssl',
+      'jobs:analyze_residency',
+      'jobs:analyze_security',
+      'jobs:analyze_cost',
+      'jobs:analyze_tagging',
+      'jobs:analyze_iam',
+    ];
+
+    for (const queue of queues) {
+      const len = await redis.llen(queue);
+      queueLength.labels({ queue_name: queue.replace('jobs:', '') }).set(len);
+    }
+
+    const metrics = await getMetrics();
+    return c.text(metrics, 200, {
+      'Content-Type': getContentType(),
+    });
+  } catch (error) {
+    console.error('Failed to get metrics:', error);
+    return c.text('Failed to collect metrics', 500);
+  }
+});
+
+// Status endpoint (JSON format for CLI/debugging)
+app.get('/status', async (c) => {
+  try {
+    // Get queue lengths
+    const queueLengths: Record<string, number> = {};
+    const queues = [
+      'scan_account',
+      'analyze_orphans',
+      'analyze_ssl',
+      'analyze_residency',
+      'analyze_security',
+      'analyze_cost',
+      'analyze_tagging',
+      'analyze_iam',
+    ];
+
+    for (const queue of queues) {
+      queueLengths[queue] = await redis.llen(`jobs:${queue}`);
+    }
+
+    // Test database connection
+    let dbStatus = 'ok';
+    try {
+      await pool.query('SELECT 1');
+    } catch {
+      dbStatus = 'error';
+    }
+
+    // Test Redis connection
+    let redisStatus = 'ok';
+    try {
+      await redis.ping();
+    } catch {
+      redisStatus = 'error';
+    }
+
+    return c.json({
+      service: 'api',
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      env: config.nodeEnv,
+      version: process.env.npm_package_version || '0.1.0',
+      node_version: process.version,
+      uptime_seconds: process.uptime(),
+      memory: {
+        rss_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        heap_used_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        heap_total_mb: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      },
+      database: {
+        status: dbStatus,
+        pool: {
+          total: pool.totalCount,
+          idle: pool.idleCount,
+          waiting: pool.waitingCount,
+        },
+      },
+      redis: {
+        status: redisStatus,
+      },
+      queues: queueLengths,
+    });
+  } catch (error) {
+    console.error('Failed to get status:', error);
+    return c.json({ status: 'error', message: 'Failed to get status' }, 500);
+  }
 });
 
 // API routes

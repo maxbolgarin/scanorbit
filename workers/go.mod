@@ -22,6 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.3
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
+	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.9.0
 	github.com/rs/zerolog v1.34.0
 )

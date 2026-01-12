@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/queue"
 	"github.com/maxbolgarin/scanorbit/internal/store"
@@ -38,13 +40,24 @@ func (o *Orchestrator) RegisterAnalyzer(jobType models.JobType, analyzer Analyze
 
 // HandleJob handles a job from the queue.
 func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error {
+	startTime := time.Now()
+	analyzerType := string(queueJob.Type)
+
+	// Track job in flight
+	metrics.JobsInFlight.WithLabelValues("analyzer", analyzerType).Inc()
+	defer metrics.JobsInFlight.WithLabelValues("analyzer", analyzerType).Dec()
+
 	analyzer, ok := o.analyzers[queueJob.Type]
 	if !ok {
+		metrics.JobsProcessedTotal.WithLabelValues("analyzer", analyzerType, "error").Inc()
+		metrics.JobErrors.WithLabelValues("analyzer", analyzerType, "unknown_type").Inc()
 		return fmt.Errorf("unknown job type: %s", queueJob.Type)
 	}
 
 	var job models.AnalyzeJob
 	if err := json.Unmarshal(queueJob.Payload, &job); err != nil {
+		metrics.JobsProcessedTotal.WithLabelValues("analyzer", analyzerType, "error").Inc()
+		metrics.JobErrors.WithLabelValues("analyzer", analyzerType, "unmarshal_error").Inc()
 		return fmt.Errorf("unmarshal job: %w", err)
 	}
 
@@ -64,6 +77,9 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 			Str("analyzer", analyzer.Name()).
 			Str("account_id", job.AccountID).
 			Msg("analysis failed")
+		metrics.JobsProcessedTotal.WithLabelValues("analyzer", analyzerType, "error").Inc()
+		metrics.JobErrors.WithLabelValues("analyzer", analyzerType, "analysis_error").Inc()
+		metrics.AnalysesCompleted.WithLabelValues(analyzerType, "error").Inc()
 		return fmt.Errorf("analyze: %w", err)
 	}
 
@@ -78,13 +94,23 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 			continue
 		}
 		persistedCount++
+		// Track findings by severity
+		metrics.FindingsCreated.WithLabelValues(analyzerType, string(f.Severity)).Inc()
 	}
+
+	// Track successful completion
+	duration := time.Since(startTime).Seconds()
+	metrics.JobsProcessedTotal.WithLabelValues("analyzer", analyzerType, "success").Inc()
+	metrics.JobProcessingTime.WithLabelValues("analyzer", analyzerType).Observe(duration)
+	metrics.AnalysesCompleted.WithLabelValues(analyzerType, "success").Inc()
+	metrics.AnalysisDuration.WithLabelValues(analyzerType).Observe(duration)
 
 	o.logger.Info().
 		Str("analyzer", analyzer.Name()).
 		Str("account_id", job.AccountID).
 		Int("findings_detected", len(findings)).
 		Int("findings_persisted", persistedCount).
+		Float64("duration_seconds", duration).
 		Msg("analysis completed")
 
 	return nil
