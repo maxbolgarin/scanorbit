@@ -25,7 +25,13 @@ const getPermissionPolicy = () => `{
         "s3:ListAllMyBuckets",
         "elasticloadbalancing:Describe*",
         "acm:Describe*",
-        "acm:List*"
+        "acm:List*",
+        "kms:ListKeys",
+        "kms:DescribeKey",
+        "secretsmanager:ListSecrets",
+        "lambda:ListFunctions",
+        "logs:DescribeLogGroups",
+        "cloudwatch:DescribeAlarms"
       ],
       "Resource": "*"
     }

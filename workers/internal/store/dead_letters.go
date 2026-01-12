@@ -37,6 +37,12 @@ func (s *deadLetterStore) Create(ctx context.Context, job *DeadLetterJob) error 
 		job.ID = uuid.New().String()
 	}
 
+	// Ensure payload is never nil - use empty JSON object if nil
+	payload := job.Payload
+	if payload == nil {
+		payload = []byte("{}")
+	}
+
 	query := `
 		INSERT INTO dead_letter_jobs (id, job_type, payload, error, retries, created_at)
 		VALUES ($1, $2, $3, $4, $5, NOW())
@@ -45,7 +51,7 @@ func (s *deadLetterStore) Create(ctx context.Context, job *DeadLetterJob) error 
 	_, err := s.db.Pool().Exec(ctx, query,
 		job.ID,
 		job.JobType,
-		job.Payload,
+		payload,
 		job.Error,
 		job.Retries,
 	)

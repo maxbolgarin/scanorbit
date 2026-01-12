@@ -98,7 +98,11 @@ export function ScanHistoryCard({ scans, accounts }: ScanHistoryCardProps) {
       <CardContent>
         <div className="space-y-3">
           {scans.map((scan) => {
-            const config = statusConfig[scan.status];
+            const config = statusConfig[scan.status] || {
+              icon: <Clock className="h-4 w-4" />,
+              label: scan.status || "Unknown",
+              variant: "secondary" as const,
+            };
             const duration = getDuration(scan);
 
             return (

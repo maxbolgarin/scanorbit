@@ -57,7 +57,8 @@ app.use(
 app.use(logger());
 
 // GDPR Compliance: Audit logging for all API requests
-app.use('/api/*', auditLog);
+// Note: Routes are mounted at root (e.g., /auth, /orgs), not under /api
+app.use('/*', auditLog);
 
 // Health check endpoint
 app.get('/health', (c) => {

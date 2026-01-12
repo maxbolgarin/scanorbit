@@ -62,7 +62,7 @@ function getResourceIdFromPath(path: string): string | null {
 function shouldExclude(path: string): boolean {
   // Exclude high-frequency read endpoints to reduce log volume
   const excludePatterns = [
-    /^\/api\/health/,           // Health checks
+    /^\/health/,                 // Health checks
     /^\/$/,                      // Root
     /^\/favicon\.ico/,          // Favicon
   ];

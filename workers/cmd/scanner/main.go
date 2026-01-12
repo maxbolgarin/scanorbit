@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/maxbolgarin/scanorbit/internal/awsclient"
 	"github.com/maxbolgarin/scanorbit/internal/config"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/queue"
+	"github.com/maxbolgarin/scanorbit/internal/recovery"
 	"github.com/maxbolgarin/scanorbit/internal/scanner"
 	"github.com/maxbolgarin/scanorbit/internal/store"
 	"github.com/rs/zerolog"
@@ -71,6 +73,22 @@ func main() {
 
 	// Setup scanner
 	scnr := scanner.NewScanner(awsClient, st, cfg.ScanConcurrency, logger)
+
+	// Setup job recovery
+	recoveryPeriod := 5 * time.Minute
+	recoveryAge := 5 * time.Minute
+	recoveryRunner := recovery.NewRunner(st.JobRecovery, q, recoveryPeriod, recoveryAge, logger)
+
+	// Recover orphaned jobs on startup
+	recovered, err := recoveryRunner.RecoverOnce(ctx)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to recover orphaned jobs on startup")
+	} else if recovered > 0 {
+		logger.Info().Int("count", recovered).Msg("recovered orphaned jobs on startup")
+	}
+
+	// Start periodic recovery in background
+	go recoveryRunner.Start(ctx)
 
 	// Graceful shutdown
 	sigChan := make(chan os.Signal, 1)

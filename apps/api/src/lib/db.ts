@@ -27,9 +27,15 @@ const pool = new Pool({
   }),
 });
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+pool.on('error', (err: Error & { code?: string }) => {
+  // 57P01 = admin_shutdown (server restarting, connection terminated by admin)
+  // These are recoverable - the pool will create new connections as needed
+  if (err.code === '57P01') {
+    console.warn('Database connection terminated by server (admin shutdown), pool will reconnect');
+    return;
+  }
+  // Log other errors but don't crash - let the pool handle reconnection
+  console.error('Unexpected error on idle client:', err.message);
 });
 
 export const db = drizzle(pool, { schema });

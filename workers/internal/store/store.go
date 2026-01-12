@@ -70,22 +70,24 @@ type FindingStore interface {
 
 // Store aggregates all store interfaces.
 type Store struct {
-	Accounts     AccountStore
-	Scans        ScanStore
-	Resources    ResourceStore
+	Accounts    AccountStore
+	Scans       ScanStore
+	Resources   ResourceStore
 	Certificates CertificateStore
-	Findings     FindingStore
-	DeadLetters  DeadLetterStore
+	Findings    FindingStore
+	DeadLetters DeadLetterStore
+	JobRecovery JobRecoveryStore
 }
 
 // NewStore creates a new Store with all repositories.
 func NewStore(db *DB) *Store {
 	return &Store{
-		Accounts:     newAccountStore(db),
-		Scans:        newScanStore(db),
-		Resources:    newResourceStore(db),
+		Accounts:    newAccountStore(db),
+		Scans:       newScanStore(db),
+		Resources:   newResourceStore(db),
 		Certificates: newCertificateStore(db),
-		Findings:     newFindingStore(db),
-		DeadLetters:  newDeadLetterStore(db),
+		Findings:    newFindingStore(db),
+		DeadLetters: newDeadLetterStore(db),
+		JobRecovery: newJobRecoveryStore(db),
 	}
 }

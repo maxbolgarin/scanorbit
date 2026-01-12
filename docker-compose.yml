@@ -36,7 +36,7 @@ services:
       target: scanner
     container_name: scanorbit-scanner
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SCAN_CONCURRENCY: ${SCAN_CONCURRENCY:-10}
@@ -57,7 +57,7 @@ services:
       target: analyzer
     container_name: scanorbit-analyzer
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}

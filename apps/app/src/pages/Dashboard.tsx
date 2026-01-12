@@ -9,6 +9,14 @@ import { RunningScans } from "@/components/dashboard/RunningScans";
 import { ScanHistoryCard } from "@/components/dashboard/ScanHistoryCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useDashboardSummary, useRecommendedActions } from "@/hooks/use-dashboard";
 import { useFindings } from "@/hooks/use-findings";
 import { useAwsAccounts, useTriggerScan, useActiveScans, useRecentScans } from "@/hooks/use-aws-accounts";
@@ -34,6 +42,7 @@ export default function Dashboard() {
   const { data: recentScans } = useRecentScans(10);
   const triggerScan = useTriggerScan();
   const [rescanningAccount, setRescanningAccount] = useState<string | null>(null);
+  const [showScanAllDialog, setShowScanAllDialog] = useState(false);
 
   const handleRescan = async (accountId: string) => {
     setRescanningAccount(accountId);
@@ -111,7 +120,7 @@ export default function Dashboard() {
             <Button
               variant="default"
               size="sm"
-              onClick={handleScanAll}
+              onClick={() => setShowScanAllDialog(true)}
               disabled={triggerScan.isPending}
             >
               <Play className="mr-2 h-4 w-4" />
@@ -262,6 +271,37 @@ export default function Dashboard() {
           isRescanning={rescanningAccount}
         />
       )}
+
+      {/* Scan All confirmation dialog */}
+      <Dialog open={showScanAllDialog} onOpenChange={setShowScanAllDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Scan All Accounts</DialogTitle>
+            <DialogDescription>
+              This will start a scan for all {accounts?.length || 0} connected AWS account(s).
+              Scanning may take several minutes depending on the size of your infrastructure.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowScanAllDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowScanAllDialog(false);
+                handleScanAll();
+              }}
+              disabled={triggerScan.isPending}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Start Scan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
