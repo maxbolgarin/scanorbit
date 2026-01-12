@@ -2,16 +2,24 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/maxbolgarin/scanorbit/internal/analyzers"
 	"github.com/maxbolgarin/scanorbit/internal/config"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/queue"
 	"github.com/maxbolgarin/scanorbit/internal/store"
 	"github.com/rs/zerolog"
+)
+
+const (
+	serviceName    = "analyzer"
+	serviceVersion = "0.1.0"
+	metricsPort    = 9091
 )
 
 func main() {
@@ -35,6 +43,21 @@ func main() {
 	default:
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
+
+	// Initialize metrics
+	metrics.Init(metrics.Config{
+		ServiceName: serviceName,
+		Environment: cfg.LogLevel,
+		Version:     serviceVersion,
+	})
+
+	// Start metrics server
+	metricsServer := metrics.NewServer(metricsPort, serviceName, serviceVersion, cfg.LogLevel, logger)
+	go func() {
+		if err := metricsServer.Start(); err != nil && err != http.ErrServerClosed {
+			logger.Error().Err(err).Msg("metrics server error")
+		}
+	}()
 
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -81,7 +104,7 @@ func main() {
 		cancel()
 	}()
 
-	logger.Info().Msg("analyzer worker started")
+	logger.Info().Int("metrics_port", metricsPort).Msg("analyzer worker started")
 
 	// Consume all analyzer jobs
 	err = q.Consume(ctx, []models.JobType{
@@ -96,6 +119,13 @@ func main() {
 
 	if err != nil && err != context.Canceled {
 		logger.Fatal().Err(err).Msg("queue consumer error")
+	}
+
+	// Shutdown metrics server
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer shutdownCancel()
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error().Err(err).Msg("failed to shutdown metrics server")
 	}
 
 	logger.Info().Msg("analyzer worker stopped")

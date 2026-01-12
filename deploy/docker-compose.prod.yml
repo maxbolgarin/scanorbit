@@ -86,6 +86,9 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - AWS_REGION=${AWS_REGION:-eu-central-1}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      - "9090:9090"  # Metrics endpoint
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +106,9 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      - "9091:9091"  # Metrics endpoint
     depends_on:
       postgres:
         condition: service_healthy
@@ -166,11 +172,52 @@ services:
     networks:
       - scanorbit
 
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9092:9090"  # Prometheus UI (9090 is used by scanner, so using 9092)
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:10.4.0
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"  # Grafana UI (3000 is used by frontend, so using 3001)
+    depends_on:
+      - prometheus
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
 volumes:
   postgres_data:
   redis_data:
   caddy_data:
   caddy_config:
+  prometheus_data:
+  grafana_data:
 
 networks:
   scanorbit:
