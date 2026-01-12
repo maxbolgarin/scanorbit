@@ -206,6 +206,38 @@ services:
       - "3001:3000"  # Grafana UI (3000 is used by frontend, so using 3001)
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
+  # Loki - Log aggregation
+  loki:
+    image: grafana/loki:2.9.6
+    restart: unless-stopped
+    volumes:
+      - ./deploy/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"  # Loki API
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
+  # Promtail - Log collector
+  promtail:
+    image: grafana/promtail:2.9.6
+    restart: unless-stopped
+    volumes:
+      - ./deploy/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
     networks:
       - scanorbit
     profiles:
@@ -218,6 +250,7 @@ volumes:
   caddy_config:
   prometheus_data:
   grafana_data:
+  loki_data:
 
 networks:
   scanorbit:

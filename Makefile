@@ -70,8 +70,16 @@ help:
 	@echo "  $(BLUE)metrics-api$(RESET)     Fetch API service metrics"
 	@echo "  $(BLUE)metrics-scanner$(RESET) Fetch scanner worker metrics"
 	@echo "  $(BLUE)metrics-analyzer$(RESET) Fetch analyzer worker metrics"
-	@echo "  $(BLUE)status-prod$(RESET)     Show production service status"
-	@echo "  $(BLUE)config-show$(RESET)     Show service configuration"
+	@echo "  $(BLUE)monitoring-up$(RESET)   Start monitoring stack (Prometheus + Grafana + Loki)"
+	@echo "  $(BLUE)monitoring-down$(RESET) Stop monitoring stack"
+	@echo ""
+	@echo "$(YELLOW)Logs (Loki):$(RESET)"
+	@echo "  $(BLUE)logs$(RESET)            View recent logs from all services"
+	@echo "  $(BLUE)logs-api$(RESET)        View API service logs"
+	@echo "  $(BLUE)logs-scanner$(RESET)    View scanner worker logs"
+	@echo "  $(BLUE)logs-analyzer$(RESET)   View analyzer worker logs"
+	@echo "  $(BLUE)logs-errors$(RESET)     View error logs only"
+	@echo "  $(BLUE)logs-tail$(RESET)       Tail logs in real-time"
 	@echo ""
 	@echo "$(YELLOW)Utilities:$(RESET)"
 	@echo "  $(BLUE)clean$(RESET)           Clean all build artifacts"
@@ -337,6 +345,48 @@ config-show:
 	@echo ""
 	@echo "$(BLUE)Docker Compose Services:$(RESET)"
 	@docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "  Docker not running"
+
+# =============================================================================
+# Logs (Loki)
+# =============================================================================
+logs:
+	@echo "$(YELLOW)Recent logs from all services (last 100 lines):$(RESET)"
+	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running. Start with: make monitoring-up"
+
+logs-api:
+	@echo "$(YELLOW)API Service Logs:$(RESET)"
+	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",service="api"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
+
+logs-scanner:
+	@echo "$(YELLOW)Scanner Worker Logs:$(RESET)"
+	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",service="scanner"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
+
+logs-analyzer:
+	@echo "$(YELLOW)Analyzer Worker Logs:$(RESET)"
+	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",service="analyzer"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
+
+logs-errors:
+	@echo "$(YELLOW)Error Logs (all services):$(RESET)"
+	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",level=~"error|fatal"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
+
+logs-tail:
+	@echo "$(YELLOW)Tailing logs (Ctrl+C to stop)...$(RESET)"
+	@while true; do \
+		curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit"}&limit=10&start='$$(date -d '10 seconds ago' +%s)000000000 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null; \
+		sleep 2; \
+	done
+
+# Start monitoring stack (Prometheus + Grafana + Loki)
+monitoring-up:
+	docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring up -d prometheus grafana loki promtail
+	@echo ""
+	@echo "$(GREEN)Monitoring stack started!$(RESET)"
+	@echo "  Prometheus: http://localhost:9092"
+	@echo "  Grafana:    http://localhost:3001 (admin/admin)"
+	@echo "  Loki:       http://localhost:3100"
+
+monitoring-down:
+	docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring down
 
 # Generate JWT secret
 gen-secret:
