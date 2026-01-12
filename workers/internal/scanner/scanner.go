@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/uuid"
 	"github.com/maxbolgarin/scanorbit/internal/awsclient"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/store"
 	"github.com/rs/zerolog"
@@ -71,11 +72,19 @@ func NewScanner(
 func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) error {
 	startedAt := time.Now()
 
+	// Track job processing
+	finishJob := metrics.TrackJobProcessing("scanner", "scan_account")
+	defer func() {
+		// Will be called with proper status at the end
+	}()
+
 	// Validate job payload
 	if job.AccountID == "" {
+		finishJob("error")
 		return errors.New("account_id is required but was empty")
 	}
 	if job.OrgID == "" {
+		finishJob("error")
 		return errors.New("org_id is required but was empty")
 	}
 
@@ -106,6 +115,8 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	cfg, err := s.awsClient.GetConfigForAccount(ctx, account.RoleARN, account.ExternalID)
 	if err != nil {
 		s.handleScanError(ctx, scan.ID, job.AccountID, err)
+		finishJob("error")
+		metrics.JobErrors.WithLabelValues("scanner", "scan_account", "assume_role").Inc()
 		return fmt.Errorf("assume role: %w", err)
 	}
 
@@ -113,6 +124,8 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	regions, err := s.awsClient.ListEnabledRegions(ctx, cfg)
 	if err != nil {
 		s.handleScanError(ctx, scan.ID, job.AccountID, err)
+		finishJob("error")
+		metrics.JobErrors.WithLabelValues("scanner", "scan_account", "list_regions").Inc()
 		return fmt.Errorf("list regions: %w", err)
 	}
 
@@ -209,6 +222,8 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 				Msg("region scan completed with partial failures")
 			partialFailures += len(result.ScannerErrors)
 		}
+		// Track region scanned
+		metrics.RegionsScanned.WithLabelValues(result.Region).Inc()
 
 		// Persist resources
 		for _, r := range result.Resources {
@@ -219,6 +234,8 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 				continue
 			}
 			totalResources++
+			// Track resource discovery by type and region
+			metrics.ResourcesDiscovered.WithLabelValues(string(r.Service), result.Region).Inc()
 		}
 
 		// Persist certificates
@@ -240,6 +257,8 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 			continue
 		}
 		totalResources++
+		// Track global resource discovery (region is "global" for S3/IAM)
+		metrics.ResourcesDiscovered.WithLabelValues(string(r.Service), "global").Inc()
 	}
 
 	// 8. Update scan status
@@ -263,6 +282,12 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	if err := s.store.Accounts.UpdateStatus(ctx, job.AccountID, "ok", ""); err != nil {
 		s.logger.Error().Err(err).Msg("failed to update account status")
 	}
+
+	// Track scan completion metrics
+	scanDuration := completedAt.Sub(startedAt).Seconds()
+	metrics.ScanDuration.WithLabelValues(job.AccountID).Observe(scanDuration)
+	metrics.ScansCompleted.WithLabelValues(status).Inc()
+	finishJob("success")
 
 	s.logger.Info().
 		Str("account_id", job.AccountID).

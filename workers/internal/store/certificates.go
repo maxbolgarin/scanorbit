@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 )
 
@@ -19,6 +20,8 @@ func newCertificateStore(db *DB) *certificateStore {
 
 // Upsert inserts or updates a certificate.
 func (s *certificateStore) Upsert(ctx context.Context, cert *models.Certificate) error {
+	finish := metrics.TrackDBQuery("upsert", "certificates")
+
 	// Generate ID if not set
 	if cert.ID == "" {
 		cert.ID = uuid.New().String()
@@ -27,6 +30,7 @@ func (s *certificateStore) Upsert(ctx context.Context, cert *models.Certificate)
 	// Marshal alt names to JSON
 	altNamesJSON, err := json.Marshal(cert.AltNames)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("marshal alt_names: %w", err)
 	}
 
@@ -63,14 +67,18 @@ func (s *certificateStore) Upsert(ctx context.Context, cert *models.Certificate)
 		cert.Algorithm,
 	)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("upsert certificate: %w", err)
 	}
 
+	finish("success")
 	return nil
 }
 
 // GetByAccountID retrieves all certificates for an AWS account.
 func (s *certificateStore) GetByAccountID(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	finish := metrics.TrackDBQuery("select", "certificates")
+
 	query := `
 		SELECT id, org_id, aws_account_id, identifier, source, primary_domain,
 		       alt_names, not_before, not_after, issuer, algorithm, last_seen_at, created_at
@@ -80,6 +88,7 @@ func (s *certificateStore) GetByAccountID(ctx context.Context, accountID string)
 
 	rows, err := s.db.Pool().Query(ctx, query, accountID)
 	if err != nil {
+		finish("error")
 		return nil, fmt.Errorf("query certificates: %w", err)
 	}
 	defer rows.Close()
@@ -105,12 +114,14 @@ func (s *certificateStore) GetByAccountID(ctx context.Context, accountID string)
 			&c.CreatedAt,
 		)
 		if err != nil {
+			finish("error")
 			return nil, fmt.Errorf("scan certificate: %w", err)
 		}
 
 		// Unmarshal alt names
 		if len(altNamesJSON) > 0 {
 			if err := json.Unmarshal(altNamesJSON, &c.AltNames); err != nil {
+				finish("error")
 				return nil, fmt.Errorf("unmarshal alt_names: %w", err)
 			}
 		}
@@ -119,8 +130,10 @@ func (s *certificateStore) GetByAccountID(ctx context.Context, accountID string)
 	}
 
 	if err := rows.Err(); err != nil {
+		finish("error")
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
+	finish("success")
 	return certs, nil
 }

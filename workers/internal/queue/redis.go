@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -68,10 +69,15 @@ func NewRedisQueue(redisURL, caCertPath string, logger zerolog.Logger) (*RedisQu
 		return nil, fmt.Errorf("ping redis: %w", err)
 	}
 
-	return &RedisQueue{
+	rq := &RedisQueue{
 		client: client,
 		logger: logger.With().Str("component", "redis_queue").Logger(),
-	}, nil
+	}
+
+	// Start background goroutine to track queue length
+	go rq.trackQueueMetrics()
+
+	return rq, nil
 }
 
 // Enqueue adds a job to the queue.
@@ -90,11 +96,16 @@ func (q *RedisQueue) enqueueWithRetry(ctx context.Context, jobType models.JobTyp
 		return fmt.Errorf("marshal envelope: %w", err)
 	}
 
+	q.logger.Debug().Str("job_type", string(jobType)).Int("retry_count", retryCount).Msg("job enqueued")
+	finish := metrics.TrackRedisOperation("rpush")
+
 	key := jobKeyPrefix + string(jobType)
 	if err := q.client.RPush(ctx, key, data).Err(); err != nil {
+		finish("error")
 		return fmt.Errorf("rpush: %w", err)
 	}
-	q.logger.Debug().Str("job_type", string(jobType)).Int("retry_count", retryCount).Msg("job enqueued")
+
+	finish("success")
 	return nil
 }
 
@@ -116,12 +127,15 @@ func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, han
 		}
 
 		// BLPOP with timeout
+		finish := metrics.TrackRedisOperation("blpop")
 		result, err := q.client.BLPop(ctx, blpopTimeout, keys...).Result()
 		if err == redis.Nil {
+			finish("timeout")
 			// Timeout, no job available, retry
 			continue
 		}
 		if err != nil {
+			finish("error")
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
@@ -129,6 +143,7 @@ func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, han
 			time.Sleep(time.Second) // Backoff on error
 			continue
 		}
+		finish("success")
 
 		// result[0] is the key, result[1] is the value
 		jobType := models.JobType(strings.TrimPrefix(result[0], jobKeyPrefix))
@@ -189,4 +204,33 @@ func (q *RedisQueue) Ping(ctx context.Context) error {
 // Close closes the Redis connection.
 func (q *RedisQueue) Close() error {
 	return q.client.Close()
+}
+
+// trackQueueMetrics periodically tracks queue length metrics.
+func (q *RedisQueue) trackQueueMetrics() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	queueNames := []string{
+		string(models.JobTypeScanAccount),
+		string(models.JobTypeAnalyzeOrphans),
+		string(models.JobTypeAnalyzeSSL),
+		string(models.JobTypeAnalyzeSecurity),
+	}
+
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+		for _, queueName := range queueNames {
+			key := jobKeyPrefix + queueName
+			length, err := q.client.LLen(ctx, key).Result()
+			if err != nil {
+				q.logger.Warn().Err(err).Str("queue", queueName).Msg("failed to get queue length")
+				continue
+			}
+			metrics.QueueLength.WithLabelValues(queueName).Set(float64(length))
+		}
+
+		cancel()
+	}
 }

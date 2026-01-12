@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 )
 
@@ -19,6 +20,8 @@ func newResourceStore(db *DB) *resourceStore {
 
 // Upsert inserts or updates a resource.
 func (s *resourceStore) Upsert(ctx context.Context, resource *models.Resource) error {
+	finish := metrics.TrackDBQuery("upsert", "resources")
+
 	// Generate ID if not set
 	if resource.ID == "" {
 		resource.ID = uuid.New().String()
@@ -27,6 +30,7 @@ func (s *resourceStore) Upsert(ctx context.Context, resource *models.Resource) e
 	// Marshal tags to JSON
 	tagsJSON, err := json.Marshal(resource.Tags)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("marshal tags: %w", err)
 	}
 
@@ -61,14 +65,18 @@ func (s *resourceStore) Upsert(ctx context.Context, resource *models.Resource) e
 		resource.Raw,
 	)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("upsert resource: %w", err)
 	}
 
+	finish("success")
 	return nil
 }
 
 // GetByAccountID retrieves all resources for an AWS account.
 func (s *resourceStore) GetByAccountID(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	finish := metrics.TrackDBQuery("select", "resources")
+
 	query := `
 		SELECT id, org_id, aws_account_id, resource_id, service, region,
 		       name, state, tags, cost_estimate_monthly, last_seen_at, raw, created_at
@@ -78,6 +86,7 @@ func (s *resourceStore) GetByAccountID(ctx context.Context, accountID string) ([
 
 	rows, err := s.db.Pool().Query(ctx, query, accountID)
 	if err != nil {
+		finish("error")
 		return nil, fmt.Errorf("query resources: %w", err)
 	}
 	defer rows.Close()
@@ -117,14 +126,18 @@ func (s *resourceStore) GetByAccountID(ctx context.Context, accountID string) ([
 	}
 
 	if err := rows.Err(); err != nil {
+		finish("error")
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
+	finish("success")
 	return resources, nil
 }
 
 // GetByService retrieves resources by service type for an AWS account.
 func (s *resourceStore) GetByService(ctx context.Context, accountID string, service models.ServiceType) ([]*models.Resource, error) {
+	finish := metrics.TrackDBQuery("select", "resources")
+
 	query := `
 		SELECT id, org_id, aws_account_id, resource_id, service, region,
 		       name, state, tags, cost_estimate_monthly, last_seen_at, raw, created_at
@@ -134,6 +147,7 @@ func (s *resourceStore) GetByService(ctx context.Context, accountID string, serv
 
 	rows, err := s.db.Pool().Query(ctx, query, accountID, string(service))
 	if err != nil {
+		finish("error")
 		return nil, fmt.Errorf("query resources: %w", err)
 	}
 	defer rows.Close()
@@ -172,8 +186,10 @@ func (s *resourceStore) GetByService(ctx context.Context, accountID string, serv
 	}
 
 	if err := rows.Err(); err != nil {
+		finish("error")
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
+	finish("success")
 	return resources, nil
 }

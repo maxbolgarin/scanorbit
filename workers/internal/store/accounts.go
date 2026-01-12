@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 )
 
 type accountStore struct {
@@ -16,6 +18,8 @@ func newAccountStore(db *DB) *accountStore {
 
 // GetByID retrieves an AWS account by ID.
 func (s *accountStore) GetByID(ctx context.Context, id string) (*AWSAccount, error) {
+	finish := metrics.TrackDBQuery("select", "aws_accounts")
+
 	query := `
 		SELECT id, org_id, name, aws_account_id, role_arn, external_id,
 		       status, last_error, last_scan_at, created_at, updated_at
@@ -38,14 +42,18 @@ func (s *accountStore) GetByID(ctx context.Context, id string) (*AWSAccount, err
 		&account.UpdatedAt,
 	)
 	if err != nil {
+		finish("error")
 		return nil, fmt.Errorf("query account: %w", err)
 	}
 
+	finish("success")
 	return &account, nil
 }
 
 // UpdateLastScanAt updates the last scan timestamp for an account.
 func (s *accountStore) UpdateLastScanAt(ctx context.Context, id string, scannedAt time.Time) error {
+	finish := metrics.TrackDBQuery("update", "aws_accounts")
+
 	query := `
 		UPDATE aws_accounts
 		SET last_scan_at = $2, updated_at = NOW()
@@ -54,14 +62,18 @@ func (s *accountStore) UpdateLastScanAt(ctx context.Context, id string, scannedA
 
 	_, err := s.db.Pool().Exec(ctx, query, id, scannedAt)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("update last_scan_at: %w", err)
 	}
 
+	finish("success")
 	return nil
 }
 
 // UpdateStatus updates the status and error message for an account.
 func (s *accountStore) UpdateStatus(ctx context.Context, id string, status string, lastError string) error {
+	finish := metrics.TrackDBQuery("update", "aws_accounts")
+
 	query := `
 		UPDATE aws_accounts
 		SET status = $2, last_error = $3, updated_at = NOW()
@@ -76,8 +88,10 @@ func (s *accountStore) UpdateStatus(ctx context.Context, id string, status strin
 
 	_, err := s.db.Pool().Exec(ctx, query, id, status, errPtr)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("update status: %w", err)
 	}
 
+	finish("success")
 	return nil
 }
