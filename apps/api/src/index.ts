@@ -7,7 +7,9 @@ import routes from './routes/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { auditLog } from './middlewares/auditLog.js';
 import { metricsMiddleware } from './middlewares/metrics.js';
+import { structuredLoggerMiddleware } from './middlewares/structuredLogger.js';
 import { config } from './lib/config.js';
+import { logger } from './lib/logger.js';
 import { getMetrics, getContentType, dbPoolConnections, queueLength } from './lib/metrics.js';
 import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
@@ -58,7 +60,7 @@ app.use(
   })
 );
 
-app.use(logger());
+app.use(structuredLoggerMiddleware);
 app.use(metricsMiddleware);
 
 // GDPR Compliance: Audit logging for all API requests
@@ -104,7 +106,7 @@ app.get('/metrics', async (c) => {
       'Content-Type': getContentType(),
     });
   } catch (error) {
-    console.error('Failed to get metrics:', error);
+    logger.error('Failed to get metrics', error);
     return c.text('Failed to collect metrics', 500);
   }
 });
@@ -172,7 +174,7 @@ app.get('/status', async (c) => {
       queues: queueLengths,
     });
   } catch (error) {
-    console.error('Failed to get status:', error);
+    logger.error('Failed to get status', error);
     return c.json({ status: 'error', message: 'Failed to get status' }, 500);
   }
 });
@@ -197,18 +199,15 @@ app.notFound((c) => {
 // Start server
 const port = config.port;
 
-console.log(`Starting ScanOrbit API server...`);
-console.log(`Environment: ${config.nodeEnv}`);
-console.log(`Port: ${port}`);
+logger.info('starting ScanOrbit API server', {
+  env: config.nodeEnv,
+  port,
+});
 
 // Helper function to handle port in use errors
 function handlePortError(err: NodeJS.ErrnoException, port: number): never {
   if (err.code === 'EADDRINUSE') {
-    console.error(`\n❌ Error: Port ${port} is already in use.`);
-    console.error(`\nPlease either:`);
-    console.error(`  1. Stop the process using port ${port}`);
-    console.error(`  2. Set a different port via PORT environment variable`);
-    console.error(`  3. Find and kill the process: lsof -ti:${port} | xargs kill -9\n`);
+    logger.fatal('port already in use', err, { port });
     process.exit(1);
   }
   throw err;
@@ -219,7 +218,7 @@ process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {
     handlePortError(err, port);
   } else {
-    console.error('\n❌ Uncaught exception:', err);
+    logger.fatal('uncaught exception', err);
     process.exit(1);
   }
 });
@@ -231,7 +230,7 @@ process.on('unhandledRejection', (reason, promise) => {
       handlePortError(err, port);
     }
   }
-  console.error('\n❌ Unhandled rejection at:', promise, 'reason:', reason);
+  logger.fatal('unhandled rejection', reason as Error, { promise: String(promise) });
   process.exit(1);
 });
 
@@ -242,7 +241,10 @@ try {
       port,
     },
     (info) => {
-      console.log(`Server is running on http://localhost:${info.port}`);
+      logger.info('server started', {
+        port: info.port,
+        url: `http://localhost:${info.port}`,
+      });
     }
   );
 
@@ -257,7 +259,7 @@ try {
   if (error.code === 'EADDRINUSE') {
     handlePortError(error, port);
   } else {
-    console.error('\n❌ Failed to start server:', error);
+    logger.fatal('failed to start server', error);
     process.exit(1);
   }
 }

@@ -2,9 +2,10 @@
  * Structured logging utility
  *
  * Provides consistent, secure logging that:
- * - Uses structured JSON format for production
+ * - Uses structured JSON format for log aggregation
  * - Redacts sensitive fields (passwords, tokens, etc.)
  * - Includes correlation IDs for request tracing
+ * - Supports log level filtering
  * - Prevents accidental exposure of sensitive data
  */
 
@@ -35,9 +36,9 @@ const SENSITIVE_PATTERNS = [
   /eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*/gi, // JWT without Bearer
 ];
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
-interface LogContext {
+export interface LogContext {
   requestId?: string;
   userId?: string;
   orgId?: string;
@@ -47,6 +48,22 @@ interface LogContext {
   durationMs?: number;
   [key: string]: unknown;
 }
+
+interface LogEntry {
+  level: LogLevel;
+  time: string;
+  service: string;
+  message: string;
+  [key: string]: unknown;
+}
+
+const LOG_LEVELS: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  fatal: 4,
+};
 
 /**
  * Redact sensitive fields from an object
@@ -89,99 +106,143 @@ function redactSensitiveFields(obj: unknown, depth = 0): unknown {
 }
 
 /**
- * Format log entry
+ * Logger class with redaction, log level filtering, and structured JSON output
  */
-function formatLogEntry(level: LogLevel, message: string, context?: LogContext, error?: Error): string {
-  const timestamp = new Date().toISOString();
-  const redactedContext = context ? redactSensitiveFields(context) : undefined;
+export class Logger {
+  private service: string;
+  private minLevel: number;
+  private context: LogContext;
 
-  // Production: JSON format for log aggregation
-  if (config.nodeEnv === 'production') {
-    const entry = {
-      timestamp,
+  constructor(service: string, context: LogContext = {}) {
+    this.service = service;
+    this.context = context;
+    this.minLevel = LOG_LEVELS[config.logLevel as LogLevel] ?? LOG_LEVELS.info;
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    return LOG_LEVELS[level] >= this.minLevel;
+  }
+
+  private formatLog(level: LogLevel, message: string, extra: LogContext = {}): string {
+    // Merge context and extra fields
+    const mergedContext: LogContext = { ...this.context, ...extra };
+
+    // Redact sensitive fields from the merged context
+    const redactedContext = redactSensitiveFields(mergedContext) as LogContext;
+
+    const entry: LogEntry = {
       level,
+      time: new Date().toISOString(),
+      service: this.service,
       message,
-      ...(redactedContext as object),
-      ...(error && {
-        error: {
-          name: error.name,
-          message: error.message,
-          // Don't include stack in production to avoid leaking internal paths
-        },
-      }),
+      ...redactedContext,
     };
+
+    // Remove undefined values
+    Object.keys(entry).forEach((key) => {
+      if (entry[key] === undefined) {
+        delete entry[key];
+      }
+    });
+
     return JSON.stringify(entry);
   }
 
-  // Development: Human-readable format
-  const levelColors: Record<LogLevel, string> = {
-    debug: '\x1b[36m', // Cyan
-    info: '\x1b[32m', // Green
-    warn: '\x1b[33m', // Yellow
-    error: '\x1b[31m', // Red
-  };
-  const reset = '\x1b[0m';
-  const color = levelColors[level];
+  private log(level: LogLevel, message: string, extra: LogContext = {}): void {
+    if (!this.shouldLog(level)) return;
 
-  let output = `${timestamp} ${color}[${level.toUpperCase()}]${reset} ${message}`;
+    const output = this.formatLog(level, message, extra);
 
-  if (redactedContext && Object.keys(redactedContext as object).length > 0) {
-    output += ` ${JSON.stringify(redactedContext)}`;
-  }
-
-  if (error) {
-    output += `\n${error.stack || error.message}`;
-  }
-
-  return output;
-}
-
-interface Logger {
-  debug(message: string, context?: LogContext): void;
-  info(message: string, context?: LogContext): void;
-  warn(message: string, context?: LogContext): void;
-  error(message: string, error?: Error | unknown, context?: LogContext): void;
-  child(boundContext: LogContext): Logger;
-}
-
-/**
- * Logger instance
- */
-export const logger: Logger = {
-  debug(message: string, context?: LogContext): void {
-    if (config.nodeEnv === 'development') {
-      console.debug(formatLogEntry('debug', message, context));
+    switch (level) {
+      case 'debug':
+      case 'info':
+        console.log(output);
+        break;
+      case 'warn':
+        console.warn(output);
+        break;
+      case 'error':
+      case 'fatal':
+        console.error(output);
+        break;
     }
-  },
-
-  info(message: string, context?: LogContext): void {
-    console.log(formatLogEntry('info', message, context));
-  },
-
-  warn(message: string, context?: LogContext): void {
-    console.warn(formatLogEntry('warn', message, context));
-  },
-
-  error(message: string, error?: Error | unknown, context?: LogContext): void {
-    const err = error instanceof Error ? error : undefined;
-    const errContext = error && !(error instanceof Error) ? { errorDetails: error } : {};
-    console.error(formatLogEntry('error', message, { ...context, ...errContext }, err));
-  },
+  }
 
   /**
-   * Create a child logger with bound context
+   * Create a child logger with additional context
+   */
+  with(context: LogContext): Logger {
+    const child = new Logger(this.service, { ...this.context, ...context });
+    child.minLevel = this.minLevel;
+    return child;
+  }
+
+  /**
+   * Create a child logger with bound context (alias for with)
    */
   child(boundContext: LogContext): Logger {
-    return {
-      debug: (message: string, context?: LogContext) =>
-        logger.debug(message, { ...boundContext, ...context }),
-      info: (message: string, context?: LogContext) =>
-        logger.info(message, { ...boundContext, ...context }),
-      warn: (message: string, context?: LogContext) =>
-        logger.warn(message, { ...boundContext, ...context }),
-      error: (message: string, error?: Error | unknown, context?: LogContext) =>
-        logger.error(message, error, { ...boundContext, ...context }),
-      child: (childContext: LogContext) => logger.child({ ...boundContext, ...childContext }),
-    };
-  },
-};
+    return this.with(boundContext);
+  }
+
+  /**
+   * Log at debug level
+   */
+  debug(message: string, extra?: LogContext): void {
+    this.log('debug', message, extra);
+  }
+
+  /**
+   * Log at info level
+   */
+  info(message: string, extra?: LogContext): void {
+    this.log('info', message, extra);
+  }
+
+  /**
+   * Log at warn level
+   */
+  warn(message: string, extra?: LogContext): void {
+    this.log('warn', message, extra);
+  }
+
+  /**
+   * Log at error level
+   */
+  error(message: string, error?: Error | unknown, extra?: LogContext): void {
+    const errorContext: LogContext = { ...extra };
+
+    if (error instanceof Error) {
+      errorContext.error = error.message;
+      // Include stack trace in development, but not in production to avoid leaking internal paths
+      if (config.nodeEnv === 'development') {
+        errorContext.stack = error.stack;
+      }
+    } else if (error !== undefined) {
+      errorContext.error = String(error);
+    }
+
+    this.log('error', message, errorContext);
+  }
+
+  /**
+   * Log at fatal level
+   */
+  fatal(message: string, error?: Error | unknown, extra?: LogContext): void {
+    const errorContext: LogContext = { ...extra };
+
+    if (error instanceof Error) {
+      errorContext.error = error.message;
+      // Include stack trace in development, but not in production to avoid leaking internal paths
+      if (config.nodeEnv === 'development') {
+        errorContext.stack = error.stack;
+      }
+    } else if (error !== undefined) {
+      errorContext.error = String(error);
+    }
+
+    this.log('fatal', message, errorContext);
+  }
+}
+
+// Create the default logger instance
+export const logger = new Logger('api');

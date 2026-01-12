@@ -1,0 +1,119 @@
+# Promtail configuration for ScanOrbit
+# Collects logs from Docker containers and sends them to Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Scrape logs from Docker containers
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Only keep containers from scanorbit network
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+
+      # Extract service name from container name
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/scanorbit[-_]?(.*?)[-_]?[0-9]*'
+        target_label: service
+        replacement: '$1'
+
+      # Add compose service label if available
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: compose_service
+
+      # Add compose project label
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: project
+
+      # Tag with image name
+      - source_labels: ['__meta_docker_container_image']
+        target_label: image
+
+      # Keep container ID for reference
+      - source_labels: ['__meta_docker_container_id']
+        target_label: container_id
+
+    pipeline_stages:
+      # Parse JSON logs from Go workers (zerolog format)
+      - match:
+          selector: '{service=~"scanner|analyzer"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  message: message
+                  time: time
+                  error: error
+                  component: component
+                  job_type: job_type
+                  account_id: account_id
+                  org_id: org_id
+                  analyzer: analyzer
+                  duration_seconds: duration_seconds
+            - labels:
+                level:
+                component:
+                job_type:
+            - timestamp:
+                source: time
+                format: RFC3339
+            - output:
+                source: message
+
+      # Parse JSON logs from API service
+      - match:
+          selector: '{service="api"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  msg: msg
+                  method: method
+                  path: path
+                  status: status
+                  latency: latency
+                  error: error
+            - labels:
+                level:
+                method:
+                status:
+            - output:
+                source: msg
+
+      # Detect log levels from plain text logs
+      - match:
+          selector: '{level=""}'
+          stages:
+            - regex:
+                expression: '(?P<level>(ERROR|WARN|INFO|DEBUG|FATAL|PANIC))'
+            - labels:
+                level:
+
+      # Add static labels for ScanOrbit
+      - static_labels:
+          app: scanorbit
+          env: production
+
+      # Drop health check logs to reduce noise
+      - match:
+          selector: '{service="api"} |~ "/health|/metrics"'
+          action: drop
+          drop_counter_reason: health_check
+
+      # Rate limit to prevent log explosion
+      - limit:
+          rate: 100
+          burst: 200
+          drop: true
