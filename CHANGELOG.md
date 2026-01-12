@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.6](https://github.com/maxbolgarin/scanorbit/compare/v1.1.5...v1.1.6) (2026-01-12)
+
+### Bug Fixes
+
+* improve database connection resilience and fix audit log route matching ([4162dff](https://github.com/maxbolgarin/scanorbit/commit/4162dff501c12ee721f7b7d571a3fc3cb869f062))
+
 ## [1.1.5](https://github.com/maxbolgarin/scanorbit/compare/v1.1.4...v1.1.5) (2026-01-11)
 
 ### Bug Fixes
