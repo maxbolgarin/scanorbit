@@ -8,6 +8,7 @@ import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
 import { signupCodes } from '../lib/redis.js';
 import { consentService } from './consentService.js';
+import { authOperationsTotal } from '../lib/metrics.js';
 
 const SALT_ROUNDS = 10;
 const VERIFICATION_CODE_EXPIRY_HOURS = 24;
@@ -60,6 +61,7 @@ export const authService = {
       .limit(1);
 
     if (existing.length > 0) {
+      authOperationsTotal.inc({ operation: 'signup', status: 'duplicate_email' });
       throw new HTTP400Error('Email already registered');
     }
 
@@ -125,6 +127,8 @@ export const authService = {
       userId: user.id,
       orgId: org?.id ?? null,
     });
+
+    authOperationsTotal.inc({ operation: 'signup', status: 'success' });
 
     return {
       user,
@@ -239,12 +243,14 @@ export const authService = {
       .limit(1);
 
     if (!user) {
+      authOperationsTotal.inc({ operation: 'login', status: 'user_not_found' });
       throw new HTTP401Error('Invalid credentials');
     }
 
     // Verify password
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) {
+      authOperationsTotal.inc({ operation: 'login', status: 'invalid_password' });
       throw new HTTP401Error('Invalid credentials');
     }
 
@@ -264,6 +270,8 @@ export const authService = {
       userId: user.id,
       orgId: userOrgs[0]?.id ?? null,
     });
+
+    authOperationsTotal.inc({ operation: 'login', status: 'success' });
 
     return {
       user: {

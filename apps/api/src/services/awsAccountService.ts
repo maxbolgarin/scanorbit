@@ -6,6 +6,7 @@ import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { awsAccounts, scans, jobs } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
+import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
 
 interface CreateAccountData {
   name: string;
@@ -90,6 +91,9 @@ export const awsAccountService = {
       } satisfies NewAwsAccount)
       .returning();
 
+    // Track AWS account connection
+    awsAccountsConnected.inc();
+
     return account;
   },
 
@@ -107,6 +111,9 @@ export const awsAccountService = {
     if (result.length === 0) {
       throw new HTTP404Error('AWS account not found');
     }
+
+    // Track AWS account disconnection
+    awsAccountsConnected.dec();
   },
 
   async testConnection(
@@ -214,6 +221,10 @@ export const awsAccountService = {
       org_id: orgId,
     }));
 
+    // Track scan triggered and job enqueued
+    scansTriggered.inc({ org_id: orgId });
+    jobsEnqueued.inc({ job_type: 'scan_account' });
+
     return scan;
   },
 
@@ -246,6 +257,9 @@ export const awsAccountService = {
 
     // Push to Redis queue for workers to pick up
     await redis.rpush(`jobs:${analysisType}`, JSON.stringify(payload));
+
+    // Track job enqueued
+    jobsEnqueued.inc({ job_type: analysisType });
   },
 
   async enqueueAllAnalyses(orgId: string, accountId: string): Promise<void> {

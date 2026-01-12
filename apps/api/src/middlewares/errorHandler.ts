@@ -1,10 +1,14 @@
 import type { Context, ErrorHandler } from 'hono';
 import { HTTPError } from '../lib/errors.js';
 import { ZodError } from 'zod';
+import { errorsTotal } from '../lib/metrics.js';
 
 export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
+  const route = c.req.path;
+
   // Handle custom HTTP errors
   if (err instanceof HTTPError) {
+    errorsTotal.inc({ type: err.name, route });
     return c.json(
       {
         error: err.name,
@@ -16,6 +20,7 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {
+    errorsTotal.inc({ type: 'ValidationError', route });
     return c.json(
       {
         error: 'ValidationError',
@@ -31,6 +36,7 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
 
   // Log unexpected errors
   console.error('Unhandled error:', err);
+  errorsTotal.inc({ type: 'InternalServerError', route });
 
   // Return generic error for unexpected errors
   return c.json(

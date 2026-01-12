@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 )
 
@@ -20,6 +21,8 @@ func newFindingStore(db *DB) *findingStore {
 // Upsert inserts or updates a finding.
 // Uses ON CONFLICT to update existing findings of the same type for the same resource.
 func (s *findingStore) Upsert(ctx context.Context, finding *models.Finding) error {
+	finish := metrics.TrackDBQuery("upsert", "findings")
+
 	// Generate ID if not set
 	if finding.ID == "" {
 		finding.ID = uuid.New().String()
@@ -28,6 +31,7 @@ func (s *findingStore) Upsert(ctx context.Context, finding *models.Finding) erro
 	// Marshal details to JSON
 	detailsJSON, err := json.Marshal(finding.Details)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("marshal details: %w", err)
 	}
 
@@ -68,9 +72,11 @@ func (s *findingStore) Upsert(ctx context.Context, finding *models.Finding) erro
 			string(finding.Status),
 		)
 		if err != nil {
+			finish("error")
 			return fmt.Errorf("update finding: %w", err)
 		}
 		finding.ID = existingID
+		finish("success")
 		return nil
 	}
 
@@ -96,14 +102,18 @@ func (s *findingStore) Upsert(ctx context.Context, finding *models.Finding) erro
 		string(finding.Status),
 	)
 	if err != nil {
+		finish("error")
 		return fmt.Errorf("insert finding: %w", err)
 	}
 
+	finish("success")
 	return nil
 }
 
 // GetByAccountID retrieves all findings for an AWS account.
 func (s *findingStore) GetByAccountID(ctx context.Context, accountID string) ([]*models.Finding, error) {
+	finish := metrics.TrackDBQuery("select", "findings")
+
 	query := `
 		SELECT id, org_id, aws_account_id, resource_id, certificate_id,
 		       type, severity, summary, details, status, created_at, updated_at
@@ -113,6 +123,7 @@ func (s *findingStore) GetByAccountID(ctx context.Context, accountID string) ([]
 
 	rows, err := s.db.Pool().Query(ctx, query, accountID)
 	if err != nil {
+		finish("error")
 		return nil, fmt.Errorf("query findings: %w", err)
 	}
 	defer rows.Close()
@@ -137,12 +148,14 @@ func (s *findingStore) GetByAccountID(ctx context.Context, accountID string) ([]
 			&f.UpdatedAt,
 		)
 		if err != nil {
+			finish("error")
 			return nil, fmt.Errorf("scan finding: %w", err)
 		}
 
 		// Unmarshal details
 		if len(detailsJSON) > 0 {
 			if err := json.Unmarshal(detailsJSON, &f.Details); err != nil {
+				finish("error")
 				return nil, fmt.Errorf("unmarshal details: %w", err)
 			}
 		}
@@ -151,8 +164,10 @@ func (s *findingStore) GetByAccountID(ctx context.Context, accountID string) ([]
 	}
 
 	if err := rows.Err(); err != nil {
+		finish("error")
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
+	finish("success")
 	return findings, nil
 }

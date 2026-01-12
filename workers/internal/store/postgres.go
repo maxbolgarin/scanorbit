@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/maxbolgarin/scanorbit/internal/metrics"
 )
 
 // DB represents a PostgreSQL database connection pool.
@@ -38,7 +39,12 @@ func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	return &DB{pool: pool}, nil
+	db := &DB{pool: pool}
+
+	// Start background goroutine to track connection pool stats
+	go db.trackConnectionStats()
+
+	return db, nil
 }
 
 // Pool returns the underlying connection pool.
@@ -54,4 +60,17 @@ func (db *DB) Close() {
 // Ping verifies the database connection is alive.
 func (db *DB) Ping(ctx context.Context) error {
 	return db.pool.Ping(ctx)
+}
+
+// trackConnectionStats periodically updates connection pool metrics.
+func (db *DB) trackConnectionStats() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		stats := db.pool.Stat()
+		metrics.DBConnectionsOpen.WithLabelValues("total").Set(float64(stats.TotalConns()))
+		metrics.DBConnectionsOpen.WithLabelValues("idle").Set(float64(stats.IdleConns()))
+		metrics.DBConnectionsOpen.WithLabelValues("in_use").Set(float64(stats.AcquiredConns()))
+	}
 }
