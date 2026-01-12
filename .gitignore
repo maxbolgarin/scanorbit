@@ -40,7 +40,9 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
-# Go
+# Go binaries
+workers/scanner
+workers/analyzer
 workers/scanner/scanner
 workers/analyzer/analyzer
 *.exe
