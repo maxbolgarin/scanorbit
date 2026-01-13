@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0](https://github.com/maxbolgarin/scanorbit/compare/v1.1.6...v1.2.0) (2026-01-13)
+
+### Features
+
+* add Loki log aggregation with structured logging ([ba546f2](https://github.com/maxbolgarin/scanorbit/commit/ba546f2891020529a43d1644c83fb99f28b9f72e))
+* add Prometheus metrics to all backend services ([e3f0cfc](https://github.com/maxbolgarin/scanorbit/commit/e3f0cfc82c15f613d46fbf5afa19366ed81a9243))
+* add SSH tunnel commands for production monitoring access ([43c4bb2](https://github.com/maxbolgarin/scanorbit/commit/43c4bb2feace2e547039be9362df443bf071ce98))
+* integrate metrics throughout backend services ([1daec17](https://github.com/maxbolgarin/scanorbit/commit/1daec172a11f2083c90315019b80dc34f6cd81b6))
+
+### Bug Fixes
+
+* logger import ([a79fe1a](https://github.com/maxbolgarin/scanorbit/commit/a79fe1a5e8a2501610b411ea888219e4fb39eecb))
+
 ## [1.1.6](https://github.com/maxbolgarin/scanorbit/compare/v1.1.5...v1.1.6) (2026-01-12)
 
 ### Bug Fixes
