@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0](https://github.com/maxbolgarin/scanorbit/compare/v1.2.0...v1.3.0) (2026-01-15)
+
+### Features
+
+* **resources:** add resource details view with raw data explorer and scan lifecycle management ([398d823](https://github.com/maxbolgarin/scanorbit/commit/398d823f27fbbaed2bcdb908a71868637185b21b))
+
 ## [1.2.0](https://github.com/maxbolgarin/scanorbit/compare/v1.1.6...v1.2.0) (2026-01-13)
 
 ### Features
