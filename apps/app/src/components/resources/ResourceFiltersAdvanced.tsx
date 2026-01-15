@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -10,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
-import type { ResourceFilters as Filters, ServiceType } from "@/types";
-import { Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import type { ResourceFilters as Filters, ServiceType, CostFilterType } from "@/types";
+import { Search, X, DollarSign } from "lucide-react";
 
 interface ResourceFiltersAdvancedProps {
   filters: Filters;
@@ -43,10 +42,8 @@ export function ResourceFiltersAdvanced({
   totalCount,
   filteredCount,
 }: ResourceFiltersAdvancedProps) {
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  const hasFilters = filters.service || filters.region || filters.state || searchQuery;
-  const activeFilterCount = [filters.service, filters.region, filters.state, searchQuery].filter(Boolean).length;
+  const hasFilters = filters.service || filters.region || filters.state || filters.costFilter || searchQuery;
+  const activeFilterCount = [filters.service, filters.region, filters.state, filters.costFilter, searchQuery].filter(Boolean).length;
 
   const clearFilters = () => {
     onFiltersChange({});
@@ -131,35 +128,28 @@ export function ResourceFiltersAdvanced({
             </SelectContent>
           </Select>
 
-          {/* Advanced filters toggle */}
-          <Button
-            variant="outline"
-            size="default"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className={showAdvanced ? "bg-muted" : ""}
+          {/* Cost filter */}
+          <Select
+            value={filters.costFilter || "all"}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                costFilter: value === "all" ? undefined : (value as CostFilterType),
+              })
+            }
           >
-            <SlidersHorizontal className="mr-2 h-4 w-4" />
-            More
-            {showAdvanced ? (
-              <ChevronUp className="ml-1 h-4 w-4" />
-            ) : (
-              <ChevronDown className="ml-1 h-4 w-4" />
-            )}
-          </Button>
+            <SelectTrigger className="w-[150px]">
+              <DollarSign className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="All Resources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Resources</SelectItem>
+              <SelectItem value="paid">Paid Only</SelectItem>
+              <SelectItem value="free">Free Only</SelectItem>
+            </SelectContent>
+          </Select>
 
-          {/* Clear all button */}
-          {hasFilters && (
-            <Button variant="ghost" onClick={clearFilters}>
-              <X className="mr-1 h-4 w-4" />
-              Clear all
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Advanced filters */}
-      {showAdvanced && (
-        <div className="flex flex-wrap gap-2 rounded-lg border bg-muted/30 p-4">
+          {/* State filter */}
           <Select
             value={filters.state || "all"}
             onValueChange={(value) =>
@@ -181,8 +171,16 @@ export function ResourceFiltersAdvanced({
               ))}
             </SelectContent>
           </Select>
+
+          {/* Clear all button */}
+          {hasFilters && (
+            <Button variant="ghost" onClick={clearFilters}>
+              <X className="mr-1 h-4 w-4" />
+              Clear all
+            </Button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Active filters badges & count */}
       <div className="flex flex-wrap items-center gap-2">
@@ -242,6 +240,18 @@ export function ResourceFiltersAdvanced({
                 State: {filters.state}
                 <button
                   onClick={() => clearSingleFilter("state")}
+                  className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.costFilter && (
+              <Badge variant="secondary" className="gap-1 pr-1">
+                <DollarSign className="h-3 w-3" />
+                {filters.costFilter === "paid" ? "Paid Only" : "Free Only"}
+                <button
+                  onClick={() => clearSingleFilter("costFilter")}
                   className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
                 >
                   <X className="h-3 w-3" />

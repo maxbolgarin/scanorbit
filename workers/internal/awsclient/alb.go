@@ -9,6 +9,7 @@ import (
 	elbv2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -49,13 +50,14 @@ func (s *ALBScanner) ScanLoadBalancers(ctx context.Context, cfg aws.Config, regi
 			}
 
 			resource := &models.Resource{
-				ResourceID: aws.ToString(lb.LoadBalancerArn),
-				Service:    models.ServiceALB,
-				Region:     region,
-				Name:       aws.ToString(lb.LoadBalancerName),
-				State:      state,
-				Tags:       make(map[string]string), // Tags require separate API call
-				Raw:        raw,
+				ResourceID:          aws.ToString(lb.LoadBalancerArn),
+				Service:             models.ServiceALB,
+				Region:              region,
+				Name:                aws.ToString(lb.LoadBalancerName),
+				State:               state,
+				Tags:                make(map[string]string), // Tags require separate API call
+				Raw:                 raw,
+				CostEstimateMonthly: pricing.ALBBaseCost,
 			}
 			resources = append(resources, resource)
 		}

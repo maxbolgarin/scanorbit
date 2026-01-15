@@ -19,6 +19,7 @@ const querySchema = z.object({
   region: z.string().optional(),
   service: z.string().optional(),
   state: z.string().optional(),
+  costFilter: z.enum(['all', 'paid', 'free']).optional(),
 });
 
 const updateTagsSchema = z.object({

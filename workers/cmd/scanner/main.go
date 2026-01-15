@@ -125,9 +125,24 @@ func main() {
 
 	logger.Info().Int("metrics_port", metricsPort).Msg("scanner worker started")
 
-	// Dead letter handler - stores failed jobs in database
+	// Dead letter handler - stores failed jobs and updates job/scan status
 	deadLetterHandler := func(ctx context.Context, job *queue.Job, jobErr error) {
+		// Try to parse job payload to get job_id and scan_id
+		var scanJob models.ScanAccountJob
+		if err := json.Unmarshal(job.Payload, &scanJob); err == nil {
+			// Atomically update job and scan status to error
+			if scanJob.JobID != "" || scanJob.ScanID != "" {
+				if err := st.FailJobWithScan(ctx, scanJob.JobID, scanJob.ScanID, jobErr.Error()); err != nil {
+					logger.Error().Err(err).
+						Str("job_id", scanJob.JobID).
+						Str("scan_id", scanJob.ScanID).
+						Msg("failed to mark job/scan as error")
+				}
+			}
+		}
+
 		deadJob := &store.DeadLetterJob{
+			JobID:   scanJob.JobID, // Reference to original job (may be empty for old jobs)
 			JobType: string(job.Type),
 			Payload: job.Payload,
 			Error:   jobErr.Error(),
@@ -158,16 +173,124 @@ func main() {
 			done("error")
 			return err
 		}
+
+		// Mark job as running
+		if scanJob.JobID != "" {
+			if err := st.Jobs.MarkRunning(ctx, scanJob.JobID); err != nil {
+				logger.Warn().Err(err).Str("job_id", scanJob.JobID).Msg("failed to mark job as running")
+			}
+		}
+
 		logger.Info().
 			Str("account_id", scanJob.AccountID).
 			Str("org_id", scanJob.OrgID).
+			Str("job_id", scanJob.JobID).
+			Str("scan_id", scanJob.ScanID).
 			Msg("processing scan job")
 
 		if err := scnr.ScanAccount(ctx, &scanJob); err != nil {
+			// Mark job as error
+			if scanJob.JobID != "" {
+				if markErr := st.Jobs.MarkError(ctx, scanJob.JobID, err.Error()); markErr != nil {
+					logger.Warn().Err(markErr).Str("job_id", scanJob.JobID).Msg("failed to mark job as error")
+				}
+			}
 			metrics.JobErrors.WithLabelValues(serviceName, string(job.Type), "scan_error").Inc()
 			done("error")
 			return err
 		}
+
+		// Mark job as complete
+		if scanJob.JobID != "" {
+			if err := st.Jobs.MarkComplete(ctx, scanJob.JobID); err != nil {
+				logger.Warn().Err(err).Str("job_id", scanJob.JobID).Msg("failed to mark job as complete")
+			}
+		}
+
+		// Update scan status to analyzing_pending before creating analyzer jobs
+		if scanJob.ScanID != "" {
+			if err := st.Scans.UpdateStatusOnly(ctx, scanJob.ScanID, string(models.ScanStatusAnalyzingPending)); err != nil {
+				logger.Warn().Err(err).Str("scan_id", scanJob.ScanID).Msg("failed to update scan to analyzing_pending")
+			}
+		}
+
+		// Create and enqueue analyzer jobs with PostgreSQL durability
+		analyzerTypes := []models.JobType{
+			models.JobTypeAnalyzeOrphans,
+			models.JobTypeAnalyzeSSL,
+			models.JobTypeAnalyzeResidency,
+			models.JobTypeAnalyzeSecurity,
+			models.JobTypeAnalyzeCost,
+			models.JobTypeAnalyzeTagging,
+			models.JobTypeAnalyzeIAM,
+		}
+
+		enqueuedCount := 0
+		for _, analyzerType := range analyzerTypes {
+			// Create job payload (will be stored in DB)
+			basePayload, _ := json.Marshal(models.AnalyzeJob{
+				ScanID:    scanJob.ScanID,
+				OrgID:     scanJob.OrgID,
+				AccountID: scanJob.AccountID,
+			})
+
+			// Create job record in PostgreSQL for durability
+			var scanIDPtr *string
+			if scanJob.ScanID != "" {
+				scanIDPtr = &scanJob.ScanID
+			}
+			jobID, err := st.Jobs.Create(ctx, &store.Job{
+				Type:    string(analyzerType),
+				ScanID:  scanIDPtr,
+				Payload: basePayload,
+				Status:  string(models.JobStatusQueued),
+			})
+			if err != nil {
+				logger.Error().Err(err).
+					Str("analyzer_type", string(analyzerType)).
+					Str("account_id", scanJob.AccountID).
+					Msg("failed to create analyzer job in database")
+				continue
+			}
+
+			// Create payload with job_id for Redis queue
+			payloadWithID, _ := json.Marshal(models.AnalyzeJob{
+				JobID:     jobID,
+				ScanID:    scanJob.ScanID,
+				OrgID:     scanJob.OrgID,
+				AccountID: scanJob.AccountID,
+			})
+
+			// Enqueue to Redis
+			if err := q.Enqueue(ctx, analyzerType, payloadWithID); err != nil {
+				logger.Error().Err(err).
+					Str("analyzer_type", string(analyzerType)).
+					Str("job_id", jobID).
+					Str("account_id", scanJob.AccountID).
+					Msg("failed to enqueue analyzer job to redis")
+				// Job is in DB with queued status - will be recovered
+			} else {
+				logger.Debug().
+					Str("analyzer_type", string(analyzerType)).
+					Str("job_id", jobID).
+					Str("account_id", scanJob.AccountID).
+					Msg("created and enqueued analyzer job")
+				enqueuedCount++
+			}
+		}
+
+		// Update scan status to analyzing after jobs are created
+		if scanJob.ScanID != "" && enqueuedCount > 0 {
+			if err := st.Scans.UpdateStatusOnly(ctx, scanJob.ScanID, string(models.ScanStatusAnalyzing)); err != nil {
+				logger.Warn().Err(err).Str("scan_id", scanJob.ScanID).Msg("failed to update scan to analyzing")
+			}
+		}
+
+		logger.Info().
+			Str("account_id", scanJob.AccountID).
+			Str("scan_id", scanJob.ScanID).
+			Int("analyzers_enqueued", enqueuedCount).
+			Msg("created and enqueued analyzer jobs after scan")
 
 		done("success")
 		return nil

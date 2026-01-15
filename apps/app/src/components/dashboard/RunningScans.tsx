@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatRelativeTime } from "@/lib/utils";
-import { Radar, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Radar, CheckCircle2, AlertCircle, Clock, Loader2, Search, AlertTriangle, Ban } from "lucide-react";
 import type { Scan, AwsAccount } from "@/types";
 
 interface RunningScansProps {
@@ -20,42 +20,61 @@ export function RunningScans({ scans, accounts }: RunningScansProps) {
     return null;
   }
 
-  const getAccountName = (awsAccountId: string) => {
+  const getAccountName = (awsAccountId: string | null) => {
+    if (!awsAccountId) return "Deleted Account";
     const account = accounts.find((a) => a.id === awsAccountId);
     return account?.name || "Unknown Account";
   };
 
   const getStatusIcon = (status: Scan["status"]) => {
     switch (status) {
-      case "pending":
+      case "queued":
         return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "processing":
+        return <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />;
       case "running":
         return <Radar className="h-4 w-4 animate-pulse text-primary" />;
+      case "analyzing":
+        return <Search className="h-4 w-4 animate-pulse text-primary" />;
       case "complete":
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case "partial":
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
       case "error":
         return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case "canceled":
+        return <Ban className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   const getStatusText = (status: Scan["status"]) => {
     switch (status) {
-      case "pending":
+      case "queued":
+        return "Waiting in queue...";
+      case "processing":
         return "Initializing...";
       case "running":
         return "Scanning resources...";
+      case "analyzing":
+        return "Analyzing findings...";
       case "complete":
         return "Complete";
+      case "partial":
+        return "Completed with warnings";
       case "error":
         return "Failed";
+      case "canceled":
+        return "Canceled";
     }
   };
 
   // Estimate progress based on time (assume ~5 min scan)
   const getProgress = (scan: Scan) => {
-    if (scan.status === "complete") return 100;
-    if (scan.status === "error") return 0;
-    if (scan.status === "pending") return 5;
+    if (scan.status === "complete" || scan.status === "partial") return 100;
+    if (scan.status === "error" || scan.status === "canceled") return 0;
+    if (scan.status === "queued") return 2;
+    if (scan.status === "processing") return 5;
+    if (scan.status === "analyzing") return 90;
 
     if (!scan.startedAt) return 10;
 
@@ -63,7 +82,7 @@ export function RunningScans({ scans, accounts }: RunningScansProps) {
     const now = Date.now();
     const elapsed = now - started;
     const estimatedDuration = 5 * 60 * 1000; // 5 minutes
-    const progress = Math.min(95, Math.round((elapsed / estimatedDuration) * 100));
+    const progress = Math.min(85, Math.round((elapsed / estimatedDuration) * 100));
     return Math.max(10, progress);
   };
 

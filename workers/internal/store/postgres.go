@@ -9,9 +9,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maxbolgarin/scanorbit/internal/metrics"
 )
+
+// Tx represents a database transaction.
+type Tx = pgx.Tx
+
+// TxOptions are options for starting a transaction.
+type TxOptions = pgx.TxOptions
 
 // DB represents a PostgreSQL database connection pool.
 type DB struct {
@@ -82,6 +89,41 @@ func (db *DB) Close() {
 // Ping verifies the database connection is alive.
 func (db *DB) Ping(ctx context.Context) error {
 	return db.pool.Ping(ctx)
+}
+
+// BeginTx starts a new transaction with the given options.
+func (db *DB) BeginTx(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+	return db.pool.BeginTx(ctx, opts)
+}
+
+// WithTx executes a function within a transaction.
+// If the function returns an error, the transaction is rolled back.
+// If the function succeeds, the transaction is committed.
+func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+			panic(p)
+		}
+	}()
+
+	if err := fn(tx); err != nil {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			return fmt.Errorf("rollback failed: %v (original error: %w)", rbErr, err)
+		}
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // trackConnectionStats periodically updates connection pool metrics.

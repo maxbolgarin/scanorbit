@@ -5,7 +5,6 @@ import { SecurityHealthScore } from "@/components/dashboard/SecurityHealthScore"
 import { QuickActionsPanel } from "@/components/dashboard/QuickActionsPanel";
 import { RecentFindings } from "@/components/dashboard/RecentFindings";
 import { AccountStatus } from "@/components/dashboard/AccountStatus";
-import { RunningScans } from "@/components/dashboard/RunningScans";
 import { ScanHistoryCard } from "@/components/dashboard/ScanHistoryCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,8 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { useDashboardSummary, useRecommendedActions } from "@/hooks/use-dashboard";
 import { useFindings } from "@/hooks/use-findings";
-import { useAwsAccounts, useTriggerScan, useActiveScans, useRecentScans } from "@/hooks/use-aws-accounts";
+import { useAwsAccounts, useTriggerScan, useActiveScans, useRecentScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
+import { ACTIVE_SCAN_STATUSES } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   RefreshCw,
@@ -29,6 +29,8 @@ import {
   AlertTriangle,
   Settings,
   ExternalLink,
+  Scan,
+  ArrowRight,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -38,9 +40,11 @@ export default function Dashboard() {
   const { data: findings, isLoading: findingsLoading } = useFindings();
   const { data: actions, isLoading: actionsLoading } = useRecommendedActions();
   const { accounts, isLoading: accountsLoading } = useAwsAccounts();
-  const { data: activeScans } = useActiveScans();
   const { data: recentScans } = useRecentScans(10);
   const triggerScan = useTriggerScan();
+
+  // Auto-refresh data when scans complete
+  const { activeScans } = useScanCompletionRefresh();
   const [rescanningAccount, setRescanningAccount] = useState<string | null>(null);
   const [showScanAllDialog, setShowScanAllDialog] = useState(false);
 
@@ -104,6 +108,11 @@ export default function Dashboard() {
   const hasAccounts = accounts && accounts.length > 0;
   const hasAnyFindings = findings?.data && findings.data.length > 0;
   const openFindings = findings?.data?.filter(f => f.status === "open") || [];
+  const hasCompletedScan = recentScans?.some(scan =>
+    scan.status === "complete" || scan.status === "partial"
+  );
+  const hasScanInProgress = (activeScans && activeScans.length > 0) ||
+    recentScans?.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
 
   return (
     <div className="space-y-6">
@@ -116,26 +125,28 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {hasAccounts && (
+          {hasAccounts && !hasCompletedScan && (
             <Button
               variant="default"
               size="sm"
               onClick={() => setShowScanAllDialog(true)}
-              disabled={triggerScan.isPending}
+              disabled={triggerScan.isPending || hasScanInProgress}
             >
               <Play className="mr-2 h-4 w-4" />
               Scan All
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isFetching}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          {hasCompletedScan && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          )}
         </div>
       </div>
 
@@ -159,17 +170,80 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Running scans notification */}
-      {activeScans && activeScans.length > 0 && (
-        <RunningScans scans={activeScans} accounts={accounts} />
+      {/* Scanning in progress state */}
+      {!accountsLoading && hasAccounts && !hasCompletedScan && hasScanInProgress && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-primary/20 p-5">
+              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+            </div>
+            <h3 className="mt-6 text-xl font-semibold">Scanning your infrastructure...</h3>
+            <p className="mt-3 max-w-lg text-muted-foreground">
+              Your AWS account is being scanned. This may take a few minutes depending on
+              the size of your infrastructure. The dashboard will update once the scan completes.
+            </p>
+            <Button
+              variant="outline"
+              size="lg"
+              className="mt-8"
+              onClick={() => navigate("/scans")}
+            >
+              View Scan Progress
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Summary cards */}
-      <DashboardSummaryCards summary={summary} isLoading={summaryLoading} />
+      {/* Invitation to start first scan */}
+      {!accountsLoading && hasAccounts && !hasCompletedScan && !hasScanInProgress && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-primary/20 p-5">
+              <Scan className="h-10 w-10 text-primary" />
+            </div>
+            <h3 className="mt-6 text-xl font-semibold">Ready to scan your infrastructure</h3>
+            <p className="mt-3 max-w-lg text-muted-foreground">
+              Your AWS account is connected. Run your first scan to discover resources,
+              identify security vulnerabilities, find cost optimization opportunities,
+              and check compliance status.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button
+                size="lg"
+                onClick={() => setShowScanAllDialog(true)}
+                disabled={triggerScan.isPending || hasScanInProgress}
+              >
+                <Play className="mr-2 h-5 w-5" />
+                Start First Scan
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => navigate("/accounts")}
+              >
+                Manage Accounts
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dashboard content - only show after first scan is completed */}
+      {hasCompletedScan && (
+        <>
+          {/* Summary cards */}
+          <DashboardSummaryCards summary={summary} isLoading={summaryLoading} />
 
       {/* Health score and Quick actions row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <SecurityHealthScore summary={summary} isLoading={summaryLoading} />
+        <SecurityHealthScore
+          summary={summary}
+          isLoading={summaryLoading}
+          hasAccounts={hasAccounts}
+          hasScanInProgress={activeScans && activeScans.length > 0}
+        />
         <QuickActionsPanel
           findings={actions || []}
           isLoading={actionsLoading}
@@ -270,6 +344,8 @@ export default function Dashboard() {
           onRescan={handleRescan}
           isRescanning={rescanningAccount}
         />
+      )}
+        </>
       )}
 
       {/* Scan All confirmation dialog */}

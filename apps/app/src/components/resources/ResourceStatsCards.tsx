@@ -1,22 +1,33 @@
+import { useState } from "react";
 import {
   Card,
   CardContent,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
 import type { ResourceStats, ServiceType } from "@/types";
+import { formatCurrency } from "@/lib/utils";
 import {
   Server,
   Globe,
   Activity,
-  TrendingUp,
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+
+const ITEMS_PER_PAGE = 5;
 
 interface ResourceStatsCardsProps {
   stats: ResourceStats | undefined;
   isLoading?: boolean;
+  onFilterSelect?: (filter: { service?: ServiceType; region?: string; sortBy?: string }) => void;
 }
 
-export function ResourceStatsCards({ stats, isLoading }: ResourceStatsCardsProps) {
+export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: ResourceStatsCardsProps) {
+  const [servicePage, setServicePage] = useState(0);
+  const [regionPage, setRegionPage] = useState(0);
+
   if (isLoading) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -37,19 +48,37 @@ export function ResourceStatsCards({ stats, isLoading }: ResourceStatsCardsProps
   // Safely get total count
   const totalCount = stats.totalCount ?? 0;
 
-  // Get top services by count (with null check)
-  const topServices = stats.byService
-    ? Object.entries(stats.byService)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 5)
+  // Get ALL paid services sorted by cost (descending)
+  const allPaidServiceStats = stats.costByService
+    ? Object.entries(stats.costByService)
+        .sort(([, a], [, b]) => b.totalCost - a.totalCost)
     : [];
 
-  // Get top regions by count (with null check)
-  const topRegions = stats.byRegion
+  // Calculate total estimated monthly cost
+  const totalEstimatedCost = allPaidServiceStats.reduce(
+    (sum, [, data]) => sum + data.totalCost,
+    0
+  );
+
+  // Get ALL regions by count (with null check)
+  const allRegions = stats.byRegion
     ? Object.entries(stats.byRegion)
         .sort(([, a], [, b]) => b - a)
-        .slice(0, 3)
     : [];
+
+  // Pagination for services
+  const serviceTotalPages = Math.ceil(allPaidServiceStats.length / ITEMS_PER_PAGE);
+  const paginatedServices = allPaidServiceStats.slice(
+    servicePage * ITEMS_PER_PAGE,
+    (servicePage + 1) * ITEMS_PER_PAGE
+  );
+
+  // Pagination for regions
+  const regionTotalPages = Math.ceil(allRegions.length / ITEMS_PER_PAGE);
+  const paginatedRegions = allRegions.slice(
+    regionPage * ITEMS_PER_PAGE,
+    (regionPage + 1) * ITEMS_PER_PAGE
+  );
 
   // Calculate active vs inactive (with null checks)
   const byState = stats.byState || {};
@@ -60,8 +89,15 @@ export function ResourceStatsCards({ stats, isLoading }: ResourceStatsCardsProps
   const inactiveCount = (byState["stopped"] || 0) +
                         (byState["inactive"] || 0);
 
-  const serviceCount = stats.byService ? Object.keys(stats.byService).length : 0;
   const regionCount = stats.byRegion ? Object.keys(stats.byRegion).length : 0;
+
+  const handleServiceClick = (service: string) => {
+    onFilterSelect?.({ service: service as ServiceType, sortBy: "cost" });
+  };
+
+  const handleRegionClick = (region: string) => {
+    onFilterSelect?.({ region });
+  };
 
   return (
     <div className="space-y-4">
@@ -84,18 +120,20 @@ export function ResourceStatsCards({ stats, isLoading }: ResourceStatsCardsProps
           </CardContent>
         </Card>
 
-        {/* Services */}
+        {/* Estimated Monthly Cost */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  AWS Services
+                  Est. Monthly Cost
                 </p>
-                <p className="mt-1 text-3xl font-bold">{serviceCount}</p>
+                <p className="mt-1 text-3xl font-bold">
+                  {formatCurrency(totalEstimatedCost)}
+                </p>
               </div>
-              <div className="rounded-full bg-blue-500/10 p-3">
-                <TrendingUp className="h-6 w-6 text-blue-500" />
+              <div className="rounded-full bg-amber-500/10 p-3">
+                <DollarSign className="h-6 w-6 text-amber-500" />
               </div>
             </div>
           </CardContent>
@@ -142,55 +180,124 @@ export function ResourceStatsCards({ stats, isLoading }: ResourceStatsCardsProps
 
       {/* Service breakdown */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Top Services */}
+        {/* Cost by Service (Paid Only) */}
         <Card>
           <CardContent className="p-6">
-            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-              Resources by Service
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Cost by Service (Paid Only)
+              </h3>
+              {serviceTotalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setServicePage(p => Math.max(0, p - 1))}
+                    disabled={servicePage === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground px-1">
+                    {servicePage + 1}/{serviceTotalPages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setServicePage(p => Math.min(serviceTotalPages - 1, p + 1))}
+                    disabled={servicePage === serviceTotalPages - 1}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="space-y-3">
-              {topServices.map(([service, count]) => {
-                const percentage = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
+              {paginatedServices.map(([service, data]) => {
+                const costPercentage = totalEstimatedCost > 0
+                  ? Math.round((data.totalCost / totalEstimatedCost) * 100)
+                  : 0;
                 return (
-                  <div key={service} className="flex items-center gap-3">
+                  <div
+                    key={service}
+                    className="flex items-center gap-3 p-2 -mx-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleServiceClick(service)}
+                  >
                     <ServiceIcon service={service as ServiceType} className="h-5 w-5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium truncate">
                           {getServiceLabel(service as ServiceType)}
                         </span>
-                        <span className="text-sm text-muted-foreground ml-2">
-                          {count}
-                        </span>
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="text-sm text-muted-foreground">
+                            {data.count}
+                          </span>
+                          <span className="text-sm font-medium text-amber-600">
+                            {formatCurrency(data.totalCost)}
+                          </span>
+                        </div>
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-primary transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
+                          className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                          style={{ width: `${costPercentage}%` }}
                         />
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {topServices.length === 0 && (
-                <p className="text-sm text-muted-foreground">No resources discovered</p>
+              {allPaidServiceStats.length === 0 && (
+                <p className="text-sm text-muted-foreground">No paid resources discovered</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Top Regions */}
+        {/* Resources by Region */}
         <Card>
           <CardContent className="p-6">
-            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-              Resources by Region
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Resources by Region
+              </h3>
+              {regionTotalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setRegionPage(p => Math.max(0, p - 1))}
+                    disabled={regionPage === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground px-1">
+                    {regionPage + 1}/{regionTotalPages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setRegionPage(p => Math.min(regionTotalPages - 1, p + 1))}
+                    disabled={regionPage === regionTotalPages - 1}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="space-y-3">
-              {topRegions.map(([region, count]) => {
+              {paginatedRegions.map(([region, count]) => {
                 const percentage = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
                 return (
-                  <div key={region} className="flex items-center gap-3">
+                  <div
+                    key={region}
+                    className="flex items-center gap-3 p-2 -mx-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleRegionClick(region)}
+                  >
                     <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-muted text-xs font-medium">
                       {region.split("-")[0]?.toUpperCase().slice(0, 2) || "??"}
                     </div>
@@ -211,7 +318,7 @@ export function ResourceStatsCards({ stats, isLoading }: ResourceStatsCardsProps
                   </div>
                 );
               })}
-              {topRegions.length === 0 && (
+              {allRegions.length === 0 && (
                 <p className="text-sm text-muted-foreground">No regions found</p>
               )}
             </div>

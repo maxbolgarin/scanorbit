@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, not } from 'drizzle-orm';
 import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
@@ -7,6 +7,7 @@ import { awsAccounts, scans, jobs } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
+import { ScanStatus, ACTIVE_SCAN_STATUSES, TERMINAL_SCAN_STATUSES } from '../types/index.js';
 
 interface CreateAccountData {
   name: string;
@@ -98,19 +99,52 @@ export const awsAccountService = {
   },
 
   async deleteAccount(orgId: string, accountId: string): Promise<void> {
-    const result = await db
-      .delete(awsAccounts)
+    // Verify account exists before deletion
+    const [account] = await db
+      .select({ id: awsAccounts.id })
+      .from(awsAccounts)
       .where(
         and(
           eq(awsAccounts.id, accountId),
           eq(awsAccounts.orgId, orgId)
         )
       )
-      .returning({ id: awsAccounts.id });
+      .limit(1);
 
-    if (result.length === 0) {
+    if (!account) {
       throw new HTTP404Error('AWS account not found');
     }
+
+    // 1. Cancel active scans (queued, processing, running, analyzing)
+    await db
+      .update(scans)
+      .set({
+        status: ScanStatus.CANCELED,
+        completedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scans.awsAccountId, accountId),
+          inArray(scans.status, ACTIVE_SCAN_STATUSES)
+        )
+      );
+
+    // 2. Mark terminal scans (complete, partial, error) as having no key
+    await db
+      .update(scans)
+      .set({ hasKey: false })
+      .where(
+        and(
+          eq(scans.awsAccountId, accountId),
+          inArray(scans.status, TERMINAL_SCAN_STATUSES),
+          not(eq(scans.status, ScanStatus.CANCELED)) // Don't update canceled ones again
+        )
+      );
+
+    // 3. Delete the account (scans FK will be set to NULL due to SET NULL constraint)
+    await db
+      .delete(awsAccounts)
+      .where(eq(awsAccounts.id, accountId));
 
     // Track AWS account disconnection
     awsAccountsConnected.dec();
@@ -191,33 +225,44 @@ export const awsAccountService = {
     // Verify account exists and belongs to org
     await this.getAccount(orgId, accountId);
 
-    // Create scan record
-    const [scan] = await db
-      .insert(scans)
-      .values({
-        orgId,
-        awsAccountId: accountId,
-        status: 'pending',
-      })
-      .returning();
+    // Use transaction to ensure scan and job are created together
+    const result = await db.transaction(async (tx) => {
+      // Create scan record with 'queued' status
+      const [scan] = await tx
+        .insert(scans)
+        .values({
+          orgId,
+          awsAccountId: accountId,
+          status: ScanStatus.QUEUED,
+          hasKey: true,
+        })
+        .returning();
 
-    // Create job record in database for tracking
-    const [job] = await db
-      .insert(jobs)
-      .values({
-        type: 'scan_account',
-        payload: {
-          account_id: accountId,
-          org_id: orgId,
-        },
-        status: 'queued',
-      })
-      .returning();
+      // Create job record linked to the scan
+      const [job] = await tx
+        .insert(jobs)
+        .values({
+          scanId: scan.id,
+          type: 'scan_account',
+          payload: {
+            account_id: accountId,
+            org_id: orgId,
+          },
+          status: 'queued',
+        })
+        .returning();
+
+      return { scan, job };
+    });
+
+    const { scan, job } = result;
 
     // Push to Redis queue for workers to pick up
-    // Go workers expect snake_case: account_id, org_id
+    // Go workers expect snake_case: job_id, scan_id, account_id, org_id
     try {
       await redis.rpush('jobs:scan_account', JSON.stringify({
+        job_id: job.id,
+        scan_id: scan.id,
         account_id: accountId,
         org_id: orgId,
       }));
@@ -225,8 +270,8 @@ export const awsAccountService = {
       // Redis failed - mark scan and job as failed to prevent inconsistency
       console.error('[enqueueScan] Redis error, marking scan as failed:', redisError);
       await Promise.all([
-        db.update(scans).set({ status: 'failed' }).where(eq(scans.id, scan.id)),
-        db.update(jobs).set({ status: 'failed' }).where(eq(jobs.id, job.id)),
+        db.update(scans).set({ status: ScanStatus.ERROR }).where(eq(scans.id, scan.id)),
+        db.update(jobs).set({ status: 'error' }).where(eq(jobs.id, job.id)),
       ]);
       throw new HTTP400Error('Failed to queue scan job. Please try again.');
     }
@@ -266,8 +311,12 @@ export const awsAccountService = {
     }).returning();
 
     // Push to Redis queue for workers to pick up
+    // Include job_id so workers can update status
     try {
-      await redis.rpush(`jobs:${analysisType}`, JSON.stringify(payload));
+      await redis.rpush(`jobs:${analysisType}`, JSON.stringify({
+        ...payload,
+        job_id: job.id,
+      }));
     } catch (redisError) {
       // Redis failed - mark job as failed
       console.error(`[enqueueAnalysis] Redis error for ${analysisType}, marking job as failed:`, redisError);
@@ -289,23 +338,6 @@ export const awsAccountService = {
       this.enqueueAnalysis(orgId, accountId, 'analyze_tagging'),
       this.enqueueAnalysis(orgId, accountId, 'analyze_iam'),
     ]);
-  },
-
-  async getScanHistory(orgId: string, accountId: string): Promise<Scan[]> {
-    // Verify account belongs to org
-    await this.getAccount(orgId, accountId);
-
-    return db
-      .select()
-      .from(scans)
-      .where(
-        and(
-          eq(scans.orgId, orgId),
-          eq(scans.awsAccountId, accountId)
-        )
-      )
-      .orderBy(desc(scans.createdAt))
-      .limit(50);
   },
 
   async getScan(orgId: string, scanId: string): Promise<Scan> {
@@ -334,18 +366,58 @@ export const awsAccountService = {
       .where(
         and(
           eq(scans.orgId, orgId),
-          inArray(scans.status, ['pending', 'running'])
+          inArray(scans.status, ACTIVE_SCAN_STATUSES)
         )
       )
       .orderBy(desc(scans.createdAt));
   },
 
-  async getRecentScans(orgId: string, limit: number = 10): Promise<Scan[]> {
+  async getRecentScans(
+    orgId: string,
+    limit: number = 10,
+    includeArchived: boolean = false
+  ): Promise<Scan[]> {
+    // Build conditions - always filter by orgId
+    const conditions = [eq(scans.orgId, orgId)];
+
+    // If not including archived, filter out scans without a key and canceled scans
+    if (!includeArchived) {
+      conditions.push(eq(scans.hasKey, true));
+      conditions.push(not(eq(scans.status, ScanStatus.CANCELED)));
+    }
+
     return db
       .select()
       .from(scans)
-      .where(eq(scans.orgId, orgId))
+      .where(and(...conditions))
       .orderBy(desc(scans.createdAt))
       .limit(limit);
+  },
+
+  async getScanHistory(
+    orgId: string,
+    accountId: string,
+    includeArchived: boolean = false
+  ): Promise<Scan[]> {
+    // Verify account belongs to org
+    await this.getAccount(orgId, accountId);
+
+    // Build conditions
+    const conditions = [
+      eq(scans.orgId, orgId),
+      eq(scans.awsAccountId, accountId),
+    ];
+
+    // If not including archived, filter out canceled scans
+    if (!includeArchived) {
+      conditions.push(not(eq(scans.status, ScanStatus.CANCELED)));
+    }
+
+    return db
+      .select()
+      .from(scans)
+      .where(and(...conditions))
+      .orderBy(desc(scans.createdAt))
+      .limit(50);
   },
 };

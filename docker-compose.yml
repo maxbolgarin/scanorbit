@@ -44,6 +44,8 @@ services:
       AWS_REGION: ${AWS_REGION:-eu-central-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    ports:
+      - "9090:9090"
     depends_on:
       db:
         condition: service_healthy
@@ -61,6 +63,8 @@ services:
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
+    ports:
+      - "9091:9091"
     depends_on:
       db:
         condition: service_healthy

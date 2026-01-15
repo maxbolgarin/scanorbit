@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResourceFiltersAdvanced } from "@/components/resources/ResourceFiltersAdvanced";
 import { ResourcesTableAdvanced } from "@/components/resources/ResourcesTableAdvanced";
@@ -14,19 +14,27 @@ import {
   useResourceServices,
   useResourceStats,
 } from "@/hooks/use-resources";
+import { useAwsAccounts, useRecentScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import type { ResourceFilters as Filters, ServiceType, Resource } from "@/types";
-import { Server, RefreshCw, LayoutGrid, List, BarChart3 } from "lucide-react";
+import { ACTIVE_SCAN_STATUSES } from "@/types";
+import { Server, RefreshCw, LayoutGrid, List, Scan, Play, ArrowRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 type ViewMode = "table" | "grid";
 
+type SortField = "name" | "service" | "region" | "state" | "cost" | "lastSeen";
+type SortDirection = "asc" | "desc";
+
 export default function Resources() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState<Filters>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const [showStats, setShowStats] = useState(true);
+  const [filters, setFilters] = useLocalStorage<Filters>("resources:filters", {});
+  const [searchQuery, setSearchQuery] = useLocalStorage<string>("resources:search", "");
+  const [viewMode, setViewMode] = useLocalStorage<ViewMode>("resources:viewMode", "table");
+  const [sortOverride, setSortOverride] = useState<{ field: SortField; direction: SortDirection } | null>(null);
 
   // Fetch all resources (we'll filter client-side for search)
   const { data: resourcesResponse, isLoading, isFetching } = useResources(filters);
@@ -34,6 +42,14 @@ export default function Resources() {
   const { data: regions = [] } = useResourceRegions();
   const { data: services = [] } = useResourceServices();
   const { data: stats, isLoading: statsLoading } = useResourceStats();
+
+  // Fetch accounts and scans for empty state logic
+  const { accounts, isLoading: accountsLoading } = useAwsAccounts();
+  const { data: recentScans } = useRecentScans(10);
+  const triggerScan = useTriggerScan();
+
+  // Auto-refresh data when scans complete
+  const { activeScans } = useScanCompletionRefresh();
 
   // Client-side search filter
   const filteredResources = useMemo(() => {
@@ -55,7 +71,59 @@ export default function Resources() {
     queryClient.invalidateQueries({ queryKey: ["resource-services"] });
   };
 
+  const handleStatsFilterSelect = (filter: { service?: ServiceType; region?: string; sortBy?: string }) => {
+    // Update filters - clear other filters and set the selected one
+    setFilters({
+      service: filter.service,
+      region: filter.region,
+    });
+
+    // Update sort if sorting by cost
+    if (filter.sortBy === "cost") {
+      setSortOverride({ field: "cost", direction: "desc" });
+    } else {
+      setSortOverride(null);
+    }
+  };
+
+  const handleScanAll = async () => {
+    if (!accounts || accounts.length === 0) return;
+
+    const results = await Promise.allSettled(
+      accounts.map(account => triggerScan.mutateAsync(account.id))
+    );
+
+    const succeeded = results.filter(r => r.status === "fulfilled").length;
+    const failed = results.filter(r => r.status === "rejected").length;
+
+    if (failed === 0) {
+      toast({
+        title: "Scans started",
+        description: `Started scanning ${succeeded} AWS account(s).`,
+        type: "success",
+      });
+    } else if (succeeded === 0) {
+      toast({
+        title: "Scans failed",
+        description: `Failed to start scans for all ${failed} account(s). Please try again.`,
+        type: "error",
+      });
+    } else {
+      toast({
+        title: "Scans partially started",
+        description: `Started ${succeeded} scan(s), ${failed} failed to start.`,
+        type: "warning",
+      });
+    }
+  };
+
   const hasAnyResources = stats?.totalCount && stats.totalCount > 0;
+  const hasAccounts = accounts && accounts.length > 0;
+  const hasCompletedScan = recentScans?.some(scan =>
+    scan.status === "complete" || scan.status === "partial"
+  );
+  const hasScanInProgress = (activeScans && activeScans.length > 0) ||
+    recentScans?.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
 
   return (
     <div className="space-y-6">
@@ -67,58 +135,113 @@ export default function Resources() {
             Browse and manage your AWS infrastructure
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Stats toggle */}
-          <Button
-            variant={showStats ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowStats(!showStats)}
-            className="hidden sm:flex"
-          >
-            <BarChart3 className="mr-2 h-4 w-4" />
-            {showStats ? "Hide Stats" : "Show Stats"}
-          </Button>
+        {hasCompletedScan && (
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center rounded-lg border p-1">
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setViewMode("table")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
 
-          {/* View toggle */}
-          <div className="flex items-center rounded-lg border p-1">
+            {/* Refresh button */}
             <Button
-              variant={viewMode === "table" ? "secondary" : "ghost"}
+              variant="outline"
               size="sm"
-              className="h-7 px-2"
-              onClick={() => setViewMode("table")}
+              onClick={handleRefresh}
+              disabled={isFetching}
             >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 px-2"
-              onClick={() => setViewMode("grid")}
-            >
-              <LayoutGrid className="h-4 w-4" />
+              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
             </Button>
           </div>
-
-          {/* Refresh button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isFetching}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
+        )}
       </div>
 
-      {/* Stats cards */}
-      {showStats && (
-        <ResourceStatsCards stats={stats} isLoading={statsLoading} />
+      {/* Stats cards - only show after first scan */}
+      {hasCompletedScan && (
+        <ResourceStatsCards
+          stats={stats}
+          isLoading={statsLoading}
+          onFilterSelect={handleStatsFilterSelect}
+        />
       )}
 
-      {/* Main content */}
-      {hasAnyResources || isLoading ? (
+      {/* Invitation to start first scan */}
+      {!accountsLoading && hasAccounts && !hasCompletedScan && !hasScanInProgress && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-primary/20 p-5">
+              <Scan className="h-10 w-10 text-primary" />
+            </div>
+            <h3 className="mt-6 text-xl font-semibold">Discover your AWS resources</h3>
+            <p className="mt-3 max-w-lg text-muted-foreground">
+              Your AWS account is connected. Run your first scan to discover all your
+              infrastructure resources including EC2 instances, S3 buckets, RDS databases,
+              Lambda functions, and more.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button
+                size="lg"
+                onClick={handleScanAll}
+                disabled={triggerScan.isPending || hasScanInProgress}
+              >
+                <Play className="mr-2 h-5 w-5" />
+                Start First Scan
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => navigate("/accounts")}
+              >
+                Manage Accounts
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Scan in progress state */}
+      {!accountsLoading && hasAccounts && !hasCompletedScan && hasScanInProgress && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-primary/20 p-5">
+              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+            </div>
+            <h3 className="mt-6 text-xl font-semibold">Scanning your infrastructure...</h3>
+            <p className="mt-3 max-w-lg text-muted-foreground">
+              Your AWS account is being scanned. This may take a few minutes depending on
+              the size of your infrastructure. Resources will appear here once the scan completes.
+            </p>
+            <Button
+              variant="outline"
+              size="lg"
+              className="mt-8"
+              onClick={() => navigate("/scans")}
+            >
+              View Scan Progress
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main content - only show after first scan */}
+      {hasCompletedScan && (hasAnyResources || isLoading) && (
         <div className="space-y-4">
           {/* Filters */}
           <ResourceFiltersAdvanced
@@ -137,6 +260,8 @@ export default function Resources() {
             <ResourcesTableAdvanced
               resources={filteredResources}
               isLoading={isLoading}
+              initialSortField={sortOverride?.field}
+              initialSortDirection={sortOverride?.direction}
             />
           ) : (
             <ResourcesGridView
@@ -145,7 +270,10 @@ export default function Resources() {
             />
           )}
         </div>
-      ) : (
+      )}
+
+      {/* No accounts state */}
+      {!accountsLoading && !hasAccounts && (
         <EmptyStateWithAction />
       )}
     </div>

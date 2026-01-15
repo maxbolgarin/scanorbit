@@ -52,10 +52,9 @@ export default function Scanning() {
     );
   }
 
-  const isComplete = scan.status === "complete";
+  const isComplete = scan.status === "complete" || scan.status === "partial";
   const isError = scan.status === "error";
-  const isRunning = scan.status === "running";
-  const isPending = scan.status === "pending";
+  const isActive = ["queued", "processing", "running", "analyzing"].includes(scan.status);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
@@ -95,10 +94,13 @@ export default function Scanning() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {(isPending || isRunning) && (
+            {isActive && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <LoadingSpinner size="sm" />
-                {isPending ? "Initializing scan..." : "Scanning resources..."}
+                {scan.status === "queued" ? "Waiting in queue..." :
+                 scan.status === "processing" ? "Initializing scan..." :
+                 scan.status === "analyzing" ? "Analyzing findings..." :
+                 "Scanning resources..."}
               </div>
             )}
 

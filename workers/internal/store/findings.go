@@ -19,7 +19,7 @@ func newFindingStore(db *DB) *findingStore {
 }
 
 // Upsert inserts or updates a finding.
-// Uses ON CONFLICT to update existing findings of the same type for the same resource.
+// Uses a transaction with SELECT FOR UPDATE to prevent race conditions.
 func (s *findingStore) Upsert(ctx context.Context, finding *models.Finding) error {
 	finish := metrics.TrackDBQuery("upsert", "findings")
 
@@ -35,75 +35,81 @@ func (s *findingStore) Upsert(ctx context.Context, finding *models.Finding) erro
 		return fmt.Errorf("marshal details: %w", err)
 	}
 
-	// Use a different approach: try to find existing finding first
-	// This handles the nullable resource_id/certificate_id columns
-	var existingID string
-	findQuery := `
-		SELECT id FROM findings
-		WHERE org_id = $1 AND aws_account_id = $2 AND type = $3
-		AND (
-			(resource_id IS NOT NULL AND resource_id = $4)
-			OR (certificate_id IS NOT NULL AND certificate_id = $5)
-			OR (resource_id IS NULL AND certificate_id IS NULL AND $4 IS NULL AND $5 IS NULL)
-		)
-		LIMIT 1
-	`
-
-	err = s.db.Pool().QueryRow(ctx, findQuery,
-		finding.OrgID,
-		finding.AWSAccountID,
-		string(finding.Type),
-		finding.ResourceID,
-		finding.CertificateID,
-	).Scan(&existingID)
-
-	if err == nil {
-		// Update existing finding
-		updateQuery := `
-			UPDATE findings
-			SET severity = $2, summary = $3, details = $4, status = $5, updated_at = NOW()
-			WHERE id = $1
+	err = s.db.WithTx(ctx, func(tx Tx) error {
+		// Find existing finding with row lock to prevent race conditions
+		var existingID string
+		findQuery := `
+			SELECT id FROM findings
+			WHERE org_id = $1 AND aws_account_id = $2 AND type = $3
+			AND (
+				(resource_id IS NOT NULL AND resource_id = $4)
+				OR (certificate_id IS NOT NULL AND certificate_id = $5)
+				OR (resource_id IS NULL AND certificate_id IS NULL AND $4 IS NULL AND $5 IS NULL)
+			)
+			LIMIT 1
+			FOR UPDATE
 		`
-		_, err = s.db.Pool().Exec(ctx, updateQuery,
-			existingID,
+
+		err := tx.QueryRow(ctx, findQuery,
+			finding.OrgID,
+			finding.AWSAccountID,
+			string(finding.Type),
+			finding.ResourceID,
+			finding.CertificateID,
+		).Scan(&existingID)
+
+		if err == nil {
+			// Update existing finding
+			updateQuery := `
+				UPDATE findings
+				SET severity = $2, summary = $3, details = $4, status = $5, updated_at = NOW()
+				WHERE id = $1
+			`
+			_, err = tx.Exec(ctx, updateQuery,
+				existingID,
+				string(finding.Severity),
+				finding.Summary,
+				detailsJSON,
+				string(finding.Status),
+			)
+			if err != nil {
+				return fmt.Errorf("update finding: %w", err)
+			}
+			finding.ID = existingID
+			return nil
+		}
+
+		// Insert new finding
+		insertQuery := `
+			INSERT INTO findings (
+				id, org_id, aws_account_id, resource_id, certificate_id,
+				type, severity, summary, details, status, created_at, updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+		`
+
+		_, err = tx.Exec(ctx, insertQuery,
+			finding.ID,
+			finding.OrgID,
+			finding.AWSAccountID,
+			finding.ResourceID,
+			finding.CertificateID,
+			string(finding.Type),
 			string(finding.Severity),
 			finding.Summary,
 			detailsJSON,
 			string(finding.Status),
 		)
 		if err != nil {
-			finish("error")
-			return fmt.Errorf("update finding: %w", err)
+			return fmt.Errorf("insert finding: %w", err)
 		}
-		finding.ID = existingID
-		finish("success")
+
 		return nil
-	}
+	})
 
-	// Insert new finding
-	insertQuery := `
-		INSERT INTO findings (
-			id, org_id, aws_account_id, resource_id, certificate_id,
-			type, severity, summary, details, status, created_at, updated_at
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-	`
-
-	_, err = s.db.Pool().Exec(ctx, insertQuery,
-		finding.ID,
-		finding.OrgID,
-		finding.AWSAccountID,
-		finding.ResourceID,
-		finding.CertificateID,
-		string(finding.Type),
-		string(finding.Severity),
-		finding.Summary,
-		detailsJSON,
-		string(finding.Status),
-	)
 	if err != nil {
 		finish("error")
-		return fmt.Errorf("insert finding: %w", err)
+		return err
 	}
 
 	finish("success")

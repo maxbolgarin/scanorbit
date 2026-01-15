@@ -18,6 +18,9 @@ import {
   TrendingDown,
   AlertCircle,
   CheckCircle,
+  Loader2,
+  Search,
+  Ban,
 } from "lucide-react";
 import type { Scan, AwsAccount, ScanStatus } from "@/types";
 
@@ -30,9 +33,14 @@ const statusConfig: Record<
   ScanStatus,
   { icon: React.ReactNode; label: string; variant: "default" | "secondary" | "destructive" | "outline" }
 > = {
-  pending: {
+  queued: {
     icon: <Clock className="h-4 w-4" />,
-    label: "Pending",
+    label: "Queued",
+    variant: "secondary",
+  },
+  processing: {
+    icon: <Loader2 className="h-4 w-4 animate-spin" />,
+    label: "Processing",
     variant: "secondary",
   },
   running: {
@@ -40,9 +48,19 @@ const statusConfig: Record<
     label: "Running",
     variant: "default",
   },
+  analyzing: {
+    icon: <Search className="h-4 w-4 animate-pulse" />,
+    label: "Analyzing",
+    variant: "default",
+  },
   complete: {
     icon: <CheckCircle2 className="h-4 w-4" />,
     label: "Completed",
+    variant: "outline",
+  },
+  partial: {
+    icon: <AlertTriangle className="h-4 w-4" />,
+    label: "Partial",
     variant: "outline",
   },
   error: {
@@ -50,10 +68,16 @@ const statusConfig: Record<
     label: "Failed",
     variant: "destructive",
   },
+  canceled: {
+    icon: <Ban className="h-4 w-4" />,
+    label: "Canceled",
+    variant: "secondary",
+  },
 };
 
 export function ScanHistoryCard({ scans, accounts }: ScanHistoryCardProps) {
-  const getAccountName = (awsAccountId: string) => {
+  const getAccountName = (awsAccountId: string | null) => {
+    if (!awsAccountId) return "Deleted Account";
     const account = accounts.find((a) => a.id === awsAccountId);
     return account?.name || "Unknown Account";
   };
@@ -111,7 +135,14 @@ export function ScanHistoryCard({ scans, accounts }: ScanHistoryCardProps) {
                 className="flex items-start justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                  <div className={scan.status === "error" ? "text-destructive" : scan.status === "complete" ? "text-green-500" : scan.status === "running" ? "text-primary" : "text-yellow-500"}>
+                  <div className={
+                    scan.status === "error" ? "text-destructive" :
+                    scan.status === "complete" ? "text-green-500" :
+                    scan.status === "partial" ? "text-orange-500" :
+                    scan.status === "running" || scan.status === "analyzing" ? "text-primary" :
+                    scan.status === "canceled" ? "text-muted-foreground" :
+                    "text-yellow-500"
+                  }>
                     {config.icon}
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
@@ -122,7 +153,7 @@ export function ScanHistoryCard({ scans, accounts }: ScanHistoryCardProps) {
                       <Badge variant={config.variant} className="text-xs">
                         {config.label}
                       </Badge>
-                      {scan.status === "complete" && (
+                      {(scan.status === "complete" || scan.status === "partial") && (
                         <>
                           {scan.resourcesDiscovered > 0 && (
                             <Badge variant="secondary" className="text-xs">
@@ -155,6 +186,11 @@ export function ScanHistoryCard({ scans, accounts }: ScanHistoryCardProps) {
                             </Badge>
                           )}
                         </>
+                      )}
+                      {!scan.hasKey && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          archived
+                        </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">

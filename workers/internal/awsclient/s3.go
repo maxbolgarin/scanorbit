@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -42,13 +43,14 @@ func (s *S3Scanner) ScanBuckets(ctx context.Context, cfg aws.Config) ([]*models.
 		raw, _ := json.Marshal(bucket)
 
 		resource := &models.Resource{
-			ResourceID: bucketName,
-			Service:    models.ServiceS3,
-			Region:     region,
-			Name:       bucketName,
-			State:      "active",
-			Tags:       make(map[string]string), // Tags require separate API call
-			Raw:        raw,
+			ResourceID:          bucketName,
+			Service:             models.ServiceS3,
+			Region:              region,
+			Name:                bucketName,
+			State:               "active",
+			Tags:                make(map[string]string), // Tags require separate API call
+			Raw:                 raw,
+			CostEstimateMonthly: pricing.S3DefaultBucketEstimate, // Default estimate without size info
 		}
 		resources = append(resources, resource)
 	}

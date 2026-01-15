@@ -11,6 +11,7 @@ import (
 // DeadLetterJob represents a job that failed after max retries.
 type DeadLetterJob struct {
 	ID        string
+	JobID     string // Reference to original job in jobs table (optional)
 	JobType   string
 	Payload   []byte
 	Error     string
@@ -43,13 +44,20 @@ func (s *deadLetterStore) Create(ctx context.Context, job *DeadLetterJob) error 
 		payload = []byte("{}")
 	}
 
+	// Handle optional JobID
+	var jobID interface{}
+	if job.JobID != "" {
+		jobID = job.JobID
+	}
+
 	query := `
-		INSERT INTO dead_letter_jobs (id, job_type, payload, error, retries, created_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
+		INSERT INTO dead_letter_jobs (id, job_id, job_type, payload, error, retries, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 	`
 
 	_, err := s.db.Pool().Exec(ctx, query,
 		job.ID,
+		jobID,
 		job.JobType,
 		payload,
 		job.Error,

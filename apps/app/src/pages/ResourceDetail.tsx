@@ -8,14 +8,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { useResource } from "@/hooks/use-resources";
 import { useFindings } from "@/hooks/use-findings";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { ArrowLeft, ExternalLink, Tag } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
+import {
+  EC2Details,
+  EBSDetails,
+  SecurityGroupDetails,
+  RDSDetails,
+  LambdaDetails,
+  GenericDetails,
+} from "@/components/resources/detail";
+import type { Resource, ServiceType } from "@/types";
 
 // Valid AWS regions whitelist for URL construction security
 const VALID_AWS_REGIONS = new Set([
@@ -31,14 +39,129 @@ const VALID_AWS_REGIONS = new Set([
 ]);
 
 /**
- * Build AWS console URL with validated region to prevent URL injection.
- * Returns null if region is invalid.
+ * Build AWS console URL for a specific resource.
+ * Returns null if region is invalid or URL cannot be built.
  */
-function buildAwsConsoleUrl(region: string | null | undefined): string | null {
-  if (!region || !VALID_AWS_REGIONS.has(region)) {
+function buildAwsConsoleUrl(resource: Resource): string | null {
+  const { region, service, resourceId, name, raw } = resource;
+
+  // IAM and S3 are global services
+  const isGlobalService = ['iam_user', 'iam_role', 'iam_policy', 'iam_access_key', 's3'].includes(service);
+
+  if (!isGlobalService && (!region || !VALID_AWS_REGIONS.has(region))) {
     return null;
   }
-  return `https://${region}.console.aws.amazon.com`;
+
+  // URL-encode resource identifiers for safety
+  const encode = encodeURIComponent;
+
+  switch (service) {
+    case 'ec2':
+      return `https://${region}.console.aws.amazon.com/ec2/home?region=${region}#InstanceDetails:instanceId=${encode(resourceId)}`;
+
+    case 'ebs':
+      return `https://${region}.console.aws.amazon.com/ec2/home?region=${region}#VolumeDetails:volumeId=${encode(resourceId)}`;
+
+    case 'security_group':
+      return `https://${region}.console.aws.amazon.com/ec2/home?region=${region}#SecurityGroup:groupId=${encode(resourceId)}`;
+
+    case 'eip':
+      // EIP resourceId is typically the allocation ID
+      return `https://${region}.console.aws.amazon.com/ec2/home?region=${region}#ElasticIpDetails:AllocationId=${encode(resourceId)}`;
+
+    case 'rds':
+    case 'rds_snapshot': {
+      // RDS uses DB identifier from raw data or name
+      const dbId = (raw as Record<string, unknown>)?.DBInstanceIdentifier ||
+                   (raw as Record<string, unknown>)?.DBSnapshotIdentifier ||
+                   name || resourceId;
+      return `https://${region}.console.aws.amazon.com/rds/home?region=${region}#database:id=${encode(String(dbId))}`;
+    }
+
+    case 'lambda': {
+      // Lambda uses function name
+      const funcName = (raw as Record<string, unknown>)?.FunctionName || name || resourceId;
+      return `https://${region}.console.aws.amazon.com/lambda/home?region=${region}#/functions/${encode(String(funcName))}`;
+    }
+
+    case 's3':
+      // S3 is global, bucket name is the resourceId or name
+      return `https://s3.console.aws.amazon.com/s3/buckets/${encode(name || resourceId)}`;
+
+    case 'alb': {
+      // ALB needs the full ARN
+      const arn = (raw as Record<string, unknown>)?.LoadBalancerArn || resourceId;
+      return `https://${region}.console.aws.amazon.com/ec2/home?region=${region}#LoadBalancer:loadBalancerArn=${encode(String(arn))}`;
+    }
+
+    case 'iam_user':
+      return `https://console.aws.amazon.com/iam/home#/users/details/${encode(name || resourceId)}`;
+
+    case 'iam_role':
+      return `https://console.aws.amazon.com/iam/home#/roles/details/${encode(name || resourceId)}`;
+
+    case 'iam_policy':
+      return `https://console.aws.amazon.com/iam/home#/policies`;
+
+    case 'iam_access_key':
+      // Access keys link to the user's security credentials
+      return `https://console.aws.amazon.com/iam/home#/users`;
+
+    case 'kms_key': {
+      const keyId = (raw as Record<string, unknown>)?.KeyId || resourceId;
+      return `https://${region}.console.aws.amazon.com/kms/home?region=${region}#/kms/keys/${encode(String(keyId))}`;
+    }
+
+    case 'secret': {
+      const secretName = (raw as Record<string, unknown>)?.Name || name || resourceId;
+      return `https://${region}.console.aws.amazon.com/secretsmanager/secret?name=${encode(String(secretName))}&region=${region}`;
+    }
+
+    case 'cloudwatch_logs': {
+      const logGroupName = (raw as Record<string, unknown>)?.logGroupName || name || resourceId;
+      // CloudWatch log group names need special encoding (replace / with $252F)
+      const encodedName = encode(String(logGroupName)).replace(/%2F/g, '$252F');
+      return `https://${region}.console.aws.amazon.com/cloudwatch/home?region=${region}#logsV2:log-groups/log-group/${encodedName}`;
+    }
+
+    case 'cloudwatch_alarm': {
+      const alarmName = (raw as Record<string, unknown>)?.AlarmName || name || resourceId;
+      return `https://${region}.console.aws.amazon.com/cloudwatch/home?region=${region}#alarmsV2:alarm/${encode(String(alarmName))}`;
+    }
+
+    case 'acm': {
+      // ACM certificate
+      const certArn = (raw as Record<string, unknown>)?.CertificateArn || resourceId;
+      return `https://${region}.console.aws.amazon.com/acm/home?region=${region}#/certificates/${encode(String(certArn))}`;
+    }
+
+    default:
+      // Fallback to region console home
+      if (region && VALID_AWS_REGIONS.has(region)) {
+        return `https://${region}.console.aws.amazon.com/console/home?region=${region}`;
+      }
+      return null;
+  }
+}
+
+/**
+ * Get the service-specific detail component for a resource type.
+ */
+function getServiceDetailComponent(service: ServiceType): React.ComponentType<{ resource: Resource }> {
+  switch (service) {
+    case 'ec2':
+      return EC2Details;
+    case 'ebs':
+      return EBSDetails;
+    case 'security_group':
+      return SecurityGroupDetails;
+    case 'rds':
+      return RDSDetails;
+    case 'lambda':
+      return LambdaDetails;
+    default:
+      return GenericDetails;
+  }
 }
 
 export default function ResourceDetail() {
@@ -73,6 +196,8 @@ export default function ResourceDetail() {
     );
   }
 
+  const DetailComponent = getServiceDetailComponent(resource.service);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -90,125 +215,104 @@ export default function ResourceDetail() {
           <div className="flex items-center gap-3">
             <ServiceIcon service={resource.service} className="h-8 w-8" />
             <div>
-              <h1 className="text-2xl font-bold">{resource.name}</h1>
+              <h1 className="text-2xl font-bold">{resource.name || resource.resourceId}</h1>
               <p className="text-sm text-muted-foreground">
-                {getServiceLabel(resource.service)} • {resource.region}
+                {getServiceLabel(resource.service)} • {resource.region || 'Global'}
               </p>
             </div>
           </div>
         </div>
-        {buildAwsConsoleUrl(resource.region) && (
-          <Button variant="outline" asChild>
-            <a
-              href={buildAwsConsoleUrl(resource.region)!}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open in AWS
-            </a>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm">
+            {resource.state || 'Unknown'}
+          </Badge>
+          {buildAwsConsoleUrl(resource) && (
+            <Button variant="outline" asChild>
+              <a
+                href={buildAwsConsoleUrl(resource)!}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open in AWS
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Quick Stats */}
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm font-medium text-muted-foreground">Resource ID</div>
+            <p className="mt-1 break-all font-mono text-sm">{resource.resourceId}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm font-medium text-muted-foreground">Region</div>
+            <p className="mt-1">{resource.region || 'Global'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm font-medium text-muted-foreground">Est. Monthly Cost</div>
+            <p className="mt-1 text-lg font-semibold">
+              {resource.costEstimateMonthly
+                ? formatCurrency(parseFloat(resource.costEstimateMonthly))
+                : "Free"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm font-medium text-muted-foreground">Last Seen</div>
+            <p className="mt-1">{formatDateTime(resource.lastSeenAt)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Info */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Resource Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Resource ID
-                </p>
-                <p className="mt-1 break-all font-mono text-sm">
-                  {resource.resourceId}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Region</p>
-                <p className="mt-1">{resource.region}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">State</p>
-                <Badge className="mt-1" variant="secondary">
-                  {resource.state}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Est. Monthly Cost
-                </p>
-                <p className="mt-1">
-                  {resource.costEstimateMonthly
-                    ? formatCurrency(parseFloat(resource.costEstimateMonthly))
-                    : "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Last Seen
-                </p>
-                <p className="mt-1">{formatDateTime(resource.lastSeenAt)}</p>
-              </div>
-            </div>
+        {/* Service-Specific Details */}
+        <div className="lg:col-span-2">
+          <DetailComponent resource={resource} />
+        </div>
 
-            <Separator />
-
-            {/* Tags */}
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Tag className="h-4 w-4" />
-                Tags
-              </div>
-              {Object.keys(resource.tags).length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(resource.tags).map(([key, value]) => (
-                    <Badge key={key} variant="outline">
-                      {key}: {value}
-                    </Badge>
+        {/* Sidebar - Related Findings */}
+        <div>
+          <Card className="sticky top-6">
+            <CardHeader>
+              <CardTitle className="text-base">Related Findings</CardTitle>
+              <CardDescription>
+                Open issues for this resource
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resourceFindings && resourceFindings.length > 0 ? (
+                <div className="space-y-3">
+                  {resourceFindings.map((finding) => (
+                    <div
+                      key={finding.id}
+                      className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                      onClick={() => navigate(`/findings?id=${finding.id}`)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <SeverityBadge severity={finding.severity} />
+                      </div>
+                      <p className="mt-1 text-sm font-medium">{finding.summary}</p>
+                    </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No tags</p>
+                <p className="text-sm text-muted-foreground">
+                  No open findings for this resource
+                </p>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Related Findings */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Related Findings</CardTitle>
-            <CardDescription>
-              Open issues for this resource
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {resourceFindings && resourceFindings.length > 0 ? (
-              <div className="space-y-3">
-                {resourceFindings.map((finding) => (
-                  <div
-                    key={finding.id}
-                    className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => navigate(`/findings?id=${finding.id}`)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <SeverityBadge severity={finding.severity} />
-                    </div>
-                    <p className="mt-1 text-sm font-medium">{finding.summary}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No open findings for this resource
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

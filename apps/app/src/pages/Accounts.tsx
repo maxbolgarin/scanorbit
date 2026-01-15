@@ -125,11 +125,26 @@ export default function Accounts() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Disconnect AWS Account?</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to disconnect{" "}
-              <strong>{disconnectAccountData?.name}</strong> (
-              {disconnectAccountData?.awsAccountId})? This will remove all
-              associated resources and findings from ScanOrbit.
+            <DialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Are you sure you want to disconnect{" "}
+                  <strong>{disconnectAccountData?.name}</strong> (
+                  {disconnectAccountData?.awsAccountId})?
+                </p>
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
+                  <p className="font-medium text-destructive">This action will permanently delete:</p>
+                  <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
+                    <li>All scan history for this account</li>
+                    <li>All discovered resources</li>
+                    <li>All security findings</li>
+                    <li>All analysis results</li>
+                  </ul>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone.
+                </p>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -140,7 +155,7 @@ export default function Accounts() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDisconnect}>
-              Disconnect
+              Disconnect Account
             </Button>
           </DialogFooter>
         </DialogContent>

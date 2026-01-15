@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import type { Resource } from "@/types";
 import {
   ChevronRight,
@@ -28,6 +29,8 @@ import {
 interface ResourcesTableAdvancedProps {
   resources: Resource[];
   isLoading?: boolean;
+  initialSortField?: SortField;
+  initialSortDirection?: SortDirection;
 }
 
 type SortField = "name" | "service" | "region" | "state" | "cost" | "lastSeen";
@@ -44,13 +47,34 @@ const stateColors: Record<string, "success" | "warning" | "secondary" | "destruc
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-export function ResourcesTableAdvanced({ resources, isLoading }: ResourcesTableAdvancedProps) {
+export function ResourcesTableAdvanced({
+  resources,
+  isLoading,
+  initialSortField,
+  initialSortDirection,
+}: ResourcesTableAdvancedProps) {
   const navigate = useNavigate();
-  const [sortField, setSortField] = useState<SortField>("lastSeen");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortField, setSortField] = useLocalStorage<SortField>(
+    "resources:sortField",
+    initialSortField ?? "lastSeen"
+  );
+  const [sortDirection, setSortDirection] = useLocalStorage<SortDirection>(
+    "resources:sortDirection",
+    initialSortDirection ?? "desc"
+  );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useLocalStorage<number>("resources:pageSize", 25);
+
+  // Apply initial sort values when they change (from external trigger like stats card click)
+  useEffect(() => {
+    if (initialSortField) {
+      setSortField(initialSortField);
+    }
+    if (initialSortDirection) {
+      setSortDirection(initialSortDirection);
+    }
+  }, [initialSortField, initialSortDirection, setSortField, setSortDirection]);
 
   // Sort resources
   const sortedResources = useMemo(() => {

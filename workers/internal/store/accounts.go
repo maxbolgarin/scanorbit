@@ -50,6 +50,23 @@ func (s *accountStore) GetByID(ctx context.Context, id string) (*AWSAccount, err
 	return &account, nil
 }
 
+// Exists checks if an AWS account exists by ID.
+func (s *accountStore) Exists(ctx context.Context, id string) (bool, error) {
+	finish := metrics.TrackDBQuery("select", "aws_accounts")
+
+	query := `SELECT EXISTS(SELECT 1 FROM aws_accounts WHERE id = $1)`
+
+	var exists bool
+	err := s.db.Pool().QueryRow(ctx, query, id).Scan(&exists)
+	if err != nil {
+		finish("error")
+		return false, fmt.Errorf("check account exists: %w", err)
+	}
+
+	finish("success")
+	return exists, nil
+}
+
 // UpdateLastScanAt updates the last scan timestamp for an account.
 func (s *accountStore) UpdateLastScanAt(ctx context.Context, id string, scannedAt time.Time) error {
 	finish := metrics.TrackDBQuery("update", "aws_accounts")

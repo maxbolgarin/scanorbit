@@ -150,10 +150,12 @@ func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, han
 
 		// Parse envelope to get retry count
 		var envelope jobEnvelope
-		if err := json.Unmarshal([]byte(result[1]), &envelope); err != nil {
-			// Fallback for old format without envelope
+		rawData := []byte(result[1])
+		if err := json.Unmarshal(rawData, &envelope); err != nil || len(envelope.Payload) == 0 {
+			// Fallback for plain JSON format (from API) or old format without envelope
+			// If unmarshal succeeded but Payload is empty, the JSON wasn't an envelope
 			envelope = jobEnvelope{
-				Payload:    []byte(result[1]),
+				Payload:    rawData,
 				RetryCount: 0,
 			}
 		}

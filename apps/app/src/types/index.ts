@@ -64,6 +64,34 @@ export type ServiceType =
   | "secret"
   | "kms_key";
 
+// Free services (no direct monthly cost)
+export const FREE_SERVICES: ServiceType[] = [
+  "iam_user",
+  "iam_role",
+  "iam_policy",
+  "iam_access_key",
+  "security_group",
+];
+
+// Paid services (incur direct costs)
+export const PAID_SERVICES: ServiceType[] = [
+  "ec2",
+  "ebs",
+  "eip",
+  "rds",
+  "rds_snapshot",
+  "s3",
+  "alb",
+  "acm",
+  "lambda",
+  "cloudwatch_logs",
+  "cloudwatch_alarm",
+  "secret",
+  "kms_key",
+];
+
+export type CostFilterType = "all" | "paid" | "free";
+
 export type ResourceState = "running" | "stopped" | "available" | "in-use" | "active" | "inactive";
 
 export interface Resource {
@@ -158,13 +186,30 @@ export interface Finding {
 }
 
 // Scans
-export type ScanStatus = "pending" | "running" | "complete" | "error";
+export type ScanStatus =
+  | "queued"
+  | "processing"
+  | "running"
+  | "analyzing"
+  | "complete"
+  | "partial"
+  | "error"
+  | "canceled";
+
+// Active scan statuses (in progress)
+export const ACTIVE_SCAN_STATUSES: ScanStatus[] = [
+  "queued",
+  "processing",
+  "running",
+  "analyzing",
+];
 
 export interface Scan {
   id: string;
   orgId: string;
-  awsAccountId: string;
+  awsAccountId: string | null; // Nullable when account is deleted
   status: ScanStatus;
+  hasKey: boolean; // false when associated AWS account is deleted
   startedAt: string | null;
   completedAt: string | null;
   resourcesDiscovered: number;
@@ -232,6 +277,7 @@ export interface ResourceFilters {
   region?: string;
   awsAccountId?: string;
   state?: string;
+  costFilter?: CostFilterType;
   page?: number;
   limit?: number;
 }
@@ -253,6 +299,7 @@ export interface ResourceStats {
   byService: Record<string, number>;
   byRegion: Record<string, number>;
   byState: Record<string, number>;
+  costByService?: Record<string, { count: number; totalCost: number }>;
 }
 
 export interface FindingStats {

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { FindingStatusBadge } from "@/components/shared/StatusBadge";
 import { formatRelativeTime, formatCurrency } from "@/lib/utils";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import type { Finding } from "@/types";
 import {
   ChevronRight,
@@ -73,11 +74,11 @@ export function FindingsTableAdvanced({
   isLoading,
   onBulkAction,
 }: FindingsTableAdvancedProps) {
-  const [sortField, setSortField] = useState<SortField>("severity");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortField, setSortField] = useLocalStorage<SortField>("findings:sortField", "severity");
+  const [sortDirection, setSortDirection] = useLocalStorage<SortDirection>("findings:sortDirection", "asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useLocalStorage<number>("findings:pageSize", 25);
 
   // Sort findings
   const sortedFindings = useMemo(() => {

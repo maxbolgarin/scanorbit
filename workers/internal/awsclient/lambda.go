@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -66,6 +67,9 @@ func (s *LambdaScanner) ScanFunctions(ctx context.Context, cfg aws.Config, regio
 				"ephemeral_storage":  fn.EphemeralStorage,
 			})
 			r.Raw = raw
+
+			// Calculate Lambda cost based on memory size
+			r.CostEstimateMonthly = pricing.LambdaEstimateCost(int(aws.ToInt32(fn.MemorySize)))
 
 			resources = append(resources, r)
 		}

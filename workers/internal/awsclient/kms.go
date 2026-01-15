@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -109,6 +110,9 @@ func (s *KMSScanner) ScanKeys(ctx context.Context, cfg aws.Config, region string
 
 			raw, _ := json.Marshal(rawData)
 			r.Raw = raw
+
+			// KMS customer managed keys have a monthly cost
+			r.CostEstimateMonthly = pricing.KMSKeyPerMonth
 
 			resources = append(resources, r)
 		}

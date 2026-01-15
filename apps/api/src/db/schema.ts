@@ -95,8 +95,9 @@ export const awsAccountsRelations = relations(awsAccounts, ({ one, many }) => ({
 export const scans = pgTable('scans', {
   id: uuid('id').primaryKey().defaultRandom(),
   orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
-  awsAccountId: uuid('aws_account_id').notNull().references(() => awsAccounts.id, { onDelete: 'cascade' }),
-  status: varchar('status', { length: 50 }).default('pending').notNull(), // 'pending', 'running', 'complete', 'error'
+  awsAccountId: uuid('aws_account_id').references(() => awsAccounts.id, { onDelete: 'set null' }), // Nullable - SET NULL on account deletion
+  status: varchar('status', { length: 50 }).default('queued').notNull(), // 'queued', 'processing', 'running', 'analyzing', 'complete', 'partial', 'error', 'canceled'
+  hasKey: boolean('has_key').default(true).notNull(), // false when associated AWS account is deleted
   startedAt: timestamp('started_at'),
   completedAt: timestamp('completed_at'),
   resourcesDiscovered: integer('resources_discovered').default(0).notNull(),
@@ -109,6 +110,7 @@ export const scans = pgTable('scans', {
 }, (table) => [
   index('scans_org_id_idx').on(table.orgId),
   index('scans_aws_account_id_idx').on(table.awsAccountId),
+  index('scans_has_key_idx').on(table.hasKey),
 ]);
 
 export const scansRelations = relations(scans, ({ one }) => ({
@@ -235,6 +237,7 @@ export const findingsRelations = relations(findings, ({ one }) => ({
 // Jobs (for background workers)
 export const jobs = pgTable('jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
+  scanId: uuid('scan_id').references(() => scans.id, { onDelete: 'cascade' }), // Links job to scan (nullable for non-scan jobs)
   type: varchar('type', { length: 50 }).notNull(), // 'scan_account', 'analyze_orphans', 'analyze_ssl', 'analyze_residency', 'analyze_security', 'analyze_cost', 'analyze_tagging', 'analyze_iam'
   payload: jsonb('payload').notNull(),
   status: varchar('status', { length: 50 }).default('queued').notNull(), // 'queued', 'running', 'complete', 'error'
@@ -246,11 +249,13 @@ export const jobs = pgTable('jobs', {
 }, (table) => [
   index('jobs_status_idx').on(table.status),
   index('jobs_type_idx').on(table.type),
+  index('jobs_scan_id_idx').on(table.scanId),
 ]);
 
 // Dead Letter Jobs (jobs that failed after max retries)
 export const deadLetterJobs = pgTable('dead_letter_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
+  jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'set null' }), // Reference to original job for traceability
   jobType: varchar('job_type', { length: 50 }).notNull(),
   payload: jsonb('payload').notNull(),
   error: text('error').notNull(),
@@ -259,6 +264,7 @@ export const deadLetterJobs = pgTable('dead_letter_jobs', {
 }, (table) => [
   index('dead_letter_jobs_job_type_idx').on(table.jobType),
   index('dead_letter_jobs_created_at_idx').on(table.createdAt),
+  index('dead_letter_jobs_job_id_idx').on(table.jobId),
 ]);
 
 // Consent Logs (GDPR compliance)

@@ -18,9 +18,26 @@ import {
 interface SecurityHealthScoreProps {
   summary: DashboardSummary | undefined;
   isLoading?: boolean;
+  hasAccounts?: boolean;
+  hasScanInProgress?: boolean;
 }
 
-export function SecurityHealthScore({ summary, isLoading }: SecurityHealthScoreProps) {
+export function SecurityHealthScore({ summary, isLoading, hasAccounts, hasScanInProgress }: SecurityHealthScoreProps) {
+  // Don't show if no accounts connected
+  if (!hasAccounts) {
+    return null;
+  }
+
+  // Don't show if scan is in progress and we have no data yet
+  if (hasScanInProgress && (!summary || summary.totalResources === 0)) {
+    return null;
+  }
+
+  // Don't show if we have no resources (no completed scan)
+  if (!isLoading && (!summary || summary.totalResources === 0)) {
+    return null;
+  }
+
   if (isLoading) {
     return (
       <Card className="animate-pulse">

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -13,6 +14,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AccountStatusBadge } from "@/components/shared/StatusBadge";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { formatRelativeTime } from "@/lib/utils";
@@ -34,6 +43,15 @@ export function AccountsTable({
   onDisconnect,
   rescanningId,
 }: AccountsTableProps) {
+  const [rescanAccount, setRescanAccount] = useState<AwsAccount | null>(null);
+
+  const handleRescanConfirm = () => {
+    if (rescanAccount) {
+      onRescan(rescanAccount.id);
+      setRescanAccount(null);
+    }
+  };
+
   return (
     <div className="rounded-lg border">
       <Table>
@@ -66,7 +84,7 @@ export function AccountsTable({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onRescan(account.id)}
+                    onClick={() => setRescanAccount(account)}
                     disabled={rescanningId === account.id || account.status !== "ok"}
                   >
                     {rescanningId === account.id ? (
@@ -104,6 +122,29 @@ export function AccountsTable({
           ))}
         </TableBody>
       </Table>
+
+      {/* Rescan confirmation dialog */}
+      <Dialog open={!!rescanAccount} onOpenChange={(open) => !open && setRescanAccount(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Rescan</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to rescan{" "}
+              <span className="font-medium text-foreground">{rescanAccount?.name}</span>?
+              This will scan all resources in the AWS account and may take a few minutes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescanAccount(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRescanConfirm}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Start Rescan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

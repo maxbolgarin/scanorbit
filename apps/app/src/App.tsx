@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuthStore } from "@/stores/auth-store";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { PublicRoute } from "@/components/auth/PublicRoute";
 import { Layout } from "@/components/common/Layout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -31,7 +32,7 @@ function PageLoader() {
 }
 
 function App() {
-  const { isAuthenticated, hasOrg } = useAuthStore();
+  const { hasOrg } = useAuthStore();
 
   return (
     <ErrorBoundary>
@@ -41,21 +42,17 @@ function App() {
           <Route
             path="/login"
             element={
-              isAuthenticated ? (
-                <Navigate to={hasOrg ? "/dashboard" : "/onboarding/org"} replace />
-              ) : (
+              <PublicRoute>
                 <Login />
-              )
+              </PublicRoute>
             }
           />
           <Route
             path="/signup"
             element={
-              isAuthenticated && hasOrg ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
+              <PublicRoute>
                 <Signup />
-              )
+              </PublicRoute>
             }
           />
 

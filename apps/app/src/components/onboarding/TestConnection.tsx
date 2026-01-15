@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import type { TestConnectionResult } from "@/types";
+
+const TEST_COOLDOWN_SECONDS = 10;
 
 const roleSchema = z.object({
   roleArn: z
@@ -38,6 +40,7 @@ export function TestConnection({
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   const {
     register,
@@ -53,8 +56,17 @@ export function TestConnection({
 
   const roleArn = watch("roleArn");
 
-  const handleTest = async () => {
-    if (!roleArn || errors.roleArn) return;
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
+
+  const handleTest = useCallback(async () => {
+    if (!roleArn || errors.roleArn || cooldownRemaining > 0) return;
 
     setIsTesting(true);
     setTestResult(null);
@@ -63,12 +75,25 @@ export function TestConnection({
     try {
       const result = await onTest(roleArn);
       setTestResult(result);
+      // Only start cooldown if test failed (allow retry)
+      if (!result.success) {
+        setCooldownRemaining(TEST_COOLDOWN_SECONDS);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Test failed");
+      setCooldownRemaining(TEST_COOLDOWN_SECONDS);
     } finally {
       setIsTesting(false);
     }
-  };
+  }, [roleArn, errors.roleArn, cooldownRemaining, onTest]);
+
+  const isTestDisabled =
+    isLoading ||
+    isTesting ||
+    !roleArn ||
+    !!errors.roleArn ||
+    testResult?.success ||
+    cooldownRemaining > 0;
 
   const handleFinish = async (data: RoleFormData) => {
     if (!testResult?.success) {
@@ -104,18 +129,35 @@ export function TestConnection({
         </p>
       </div>
 
+      {/* Info about role propagation - only show before connection is verified */}
+      {!testResult?.success && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <div>
+            <p>
+              <strong>Note:</strong> IAM roles can take up to 1 minute to propagate in AWS.
+              If the test fails, wait a moment and try again.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Button
         type="button"
         variant="secondary"
         className="w-full"
         onClick={handleTest}
-        disabled={isLoading || isTesting || !roleArn || !!errors.roleArn}
+        disabled={isTestDisabled}
       >
         {isTesting ? (
           <>
             <LoadingSpinner size="sm" className="mr-2" />
             Testing connection...
           </>
+        ) : cooldownRemaining > 0 ? (
+          `Retry in ${cooldownRemaining}s`
+        ) : testResult?.success ? (
+          "Connection Verified"
         ) : (
           "Test Connection"
         )}

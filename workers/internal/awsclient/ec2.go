@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -44,14 +45,21 @@ func (s *EC2Scanner) ScanInstances(ctx context.Context, cfg aws.Config, region s
 			for _, instance := range reservation.Instances {
 				raw, _ := json.Marshal(instance)
 
+				// Calculate cost - only running instances incur compute cost
+				var cost float64
+				if instance.State.Name == types.InstanceStateNameRunning {
+					cost = pricing.GetEC2Cost(string(instance.InstanceType))
+				}
+
 				resource := &models.Resource{
-					ResourceID: aws.ToString(instance.InstanceId),
-					Service:    models.ServiceEC2,
-					Region:     region,
-					Name:       getTagValue(instance.Tags, "Name"),
-					State:      string(instance.State.Name),
-					Tags:       tagsToMap(instance.Tags),
-					Raw:        raw,
+					ResourceID:          aws.ToString(instance.InstanceId),
+					Service:             models.ServiceEC2,
+					Region:              region,
+					Name:                getTagValue(instance.Tags, "Name"),
+					State:               string(instance.State.Name),
+					Tags:                tagsToMap(instance.Tags),
+					Raw:                 raw,
+					CostEstimateMonthly: cost,
 				}
 				resources = append(resources, resource)
 			}
@@ -106,14 +114,18 @@ func (s *EC2Scanner) ScanVolumes(ctx context.Context, cfg aws.Config, region str
 
 			raw, _ := json.Marshal(rawData)
 
+			// Calculate EBS cost based on volume type and size
+			cost := pricing.GetEBSCost(string(volume.VolumeType), int(aws.ToInt32(volume.Size)))
+
 			resource := &models.Resource{
-				ResourceID: aws.ToString(volume.VolumeId),
-				Service:    models.ServiceEBS,
-				Region:     region,
-				Name:       getTagValue(volume.Tags, "Name"),
-				State:      state,
-				Tags:       tagsToMap(volume.Tags),
-				Raw:        raw,
+				ResourceID:          aws.ToString(volume.VolumeId),
+				Service:             models.ServiceEBS,
+				Region:              region,
+				Name:                getTagValue(volume.Tags, "Name"),
+				State:               state,
+				Tags:                tagsToMap(volume.Tags),
+				Raw:                 raw,
+				CostEstimateMonthly: cost,
 			}
 			resources = append(resources, resource)
 		}
@@ -140,18 +152,26 @@ func (s *EC2Scanner) ScanEIPs(ctx context.Context, cfg aws.Config, region string
 
 		// Determine state based on association
 		state := "associated"
-		if address.AssociationId == nil && address.InstanceId == nil {
+		isUnassociated := address.AssociationId == nil && address.InstanceId == nil
+		if isUnassociated {
 			state = "unassociated"
 		}
 
+		// EIPs cost money when unassociated
+		var cost float64
+		if isUnassociated {
+			cost = pricing.EIPUnattachedCost
+		}
+
 		resource := &models.Resource{
-			ResourceID: aws.ToString(address.AllocationId),
-			Service:    models.ServiceEIP,
-			Region:     region,
-			Name:       aws.ToString(address.PublicIp),
-			State:      state,
-			Tags:       tagsToMap(address.Tags),
-			Raw:        raw,
+			ResourceID:          aws.ToString(address.AllocationId),
+			Service:             models.ServiceEIP,
+			Region:              region,
+			Name:                aws.ToString(address.PublicIp),
+			State:               state,
+			Tags:                tagsToMap(address.Tags),
+			Raw:                 raw,
+			CostEstimateMonthly: cost,
 		}
 		resources = append(resources, resource)
 	}

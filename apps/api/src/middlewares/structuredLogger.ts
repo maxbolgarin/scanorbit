@@ -51,6 +51,6 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
   } else if (status >= 400) {
     reqLogger.warn('request completed', logData);
   } else {
-    reqLogger.info('request completed', logData);
+    reqLogger.debug('request completed', logData);
   }
 }

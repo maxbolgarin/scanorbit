@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -74,6 +75,9 @@ func (s *SecretsManagerScanner) ScanSecrets(ctx context.Context, cfg aws.Config,
 			}
 			raw, _ := json.Marshal(rawData)
 			r.Raw = raw
+
+			// Secrets Manager charges per secret per month
+			r.CostEstimateMonthly = pricing.SecretsManagerPerSecret
 
 			resources = append(resources, r)
 		}

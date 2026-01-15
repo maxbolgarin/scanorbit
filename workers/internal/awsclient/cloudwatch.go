@@ -9,6 +9,7 @@ import (
 	cwtypes "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -64,6 +65,9 @@ func (s *CloudWatchScanner) ScanLogGroups(ctx context.Context, cfg aws.Config, r
 				"data_protection":   lg.DataProtectionStatus,
 			})
 			r.Raw = raw
+
+			// Calculate cost based on stored bytes
+			r.CostEstimateMonthly = pricing.GetCloudWatchLogsCost(aws.ToInt64(lg.StoredBytes))
 
 			resources = append(resources, r)
 		}
@@ -129,6 +133,9 @@ func (s *CloudWatchScanner) ScanAlarms(ctx context.Context, cfg aws.Config, regi
 				"actions_enabled":     aws.ToBool(alarm.ActionsEnabled),
 			})
 			r.Raw = raw
+
+			// CloudWatch alarms have a small monthly cost
+			r.CostEstimateMonthly = pricing.CloudWatchAlarmCost
 
 			resources = append(resources, r)
 		}

@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -35,8 +35,8 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  handleReset = (): void => {
-    this.setState({ hasError: false, error: null });
+  handleGoToDashboard = (): void => {
+    window.location.href = "/";
   };
 
   render(): ReactNode {
@@ -58,8 +58,9 @@ export class ErrorBoundary extends Component<Props, State> {
               An unexpected error occurred. Please try refreshing the page.
             </p>
             <div className="flex justify-center gap-3">
-              <Button variant="outline" onClick={this.handleReset}>
-                Try Again
+              <Button variant="outline" onClick={this.handleGoToDashboard}>
+                <Home className="mr-2 h-4 w-4" />
+                Go to Dashboard
               </Button>
               <Button onClick={this.handleReload}>
                 <RefreshCw className="mr-2 h-4 w-4" />

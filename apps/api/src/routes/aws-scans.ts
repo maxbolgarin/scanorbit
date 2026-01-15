@@ -21,7 +21,7 @@ awsScansRoute.get('/active', async (c) => {
   return c.json({ data: activeScans });
 });
 
-// GET /aws/scans/recent - Get recent scans (all statuses)
+// GET /aws/scans/recent - Get recent scans (filters out archived by default)
 awsScansRoute.get('/recent', async (c) => {
   const orgId = c.get('orgId');
 
@@ -32,7 +32,10 @@ awsScansRoute.get('/recent', async (c) => {
   const limitRaw = parseInt(c.req.query('limit') || '10', 10);
   // Validate limit: must be between 1 and 100, default to 10 if invalid
   const limit = Math.min(Math.max(isNaN(limitRaw) ? 10 : limitRaw, 1), 100);
-  const recentScans = await awsAccountService.getRecentScans(orgId, limit);
+  // Parse includeArchived: includes canceled scans and scans without a key
+  const includeArchived = c.req.query('includeArchived') === 'true';
+
+  const recentScans = await awsAccountService.getRecentScans(orgId, limit, includeArchived);
   return c.json({ data: recentScans });
 });
 

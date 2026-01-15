@@ -41,11 +41,14 @@ export interface PaginationParams {
   limit?: number;
 }
 
+export type CostFilterType = 'all' | 'paid' | 'free';
+
 export interface ResourceFilters extends PaginationParams {
   awsAccountId?: string;
   region?: string;
   service?: string;
   state?: string;
+  costFilter?: CostFilterType;
 }
 
 export interface FindingFilters extends PaginationParams {
@@ -70,12 +73,32 @@ export const AwsAccountStatus = {
 export type AwsAccountStatus = (typeof AwsAccountStatus)[keyof typeof AwsAccountStatus];
 
 export const ScanStatus = {
-  PENDING: 'pending',
+  QUEUED: 'queued',
+  PROCESSING: 'processing',
   RUNNING: 'running',
+  ANALYZING: 'analyzing',
   COMPLETE: 'complete',
+  PARTIAL: 'partial',
   ERROR: 'error',
+  CANCELED: 'canceled',
 } as const;
 export type ScanStatus = (typeof ScanStatus)[keyof typeof ScanStatus];
+
+// Active scan statuses (in progress)
+export const ACTIVE_SCAN_STATUSES: ScanStatus[] = [
+  ScanStatus.QUEUED,
+  ScanStatus.PROCESSING,
+  ScanStatus.RUNNING,
+  ScanStatus.ANALYZING,
+];
+
+// Terminal scan statuses (finished)
+export const TERMINAL_SCAN_STATUSES: ScanStatus[] = [
+  ScanStatus.COMPLETE,
+  ScanStatus.PARTIAL,
+  ScanStatus.ERROR,
+  ScanStatus.CANCELED,
+];
 
 export const FindingType = {
   ORPHANED_VOLUME: 'orphaned_volume',

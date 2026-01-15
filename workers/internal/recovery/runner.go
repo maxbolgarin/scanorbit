@@ -56,42 +56,84 @@ func (r *Runner) Start(ctx context.Context) {
 // RecoverOnce runs a single recovery pass.
 // Returns the number of jobs recovered.
 func (r *Runner) RecoverOnce(ctx context.Context) (int, error) {
-	jobs, err := r.store.FindOrphanedJobs(ctx, r.ageLimit)
+	recovered := 0
+
+	// Recover jobs stuck in 'queued' status
+	queuedJobs, err := r.store.FindOrphanedJobs(ctx, r.ageLimit)
 	if err != nil {
 		return 0, err
 	}
 
-	if len(jobs) == 0 {
-		return 0, nil
-	}
-
-	recovered := 0
-	for _, job := range jobs {
+	for _, job := range queuedJobs {
 		// Re-enqueue to Redis
 		if err := r.queue.Enqueue(ctx, job.Type, job.Payload); err != nil {
 			r.logger.Error().
 				Err(err).
 				Str("job_id", job.ID).
 				Str("job_type", string(job.Type)).
-				Msg("failed to re-enqueue orphaned job")
+				Msg("failed to re-enqueue orphaned queued job")
 			continue
 		}
 
-		// Mark as recovered (resets created_at to prevent re-recovery)
+		// Mark as recovered (sets status to running)
 		if err := r.store.MarkJobRecovered(ctx, job.ID); err != nil {
 			r.logger.Error().
 				Err(err).
 				Str("job_id", job.ID).
-				Msg("failed to mark job as recovered")
+				Msg("failed to mark queued job as recovered")
 			continue
 		}
 
 		r.logger.Debug().
 			Str("job_id", job.ID).
 			Str("job_type", string(job.Type)).
-			Msg("recovered orphaned job")
+			Msg("recovered orphaned queued job")
 
 		recovered++
+	}
+
+	// Recover jobs stuck in 'running' status (worker crashed)
+	runningJobs, err := r.store.FindStuckRunningJobs(ctx, r.ageLimit)
+	if err != nil {
+		r.logger.Error().Err(err).Msg("failed to find stuck running jobs")
+		// Don't return error, we still recovered some jobs
+	} else {
+		for _, job := range runningJobs {
+			// Reset to queued for retry
+			if err := r.store.ResetJobToQueued(ctx, job.ID); err != nil {
+				r.logger.Error().
+					Err(err).
+					Str("job_id", job.ID).
+					Msg("failed to reset stuck running job")
+				continue
+			}
+
+			// Re-enqueue to Redis
+			if err := r.queue.Enqueue(ctx, job.Type, job.Payload); err != nil {
+				r.logger.Error().
+					Err(err).
+					Str("job_id", job.ID).
+					Str("job_type", string(job.Type)).
+					Msg("failed to re-enqueue stuck running job")
+				continue
+			}
+
+			// Mark as recovered (sets status back to running after enqueue)
+			if err := r.store.MarkJobRecovered(ctx, job.ID); err != nil {
+				r.logger.Error().
+					Err(err).
+					Str("job_id", job.ID).
+					Msg("failed to mark running job as recovered")
+				continue
+			}
+
+			r.logger.Debug().
+				Str("job_id", job.ID).
+				Str("job_type", string(job.Type)).
+				Msg("recovered stuck running job")
+
+			recovered++
+		}
 	}
 
 	return recovered, nil

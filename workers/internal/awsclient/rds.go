@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	rdstypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/rs/zerolog"
 )
 
@@ -42,14 +43,21 @@ func (s *RDSScanner) ScanInstances(ctx context.Context, cfg aws.Config, region s
 		for _, instance := range output.DBInstances {
 			raw, _ := json.Marshal(instance)
 
+			// Calculate RDS cost based on instance class and Multi-AZ
+			cost := pricing.GetRDSCost(
+				aws.ToString(instance.DBInstanceClass),
+				aws.ToBool(instance.MultiAZ),
+			)
+
 			resource := &models.Resource{
-				ResourceID: aws.ToString(instance.DBInstanceIdentifier),
-				Service:    models.ServiceRDS,
-				Region:     region,
-				Name:       aws.ToString(instance.DBInstanceIdentifier),
-				State:      aws.ToString(instance.DBInstanceStatus),
-				Tags:       rdsTagsToMap(instance.TagList),
-				Raw:        raw,
+				ResourceID:          aws.ToString(instance.DBInstanceIdentifier),
+				Service:             models.ServiceRDS,
+				Region:              region,
+				Name:                aws.ToString(instance.DBInstanceIdentifier),
+				State:               aws.ToString(instance.DBInstanceStatus),
+				Tags:                rdsTagsToMap(instance.TagList),
+				Raw:                 raw,
+				CostEstimateMonthly: cost,
 			}
 			resources = append(resources, resource)
 		}
@@ -79,14 +87,18 @@ func (s *RDSScanner) ScanSnapshots(ctx context.Context, cfg aws.Config, region s
 		for _, snapshot := range output.DBSnapshots {
 			raw, _ := json.Marshal(snapshot)
 
+			// Calculate snapshot cost based on allocated storage
+			cost := pricing.GetRDSSnapshotCost(int(aws.ToInt32(snapshot.AllocatedStorage)))
+
 			resource := &models.Resource{
-				ResourceID: aws.ToString(snapshot.DBSnapshotIdentifier),
-				Service:    models.ServiceRDSSnapshot,
-				Region:     region,
-				Name:       aws.ToString(snapshot.DBSnapshotIdentifier),
-				State:      aws.ToString(snapshot.Status),
-				Tags:       rdsTagsToMap(snapshot.TagList),
-				Raw:        raw,
+				ResourceID:          aws.ToString(snapshot.DBSnapshotIdentifier),
+				Service:             models.ServiceRDSSnapshot,
+				Region:              region,
+				Name:                aws.ToString(snapshot.DBSnapshotIdentifier),
+				State:               aws.ToString(snapshot.Status),
+				Tags:                rdsTagsToMap(snapshot.TagList),
+				Raw:                 raw,
+				CostEstimateMonthly: cost,
 			}
 			resources = append(resources, resource)
 		}

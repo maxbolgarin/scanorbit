@@ -65,14 +65,31 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		return fmt.Errorf("invalid job payload: %w", err)
 	}
 
+	// Mark job as running in PostgreSQL
+	if job.JobID != "" {
+		if err := o.store.Jobs.MarkRunning(ctx, job.JobID); err != nil {
+			o.logger.Warn().Err(err).Str("job_id", job.JobID).Msg("failed to mark analyzer job as running")
+		}
+	}
+
 	o.logger.Info().
 		Str("analyzer", analyzer.Name()).
+		Str("job_id", job.JobID).
+		Str("scan_id", job.ScanID).
 		Str("account_id", job.AccountID).
 		Str("org_id", job.OrgID).
 		Msg("starting analysis")
 
 	findings, err := analyzer.Analyze(ctx, &job)
 	if err != nil {
+		// Atomically mark job as error and check scan completion
+		scanCompleted, markErr := o.store.FailAnalyzerJob(ctx, job.JobID, job.ScanID, err.Error())
+		if markErr != nil {
+			o.logger.Warn().Err(markErr).Str("job_id", job.JobID).Msg("failed to mark analyzer job as error")
+		} else if scanCompleted {
+			o.logger.Info().Str("scan_id", job.ScanID).Msg("all analyzer jobs complete, scan marked as complete")
+		}
+
 		o.logger.Error().Err(err).
 			Str("analyzer", analyzer.Name()).
 			Str("account_id", job.AccountID).
@@ -98,6 +115,14 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		metrics.FindingsCreated.WithLabelValues(analyzerType, string(f.Severity)).Inc()
 	}
 
+	// Atomically mark job as complete and check scan completion
+	scanCompleted, err := o.store.CompleteAnalyzerJob(ctx, job.JobID, job.ScanID)
+	if err != nil {
+		o.logger.Warn().Err(err).Str("job_id", job.JobID).Msg("failed to complete analyzer job")
+	} else if scanCompleted {
+		o.logger.Info().Str("scan_id", job.ScanID).Msg("all analyzer jobs complete, scan marked as complete")
+	}
+
 	// Track successful completion
 	duration := time.Since(startTime).Seconds()
 	metrics.JobsProcessedTotal.WithLabelValues("analyzer", analyzerType, "success").Inc()
@@ -107,6 +132,7 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 
 	o.logger.Info().
 		Str("analyzer", analyzer.Name()).
+		Str("job_id", job.JobID).
 		Str("account_id", job.AccountID).
 		Int("findings_detected", len(findings)).
 		Int("findings_persisted", persistedCount).

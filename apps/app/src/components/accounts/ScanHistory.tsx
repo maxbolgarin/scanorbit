@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
 import { useScanHistory } from "@/hooks/use-aws-accounts";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { CheckCircle2, Clock, XCircle, PlayCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, PlayCircle, Loader2, Search, AlertTriangle, Ban } from "lucide-react";
 import type { ScanStatus } from "@/types";
 
 interface ScanHistoryProps {
@@ -18,17 +18,25 @@ interface ScanHistoryProps {
 }
 
 const statusIcons: Record<ScanStatus, React.ReactNode> = {
-  pending: <Clock className="h-4 w-4 text-yellow-500" />,
+  queued: <Clock className="h-4 w-4 text-yellow-500" />,
+  processing: <Loader2 className="h-4 w-4 text-yellow-500 animate-spin" />,
   running: <PlayCircle className="h-4 w-4 text-blue-500 animate-pulse" />,
+  analyzing: <Search className="h-4 w-4 text-blue-500 animate-pulse" />,
   complete: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+  partial: <AlertTriangle className="h-4 w-4 text-orange-500" />,
   error: <XCircle className="h-4 w-4 text-red-500" />,
+  canceled: <Ban className="h-4 w-4 text-muted-foreground" />,
 };
 
 const statusLabels: Record<ScanStatus, string> = {
-  pending: "Pending",
+  queued: "Queued",
+  processing: "Processing",
   running: "Running",
+  analyzing: "Analyzing",
   complete: "Completed",
+  partial: "Partial",
   error: "Failed",
+  canceled: "Canceled",
 };
 
 export function ScanHistory({ accountId, accountName, onClose }: ScanHistoryProps) {
@@ -59,7 +67,7 @@ export function ScanHistory({ accountId, accountName, onClose }: ScanHistoryProp
                       <span className="font-medium">
                         {statusLabels[scan.status]}
                       </span>
-                      {scan.status === "complete" && (
+                      {(scan.status === "complete" || scan.status === "partial") && (
                         <Badge variant="secondary" className="text-xs">
                           {scan.resourcesDiscovered} resources
                         </Badge>

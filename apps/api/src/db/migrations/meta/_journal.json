@@ -43,6 +43,27 @@
       "when": 1768146860204,
       "tag": "0005_adorable_the_hood",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768152000000,
+      "tag": "0006_scan_status_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1768297999894,
+      "tag": "0007_clumsy_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1768394279312,
+      "tag": "0008_smart_reptil",
+      "breakpoints": true
     }
   ]
 }

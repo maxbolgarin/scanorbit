@@ -318,9 +318,14 @@ export async function getActiveScans(): Promise<Scan[]> {
   }
 }
 
-export async function getRecentScans(limit: number = 10): Promise<Scan[]> {
+export async function getRecentScans(
+  limit: number = 10,
+  includeArchived: boolean = false
+): Promise<Scan[]> {
   try {
-    const { data } = await api.get<{ data: Scan[] }>(`/aws/scans/recent?limit=${limit}`);
+    const { data } = await api.get<{ data: Scan[] }>(
+      `/aws/scans/recent?limit=${limit}&includeArchived=${includeArchived}`
+    );
     return data.data;
   } catch (error) {
     handleApiError(error);
@@ -338,6 +343,7 @@ export async function getResources(filters?: ResourceFilters): Promise<Paginated
     if (filters?.region) params.set("region", filters.region);
     if (filters?.service) params.set("service", filters.service);
     if (filters?.state) params.set("state", filters.state);
+    if (filters?.costFilter) params.set("costFilter", filters.costFilter);
     if (filters?.page) params.set("page", String(filters.page));
     if (filters?.limit) params.set("limit", String(filters.limit));
 

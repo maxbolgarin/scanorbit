@@ -93,37 +93,65 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		Str("org_id", job.OrgID).
 		Msg("starting account scan")
 
+	// 0. Check if account still exists (may have been deleted while job was queued)
+	exists, err := s.store.Accounts.Exists(ctx, job.AccountID)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("account_id", job.AccountID).Msg("failed to check account existence")
+	}
+	if !exists {
+		s.logger.Warn().Str("account_id", job.AccountID).Msg("account not found, skipping scan (likely deleted)")
+		finishJob("skipped")
+		return nil // Return nil to not retry - account was deleted
+	}
+
 	// 1. Fetch account details
 	account, err := s.store.Accounts.GetByID(ctx, job.AccountID)
 	if err != nil {
 		return fmt.Errorf("get account: %w", err)
 	}
 
-	// 2. Create scan record
-	scan := &store.Scan{
-		ID:           uuid.New().String(),
-		OrgID:        job.OrgID,
-		AWSAccountID: job.AccountID,
-		Status:       "running",
-		StartedAt:    &startedAt,
-	}
-	if err := s.store.Scans.Create(ctx, scan); err != nil {
-		return fmt.Errorf("create scan: %w", err)
+	// 2. Get or create scan record with 'processing' status
+	accountID := job.AccountID
+	var scanID string
+	if job.ScanID != "" {
+		// Use existing scan record from job payload
+		scanID = job.ScanID
+		if err := s.store.Scans.UpdateStatusOnly(ctx, scanID, string(models.ScanStatusProcessing)); err != nil {
+			s.logger.Warn().Err(err).Str("scan_id", scanID).Msg("failed to update scan to processing")
+		}
+	} else {
+		// Backwards compatibility: create new scan record if no scan_id provided
+		scan := &store.Scan{
+			ID:           uuid.New().String(),
+			OrgID:        job.OrgID,
+			AWSAccountID: &accountID,
+			Status:       string(models.ScanStatusProcessing),
+			StartedAt:    &startedAt,
+		}
+		if err := s.store.Scans.Create(ctx, scan); err != nil {
+			return fmt.Errorf("create scan: %w", err)
+		}
+		scanID = scan.ID
 	}
 
 	// 3. Assume role
 	cfg, err := s.awsClient.GetConfigForAccount(ctx, account.RoleARN, account.ExternalID)
 	if err != nil {
-		s.handleScanError(ctx, scan.ID, job.AccountID, err)
+		s.handleScanError(ctx, scanID, job.AccountID, err)
 		finishJob("error")
 		metrics.JobErrors.WithLabelValues("scanner", "scan_account", "assume_role").Inc()
 		return fmt.Errorf("assume role: %w", err)
 	}
 
-	// 4. List enabled regions
+	// 4. Update status to 'running' after successful credential validation
+	if err := s.store.Scans.UpdateStatusOnly(ctx, scanID, string(models.ScanStatusRunning)); err != nil {
+		s.logger.Warn().Err(err).Msg("failed to update scan to running status")
+	}
+
+	// 5. List enabled regions
 	regions, err := s.awsClient.ListEnabledRegions(ctx, cfg)
 	if err != nil {
-		s.handleScanError(ctx, scan.ID, job.AccountID, err)
+		s.handleScanError(ctx, scanID, job.AccountID, err)
 		finishJob("error")
 		metrics.JobErrors.WithLabelValues("scanner", "scan_account", "list_regions").Inc()
 		return fmt.Errorf("list regions: %w", err)
@@ -273,14 +301,9 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		errMsg = fmt.Sprintf("%d scanner(s) failed across regions", partialFailures)
 	}
 
-	if err := s.store.Scans.UpdateStatus(ctx, scan.ID, status, totalResources, errMsg); err != nil {
-		s.logger.Error().Err(err).Msg("failed to update scan status")
-	}
-	if err := s.store.Accounts.UpdateLastScanAt(ctx, job.AccountID, completedAt); err != nil {
-		s.logger.Error().Err(err).Msg("failed to update last_scan_at")
-	}
-	if err := s.store.Accounts.UpdateStatus(ctx, job.AccountID, "ok", ""); err != nil {
-		s.logger.Error().Err(err).Msg("failed to update account status")
+	// Atomically update scan and account status
+	if err := s.store.CompleteScanWithAccount(ctx, scanID, job.AccountID, status, totalResources, errMsg, completedAt); err != nil {
+		s.logger.Error().Err(err).Msg("failed to complete scan with account update")
 	}
 
 	// Track scan completion metrics
@@ -512,12 +535,9 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 	return result
 }
 
-// handleScanError updates scan and account status on error.
+// handleScanError atomically updates scan and account status on error.
 func (s *Scanner) handleScanError(ctx context.Context, scanID, accountID string, err error) {
-	if updateErr := s.store.Scans.UpdateStatus(ctx, scanID, "error", 0, err.Error()); updateErr != nil {
-		s.logger.Error().Err(updateErr).Msg("failed to update scan status")
-	}
-	if updateErr := s.store.Accounts.UpdateStatus(ctx, accountID, "error", err.Error()); updateErr != nil {
-		s.logger.Error().Err(updateErr).Msg("failed to update account status")
+	if updateErr := s.store.FailScanWithAccount(ctx, scanID, accountID, err.Error()); updateErr != nil {
+		s.logger.Error().Err(updateErr).Msg("failed to update scan and account status")
 	}
 }
