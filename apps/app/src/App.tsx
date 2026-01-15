@@ -22,6 +22,7 @@ const Scans = lazy(() => import("@/pages/Scans"));
 const Accounts = lazy(() => import("@/pages/Accounts"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const Profile = lazy(() => import("@/pages/Profile"));
+const InfrastructureMap = lazy(() => import("@/pages/InfrastructureMap"));
 
 function PageLoader() {
   return (
@@ -95,6 +96,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="resources" element={<Resources />} />
             <Route path="resources/:id" element={<ResourceDetail />} />
+            <Route path="infrastructure-map" element={<InfrastructureMap />} />
             <Route path="findings" element={<Findings />} />
             <Route path="scans" element={<Scans />} />
             <Route path="accounts" element={<Accounts />} />

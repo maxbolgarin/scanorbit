@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { useDashboardSummary, useRecommendedActions } from "@/hooks/use-dashboard";
 import { useFindings } from "@/hooks/use-findings";
-import { useAwsAccounts, useTriggerScan, useActiveScans, useRecentScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAwsAccounts, useTriggerScan, useRecentScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";

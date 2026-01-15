@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,6 +22,17 @@ import {
   RDSDetails,
   LambdaDetails,
   GenericDetails,
+  S3Details,
+  ALBDetails,
+  IAMUserDetails,
+  IAMRoleDetails,
+  IAMAccessKeyDetails,
+  KMSKeyDetails,
+  SecretsDetails,
+  CloudWatchLogsDetails,
+  CloudWatchAlarmDetails,
+  EIPDetails,
+  RDSSnapshotDetails,
 } from "@/components/resources/detail";
 import type { Resource, ServiceType } from "@/types";
 
@@ -159,17 +170,59 @@ function getServiceDetailComponent(service: ServiceType): React.ComponentType<{ 
       return RDSDetails;
     case 'lambda':
       return LambdaDetails;
+    case 's3':
+      return S3Details;
+    case 'alb':
+      return ALBDetails;
+    case 'iam_user':
+      return IAMUserDetails;
+    case 'iam_role':
+      return IAMRoleDetails;
+    case 'iam_access_key':
+      return IAMAccessKeyDetails;
+    case 'kms_key':
+      return KMSKeyDetails;
+    case 'secret':
+      return SecretsDetails;
+    case 'cloudwatch_logs':
+      return CloudWatchLogsDetails;
+    case 'cloudwatch_alarm':
+      return CloudWatchAlarmDetails;
+    case 'eip':
+      return EIPDetails;
+    case 'rds_snapshot':
+      return RDSSnapshotDetails;
     default:
       return GenericDetails;
   }
 }
 
+// Type for location state
+interface LocationState {
+  from?: 'infrastructure-map' | 'resources';
+}
+
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: resource, isLoading } = useResource(id || "");
   const { data: findingsResponse } = useFindings();
   const allFindings = findingsResponse?.data || [];
+
+  // Determine back navigation destination based on where user came from
+  const locationState = location.state as LocationState | null;
+  const cameFromMap = locationState?.from === 'infrastructure-map';
+
+  const handleBack = () => {
+    if (cameFromMap) {
+      navigate('/infrastructure-map');
+    } else {
+      navigate('/resources');
+    }
+  };
+
+  const backLabel = cameFromMap ? 'Back to Map' : 'Back to Resources';
 
   // Filter findings for this resource
   const resourceFindings = allFindings.filter(
@@ -188,9 +241,9 @@ export default function ResourceDetail() {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Resource not found</p>
-        <Button variant="outline" onClick={() => navigate("/resources")}>
+        <Button variant="outline" onClick={handleBack}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Resources
+          {backLabel}
         </Button>
       </div>
     );
@@ -207,10 +260,10 @@ export default function ResourceDetail() {
             variant="ghost"
             size="sm"
             className="mb-2"
-            onClick={() => navigate("/resources")}
+            onClick={handleBack}
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Back
+            {backLabel}
           </Button>
           <div className="flex items-center gap-3">
             <ServiceIcon service={resource.service} className="h-8 w-8" />

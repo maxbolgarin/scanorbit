@@ -26,11 +26,7 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
   try {
     await next();
   } catch (error) {
-    // Log error
-    reqLogger.error('request error', error, {
-      method: c.req.method,
-      path: c.req.path,
-    });
+    // Re-throw unhandled errors - error handler will process them
     throw error;
   }
 
@@ -38,18 +34,47 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
   const duration = Date.now() - start;
   const status = c.res.status;
 
-  // Determine log level based on status
-  const logData = {
+  // Try to extract error info from response for error statuses
+  let errorInfo: { error?: string; message?: string } | undefined;
+  if (status >= 400) {
+    try {
+      // Clone response to read body without consuming the original
+      const clonedRes = c.res.clone();
+      const contentType = clonedRes.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const body = await clonedRes.json().catch(() => null) as unknown;
+        if (body && typeof body === 'object' && body !== null) {
+          const bodyObj = body as Record<string, unknown>;
+          errorInfo = {
+            error: typeof bodyObj.error === 'string' ? bodyObj.error : undefined,
+            message: typeof bodyObj.message === 'string' ? bodyObj.message : undefined,
+          };
+        }
+      }
+    } catch {
+      // Ignore errors reading response body - not critical for logging
+    }
+  }
+
+  // Determine log level and message based on status
+  const logData: Record<string, unknown> = {
     method: c.req.method,
     path: c.req.path,
     status,
     duration_ms: duration,
   };
 
+  // Include error info if available
+  if (errorInfo) {
+    if (errorInfo.error) logData.error_type = errorInfo.error;
+    if (errorInfo.message) logData.error_message = errorInfo.message;
+  }
+
+  // Use appropriate message and log level based on status
   if (status >= 500) {
-    reqLogger.error('request completed', undefined, logData);
+    reqLogger.error('server error', undefined, logData);
   } else if (status >= 400) {
-    reqLogger.warn('request completed', logData);
+    reqLogger.warn('request failed', logData);
   } else {
     reqLogger.debug('request completed', logData);
   }

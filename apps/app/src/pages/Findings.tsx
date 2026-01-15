@@ -13,7 +13,7 @@ import {
   useUpdateFindingStatus,
   useFindingStats,
 } from "@/hooks/use-findings";
-import { useAwsAccounts, useRecentScans, useActiveScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAwsAccounts, useRecentScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
@@ -101,6 +101,12 @@ export default function Findings() {
     queryClient.invalidateQueries({ queryKey: ["finding-stats"] });
   };
 
+  const handleStatsFilterSelect = (filter: { type?: Filters["type"] }) => {
+    if (filter.type) {
+      setFilters(prev => ({ ...prev, type: filter.type }));
+    }
+  };
+
   const handleScanAll = async () => {
     if (!accounts || accounts.length === 0) return;
 
@@ -132,7 +138,19 @@ export default function Findings() {
     }
   };
 
-  const hasAnyFindings = stats?.totalCount && stats.totalCount > 0;
+  const hasAnyFindings = useMemo(() => {
+    if (!stats) return false;
+    if (stats.totalCount && stats.totalCount > 0) return true;
+
+    // Fallback: check byStatus
+    const byStatus = stats.byStatus || {};
+    const statusTotal = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
+    if (statusTotal > 0) return true;
+
+    // Fallback: check byType
+    const byType = stats.byType || {};
+    return Object.values(byType).reduce((sum, count) => sum + count, 0) > 0;
+  }, [stats]);
   const hasAccounts = accounts && accounts.length > 0;
   const hasCompletedScan = recentScans?.some(scan =>
     scan.status === "complete" || scan.status === "partial"
@@ -168,7 +186,11 @@ export default function Findings() {
 
       {/* Stats cards - only show after first scan */}
       {hasCompletedScan && (
-        <FindingStatsCards stats={stats} isLoading={statsLoading} />
+        <FindingStatsCards
+          stats={stats}
+          isLoading={statsLoading}
+          onFilterSelect={handleStatsFilterSelect}
+        />
       )}
 
       {/* No accounts state */}

@@ -8,11 +8,20 @@ export interface CheckboxProps
 }
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, id, ...props }, ref) => {
-    const [checked, setChecked] = React.useState(props.checked || props.defaultChecked || false);
+  ({ className, label, id, checked: controlledChecked, ...props }, ref) => {
+    // Use internal state only for uncontrolled mode
+    const [internalChecked, setInternalChecked] = React.useState(
+      controlledChecked ?? props.defaultChecked ?? false
+    );
+
+    // Determine if controlled or uncontrolled
+    const isControlled = controlledChecked !== undefined;
+    const checked = isControlled ? controlledChecked : internalChecked;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setChecked(e.target.checked);
+      if (!isControlled) {
+        setInternalChecked(e.target.checked);
+      }
       props.onChange?.(e);
     };
 
@@ -31,6 +40,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             ref={ref}
             id={id}
             className="sr-only peer"
+            checked={checked}
             {...props}
             onChange={handleChange}
           />

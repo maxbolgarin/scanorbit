@@ -7,6 +7,7 @@ import {
   History,
   Cloud,
   Settings,
+  Network,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,11 @@ const navItems = [
     label: "Resources",
     href: "/resources",
     icon: Server,
+  },
+  {
+    label: "Infrastructure Map",
+    href: "/infrastructure-map",
+    icon: Network,
   },
   {
     label: "Findings",

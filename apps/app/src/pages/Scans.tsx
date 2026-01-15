@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useNavigate } from "react-router-dom";
 import {
@@ -28,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useRecentScans, useAwsAccounts, useActiveScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useRecentScans, useAwsAccounts, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import type { Scan, ScanStatus } from "@/types";
@@ -50,7 +49,6 @@ import {
   Ban,
   Scan as ScanIcon,
   Play,
-  ArrowRight,
   Server,
 } from "lucide-react";
 
@@ -172,9 +170,6 @@ export default function Scans() {
 
   const hasAccounts = accounts && accounts.length > 0;
   const hasAnyScans = scans.length > 0;
-  const hasCompletedScan = scans.some(scan =>
-    scan.status === "complete" || scan.status === "partial"
-  );
   const hasScanInProgress = (activeScans && activeScans.length > 0) ||
     scans.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
 

@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -62,7 +61,6 @@ export function ResourcesTableAdvanced({
     "resources:sortDirection",
     initialSortDirection ?? "desc"
   );
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useLocalStorage<number>("resources:pageSize", 25);
 
@@ -129,24 +127,6 @@ export function ResourcesTableAdvanced({
     }
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedResources.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(paginatedResources.map((r) => r.id)));
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
-  };
-
   const SortableHeader = ({
     field,
     children,
@@ -181,7 +161,6 @@ export function ResourcesTableAdvanced({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12" />
               <TableHead>Service</TableHead>
               <TableHead>Name / ID</TableHead>
               <TableHead className="hidden md:table-cell">Region</TableHead>
@@ -194,9 +173,6 @@ export function ResourcesTableAdvanced({
           <TableBody>
             {[...Array(5)].map((_, i) => (
               <TableRow key={i} className="animate-pulse">
-                <TableCell>
-                  <div className="h-4 w-4 rounded bg-muted" />
-                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <div className="h-5 w-5 rounded bg-muted" />
@@ -234,37 +210,11 @@ export function ResourcesTableAdvanced({
 
   return (
     <div className="space-y-4">
-      {/* Selection info */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-4 rounded-lg border bg-muted/50 px-4 py-2">
-          <span className="text-sm">
-            <span className="font-medium">{selectedIds.size}</span> selected
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            Clear selection
-          </Button>
-        </div>
-      )}
-
       {/* Table */}
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={
-                    paginatedResources.length > 0 &&
-                    selectedIds.size === paginatedResources.length
-                  }
-                  onChange={toggleSelectAll}
-                  aria-label="Select all"
-                />
-              </TableHead>
               <SortableHeader field="service">Service</SortableHeader>
               <SortableHeader field="name">Name / ID</SortableHeader>
               <SortableHeader field="region" className="hidden md:table-cell">
@@ -285,7 +235,7 @@ export function ResourcesTableAdvanced({
           <TableBody>
             {paginatedResources.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                   No resources found
                 </TableCell>
               </TableRow>
@@ -295,15 +245,7 @@ export function ResourcesTableAdvanced({
                   key={resource.id}
                   className="cursor-pointer group"
                   onClick={() => navigate(`/resources/${resource.id}`)}
-                  data-selected={selectedIds.has(resource.id)}
                 >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds.has(resource.id)}
-                      onChange={() => toggleSelect(resource.id)}
-                      aria-label={`Select ${resource.name}`}
-                    />
-                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <ServiceIcon service={resource.service} className="h-5 w-5" />
