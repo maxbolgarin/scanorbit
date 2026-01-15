@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0](https://github.com/maxbolgarin/scanorbit/compare/v1.3.0...v1.4.0) (2026-01-15)
+
+### Features
+
+* **components:** add infrastructure map visualization with resource filtering and detailed resource views ([9e9c532](https://github.com/maxbolgarin/scanorbit/commit/9e9c5320f5152a96740cfd664d86653d827ac824))
+
 ## [1.3.0](https://github.com/maxbolgarin/scanorbit/compare/v1.2.0...v1.3.0) (2026-01-15)
 
 ### Features
