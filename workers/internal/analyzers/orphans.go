@@ -144,6 +144,7 @@ func (a *OrphanAnalyzer) checkOrphanedEBS(r *models.Resource, now time.Time) *mo
 			"state":                  r.State,
 			"estimated_monthly_cost": estimatedCost,
 			"recommendation":         "Delete this volume if no longer needed to save costs",
+			"doc_url":                "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-deleting-volume.html",
 		},
 		Status: models.FindingStatusOpen,
 	}
@@ -180,6 +181,7 @@ func (a *OrphanAnalyzer) checkOrphanedEIP(r *models.Resource, now time.Time) *mo
 			"age_days":               ageDays,
 			"estimated_monthly_cost": estimatedCost,
 			"recommendation":         "Release this Elastic IP if no longer needed",
+			"doc_url":                "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html",
 		},
 		Status: models.FindingStatusOpen,
 	}
@@ -195,6 +197,16 @@ func (a *OrphanAnalyzer) checkOrphanedSnapshot(r *models.Resource, now time.Time
 		return nil
 	}
 
+	// Parse raw data to get snapshot size for cost estimation
+	var estimatedCost float64 = 5.0 // Default estimate
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err == nil {
+		// RDS snapshot storage costs ~$0.095/GB/month
+		if allocatedStorage, ok := raw["AllocatedStorage"].(float64); ok && allocatedStorage > 0 {
+			estimatedCost = allocatedStorage * 0.095
+		}
+	}
+
 	resourceID := r.ID
 	return &models.Finding{
 		ID:         uuid.New().String(),
@@ -203,11 +215,13 @@ func (a *OrphanAnalyzer) checkOrphanedSnapshot(r *models.Resource, now time.Time
 		Severity:   models.SeverityLow,
 		Summary:    fmt.Sprintf("Old manual RDS snapshot %s (age: %d days)", r.ResourceID, ageDays),
 		Details: map[string]any{
-			"resource_id":    r.ResourceID,
-			"name":           r.Name,
-			"region":         r.Region,
-			"age_days":       ageDays,
-			"recommendation": "Delete this snapshot if no longer needed for backup purposes",
+			"resource_id":            r.ResourceID,
+			"name":                   r.Name,
+			"region":                 r.Region,
+			"age_days":               ageDays,
+			"estimated_monthly_cost": estimatedCost,
+			"recommendation":         "Delete this snapshot if no longer needed for backup purposes",
+			"doc_url":                "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DeleteSnapshot.html",
 		},
 		Status: models.FindingStatusOpen,
 	}
@@ -284,6 +298,7 @@ func (a *OrphanAnalyzer) createIdleALBFinding(r *models.Resource, totalTargets, 
 			"healthy_targets":        healthyTargets,
 			"estimated_monthly_cost": 16.20, // ~$16.20/month base cost for ALB
 			"recommendation":         "Delete this load balancer if no longer needed, or register healthy targets",
+			"doc_url":                "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-troubleshooting.html",
 		},
 		Status: models.FindingStatusOpen,
 	}
@@ -332,6 +347,7 @@ func (a *OrphanAnalyzer) checkOrphanedENI(r *models.Resource, now time.Time) *mo
 			"region":          r.Region,
 			"unattached_days": ageDays,
 			"recommendation":  "Delete this network interface if no longer needed",
+			"doc_url":         "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html",
 		},
 		Status: models.FindingStatusOpen,
 	}
@@ -374,6 +390,7 @@ func (a *OrphanAnalyzer) checkUnusedSecurityGroup(ctx context.Context, r *models
 			"name":           r.Name,
 			"region":         r.Region,
 			"recommendation": "Delete this security group if no longer needed to reduce clutter",
+			"doc_url":        "https://docs.aws.amazon.com/vpc/latest/userguide/delete-security-group.html",
 		},
 		Status: models.FindingStatusOpen,
 	}
@@ -426,6 +443,7 @@ func (a *OrphanAnalyzer) checkIdleNATGateway(r *models.Resource, now time.Time) 
 			"age_days":               ageDays,
 			"estimated_monthly_cost": 32.40,
 			"recommendation":         "Review CloudWatch metrics to verify traffic. Delete if unused to save ~$32/month",
+			"doc_url":                "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway-cloudwatch.html",
 		},
 		Status: models.FindingStatusOpen,
 	}

@@ -99,6 +99,7 @@ func (a *IAMAnalyzer) checkUserMFA(r *models.Resource) []*models.Finding {
 				"user_name":      r.Name,
 				"service":        "iam_user",
 				"recommendation": "Enable MFA for this IAM user. MFA provides an additional layer of security for AWS account access.",
+				"doc_url":        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html",
 			},
 			Status: models.FindingStatusOpen,
 		}}
@@ -140,6 +141,7 @@ func (a *IAMAnalyzer) checkAccessKey(r *models.Resource, now time.Time) []*model
 						"key_age_days":    keyAgeDays,
 						"status":          r.State,
 						"recommendation":  "Rotate this access key. AWS recommends rotating access keys every 90 days.",
+						"doc_url":         "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
 					},
 					Status: models.FindingStatusOpen,
 				})
@@ -174,6 +176,7 @@ func (a *IAMAnalyzer) checkAccessKey(r *models.Resource, now time.Time) []*model
 							"key_age_days":   keyAgeDays,
 							"status":         r.State,
 							"recommendation": "Delete this access key if not needed. Unused active access keys pose a security risk.",
+							"doc_url":        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
 						},
 						Status: models.FindingStatusOpen,
 					})
@@ -203,6 +206,7 @@ func (a *IAMAnalyzer) checkAccessKey(r *models.Resource, now time.Time) []*model
 						"days_since_used":   daysSinceUsed,
 						"status":            r.State,
 						"recommendation":    "Delete this access key if no longer needed. Long-unused access keys should be deactivated or deleted.",
+						"doc_url":           "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
 					},
 					Status: models.FindingStatusOpen,
 				})
@@ -256,6 +260,7 @@ func (a *IAMAnalyzer) checkUnusedRole(r *models.Resource, now time.Time) []*mode
 					"create_date":         createDateStr,
 					"days_since_created":  daysSinceCreated,
 					"recommendation":      "Delete this role if no longer needed. Unused roles increase your security attack surface.",
+					"doc_url":             "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html",
 				},
 				Status: models.FindingStatusOpen,
 			}}
@@ -285,6 +290,7 @@ func (a *IAMAnalyzer) checkUnusedRole(r *models.Resource, now time.Time) []*mode
 				"last_used_region":  raw["last_used_region"],
 				"days_since_used":   daysSinceUsed,
 				"recommendation":    "Delete this role if no longer needed. Unused roles increase your security attack surface.",
+				"doc_url":           "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html",
 			},
 			Status: models.FindingStatusOpen,
 		}}

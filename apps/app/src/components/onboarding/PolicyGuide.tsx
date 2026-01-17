@@ -2,36 +2,46 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Check, Copy, ExternalLink, AlertCircle, ChevronDown } from "lucide-react";
+import { Check, Copy, ExternalLink, AlertCircle, ChevronDown, Info } from "lucide-react";
+import { PERMISSION_CATEGORIES, generateIAMPolicy } from "@/types";
 
 // ScanOrbit's AWS Account ID - should be set in environment variables for production
 const SCANORBIT_AWS_ACCOUNT_ID = import.meta.env.VITE_SCANORBIT_AWS_ACCOUNT_ID || "";
 
-const getPermissionPolicy = () => `{
+// Full policy with all permissions (for backward compatibility when no categories selected)
+const getFullPermissionPolicy = () => `{
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ScanOrbitReadAccess",
       "Effect": "Allow",
       "Action": [
         "ec2:Describe*",
         "rds:Describe*",
         "s3:ListAllMyBuckets",
         "s3:GetBucketLocation",
+        "s3:GetBucketTagging",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetPublicAccessBlock",
         "elasticloadbalancing:Describe*",
         "acm:List*",
         "acm:Describe*",
         "lambda:ListFunctions",
+        "lambda:GetFunction",
         "lambda:ListTags",
         "kms:ListKeys",
         "kms:DescribeKey",
         "kms:ListResourceTags",
         "kms:GetKeyRotationStatus",
         "secretsmanager:ListSecrets",
+        "secretsmanager:DescribeSecret",
         "logs:DescribeLogGroups",
         "logs:ListTagsForResource",
         "cloudwatch:DescribeAlarms",
@@ -43,7 +53,10 @@ const getPermissionPolicy = () => `{
         "iam:ListRoleTags",
         "iam:GetRole",
         "iam:ListAccessKeys",
-        "iam:GetAccessKeyLastUsed"
+        "iam:GetAccessKeyLastUsed",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy"
       ],
       "Resource": "*"
     }
@@ -52,11 +65,12 @@ const getPermissionPolicy = () => `{
 
 interface PolicyGuideProps {
   externalId: string;
+  selectedCategories?: string[];
   onNext: () => void;
   onBack: () => void;
 }
 
-export function PolicyGuide({ externalId, onNext, onBack }: PolicyGuideProps) {
+export function PolicyGuide({ externalId, selectedCategories, onNext, onBack }: PolicyGuideProps) {
   const [copiedAccountId, setCopiedAccountId] = useState(false);
   const [copiedExternalId, setCopiedExternalId] = useState(false);
   const [copiedPolicy, setCopiedPolicy] = useState(false);
@@ -64,7 +78,18 @@ export function PolicyGuide({ externalId, onNext, onBack }: PolicyGuideProps) {
   const [policyExpanded, setPolicyExpanded] = useState(false);
 
   const isMissingConfig = !SCANORBIT_AWS_ACCOUNT_ID;
-  const permissionPolicy = getPermissionPolicy();
+
+  // Generate policy based on selected categories, or use full policy if none/all selected
+  const allCategoryIds = PERMISSION_CATEGORIES.map((c) => c.id);
+  const hasCustomSelection = selectedCategories && selectedCategories.length > 0 && selectedCategories.length < allCategoryIds.length;
+  const permissionPolicy = hasCustomSelection
+    ? generateIAMPolicy(selectedCategories)
+    : getFullPermissionPolicy();
+
+  // Get names of enabled categories for display
+  const enabledCategoryNames = hasCustomSelection
+    ? PERMISSION_CATEGORIES.filter((c) => selectedCategories.includes(c.id)).map((c) => c.label)
+    : [];
 
   const handleCopy = async (text: string, type: "accountId" | "externalId" | "policy" | "roleName") => {
     await navigator.clipboard.writeText(text);
@@ -93,6 +118,26 @@ export function PolicyGuide({ externalId, onNext, onBack }: PolicyGuideProps) {
             <p className="text-muted-foreground">
               ScanOrbit AWS Account ID is not configured. Contact your administrator.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Show enabled categories if custom selection */}
+      {hasCustomSelection && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-sm">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+          <div>
+            <p className="font-medium text-blue-600">Custom Scanner Configuration</p>
+            <p className="text-muted-foreground mb-2">
+              This policy includes permissions for your selected scanners only:
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {enabledCategoryNames.map((name) => (
+                <Badge key={name} variant="secondary" className="text-xs">
+                  {name}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
       )}

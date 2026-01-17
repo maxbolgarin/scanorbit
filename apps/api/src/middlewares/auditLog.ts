@@ -27,44 +27,17 @@ function getActionFromMethod(method: string): string {
   }
 }
 
-// Extract resource type from path
-function getResourceFromPath(path: string): string {
-  // Remove /api prefix and get first path segment
-  const cleanPath = path.replace(/^\/api\//, '');
-  const segments = cleanPath.split('/');
-
-  // Map common paths to resource types
-  const resourceMap: Record<string, string> = {
-    auth: 'auth',
-    users: 'user',
-    orgs: 'org',
-    'aws-accounts': 'aws_account',
-    resources: 'resource',
-    findings: 'finding',
-    scans: 'scan',
-    certificates: 'certificate',
-    gdpr: 'gdpr',
-    health: 'health',
-  };
-
-  return resourceMap[segments[0]] || segments[0] || 'unknown';
-}
-
-// Extract resource ID from path (if present)
-function getResourceIdFromPath(path: string): string | null {
-  // Match UUID pattern in path
-  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-  const match = path.match(uuidPattern);
-  return match ? match[0] : null;
-}
-
 // Check if path should be excluded from audit logging
 function shouldExclude(path: string): boolean {
-  // Exclude high-frequency read endpoints to reduce log volume
+  // Exclude high-frequency, low-value endpoints to reduce log volume
   const excludePatterns = [
-    /^\/health/,                 // Health checks
     /^\/$/,                      // Root
-    /^\/favicon\.ico/,          // Favicon
+    /^(\/api)?\/health/,         // Health checks
+    /^(\/api)?\/auth\/me$/,      // Session polling (high frequency)
+    /^\/favicon/,                // Favicon and related
+    /^\/robots\.txt/,            // Bots
+    /^\/_next\//,                // Next.js internals
+    /^\/static\//,               // Static assets
   ];
 
   return excludePatterns.some(pattern => pattern.test(path));
@@ -120,17 +93,13 @@ export const auditLog = async (
   // Log after response (non-blocking)
   try {
     const userId = c.get('userId') || null;
-    const orgId = c.get('orgId') || null;
     const durationMs = Date.now() - startTime;
 
     // Don't await - fire and forget to not slow down response
     db.insert(auditLogs)
       .values({
         userId,
-        orgId,
         action: getActionFromMethod(method),
-        resource: getResourceFromPath(path),
-        resourceId: getResourceIdFromPath(path),
         method,
         path,
         statusCode: c.res.status,
@@ -154,20 +123,16 @@ export const auditLog = async (
 export const logAuthEvent = async (
   action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'email_verified',
   userId: string | null,
-  email: string,
   ipAddress: string | null,
-  userAgent: string | null,
-  details?: Record<string, unknown>
+  userAgent: string | null
 ) => {
   try {
     await db.insert(auditLogs).values({
       userId,
       action,
-      resource: 'auth',
-      resourceId: email,
+      path: `/auth/${action}`,
       ipAddress,
       userAgent,
-      details: details || {},
     });
   } catch (err) {
     console.error('[AuditLog] Failed to log auth event:', err);
@@ -179,24 +144,18 @@ export const logAuthEvent = async (
  */
 export const logDataAccess = async (
   userId: string,
-  orgId: string | null,
   action: 'export' | 'delete' | 'anonymize',
-  resource: string,
-  resourceId: string | null,
+  path: string,
   ipAddress: string | null,
-  userAgent: string | null,
-  details?: Record<string, unknown>
+  userAgent: string | null
 ) => {
   try {
     await db.insert(auditLogs).values({
       userId,
-      orgId,
       action,
-      resource,
-      resourceId,
+      path,
       ipAddress,
       userAgent,
-      details: details || {},
     });
   } catch (err) {
     console.error('[AuditLog] Failed to log data access:', err);

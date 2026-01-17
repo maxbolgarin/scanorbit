@@ -97,6 +97,7 @@ func (a *SSLAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([]*m
 				"identifier":  cert.Identifier,
 				"algorithm":   cert.Algorithm,
 				"action":      a.getRecommendation(cert.Source, daysUntilExpiry),
+				"doc_url":     "https://docs.aws.amazon.com/acm/latest/userguide/managed-renewal.html",
 			},
 			Status: models.FindingStatusOpen,
 		}

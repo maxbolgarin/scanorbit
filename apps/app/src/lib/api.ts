@@ -328,6 +328,21 @@ export async function getScanHistory(accountId: string): Promise<Scan[]> {
   }
 }
 
+export async function updateAwsAccountScanners(
+  accountId: string,
+  enabledScanners: string[]
+): Promise<AwsAccount> {
+  try {
+    const { data } = await api.patch<{ data: AwsAccount }>(
+      `/aws/accounts/${accountId}/scanners`,
+      { enabledScanners }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 export async function getScan(scanId: string): Promise<Scan> {
   try {
     const { data } = await api.get<{ data: Scan }>(`/aws/scans/${scanId}`);
@@ -710,11 +725,20 @@ function aggregateCostInsights(
     unused_security_group: "Unused Security Groups",
     stopped_instance: "Stopped Instances",
     unused_resource: "Unused Resources",
+    unused_log_group: "Unused Log Groups",
+    // Cost optimization findings
+    ebs_optimization: "EBS gp2 to gp3 Migration",
+    old_gen_instance: "Old Generation Instances",
+    oversized_lambda: "Oversized Lambda Functions",
+    log_retention: "No Log Retention Policy",
+    unused_kms_key: "Unused KMS Keys",
+    rds_optimization: "RDS Optimization",
   };
 
   findings.forEach(finding => {
     if (costFindingTypes[finding.type]) {
-      const savings = (finding.details?.estimatedMonthlySavings as number) ||
+      const savings = (finding.details?.estimated_monthly_cost as number) ||
+                      (finding.details?.estimatedMonthlySavings as number) ||
                       (finding.details?.estimated_savings as number) ||
                       (finding.details?.monthlyCost as number) || 0;
 

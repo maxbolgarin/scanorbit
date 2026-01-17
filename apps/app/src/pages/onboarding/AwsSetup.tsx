@@ -8,21 +8,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AwsAccountForm } from "@/components/onboarding/AwsAccountForm";
+import { ScannerSelection } from "@/components/onboarding/ScannerSelection";
 import { PolicyGuide } from "@/components/onboarding/PolicyGuide";
 import { TestConnection } from "@/components/onboarding/TestConnection";
 import { useAwsAccounts, useTriggerScan } from "@/hooks/use-aws-accounts";
 import * as api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Cloud, Orbit, X } from "lucide-react";
-import type { CreateAwsAccountInput } from "@/types";
+import type { CreateAwsAccountInput, ScannerType } from "@/types";
 
-type Step = "details" | "policy" | "connect";
+type Step = "details" | "scanners" | "policy" | "connect";
 
 const STORAGE_KEY = "scanorbit_aws_onboarding";
 
 interface OnboardingState {
   step: Step;
   accountDetails: { name: string; awsAccountId: string; externalId: string } | null;
+  selectedCategories?: string[];
+  enabledScanners?: ScannerType[];
 }
 
 function loadOnboardingState(): OnboardingState | null {
@@ -64,13 +67,19 @@ export default function AwsSetup() {
   const [accountDetails, setAccountDetails] = useState<{ name: string; awsAccountId: string; externalId: string } | null>(
     savedState?.accountDetails || null
   );
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    savedState?.selectedCategories || []
+  );
+  const [enabledScanners, setEnabledScanners] = useState<ScannerType[]>(
+    savedState?.enabledScanners || []
+  );
   const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
-    saveOnboardingState({ step, accountDetails });
-  }, [step, accountDetails]);
+    saveOnboardingState({ step, accountDetails, selectedCategories, enabledScanners });
+  }, [step, accountDetails, selectedCategories, enabledScanners]);
 
   // Clear localStorage when component unmounts if AWS account was successfully connected
   // This handles edge cases like browser navigation after successful connection
@@ -94,6 +103,12 @@ export default function AwsSetup() {
     // Generate a unique external ID for this account connection
     const externalId = crypto.randomUUID();
     setAccountDetails({ ...data, externalId });
+    setStep("scanners");
+  };
+
+  const handleScannerSelection = (categories: string[], scanners: ScannerType[]) => {
+    setSelectedCategories(categories);
+    setEnabledScanners(scanners);
     setStep("policy");
   };
 
@@ -113,6 +128,7 @@ export default function AwsSetup() {
             awsAccountId: accountDetails.awsAccountId,
             externalId: accountDetails.externalId,
             roleArn,
+            enabledScanners: enabledScanners.length > 0 ? enabledScanners : undefined,
           };
           const account = await createAccount(input);
           accountId = account.id;
@@ -177,6 +193,7 @@ export default function AwsSetup() {
           awsAccountId: accountDetails.awsAccountId,
           externalId: accountDetails.externalId,
           roleArn,
+          enabledScanners: enabledScanners.length > 0 ? enabledScanners : undefined,
         };
         const account = await createAccount(input);
         accountId = account.id;
@@ -201,6 +218,10 @@ export default function AwsSetup() {
       title: "Connect AWS Account",
       description: "Enter your AWS account details to get started",
     },
+    scanners: {
+      title: "Configure Scanners",
+      description: "Select which resources ScanOrbit should scan",
+    },
     policy: {
       title: "Create IAM Role",
       description: "Set up a read-only IAM role for ScanOrbit to scan your infrastructure",
@@ -211,7 +232,10 @@ export default function AwsSetup() {
     },
   };
 
-  const stepNumber = step === "details" ? 1 : step === "policy" ? 2 : 3;
+  const stepNumber =
+    step === "details" ? 1 :
+    step === "scanners" ? 2 :
+    step === "policy" ? 3 : 4;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
@@ -229,7 +253,7 @@ export default function AwsSetup() {
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
             1
           </div>
-          <div className="h-0.5 w-12 bg-primary" />
+          <div className="h-0.5 w-8 bg-primary" />
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
               stepNumber >= 2
@@ -239,7 +263,7 @@ export default function AwsSetup() {
           >
             2
           </div>
-          <div className={`h-0.5 w-12 ${stepNumber >= 2 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-0.5 w-8 ${stepNumber >= 2 ? "bg-primary" : "bg-muted"}`} />
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
               stepNumber >= 3
@@ -248,6 +272,16 @@ export default function AwsSetup() {
             }`}
           >
             3
+          </div>
+          <div className={`h-0.5 w-8 ${stepNumber >= 3 ? "bg-primary" : "bg-muted"}`} />
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+              stepNumber >= 4
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            4
           </div>
         </div>
 
@@ -276,11 +310,19 @@ export default function AwsSetup() {
                 error={error}
               />
             )}
+            {step === "scanners" && (
+              <ScannerSelection
+                onSelect={handleScannerSelection}
+                onBack={() => setStep("details")}
+                initialCategories={selectedCategories.length > 0 ? selectedCategories : undefined}
+              />
+            )}
             {step === "policy" && accountDetails && (
               <PolicyGuide
                 externalId={accountDetails.externalId}
+                selectedCategories={selectedCategories}
                 onNext={() => setStep("connect")}
-                onBack={() => setStep("details")}
+                onBack={() => setStep("scanners")}
               />
             )}
             {step === "connect" && accountDetails && (

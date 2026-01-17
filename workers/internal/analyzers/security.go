@@ -109,6 +109,7 @@ func (a *SecurityAnalyzer) checkEBSEncryption(r *models.Resource) []*models.Find
 				"service":       "ebs",
 				"region":        r.Region,
 				"recommendation": "Enable encryption for this EBS volume. For existing volumes, create an encrypted snapshot and restore to a new encrypted volume.",
+				"doc_url":        "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html",
 			},
 			Status: models.FindingStatusOpen,
 		}}
@@ -140,6 +141,7 @@ func (a *SecurityAnalyzer) checkRDSEncryption(r *models.Resource) []*models.Find
 				"region":         r.Region,
 				"engine":         raw["engine"],
 				"recommendation": "Enable encryption for RDS. Note: Encryption must be enabled at creation time. Create an encrypted snapshot and restore to a new encrypted instance.",
+				"doc_url":        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html",
 			},
 			Status: models.FindingStatusOpen,
 		}}
@@ -185,6 +187,7 @@ func (a *SecurityAnalyzer) checkS3PublicAccess(r *models.Resource) []*models.Fin
 				"block_public_policy":     blockPublicPolicy,
 				"restrict_public_buckets": restrictPublicBuckets,
 				"recommendation":          "Enable all Block Public Access settings unless public access is explicitly required.",
+				"doc_url":                 "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
 			},
 			Status: models.FindingStatusOpen,
 		}}
@@ -255,6 +258,7 @@ func (a *SecurityAnalyzer) checkSecurityGroup(r *models.Resource) []*models.Find
 					"protocol":        protocol,
 					"cidr_blocks":     cidrBlocks,
 					"recommendation":  "Restrict inbound rules to only the specific ports and IP ranges required.",
+					"doc_url":         "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html",
 				},
 				Status: models.FindingStatusOpen,
 			})
@@ -283,6 +287,7 @@ func (a *SecurityAnalyzer) checkSecurityGroup(r *models.Resource) []*models.Find
 						"protocol":         protocol,
 						"cidr_blocks":      cidrBlocks,
 						"recommendation":   fmt.Sprintf("Restrict %s access to specific IP ranges or use a VPN/bastion host.", service),
+						"doc_url":          "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html",
 					},
 					Status: models.FindingStatusOpen,
 				})

@@ -48,7 +48,7 @@ export function ResourcesTable({ resources }: ResourcesTableProps) {
             <TableRow
               key={resource.id}
               className="cursor-pointer"
-              onClick={() => navigate(`/resources/${resource.id}`)}
+              onClick={() => navigate(`/overview/resources/${resource.id}`)}
             >
               <TableCell>
                 <div className="flex items-center gap-2">

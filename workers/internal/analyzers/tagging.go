@@ -164,6 +164,7 @@ func (a *TaggingAnalyzer) createTaggingFindingWithList(r *models.Resource, missi
 			"existing_tags":  r.Tags,
 			"required_tags":  requiredTags,
 			"recommendation": fmt.Sprintf("Add the following tags to this resource: %s. Proper tagging helps with cost allocation, security, and resource management.", strings.Join(missingTags, ", ")),
+			"doc_url":        "https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html",
 		},
 		Status: models.FindingStatusOpen,
 	}

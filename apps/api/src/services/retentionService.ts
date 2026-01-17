@@ -245,7 +245,6 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
         userId: null,
         ipAddress: null,
         userAgent: null,
-        details: sql`jsonb_set(COALESCE(${auditLogs.details}, '{}'::jsonb), '{anonymized}', 'true')`,
       })
       .where(eq(auditLogs.userId, userId));
 

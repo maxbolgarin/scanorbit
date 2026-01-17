@@ -90,9 +90,15 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		return errors.New("org_id is required but was empty")
 	}
 
+	// Log enabled scanners (empty means all enabled)
+	enabledScannersLog := job.EnabledScanners
+	if len(enabledScannersLog) == 0 {
+		enabledScannersLog = []string{"all"}
+	}
 	s.logger.Info().
 		Str("account_id", job.AccountID).
 		Str("org_id", job.OrgID).
+		Strs("enabled_scanners", enabledScannersLog).
 		Msg("starting account scan")
 
 	// 0. Check if account still exists (may have been deleted while job was queued)
@@ -180,7 +186,7 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 			regionCtx, cancel := context.WithTimeout(ctx, regionScanTimeout)
 			defer cancel()
 
-			result := s.scanRegion(regionCtx, cfg, r)
+			result := s.scanRegion(regionCtx, cfg, r, job)
 			if regionCtx.Err() == context.DeadlineExceeded {
 				s.logger.Warn().Str("region", r).Msg("region scan timed out")
 				result.Error = fmt.Errorf("scan timed out after %v", regionScanTimeout)
@@ -202,34 +208,42 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	globalCtx, globalCancel := context.WithTimeout(ctx, globalScanTimeout)
 	defer globalCancel()
 
-	// S3 scan (global, once)
-	s3Resources, err := s.s3Scanner.ScanBuckets(globalCtx, cfg)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("s3 scan failed")
+	// S3 scan (global, once) - only if enabled
+	if job.IsScannerEnabled("s3") {
+		s3Resources, err := s.s3Scanner.ScanBuckets(globalCtx, cfg)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("s3 scan failed")
+		} else {
+			globalResources = append(globalResources, s3Resources...)
+		}
 	} else {
-		globalResources = append(globalResources, s3Resources...)
+		s.logger.Debug().Msg("s3 scanner disabled, skipping")
 	}
 
-	// IAM scans (global, not region-specific)
-	iamUsers, err := s.iamScanner.ScanUsers(globalCtx, cfg)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("iam users scan failed")
-	} else {
-		globalResources = append(globalResources, iamUsers...)
-	}
+	// IAM scans (global, not region-specific) - only if enabled
+	if job.IsScannerEnabled("iam") {
+		iamUsers, err := s.iamScanner.ScanUsers(globalCtx, cfg)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("iam users scan failed")
+		} else {
+			globalResources = append(globalResources, iamUsers...)
+		}
 
-	iamRoles, err := s.iamScanner.ScanRoles(globalCtx, cfg)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("iam roles scan failed")
-	} else {
-		globalResources = append(globalResources, iamRoles...)
-	}
+		iamRoles, err := s.iamScanner.ScanRoles(globalCtx, cfg)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("iam roles scan failed")
+		} else {
+			globalResources = append(globalResources, iamRoles...)
+		}
 
-	iamAccessKeys, err := s.iamScanner.ScanAccessKeys(globalCtx, cfg)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("iam access keys scan failed")
+		iamAccessKeys, err := s.iamScanner.ScanAccessKeys(globalCtx, cfg)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("iam access keys scan failed")
+		} else {
+			globalResources = append(globalResources, iamAccessKeys...)
+		}
 	} else {
-		globalResources = append(globalResources, iamAccessKeys...)
+		s.logger.Debug().Msg("iam scanner disabled, skipping")
 	}
 
 	// 7. Fan-in: collect and persist results
@@ -433,7 +447,7 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 }
 
 // scanRegion handles scanning a single region.
-func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string) *RegionResult {
+func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string, job *models.ScanAccountJob) *RegionResult {
 	result := &RegionResult{Region: region}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -445,230 +459,247 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		mu.Unlock()
 	}
 
-	// EC2 Instances
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.ec2Scanner.ScanInstances(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("ec2 instances scan failed")
-			recordError("ec2_instances", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	// EC2 Instances (part of ec2 scanner)
+	if job.IsScannerEnabled("ec2") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.ec2Scanner.ScanInstances(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("ec2 instances scan failed")
+				recordError("ec2_instances", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
 
-	// EBS Volumes
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.ec2Scanner.ScanVolumes(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("ebs volumes scan failed")
-			recordError("ebs_volumes", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+		// EBS Volumes
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.ec2Scanner.ScanVolumes(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("ebs volumes scan failed")
+				recordError("ebs_volumes", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
 
-	// EIPs
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.ec2Scanner.ScanEIPs(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("eip scan failed")
-			recordError("eips", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+		// EIPs
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.ec2Scanner.ScanEIPs(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("eip scan failed")
+				recordError("eips", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
 
-	// ENIs (Elastic Network Interfaces)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.ec2Scanner.ScanENIs(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("eni scan failed")
-			recordError("enis", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+		// ENIs (Elastic Network Interfaces)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.ec2Scanner.ScanENIs(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("eni scan failed")
+				recordError("enis", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
 
-	// NAT Gateways
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.ec2Scanner.ScanNATGateways(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("nat gateway scan failed")
-			recordError("nat_gateways", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+		// NAT Gateways
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.ec2Scanner.ScanNATGateways(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("nat gateway scan failed")
+				recordError("nat_gateways", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	// RDS Instances
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.rdsScanner.ScanInstances(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("rds instances scan failed")
-			recordError("rds_instances", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("rds") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.rdsScanner.ScanInstances(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("rds instances scan failed")
+				recordError("rds_instances", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
 
-	// RDS Snapshots
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.rdsScanner.ScanSnapshots(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("rds snapshots scan failed")
-			recordError("rds_snapshots", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+		// RDS Snapshots
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.rdsScanner.ScanSnapshots(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("rds snapshots scan failed")
+				recordError("rds_snapshots", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	// ALBs
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.albScanner.ScanLoadBalancers(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("alb scan failed")
-			recordError("alb", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("alb") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.albScanner.ScanLoadBalancers(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("alb scan failed")
+				recordError("alb", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	// ACM Certificates
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		certs, err := s.acmScanner.ScanCertificates(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("acm scan failed")
-			recordError("acm", err)
-			return
-		}
-		mu.Lock()
-		result.Certificates = append(result.Certificates, certs...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("acm") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			certs, err := s.acmScanner.ScanCertificates(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("acm scan failed")
+				recordError("acm", err)
+				return
+			}
+			mu.Lock()
+			result.Certificates = append(result.Certificates, certs...)
+			mu.Unlock()
+		}()
+	}
 
 	// Lambda Functions
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.lambdaScanner.ScanFunctions(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("lambda scan failed")
-			recordError("lambda", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("lambda") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.lambdaScanner.ScanFunctions(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("lambda scan failed")
+				recordError("lambda", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
-	// CloudWatch Log Groups
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.cloudwatchScanner.ScanLogGroups(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch logs scan failed")
-			recordError("cloudwatch_logs", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	// CloudWatch Log Groups & Alarms
+	if job.IsScannerEnabled("cloudwatch") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.cloudwatchScanner.ScanLogGroups(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch logs scan failed")
+				recordError("cloudwatch_logs", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
 
-	// CloudWatch Alarms
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.cloudwatchScanner.ScanAlarms(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch alarms scan failed")
-			recordError("cloudwatch_alarms", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.cloudwatchScanner.ScanAlarms(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("cloudwatch alarms scan failed")
+				recordError("cloudwatch_alarms", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	// Security Groups
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.securityGroupScanner.ScanSecurityGroups(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("security groups scan failed")
-			recordError("security_groups", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("security_groups") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.securityGroupScanner.ScanSecurityGroups(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("security groups scan failed")
+				recordError("security_groups", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	// Secrets Manager
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.secretsManagerScanner.ScanSecrets(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("secrets manager scan failed")
-			recordError("secrets_manager", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("secrets_manager") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.secretsManagerScanner.ScanSecrets(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("secrets manager scan failed")
+				recordError("secrets_manager", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	// KMS Keys
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resources, err := s.kmsScanner.ScanKeys(ctx, cfg, region)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("region", region).Msg("kms scan failed")
-			recordError("kms", err)
-			return
-		}
-		mu.Lock()
-		result.Resources = append(result.Resources, resources...)
-		mu.Unlock()
-	}()
+	if job.IsScannerEnabled("kms") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resources, err := s.kmsScanner.ScanKeys(ctx, cfg, region)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("region", region).Msg("kms scan failed")
+				recordError("kms", err)
+				return
+			}
+			mu.Lock()
+			result.Resources = append(result.Resources, resources...)
+			mu.Unlock()
+		}()
+	}
 
 	wg.Wait()
 	return result

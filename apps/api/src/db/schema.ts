@@ -64,6 +64,9 @@ export const userOrgMembersRelations = relations(userOrgMembers, ({ one }) => ({
 }));
 
 // AWS Accounts
+// Default scanners - all enabled
+const DEFAULT_SCANNERS = ['ec2', 'rds', 's3', 'alb', 'acm', 'lambda', 'cloudwatch', 'iam', 'security_groups', 'secrets_manager', 'kms'];
+
 export const awsAccounts = pgTable('aws_accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
   orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
@@ -74,6 +77,7 @@ export const awsAccounts = pgTable('aws_accounts', {
   status: varchar('status', { length: 50 }).default('pending').notNull(), // 'pending', 'ok', 'error'
   lastError: text('last_error'),
   lastScanAt: timestamp('last_scan_at'),
+  enabledScanners: jsonb('enabled_scanners').$type<string[]>().default(DEFAULT_SCANNERS).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
@@ -395,11 +399,8 @@ export const auditLogs = pgTable('audit_logs', {
   timestamp: timestamp('timestamp').defaultNow().notNull(),
   // Who performed the action
   userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-  orgId: uuid('org_id').references(() => orgs.id, { onDelete: 'set null' }),
   // What action was performed
   action: varchar('action', { length: 50 }).notNull(), // 'login', 'logout', 'read', 'create', 'update', 'delete', 'export'
-  resource: varchar('resource', { length: 100 }).notNull(), // 'user', 'org', 'aws_account', 'resource', 'finding', etc.
-  resourceId: varchar('resource_id', { length: 255 }),
   // HTTP request details
   method: varchar('method', { length: 10 }),
   path: varchar('path', { length: 500 }),
@@ -407,25 +408,17 @@ export const auditLogs = pgTable('audit_logs', {
   // Client information
   ipAddress: varchar('ip_address', { length: 45 }), // IPv6 max length
   userAgent: text('user_agent'),
-  // Additional context
-  details: jsonb('details').default({}),
   durationMs: integer('duration_ms'),
 }, (table) => [
   index('audit_logs_timestamp_idx').on(table.timestamp),
   index('audit_logs_user_id_idx').on(table.userId),
-  index('audit_logs_org_id_idx').on(table.orgId),
   index('audit_logs_action_idx').on(table.action),
-  index('audit_logs_resource_idx').on(table.resource),
 ]);
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, {
     fields: [auditLogs.userId],
     references: [users.id],
-  }),
-  org: one(orgs, {
-    fields: [auditLogs.orgId],
-    references: [orgs.id],
   }),
 }));
 

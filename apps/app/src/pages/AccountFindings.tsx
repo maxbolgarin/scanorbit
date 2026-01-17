@@ -70,14 +70,53 @@ export default function AccountFindings() {
     }
   }, [searchParams, allFindings]);
 
-  // Handle URL parameter for category filter
+  // Handle URL parameters for filters (e.g., from dashboard click-through)
   useEffect(() => {
     const category = searchParams.get("category");
-    if (category === "orphaned") {
-      setBaseFilters((prev) => ({ ...prev, types: ORPHANED_FINDING_TYPES, type: undefined }));
-      setSearchParams({}, { replace: true });
+    const severityParam = searchParams.get("severity");
+    const statusParam = searchParams.get("status");
+    const type = searchParams.get("type");
+    const types = searchParams.get("types");
+
+    // Skip if no filter params in URL
+    if (!category && !severityParam && !statusParam && !type && !types) {
+      return;
     }
-  }, []);
+
+    const newFilters: Partial<Filters> = {};
+
+    if (category === "orphaned") {
+      newFilters.types = ORPHANED_FINDING_TYPES;
+      newFilters.type = undefined;
+    }
+
+    // Handle single type filter (e.g., ?type=unused_security_group)
+    if (type) {
+      newFilters.type = type as Filters["type"];
+      newFilters.types = undefined;
+    }
+
+    // Handle multiple types filter (e.g., ?types=orphaned_volume,orphaned_eip)
+    if (types) {
+      const typeArray = types.split(",").filter(Boolean);
+      if (typeArray.length > 0) {
+        newFilters.types = typeArray as Filters["types"];
+        newFilters.type = undefined;
+      }
+    }
+
+    if (severityParam && ["critical", "high", "medium", "low", "trivial"].includes(severityParam)) {
+      newFilters.severity = severityParam as Filters["severity"];
+    }
+
+    if (statusParam && ["open", "resolved", "snoozed", "ignored"].includes(statusParam)) {
+      newFilters.status = statusParam as Filters["status"];
+    }
+
+    // Apply filters and clear URL params
+    setBaseFilters(newFilters);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setBaseFilters, setSearchParams]);
 
   const handleSelectFinding = (finding: Finding) => {
     setSelectedFinding(finding);

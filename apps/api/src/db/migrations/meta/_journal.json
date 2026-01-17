@@ -92,6 +92,20 @@
       "when": 1768597961388,
       "tag": "0012_natural_the_watchers",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1768684800000,
+      "tag": "0013_add_enabled_scanners",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1737158400000,
+      "tag": "0014_remove_audit_logs_org_id",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuthStore } from "@/stores/auth-store";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -42,6 +42,12 @@ function PageLoader() {
       <LoadingSpinner size="lg" />
     </div>
   );
+}
+
+// Redirect component that properly handles route parameters
+function ResourceRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/overview/resources/${id}`} replace />;
 }
 
 function App() {
@@ -135,7 +141,7 @@ function App() {
             {/* Legacy redirects for backward compatibility */}
             <Route path="dashboard" element={<Navigate to="/overview" replace />} />
             <Route path="resources" element={<Navigate to="/overview/resources" replace />} />
-            <Route path="resources/:id" element={<Navigate to="/overview/resources/:id" replace />} />
+            <Route path="resources/:id" element={<ResourceRedirect />} />
             <Route path="infrastructure-map" element={<Navigate to="/overview/infrastructure-map" replace />} />
             <Route path="findings" element={<Navigate to="/overview/findings" replace />} />
             <Route path="scans" element={<Navigate to="/overview/scans" replace />} />

@@ -63,10 +63,11 @@ func (s ScanStatus) IsTerminal() bool {
 
 // ScanAccountJob is the payload for a scan_account job.
 type ScanAccountJob struct {
-	JobID     string `json:"job_id"`     // DB job record ID for status tracking
-	ScanID    string `json:"scan_id"`    // DB scan record ID for status tracking
-	AccountID string `json:"account_id"`
-	OrgID     string `json:"org_id"`
+	JobID           string   `json:"job_id"`           // DB job record ID for status tracking
+	ScanID          string   `json:"scan_id"`          // DB scan record ID for status tracking
+	AccountID       string   `json:"account_id"`
+	OrgID           string   `json:"org_id"`
+	EnabledScanners []string `json:"enabled_scanners"` // List of enabled scanner types (e.g., ec2, rds, s3)
 }
 
 // AnalyzeJob is the payload for analyze jobs.
@@ -93,6 +94,21 @@ func (j *ScanAccountJob) Validate() error {
 		return errors.New("org_id is required")
 	}
 	return nil
+}
+
+// IsScannerEnabled checks if a scanner type is enabled for this job.
+// Returns true if EnabledScanners is empty (all enabled) or if the scanner is in the list.
+func (j *ScanAccountJob) IsScannerEnabled(scanner string) bool {
+	// If EnabledScanners is empty, all scanners are enabled (backward compatibility)
+	if len(j.EnabledScanners) == 0 {
+		return true
+	}
+	for _, s := range j.EnabledScanners {
+		if s == scanner {
+			return true
+		}
+	}
+	return false
 }
 
 // Validate checks that required fields are present in AnalyzeJob.

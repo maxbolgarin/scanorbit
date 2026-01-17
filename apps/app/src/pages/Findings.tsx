@@ -67,35 +67,51 @@ export default function Findings() {
   // Handle URL parameters for filters (e.g., from dashboard click-through)
   useEffect(() => {
     const category = searchParams.get("category");
-    const severity = searchParams.get("severity");
-    const status = searchParams.get("status");
+    const severityParam = searchParams.get("severity");
+    const statusParam = searchParams.get("status");
+    const type = searchParams.get("type");
+    const types = searchParams.get("types");
 
-    let hasChanges = false;
+    // Skip if no filter params in URL
+    if (!category && !severityParam && !statusParam && !type && !types) {
+      return;
+    }
+
     const newFilters: Partial<Filters> = {};
 
     if (category === "orphaned") {
       // Set multi-type filter for orphaned resources
       newFilters.types = ORPHANED_FINDING_TYPES;
       newFilters.type = undefined;
-      hasChanges = true;
     }
 
-    if (severity && ["critical", "high", "medium", "low", "trivial"].includes(severity)) {
-      newFilters.severity = severity as Filters["severity"];
-      hasChanges = true;
+    // Handle single type filter (e.g., ?type=orphaned_volume)
+    if (type) {
+      newFilters.type = type as Filters["type"];
+      newFilters.types = undefined;
     }
 
-    if (status && ["open", "resolved", "snoozed", "ignored"].includes(status)) {
-      newFilters.status = status as Filters["status"];
-      hasChanges = true;
+    // Handle multiple types filter (e.g., ?types=orphaned_volume,orphaned_eip)
+    if (types) {
+      const typeArray = types.split(",").filter(Boolean);
+      if (typeArray.length > 0) {
+        newFilters.types = typeArray as Filters["types"];
+        newFilters.type = undefined;
+      }
     }
 
-    if (hasChanges) {
-      setFilters((prev) => ({ ...prev, ...newFilters }));
-      // Clear the URL params after reading
-      setSearchParams({}, { replace: true });
+    if (severityParam && ["critical", "high", "medium", "low", "trivial"].includes(severityParam)) {
+      newFilters.severity = severityParam as Filters["severity"];
     }
-  }, []);
+
+    if (statusParam && ["open", "resolved", "snoozed", "ignored"].includes(statusParam)) {
+      newFilters.status = statusParam as Filters["status"];
+    }
+
+    // Apply filters and clear URL params
+    setFilters(newFilters);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setFilters, setSearchParams]);
 
   const handleSelectFinding = (finding: Finding) => {
     setSelectedFinding(finding);

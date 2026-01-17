@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { FindingStatusBadge } from "@/components/shared/StatusBadge";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
@@ -20,6 +28,11 @@ import {
   AlertTriangle,
   History,
   RefreshCw,
+  X,
+  Undo2,
+  Info,
+  AlertCircle,
+  Ban,
 } from "lucide-react";
 
 interface FindingDetailModalProps {
@@ -29,11 +42,22 @@ interface FindingDetailModalProps {
   isUpdating?: boolean;
 }
 
+type ViewState =
+  | "details"
+  | "confirm-resolve"
+  | "confirm-ignore"
+  | "confirm-snooze"
+  | "success";
+
 const typeLabels: Record<string, string> = {
   // Orphan findings
   orphaned_volume: "Orphaned Volume",
   orphaned_eip: "Orphaned EIP",
   orphaned_snapshot: "Orphaned Snapshot",
+  orphaned_eni: "Orphaned ENI",
+  idle_load_balancer: "Idle Load Balancer",
+  idle_nat_gateway: "Idle NAT Gateway",
+  unused_security_group: "Unused Security Group",
   // SSL findings
   ssl_expiry: "SSL Certificate Expiry",
   // Compliance findings
@@ -56,6 +80,13 @@ const typeLabels: Record<string, string> = {
   user_without_mfa: "User Without MFA",
 };
 
+const snoozeOptions = [
+  { value: "1", label: "1 day" },
+  { value: "7", label: "7 days" },
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+];
+
 // Helper to safely get string from details
 function getDetailString(details: Record<string, unknown>, key: string): string | null {
   const value = details[key];
@@ -74,6 +105,11 @@ export function FindingDetailModal({
   onUpdateStatus,
   isUpdating,
 }: FindingDetailModalProps) {
+  const [viewState, setViewState] = useState<ViewState>("details");
+  const [completedAction, setCompletedAction] = useState<FindingStatus | null>(null);
+  const [snoozeDays, setSnoozeDays] = useState("7");
+  const [snoozedUntilDate, setSnoozedUntilDate] = useState<Date | null>(null);
+
   if (!finding) return null;
 
   const description = getDetailString(finding.details, "description");
@@ -82,180 +118,463 @@ export function FindingDetailModal({
   const estimatedSavings = getDetailNumber(finding.details, "estimatedSavings");
   const expiresAt = getDetailString(finding.details, "expiresAt");
   const awsConsoleUrl = getDetailString(finding.details, "awsConsoleUrl");
+  const docUrl = getDetailString(finding.details, "doc_url");
+
+  const handleClose = () => {
+    setViewState("details");
+    setCompletedAction(null);
+    setSnoozeDays("7");
+    setSnoozedUntilDate(null);
+    onClose();
+  };
 
   const handleResolve = () => {
     onUpdateStatus(finding.id, "resolved");
+    setCompletedAction("resolved");
+    setViewState("success");
   };
 
-  const handleSnooze = (days: number) => {
+  const handleSnooze = () => {
+    const days = parseInt(snoozeDays, 10);
     const snoozedUntil = new Date();
     snoozedUntil.setDate(snoozedUntil.getDate() + days);
+    setSnoozedUntilDate(snoozedUntil);
     onUpdateStatus(finding.id, "snoozed", snoozedUntil);
+    setCompletedAction("snoozed");
+    setViewState("success");
   };
 
   const handleIgnore = () => {
     onUpdateStatus(finding.id, "ignored");
+    setCompletedAction("ignored");
+    setViewState("success");
   };
 
-  return (
-    <Dialog open={!!finding} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <SeverityBadge severity={finding.severity} />
-            <FindingStatusBadge status={finding.status} />
+  const handleUndo = () => {
+    onUpdateStatus(finding.id, "open");
+    handleClose();
+  };
+
+  const handleBackToDetails = () => {
+    setViewState("details");
+  };
+
+  // Render confirmation for Resolve
+  const renderResolveConfirmation = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-4 rounded-full bg-green-100 p-3 dark:bg-green-900/30">
+          <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+        </div>
+        <h3 className="text-lg font-semibold">Mark as Resolved?</h3>
+        <p className="mt-2 text-sm text-muted-foreground max-w-md">
+          This marks the finding as resolved. However, if this issue is detected
+          again in your next scan, the finding will automatically reopen.
+        </p>
+      </div>
+
+      <div className="rounded-lg border bg-muted/30 p-4">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium text-sm">When to use this</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Use this when you've fixed the underlying issue in AWS. If the problem
+              is truly resolved, it won't appear in future scans.
+            </p>
           </div>
-          <DialogTitle className="text-xl">
-            {typeLabels[finding.type] || finding.type}
-          </DialogTitle>
-          <DialogDescription>{finding.summary}</DialogDescription>
-        </DialogHeader>
+        </div>
+      </div>
 
-        <div className="space-y-4">
-          {/* Description */}
-          {description && (
+      <div className="rounded-lg border p-3 bg-card">
+        <p className="text-sm font-medium text-muted-foreground">Finding</p>
+        <p className="mt-1">{finding.summary}</p>
+      </div>
+
+      <DialogFooter className="flex-col gap-2 sm:flex-row">
+        <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
+          Cancel
+        </Button>
+        <Button onClick={handleResolve} disabled={isUpdating} className="bg-green-600 hover:bg-green-700">
+          <CheckCircle className="mr-2 h-4 w-4" />
+          Mark Resolved
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+
+  // Render confirmation for Ignore
+  const renderIgnoreConfirmation = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-4 rounded-full bg-gray-100 p-3 dark:bg-gray-800">
+          <EyeOff className="h-8 w-8 text-gray-600 dark:text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold">Ignore this Finding?</h3>
+        <p className="mt-2 text-sm text-muted-foreground max-w-md">
+          Ignored findings will <strong>NOT reopen</strong> even if detected in future scans.
+          This is permanent until you manually change it.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium text-sm text-amber-800 dark:text-amber-200">Use this for</p>
+            <ul className="text-sm text-amber-700 dark:text-amber-300 mt-1 list-disc list-inside space-y-1">
+              <li>False positives</li>
+              <li>Accepted risks that don't need fixing</li>
+              <li>Issues you've decided to accept</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-3 bg-card">
+        <p className="text-sm font-medium text-muted-foreground">Finding</p>
+        <p className="mt-1">{finding.summary}</p>
+      </div>
+
+      <DialogFooter className="flex-col gap-2 sm:flex-row">
+        <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
+          Cancel
+        </Button>
+        <Button variant="secondary" onClick={handleIgnore} disabled={isUpdating}>
+          <Ban className="mr-2 h-4 w-4" />
+          Ignore Finding
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+
+  // Render confirmation for Snooze
+  const renderSnoozeConfirmation = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-4 rounded-full bg-amber-100 p-3 dark:bg-amber-900/30">
+          <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h3 className="text-lg font-semibold">Snooze this Finding?</h3>
+        <p className="mt-2 text-sm text-muted-foreground max-w-md">
+          Snoozed findings are hidden until the snooze period ends.
+          If still detected after that date, the finding will reopen.
+        </p>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <label className="text-sm font-medium">Snooze for</label>
+        <Select value={snoozeDays} onValueChange={setSnoozeDays}>
+          <SelectTrigger className="mt-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {snoozeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-2">
+          Will reopen on {new Date(Date.now() + parseInt(snoozeDays) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+        </p>
+      </div>
+
+      <div className="rounded-lg border p-3 bg-card">
+        <p className="text-sm font-medium text-muted-foreground">Finding</p>
+        <p className="mt-1">{finding.summary}</p>
+      </div>
+
+      <DialogFooter className="flex-col gap-2 sm:flex-row">
+        <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
+          Cancel
+        </Button>
+        <Button onClick={handleSnooze} disabled={isUpdating} className="bg-amber-600 hover:bg-amber-700">
+          <Clock className="mr-2 h-4 w-4" />
+          Snooze Finding
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+
+  // Render success state
+  const renderSuccessState = () => {
+    const config = {
+      resolved: {
+        icon: CheckCircle,
+        iconBg: "bg-green-100 dark:bg-green-900/30",
+        iconColor: "text-green-600 dark:text-green-400",
+        title: "Finding Resolved",
+        description: `"${finding.summary}" has been marked as resolved.`,
+        info: "If this issue appears in your next scan, the finding will automatically reopen so you can address it again.",
+      },
+      ignored: {
+        icon: EyeOff,
+        iconBg: "bg-gray-100 dark:bg-gray-800",
+        iconColor: "text-gray-600 dark:text-gray-400",
+        title: "Finding Ignored",
+        description: `"${finding.summary}" has been ignored.`,
+        info: "This finding will remain ignored even if detected in future scans. You can change this anytime from the finding details.",
+      },
+      snoozed: {
+        icon: Clock,
+        iconBg: "bg-amber-100 dark:bg-amber-900/30",
+        iconColor: "text-amber-600 dark:text-amber-400",
+        title: "Finding Snoozed",
+        description: `"${finding.summary}" has been snoozed.`,
+        info: `This finding is hidden until ${snoozedUntilDate?.toLocaleDateString() || "the snooze period ends"}. If still detected after that, it will reopen for your attention.`,
+      },
+    };
+
+    const currentConfig = config[completedAction as keyof typeof config] || config.resolved;
+    const IconComponent = currentConfig.icon;
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center text-center">
+          <div className={`mb-4 rounded-full ${currentConfig.iconBg} p-3`}>
+            <IconComponent className={`h-8 w-8 ${currentConfig.iconColor}`} />
+          </div>
+          <h3 className="text-lg font-semibold">{currentConfig.title}</h3>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md">
+            {currentConfig.description}
+          </p>
+        </div>
+
+        <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/30 dark:border-blue-900">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
             <div>
-              <h4 className="mb-2 font-medium">Description</h4>
-              <p className="text-sm text-muted-foreground">
-                {description}
+              <p className="font-medium text-sm text-blue-800 dark:text-blue-200">What happens next?</p>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                {currentConfig.info}
               </p>
             </div>
-          )}
+          </div>
+        </div>
 
-          {(description || recommendation) && <Separator />}
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={handleUndo} disabled={isUpdating}>
+            <Undo2 className="mr-2 h-4 w-4" />
+            Undo
+          </Button>
+          <Button onClick={handleClose}>
+            <X className="mr-2 h-4 w-4" />
+            Close
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  };
 
-          {/* Recommendation */}
-          {recommendation && (
-            <div>
-              <h4 className="mb-2 flex items-center gap-2 font-medium">
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                Recommendation
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                {recommendation}
-              </p>
-            </div>
-          )}
+  // Render the details view
+  const renderDetails = () => (
+    <>
+      <DialogHeader>
+        <div className="flex items-center gap-2">
+          <SeverityBadge severity={finding.severity} />
+          <FindingStatusBadge status={finding.status} />
+        </div>
+        <DialogTitle className="text-xl">
+          {typeLabels[finding.type] || finding.type}
+        </DialogTitle>
+        <DialogDescription>{finding.summary}</DialogDescription>
+      </DialogHeader>
 
-          {recommendation && <Separator />}
+      <div className="space-y-4">
+        {/* Description */}
+        {description && (
+          <div>
+            <h4 className="mb-2 font-medium">Description</h4>
+            <p className="text-sm text-muted-foreground">
+              {description}
+            </p>
+          </div>
+        )}
 
-          {/* Detection Lifecycle */}
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <h4 className="mb-3 flex items-center gap-2 font-medium">
-              <History className="h-4 w-4 text-blue-500" />
-              Detection History
+        {(description || recommendation) && <Separator />}
+
+        {/* Recommendation */}
+        {recommendation && (
+          <div>
+            <h4 className="mb-2 flex items-center gap-2 font-medium">
+              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              Recommendation
             </h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">First Detected</p>
-                <p className="mt-1">{formatDateTime(finding.firstDetectedAt || finding.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Last Detected</p>
-                <p className="mt-1">{formatDateTime(finding.lastDetectedAt || finding.updatedAt)}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                  <RefreshCw className="h-3 w-3" />
-                  Detection Count
-                </p>
-                <p className="mt-1">
-                  {finding.detectionCount || 1}
-                  {(finding.detectionCount || 1) > 1 && (
-                    <span className="ml-2 text-xs text-amber-600">Recurring issue</span>
-                  )}
-                </p>
-              </div>
-              {finding.resolvedAt && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Resolved At
-                  </p>
-                  <p className="mt-1">{formatDateTime(finding.resolvedAt)}</p>
-                </div>
-              )}
-              {finding.snoozedUntil && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Snoozed Until
-                  </p>
-                  <p className="mt-1">{formatDateTime(finding.snoozedUntil)}</p>
-                </div>
-              )}
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {recommendation}
+            </p>
           </div>
+        )}
 
-          <Separator />
+        {recommendation && <Separator />}
 
-          {/* Details */}
+        {/* Detection Lifecycle */}
+        <div className="rounded-lg border bg-muted/30 p-4">
+          <h4 className="mb-3 flex items-center gap-2 font-medium">
+            <History className="h-4 w-4 text-blue-500" />
+            Detection History
+          </h4>
           <div className="grid gap-3 sm:grid-cols-2">
-            {region && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Region</p>
-                <p className="mt-1">{region}</p>
-              </div>
-            )}
-            {estimatedSavings !== null && estimatedSavings > 0 && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">First Detected</p>
+              <p className="mt-1">{formatDateTime(finding.firstDetectedAt || finding.createdAt)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Last Detected</p>
+              <p className="mt-1">{formatDateTime(finding.lastDetectedAt || finding.updatedAt)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" />
+                Detection Count
+              </p>
+              <p className="mt-1">
+                {finding.detectionCount || 1}
+                {(finding.detectionCount || 1) > 1 && (
+                  <span className="ml-2 text-xs text-amber-600">Recurring issue</span>
+                )}
+              </p>
+            </div>
+            {finding.resolvedAt && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Estimated Savings
+                  Resolved At
                 </p>
-                <p className="mt-1 text-green-600 font-medium">
-                  {formatCurrency(estimatedSavings)}/month
-                </p>
+                <p className="mt-1">{formatDateTime(finding.resolvedAt)}</p>
               </div>
             )}
-            {expiresAt && (
+            {finding.snoozedUntil && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Expires At
+                  Snoozed Until
                 </p>
-                <p className="mt-1">{formatDateTime(expiresAt)}</p>
+                <p className="mt-1">{formatDateTime(finding.snoozedUntil)}</p>
               </div>
             )}
           </div>
+        </div>
 
-          {awsConsoleUrl && (
-            <>
-              <Separator />
-              <Button variant="outline" asChild className="w-full">
-                <a
-                  href={awsConsoleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open in AWS Console
-                </a>
-              </Button>
-            </>
+        <Separator />
+
+        {/* Details */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {region && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Region</p>
+              <p className="mt-1">{region}</p>
+            </div>
+          )}
+          {estimatedSavings !== null && estimatedSavings > 0 && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Estimated Savings
+              </p>
+              <p className="mt-1 text-green-600 font-medium">
+                {formatCurrency(estimatedSavings)}/month
+              </p>
+            </div>
+          )}
+          {expiresAt && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Expires At
+              </p>
+              <p className="mt-1">{formatDateTime(expiresAt)}</p>
+            </div>
           )}
         </div>
 
-        {finding.status === "open" && (
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={() => handleSnooze(7)}
-              disabled={isUpdating}
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              Snooze 7 days
+        {awsConsoleUrl && (
+          <>
+            <Separator />
+            <Button variant="outline" asChild className="w-full">
+              <a
+                href={awsConsoleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open in AWS Console
+              </a>
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleIgnore}
-              disabled={isUpdating}
-            >
-              <EyeOff className="mr-2 h-4 w-4" />
-              Ignore
-            </Button>
-            <Button onClick={handleResolve} disabled={isUpdating}>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Mark Resolved
-            </Button>
-          </DialogFooter>
+          </>
         )}
+
+        {docUrl && (
+          <Button variant="outline" asChild className="w-full">
+            <a
+              href={docUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View AWS Documentation
+            </a>
+          </Button>
+        )}
+      </div>
+
+      {finding.status === "open" && (
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            onClick={() => setViewState("confirm-snooze")}
+            disabled={isUpdating}
+          >
+            <Clock className="mr-2 h-4 w-4" />
+            Snooze
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setViewState("confirm-ignore")}
+            disabled={isUpdating}
+          >
+            <EyeOff className="mr-2 h-4 w-4" />
+            Ignore
+          </Button>
+          <Button onClick={() => setViewState("confirm-resolve")} disabled={isUpdating}>
+            <CheckCircle className="mr-2 h-4 w-4" />
+            Resolve
+          </Button>
+        </DialogFooter>
+      )}
+
+      {finding.status !== "open" && (
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleUndo()} disabled={isUpdating}>
+            <Undo2 className="mr-2 h-4 w-4" />
+            Reopen Finding
+          </Button>
+          <Button onClick={handleClose}>
+            Close
+          </Button>
+        </DialogFooter>
+      )}
+    </>
+  );
+
+  // Render content based on view state
+  const renderContent = () => {
+    switch (viewState) {
+      case "confirm-resolve":
+        return renderResolveConfirmation();
+      case "confirm-ignore":
+        return renderIgnoreConfirmation();
+      case "confirm-snooze":
+        return renderSnoozeConfirmation();
+      case "success":
+        return renderSuccessState();
+      default:
+        return renderDetails();
+    }
+  };
+
+  return (
+    <Dialog open={!!finding} onOpenChange={() => handleClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );

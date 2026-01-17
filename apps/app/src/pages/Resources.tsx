@@ -344,7 +344,7 @@ function ResourcesGridView({
         <Card
           key={resource.id}
           className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-          onClick={() => navigate(`/resources/${resource.id}`)}
+          onClick={() => navigate(`/overview/resources/${resource.id}`)}
         >
           <CardContent className="p-4">
             <div className="flex items-start gap-3">

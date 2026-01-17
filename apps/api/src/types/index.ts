@@ -151,3 +151,241 @@ export const JobStatus = {
   ERROR: 'error',
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
+
+// Scanner Types
+export const ScannerType = {
+  EC2: 'ec2',
+  RDS: 'rds',
+  S3: 's3',
+  ALB: 'alb',
+  ACM: 'acm',
+  LAMBDA: 'lambda',
+  CLOUDWATCH: 'cloudwatch',
+  IAM: 'iam',
+  SECURITY_GROUPS: 'security_groups',
+  SECRETS_MANAGER: 'secrets_manager',
+  KMS: 'kms',
+} as const;
+export type ScannerType = (typeof ScannerType)[keyof typeof ScannerType];
+
+export const ALL_SCANNER_TYPES: ScannerType[] = Object.values(ScannerType);
+
+// Permission categories for scanner selection UI
+export interface PermissionCategory {
+  id: string;
+  label: string;
+  description: string;
+  scanners: ScannerType[];
+  iamActions: string[];
+}
+
+export const PERMISSION_CATEGORIES: PermissionCategory[] = [
+  {
+    id: 'ec2_compute',
+    label: 'EC2 & Compute',
+    description: 'EC2 instances, EBS volumes, EIPs, ENIs, NAT Gateways, Security Groups',
+    scanners: [ScannerType.EC2, ScannerType.SECURITY_GROUPS],
+    iamActions: [
+      'ec2:DescribeInstances',
+      'ec2:DescribeVolumes',
+      'ec2:DescribeAddresses',
+      'ec2:DescribeNetworkInterfaces',
+      'ec2:DescribeNatGateways',
+      'ec2:DescribeSecurityGroups',
+      'ec2:DescribeSecurityGroupRules',
+      'ec2:DescribeRegions',
+    ],
+  },
+  {
+    id: 'database',
+    label: 'Database',
+    description: 'RDS instances and snapshots',
+    scanners: [ScannerType.RDS],
+    iamActions: [
+      'rds:DescribeDBInstances',
+      'rds:DescribeDBSnapshots',
+      'rds:ListTagsForResource',
+    ],
+  },
+  {
+    id: 'storage',
+    label: 'Storage',
+    description: 'S3 buckets and policies',
+    scanners: [ScannerType.S3],
+    iamActions: [
+      's3:ListAllMyBuckets',
+      's3:GetBucketLocation',
+      's3:GetBucketTagging',
+      's3:GetBucketPolicy',
+      's3:GetBucketPolicyStatus',
+      's3:GetPublicAccessBlock',
+    ],
+  },
+  {
+    id: 'networking',
+    label: 'Load Balancing',
+    description: 'Application/Network Load Balancers and Target Groups',
+    scanners: [ScannerType.ALB],
+    iamActions: [
+      'elasticloadbalancing:DescribeLoadBalancers',
+      'elasticloadbalancing:DescribeTargetGroups',
+      'elasticloadbalancing:DescribeTags',
+    ],
+  },
+  {
+    id: 'certificates',
+    label: 'Certificates',
+    description: 'ACM SSL/TLS certificates',
+    scanners: [ScannerType.ACM],
+    iamActions: [
+      'acm:ListCertificates',
+      'acm:DescribeCertificate',
+      'acm:ListTagsForCertificate',
+    ],
+  },
+  {
+    id: 'serverless',
+    label: 'Serverless',
+    description: 'Lambda functions',
+    scanners: [ScannerType.LAMBDA],
+    iamActions: [
+      'lambda:ListFunctions',
+      'lambda:GetFunction',
+      'lambda:ListTags',
+    ],
+  },
+  {
+    id: 'monitoring',
+    label: 'Monitoring',
+    description: 'CloudWatch Log Groups and Alarms',
+    scanners: [ScannerType.CLOUDWATCH],
+    iamActions: [
+      'logs:DescribeLogGroups',
+      'logs:ListTagsForResource',
+      'cloudwatch:DescribeAlarms',
+      'cloudwatch:ListTagsForResource',
+    ],
+  },
+  {
+    id: 'identity',
+    label: 'Identity & Access',
+    description: 'IAM Users, Roles, and Access Keys',
+    scanners: [ScannerType.IAM],
+    iamActions: [
+      'iam:ListUsers',
+      'iam:ListUserTags',
+      'iam:ListMFADevices',
+      'iam:ListRoles',
+      'iam:ListRoleTags',
+      'iam:GetRole',
+      'iam:ListAccessKeys',
+      'iam:GetAccessKeyLastUsed',
+      'iam:ListAttachedRolePolicies',
+      'iam:ListRolePolicies',
+      'iam:GetRolePolicy',
+    ],
+  },
+  {
+    id: 'secrets',
+    label: 'Secrets & Encryption',
+    description: 'Secrets Manager secrets and KMS keys',
+    scanners: [ScannerType.SECRETS_MANAGER, ScannerType.KMS],
+    iamActions: [
+      'secretsmanager:ListSecrets',
+      'secretsmanager:DescribeSecret',
+      'kms:ListKeys',
+      'kms:DescribeKey',
+      'kms:ListResourceTags',
+      'kms:GetKeyRotationStatus',
+    ],
+  },
+];
+
+// Helper to generate IAM policy from selected categories
+export function generateIAMPolicy(selectedCategories: string[]): string {
+  const actions: string[] = [];
+
+  PERMISSION_CATEGORIES.forEach(category => {
+    if (selectedCategories.includes(category.id)) {
+      actions.push(...category.iamActions);
+    }
+  });
+
+  // Deduplicate actions
+  const uniqueActions = [...new Set(actions)];
+
+  const policy = {
+    Version: '2012-10-17',
+    Statement: [
+      {
+        Sid: 'ScanOrbitReadAccess',
+        Effect: 'Allow',
+        Action: uniqueActions,
+        Resource: '*',
+      },
+    ],
+  };
+
+  return JSON.stringify(policy, null, 2);
+}
+
+// Helper to generate trust policy
+export function generateTrustPolicy(externalId: string, trustedAccountId: string): string {
+  const trustPolicy = {
+    Version: '2012-10-17',
+    Statement: [
+      {
+        Effect: 'Allow',
+        Principal: {
+          AWS: `arn:aws:iam::${trustedAccountId}:root`,
+        },
+        Action: 'sts:AssumeRole',
+        Condition: {
+          StringEquals: {
+            'sts:ExternalId': externalId,
+          },
+        },
+      },
+    ],
+  };
+
+  return JSON.stringify(trustPolicy, null, 2);
+}
+
+// Get scanners from selected categories
+export function getScannersFromCategories(selectedCategories: string[]): ScannerType[] {
+  const scanners: ScannerType[] = [];
+
+  PERMISSION_CATEGORIES.forEach(category => {
+    if (selectedCategories.includes(category.id)) {
+      scanners.push(...category.scanners);
+    }
+  });
+
+  return [...new Set(scanners)];
+}
+
+// Get categories from enabled scanners (reverse mapping)
+export function getCategoriesFromScanners(enabledScanners: ScannerType[]): string[] {
+  return PERMISSION_CATEGORIES
+    .filter(category => category.scanners.every(s => enabledScanners.includes(s)))
+    .map(category => category.id);
+}
+
+// Analyzer to scanner dependencies
+export const ANALYZER_SCANNER_DEPS: Record<string, ScannerType[]> = {
+  analyze_orphans: [ScannerType.EC2, ScannerType.SECURITY_GROUPS],
+  analyze_ssl: [ScannerType.ACM, ScannerType.ALB],
+  analyze_residency: [ScannerType.EC2, ScannerType.RDS, ScannerType.S3, ScannerType.LAMBDA],
+  analyze_security: [ScannerType.EC2, ScannerType.RDS, ScannerType.S3, ScannerType.SECURITY_GROUPS, ScannerType.KMS],
+  analyze_cost: [ScannerType.EC2, ScannerType.RDS, ScannerType.LAMBDA, ScannerType.CLOUDWATCH, ScannerType.ALB],
+  analyze_tagging: [ScannerType.EC2, ScannerType.RDS, ScannerType.S3, ScannerType.LAMBDA, ScannerType.ALB],
+  analyze_iam: [ScannerType.IAM],
+};
+
+// Get analyzers that should run based on enabled scanners
+export function getAnalyzersForScanners(enabledScanners: ScannerType[]): string[] {
+  return Object.entries(ANALYZER_SCANNER_DEPS)
+    .filter(([_, deps]) => deps.some(d => enabledScanners.includes(d)))
+    .map(([analyzer]) => analyzer);
+}

@@ -36,6 +36,213 @@ export interface OrgMember {
 // AWS Account
 export type AwsAccountStatus = "pending" | "ok" | "error";
 
+// Scanner Types
+export type ScannerType =
+  | "ec2"
+  | "rds"
+  | "s3"
+  | "alb"
+  | "acm"
+  | "lambda"
+  | "cloudwatch"
+  | "iam"
+  | "security_groups"
+  | "secrets_manager"
+  | "kms";
+
+export const ALL_SCANNER_TYPES: ScannerType[] = [
+  "ec2",
+  "rds",
+  "s3",
+  "alb",
+  "acm",
+  "lambda",
+  "cloudwatch",
+  "iam",
+  "security_groups",
+  "secrets_manager",
+  "kms",
+];
+
+// Permission categories for scanner selection UI
+export interface PermissionCategory {
+  id: string;
+  label: string;
+  description: string;
+  scanners: ScannerType[];
+  iamActions: string[];
+}
+
+export const PERMISSION_CATEGORIES: PermissionCategory[] = [
+  {
+    id: "ec2_compute",
+    label: "EC2 & Compute",
+    description: "EC2 instances, EBS volumes, EIPs, ENIs, NAT Gateways, Security Groups",
+    scanners: ["ec2", "security_groups"],
+    iamActions: [
+      "ec2:DescribeInstances",
+      "ec2:DescribeVolumes",
+      "ec2:DescribeAddresses",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeNatGateways",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSecurityGroupRules",
+      "ec2:DescribeRegions",
+    ],
+  },
+  {
+    id: "database",
+    label: "Database",
+    description: "RDS instances and snapshots",
+    scanners: ["rds"],
+    iamActions: [
+      "rds:DescribeDBInstances",
+      "rds:DescribeDBSnapshots",
+      "rds:ListTagsForResource",
+    ],
+  },
+  {
+    id: "storage",
+    label: "Storage",
+    description: "S3 buckets and policies",
+    scanners: ["s3"],
+    iamActions: [
+      "s3:ListAllMyBuckets",
+      "s3:GetBucketLocation",
+      "s3:GetBucketTagging",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketPolicyStatus",
+      "s3:GetPublicAccessBlock",
+    ],
+  },
+  {
+    id: "networking",
+    label: "Load Balancing",
+    description: "Application/Network Load Balancers and Target Groups",
+    scanners: ["alb"],
+    iamActions: [
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeTags",
+    ],
+  },
+  {
+    id: "certificates",
+    label: "Certificates",
+    description: "ACM SSL/TLS certificates",
+    scanners: ["acm"],
+    iamActions: [
+      "acm:ListCertificates",
+      "acm:DescribeCertificate",
+      "acm:ListTagsForCertificate",
+    ],
+  },
+  {
+    id: "serverless",
+    label: "Serverless",
+    description: "Lambda functions",
+    scanners: ["lambda"],
+    iamActions: [
+      "lambda:ListFunctions",
+      "lambda:GetFunction",
+      "lambda:ListTags",
+    ],
+  },
+  {
+    id: "monitoring",
+    label: "Monitoring",
+    description: "CloudWatch Log Groups and Alarms",
+    scanners: ["cloudwatch"],
+    iamActions: [
+      "logs:DescribeLogGroups",
+      "logs:ListTagsForResource",
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:ListTagsForResource",
+    ],
+  },
+  {
+    id: "identity",
+    label: "Identity & Access",
+    description: "IAM Users, Roles, and Access Keys",
+    scanners: ["iam"],
+    iamActions: [
+      "iam:ListUsers",
+      "iam:ListUserTags",
+      "iam:ListMFADevices",
+      "iam:ListRoles",
+      "iam:ListRoleTags",
+      "iam:GetRole",
+      "iam:ListAccessKeys",
+      "iam:GetAccessKeyLastUsed",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies",
+      "iam:GetRolePolicy",
+    ],
+  },
+  {
+    id: "secrets",
+    label: "Secrets & Encryption",
+    description: "Secrets Manager secrets and KMS keys",
+    scanners: ["secrets_manager", "kms"],
+    iamActions: [
+      "secretsmanager:ListSecrets",
+      "secretsmanager:DescribeSecret",
+      "kms:ListKeys",
+      "kms:DescribeKey",
+      "kms:ListResourceTags",
+      "kms:GetKeyRotationStatus",
+    ],
+  },
+];
+
+// Helper to generate IAM policy from selected categories
+export function generateIAMPolicy(selectedCategories: string[]): string {
+  const actions: string[] = [];
+
+  PERMISSION_CATEGORIES.forEach((category) => {
+    if (selectedCategories.includes(category.id)) {
+      actions.push(...category.iamActions);
+    }
+  });
+
+  // Deduplicate actions
+  const uniqueActions = [...new Set(actions)];
+
+  const policy = {
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Sid: "ScanOrbitReadAccess",
+        Effect: "Allow",
+        Action: uniqueActions,
+        Resource: "*",
+      },
+    ],
+  };
+
+  return JSON.stringify(policy, null, 2);
+}
+
+// Get scanners from selected categories
+export function getScannersFromCategories(selectedCategories: string[]): ScannerType[] {
+  const scanners: ScannerType[] = [];
+
+  PERMISSION_CATEGORIES.forEach((category) => {
+    if (selectedCategories.includes(category.id)) {
+      scanners.push(...category.scanners);
+    }
+  });
+
+  return [...new Set(scanners)];
+}
+
+// Get categories from enabled scanners (reverse mapping)
+export function getCategoriesFromScanners(enabledScanners: ScannerType[]): string[] {
+  return PERMISSION_CATEGORIES
+    .filter((category) => category.scanners.every((s) => enabledScanners.includes(s)))
+    .map((category) => category.id);
+}
+
 export interface AwsAccount {
   id: string;
   orgId: string;
@@ -46,6 +253,7 @@ export interface AwsAccount {
   status: AwsAccountStatus;
   lastError: string | null;
   lastScanAt: string | null;
+  enabledScanners: ScannerType[];
   createdAt: string;
   updatedAt: string;
 }
@@ -174,6 +382,13 @@ export type FindingType =
   | "unused_log_group"
   | "idle_nat_gateway"
   | "oversized_instance"
+  // Cost optimization findings
+  | "ebs_optimization"
+  | "old_gen_instance"
+  | "oversized_lambda"
+  | "log_retention"
+  | "unused_kms_key"
+  | "rds_optimization"
   // Tagging findings
   | "missing_tag"
   // IAM findings
@@ -449,6 +664,7 @@ export interface CreateAwsAccountInput {
   awsAccountId: string;
   roleArn: string;
   externalId?: string;
+  enabledScanners?: ScannerType[];
 }
 
 export interface TestConnectionResult {

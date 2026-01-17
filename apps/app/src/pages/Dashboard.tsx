@@ -6,6 +6,7 @@ import { QuickActionsPanel } from "@/components/dashboard/QuickActionsPanel";
 import { RecentFindings } from "@/components/dashboard/RecentFindings";
 import { AccountStatus } from "@/components/dashboard/AccountStatus";
 import { ScanHistoryCard } from "@/components/dashboard/ScanHistoryCard";
+import { ScannerWarning } from "@/components/dashboard/ScannerWarning";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -234,6 +235,11 @@ export default function Dashboard() {
       {/* Dashboard content - only show after first scan is completed */}
       {hasCompletedScan && (
         <>
+          {/* Scanner configuration warning */}
+          {hasAccounts && accounts && (
+            <ScannerWarning accounts={accounts} />
+          )}
+
           {/* Summary cards */}
           <DashboardSummaryCards summary={summary} isLoading={summaryLoading} />
 

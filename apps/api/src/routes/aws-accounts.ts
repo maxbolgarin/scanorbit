@@ -11,6 +11,12 @@ const awsAccountsRoute = new Hono<{ Variables: Variables }>();
 // All routes require authentication
 awsAccountsRoute.use(requireAuth);
 
+// Scanner type enum for validation
+const scannerTypeEnum = z.enum([
+  'ec2', 'rds', 's3', 'alb', 'acm', 'lambda',
+  'cloudwatch', 'iam', 'security_groups', 'secrets_manager', 'kms'
+]);
+
 // Validation schemas
 const createAccountSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255),
@@ -23,6 +29,12 @@ const createAccountSchema = z.object({
     .min(1, 'Role ARN is required')
     .regex(/^arn:aws:iam::\d{12}:role\//, 'Invalid role ARN format'),
   externalId: z.string().max(255).optional(),
+  enabledScanners: z.array(scannerTypeEnum).optional(), // Default to all if not provided
+});
+
+// Schema for updating scanner configuration
+const updateScannersSchema = z.object({
+  enabledScanners: z.array(scannerTypeEnum).min(1, 'At least one scanner must be enabled'),
 });
 
 // GET /aws/accounts - List AWS accounts
@@ -83,6 +95,28 @@ awsAccountsRoute.delete('/:id', async (c) => {
   await awsAccountService.deleteAccount(orgId, accountId);
   return c.json({ message: 'AWS account deleted successfully' });
 });
+
+// PATCH /aws/accounts/:id/scanners - Update enabled scanners
+awsAccountsRoute.patch(
+  '/:id/scanners',
+  zValidator('json', updateScannersSchema),
+  async (c) => {
+    const orgId = c.get('orgId');
+    const accountId = c.req.param('id');
+
+    if (!orgId) {
+      throw new HTTP400Error('No organization selected');
+    }
+
+    if (!accountId) {
+      throw new HTTP400Error('Account ID is required');
+    }
+
+    const { enabledScanners } = c.req.valid('json');
+    const account = await awsAccountService.updateEnabledScanners(orgId, accountId, enabledScanners);
+    return c.json({ data: account });
+  }
+);
 
 // POST /aws/accounts/:id/test - Test AWS account connection
 awsAccountsRoute.post('/:id/test', async (c) => {

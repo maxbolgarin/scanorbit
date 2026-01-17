@@ -45,6 +45,13 @@ const (
 	FindingUnusedLogGroup    FindingType = "unused_log_group"
 	FindingIdleNATGateway    FindingType = "idle_nat_gateway"
 	FindingOversizedInstance FindingType = "oversized_instance"
+	// Cost optimization findings
+	FindingEBSOptimization  FindingType = "ebs_optimization"
+	FindingOldGenInstance   FindingType = "old_gen_instance"
+	FindingOversizedLambda  FindingType = "oversized_lambda"
+	FindingLogRetention     FindingType = "log_retention"
+	FindingUnusedKMSKey     FindingType = "unused_kms_key"
+	FindingRDSOptimization  FindingType = "rds_optimization"
 	// Tagging findings
 	FindingMissingTag FindingType = "missing_tag"
 	// IAM findings

@@ -25,18 +25,14 @@ gdpr.use('/*', requireAuth);
 // =============================================================================
 gdpr.get('/export', async (c) => {
   const userId = c.get('userId');
-  const orgId = c.get('orgId');
 
   // Log this sensitive operation
   await logDataAccess(
     userId,
-    orgId || null,
     'export',
-    'user',
-    userId,
+    '/gdpr/export',
     c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
-    c.req.header('user-agent') || null,
-    { reason: 'GDPR data export request' }
+    c.req.header('user-agent') || null
   );
 
   // Fetch all user data
@@ -75,7 +71,6 @@ gdpr.get('/export', async (c) => {
     .select({
       timestamp: auditLogs.timestamp,
       action: auditLogs.action,
-      resource: auditLogs.resource,
       method: auditLogs.method,
       path: auditLogs.path,
     })
@@ -192,13 +187,10 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
   // Log this sensitive operation
   await logDataAccess(
     userId,
-    null,
     'delete',
-    'user',
-    userId,
+    '/gdpr/delete',
     c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
-    c.req.header('user-agent') || null,
-    { reason, requestId: request.id }
+    c.req.header('user-agent') || null
   );
 
   return c.json({
@@ -287,8 +279,6 @@ gdpr.get('/audit-logs', zValidator('query', auditLogsQuerySchema), async (c) => 
       id: auditLogs.id,
       timestamp: auditLogs.timestamp,
       action: auditLogs.action,
-      resource: auditLogs.resource,
-      resourceId: auditLogs.resourceId,
       method: auditLogs.method,
       path: auditLogs.path,
       statusCode: auditLogs.statusCode,

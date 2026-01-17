@@ -7,13 +7,21 @@ import { awsAccounts, scans, jobs, orgSettings } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
-import { ScanStatus, ACTIVE_SCAN_STATUSES, TERMINAL_SCAN_STATUSES } from '../types/index.js';
+import {
+  ScanStatus,
+  ACTIVE_SCAN_STATUSES,
+  TERMINAL_SCAN_STATUSES,
+  ALL_SCANNER_TYPES,
+  ANALYZER_SCANNER_DEPS,
+  type ScannerType,
+} from '../types/index.js';
 
 interface CreateAccountData {
   name: string;
   awsAccountId: string;
   roleArn: string;
   externalId?: string;
+  enabledScanners?: ScannerType[];
 }
 
 interface TestConnectionResult {
@@ -89,6 +97,7 @@ export const awsAccountService = {
         roleArn: data.roleArn,
         externalId: data.externalId,
         status: 'pending',
+        enabledScanners: data.enabledScanners ?? ALL_SCANNER_TYPES,
       } satisfies NewAwsAccount)
       .returning();
 
@@ -148,6 +157,35 @@ export const awsAccountService = {
 
     // Track AWS account disconnection
     awsAccountsConnected.dec();
+  },
+
+  async updateEnabledScanners(
+    orgId: string,
+    accountId: string,
+    enabledScanners: ScannerType[]
+  ): Promise<AwsAccount> {
+    // Verify account exists and belongs to org
+    await this.getAccount(orgId, accountId);
+
+    const [account] = await db
+      .update(awsAccounts)
+      .set({
+        enabledScanners,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(awsAccounts.id, accountId),
+          eq(awsAccounts.orgId, orgId)
+        )
+      )
+      .returning();
+
+    if (!account) {
+      throw new HTTP404Error('AWS account not found');
+    }
+
+    return account;
   },
 
   async testConnection(
@@ -223,7 +261,7 @@ export const awsAccountService = {
 
   async enqueueScan(orgId: string, accountId: string): Promise<Scan> {
     // Verify account exists and belongs to org
-    await this.getAccount(orgId, accountId);
+    const account = await this.getAccount(orgId, accountId);
 
     // Check if there's already an active scan for this account
     const [activeScan] = await db
@@ -274,13 +312,14 @@ export const awsAccountService = {
     const { scan, job } = result;
 
     // Push to Redis queue for workers to pick up
-    // Go workers expect snake_case: job_id, scan_id, account_id, org_id
+    // Go workers expect snake_case: job_id, scan_id, account_id, org_id, enabled_scanners
     try {
       await redis.rpush('jobs:scan_account', JSON.stringify({
         job_id: job.id,
         scan_id: scan.id,
         account_id: accountId,
         org_id: orgId,
+        enabled_scanners: account.enabledScanners,
       }));
     } catch (redisError) {
       // Redis failed - mark scan and job as failed to prevent inconsistency
@@ -358,16 +397,33 @@ export const awsAccountService = {
   },
 
   async enqueueAllAnalyses(orgId: string, accountId: string): Promise<void> {
-    // Enqueue all analysis types
-    await Promise.all([
-      this.enqueueAnalysis(orgId, accountId, 'analyze_orphans'),
-      this.enqueueAnalysis(orgId, accountId, 'analyze_ssl'),
-      this.enqueueAnalysis(orgId, accountId, 'analyze_residency'),
-      this.enqueueAnalysis(orgId, accountId, 'analyze_security'),
-      this.enqueueAnalysis(orgId, accountId, 'analyze_cost'),
-      this.enqueueAnalysis(orgId, accountId, 'analyze_tagging'),
-      this.enqueueAnalysis(orgId, accountId, 'analyze_iam'),
-    ]);
+    // Get account to check enabled scanners
+    const account = await this.getAccount(orgId, accountId);
+    const enabledScanners = account.enabledScanners as ScannerType[];
+
+    // Filter analyzers based on enabled scanners
+    // An analyzer runs if at least one of its dependent scanners is enabled
+    const allAnalyzers = [
+      'analyze_orphans',
+      'analyze_ssl',
+      'analyze_residency',
+      'analyze_security',
+      'analyze_cost',
+      'analyze_tagging',
+      'analyze_iam',
+    ] as const;
+
+    const analyzersToRun = allAnalyzers.filter((analyzer) => {
+      const deps = ANALYZER_SCANNER_DEPS[analyzer];
+      return deps?.some((dep) => enabledScanners.includes(dep));
+    });
+
+    // Enqueue only relevant analyzers
+    await Promise.all(
+      analyzersToRun.map((analyzer) =>
+        this.enqueueAnalysis(orgId, accountId, analyzer)
+      )
+    );
   },
 
   async getScan(orgId: string, scanId: string): Promise<Scan> {
