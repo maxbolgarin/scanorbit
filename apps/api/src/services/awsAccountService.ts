@@ -3,7 +3,7 @@ import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
-import { awsAccounts, scans, jobs } from '../db/schema.js';
+import { awsAccounts, scans, jobs, orgSettings } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
@@ -225,6 +225,22 @@ export const awsAccountService = {
     // Verify account exists and belongs to org
     await this.getAccount(orgId, accountId);
 
+    // Check if there's already an active scan for this account
+    const [activeScan] = await db
+      .select({ id: scans.id, status: scans.status })
+      .from(scans)
+      .where(
+        and(
+          eq(scans.awsAccountId, accountId),
+          inArray(scans.status, ACTIVE_SCAN_STATUSES)
+        )
+      )
+      .limit(1);
+
+    if (activeScan) {
+      throw new HTTP400Error(`Scan already in progress (status: ${activeScan.status}). Please wait for it to complete.`);
+    }
+
     // Use transaction to ensure scan and job are created together
     const result = await db.transaction(async (tx) => {
       // Create scan record with 'queued' status
@@ -301,6 +317,20 @@ export const awsAccountService = {
     // Add residency policy for residency analysis
     if (analysisType === 'analyze_residency' && allowedRegions) {
       payload.policy = { allowed_regions: allowedRegions };
+    }
+
+    // Add required tags from org settings for tagging analysis
+    if (analysisType === 'analyze_tagging') {
+      const [settings] = await db
+        .select({ requiredTags: orgSettings.requiredTags })
+        .from(orgSettings)
+        .where(eq(orgSettings.orgId, orgId))
+        .limit(1);
+
+      const requiredTags = settings?.requiredTags as string[] | undefined;
+      if (requiredTags && requiredTags.length > 0) {
+        payload.required_tags = requiredTags;
+      }
     }
 
     // Create job record in database for tracking

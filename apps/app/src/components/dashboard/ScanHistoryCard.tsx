@@ -27,6 +27,7 @@ import type { Scan, AwsAccount, ScanStatus } from "@/types";
 interface ScanHistoryCardProps {
   scans: Scan[];
   accounts: AwsAccount[];
+  baseUrl?: string;
 }
 
 const statusConfig: Record<
@@ -75,7 +76,7 @@ const statusConfig: Record<
   },
 };
 
-export function ScanHistoryCard({ scans, accounts }: ScanHistoryCardProps) {
+export function ScanHistoryCard({ scans, accounts, baseUrl: _baseUrl }: ScanHistoryCardProps) {
   const getAccountName = (awsAccountId: string | null) => {
     if (!awsAccountId) return "Deleted Account";
     const account = accounts.find((a) => a.id === awsAccountId);

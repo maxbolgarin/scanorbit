@@ -11,10 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
-import { useResource } from "@/hooks/use-resources";
-import { useFindings } from "@/hooks/use-findings";
+import { useResource, useResourceDependencies, useResourceDependents } from "@/hooks/use-resources";
+import { useFilteredFindings } from "@/hooks/use-findings";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, ArrowRight, ArrowLeftRight, RefreshCw } from "lucide-react";
 import {
   EC2Details,
   EBSDetails,
@@ -33,8 +33,9 @@ import {
   CloudWatchAlarmDetails,
   EIPDetails,
   RDSSnapshotDetails,
+  ResourceScanHistory,
 } from "@/components/resources/detail";
-import type { Resource, ServiceType } from "@/types";
+import type { Resource, ServiceType, RelationshipType } from "@/types";
 
 // Valid AWS regions whitelist for URL construction security
 const VALID_AWS_REGIONS = new Set([
@@ -197,6 +198,24 @@ function getServiceDetailComponent(service: ServiceType): React.ComponentType<{ 
   }
 }
 
+/**
+ * Get human-readable label for relationship type
+ */
+function getRelationshipLabel(type: RelationshipType): string {
+  switch (type) {
+    case 'uses_role': return 'Uses Role';
+    case 'in_vpc': return 'In VPC';
+    case 'in_subnet': return 'In Subnet';
+    case 'uses_sg': return 'Uses Security Group';
+    case 'attached_to': return 'Attached To';
+    case 'targets': return 'Targets';
+    case 'owns': return 'Owns';
+    case 'uses_layer': return 'Uses Layer';
+    case 'encrypted_by': return 'Encrypted By';
+    default: return type;
+  }
+}
+
 // Type for location state
 interface LocationState {
   from?: 'infrastructure-map' | 'resources';
@@ -207,7 +226,9 @@ export default function ResourceDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: resource, isLoading } = useResource(id || "");
-  const { data: findingsResponse } = useFindings();
+  const { data: findingsResponse } = useFilteredFindings();
+  const { data: dependencies = [] } = useResourceDependencies(id || "");
+  const { data: dependents = [] } = useResourceDependents(id || "");
   const allFindings = findingsResponse?.data || [];
 
   // Determine back navigation destination based on where user came from
@@ -333,9 +354,9 @@ export default function ResourceDetail() {
           <DetailComponent resource={resource} />
         </div>
 
-        {/* Sidebar - Related Findings */}
-        <div>
-          <Card className="sticky top-6">
+        {/* Sidebar - Related Findings & Dependencies */}
+        <div className="space-y-6">
+          <Card>
             <CardHeader>
               <CardTitle className="text-base">Related Findings</CardTitle>
               <CardDescription>
@@ -351,8 +372,17 @@ export default function ResourceDetail() {
                       className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
                       onClick={() => navigate(`/findings?id=${finding.id}`)}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between gap-2">
                         <SeverityBadge severity={finding.severity} />
+                        {(finding.detectionCount || 1) > 1 && (
+                          <span
+                            className="flex items-center gap-1 text-xs text-amber-600"
+                            title={`Detected ${finding.detectionCount} times`}
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            {finding.detectionCount}×
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 text-sm font-medium">{finding.summary}</p>
                     </div>
@@ -365,6 +395,103 @@ export default function ResourceDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Dependencies Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ArrowLeftRight className="h-4 w-4" />
+                Dependencies
+              </CardTitle>
+              <CardDescription>
+                Resources this depends on and resources that depend on this
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Outgoing Dependencies (this resource depends on) */}
+              {dependencies.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <ArrowRight className="h-3 w-3" />
+                    Depends On ({dependencies.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {dependencies.map((dep) => (
+                      <div
+                        key={dep.id}
+                        className={`rounded-lg border p-3 transition-colors ${
+                          dep.targetResource ? 'cursor-pointer hover:bg-muted/50' : ''
+                        }`}
+                        onClick={() => {
+                          if (dep.targetResource) {
+                            navigate(`/resources/${dep.targetResource.id}`);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ServiceIcon service={dep.targetService as ServiceType} className="h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              {dep.targetResource?.name || dep.targetResourceId}
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {getRelationshipLabel(dep.relationshipType)}
+                          </Badge>
+                        </div>
+                        {!dep.targetResource && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            External resource
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Incoming Dependencies (resources that depend on this) */}
+              {dependents.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <ArrowLeft className="h-3 w-3" />
+                    Depended On By ({dependents.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {dependents.map((dep) => (
+                      <div
+                        key={dep.id}
+                        className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                        onClick={() => navigate(`/resources/${dep.sourceResource.id}`)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ServiceIcon service={dep.sourceResource.service as ServiceType} className="h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              {dep.sourceResource.name || dep.sourceResource.resourceId}
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {getRelationshipLabel(dep.relationshipType)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No dependencies message */}
+              {dependencies.length === 0 && dependents.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No dependencies found for this resource
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Scan History Card */}
+          <ResourceScanHistory resourceId={resource.id} />
         </div>
       </div>
     </div>

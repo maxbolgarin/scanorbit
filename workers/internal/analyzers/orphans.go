@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	orphanedEBSAgeDays      = 30  // Unattached EBS > 30 days
-	orphanedEIPAgeDays      = 7   // Unassociated EIP > 7 days
-	orphanedSnapshotAgeDays = 90  // Manual RDS snapshot > 90 days
+	orphanedEBSAgeDays      = 30 // Unattached EBS > 30 days
+	orphanedEIPAgeDays      = 7  // Unassociated EIP > 7 days
+	orphanedSnapshotAgeDays = 90 // Manual RDS snapshot > 90 days
+	orphanedENIAgeDays      = 7  // Unattached ENI > 7 days
+	idleNATGatewayAgeDays   = 30 // NAT Gateway considered idle if > 30 days old without clear usage
 )
 
 // OrphanAnalyzer detects orphaned resources.
@@ -63,6 +65,14 @@ func (a *OrphanAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([
 			finding = a.checkOrphanedEIP(r, now)
 		case models.ServiceRDSSnapshot:
 			finding = a.checkOrphanedSnapshot(r, now)
+		case models.ServiceALB:
+			finding = a.checkIdleLoadBalancer(r, now)
+		case models.ServiceENI:
+			finding = a.checkOrphanedENI(r, now)
+		case models.ServiceNATGateway:
+			finding = a.checkIdleNATGateway(r, now)
+		case models.ServiceSecurityGroup:
+			finding = a.checkUnusedSecurityGroup(ctx, r, now)
 		}
 
 		if finding != nil {
@@ -87,23 +97,26 @@ func (a *OrphanAnalyzer) checkOrphanedEBS(r *models.Resource, now time.Time) *mo
 		return nil
 	}
 
-	// Try to get unattached_since from raw data for more accurate tracking
-	var unattachedSince time.Time
+	// Get volume creation time from raw data for accurate orphan detection
+	// We use AWS creation time as the reference point - if a volume was created
+	// long ago and is still unattached, it's likely orphaned
+	var volumeCreatedAt time.Time
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err == nil {
-		if unattachedStr, ok := raw["unattached_since"].(string); ok {
-			if parsed, err := time.Parse(time.RFC3339, unattachedStr); err == nil {
-				unattachedSince = parsed
+		// Try aws_create_time first (RFC3339 formatted string)
+		if createStr, ok := raw["aws_create_time"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339, createStr); err == nil {
+				volumeCreatedAt = parsed
 			}
 		}
 	}
 
-	// Fallback to CreatedAt if no unattached_since timestamp available
-	if unattachedSince.IsZero() {
-		unattachedSince = r.CreatedAt
+	// Fallback to database CreatedAt if AWS time not available
+	if volumeCreatedAt.IsZero() {
+		volumeCreatedAt = r.CreatedAt
 	}
 
-	age := now.Sub(unattachedSince)
+	age := now.Sub(volumeCreatedAt)
 	ageDays := int(age.Hours() / 24)
 
 	if ageDays <= orphanedEBSAgeDays {
@@ -195,6 +208,224 @@ func (a *OrphanAnalyzer) checkOrphanedSnapshot(r *models.Resource, now time.Time
 			"region":         r.Region,
 			"age_days":       ageDays,
 			"recommendation": "Delete this snapshot if no longer needed for backup purposes",
+		},
+		Status: models.FindingStatusOpen,
+	}
+}
+
+// checkIdleLoadBalancer checks if an ALB has no healthy targets.
+func (a *OrphanAnalyzer) checkIdleLoadBalancer(r *models.Resource, now time.Time) *models.Finding {
+	// Rule: ALB with no healthy targets in any target group
+	if r.State != "active" {
+		return nil
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err != nil {
+		return nil
+	}
+
+	// Check target groups
+	targetGroups, ok := raw["TargetGroups"].([]any)
+	if !ok {
+		// No target groups = idle load balancer
+		return a.createIdleALBFinding(r, 0, 0)
+	}
+
+	totalTargets := 0
+	healthyTargets := 0
+
+	for _, tg := range targetGroups {
+		tgMap, ok := tg.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		targets, ok := tgMap["Targets"].([]any)
+		if !ok {
+			continue
+		}
+
+		for _, target := range targets {
+			totalTargets++
+			targetMap, ok := target.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			if healthState, ok := targetMap["HealthState"].(string); ok && healthState == "healthy" {
+				healthyTargets++
+			}
+		}
+	}
+
+	// ALB is idle if it has no target groups or no healthy targets
+	if len(targetGroups) == 0 || totalTargets == 0 || healthyTargets == 0 {
+		return a.createIdleALBFinding(r, totalTargets, healthyTargets)
+	}
+
+	return nil
+}
+
+// createIdleALBFinding creates a finding for an idle load balancer.
+func (a *OrphanAnalyzer) createIdleALBFinding(r *models.Resource, totalTargets, healthyTargets int) *models.Finding {
+	resourceID := r.ID
+	return &models.Finding{
+		ID:         uuid.New().String(),
+		ResourceID: &resourceID,
+		Type:       models.FindingIdleLoadBalancer,
+		Severity:   models.SeverityMedium,
+		Summary:    fmt.Sprintf("Idle load balancer %s (no healthy targets)", r.Name),
+		Details: map[string]any{
+			"resource_id":            r.ResourceID,
+			"name":                   r.Name,
+			"region":                 r.Region,
+			"total_targets":          totalTargets,
+			"healthy_targets":        healthyTargets,
+			"estimated_monthly_cost": 16.20, // ~$16.20/month base cost for ALB
+			"recommendation":         "Delete this load balancer if no longer needed, or register healthy targets",
+		},
+		Status: models.FindingStatusOpen,
+	}
+}
+
+// checkOrphanedENI checks if an ENI is orphaned (unattached for too long).
+func (a *OrphanAnalyzer) checkOrphanedENI(r *models.Resource, now time.Time) *models.Finding {
+	// Rule: Unattached ENI > 7 days
+	// ENI states: available, in-use, attaching, detaching, associated
+	if r.State != "available" {
+		return nil
+	}
+
+	// Parse raw data to check for requester-managed ENIs
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err == nil {
+		// Skip requester-managed ENIs (created by AWS services like Lambda, RDS, etc.)
+		if requesterManaged, ok := raw["requester_managed"].(bool); ok && requesterManaged {
+			return nil
+		}
+		// Skip ENIs with known AWS service requesters
+		if requesterID, ok := raw["requester_id"].(string); ok && requesterID != "" {
+			// AWS services like ELB, Lambda, RDS create ENIs that shouldn't be flagged
+			return nil
+		}
+	}
+
+	// Use database CreatedAt for age calculation
+	age := now.Sub(r.CreatedAt)
+	ageDays := int(age.Hours() / 24)
+
+	if ageDays <= orphanedENIAgeDays {
+		return nil
+	}
+
+	resourceID := r.ID
+	return &models.Finding{
+		ID:         uuid.New().String(),
+		ResourceID: &resourceID,
+		Type:       models.FindingOrphanedENI,
+		Severity:   models.SeverityLow,
+		Summary:    fmt.Sprintf("Unattached network interface %s (unattached for %d days)", r.ResourceID, ageDays),
+		Details: map[string]any{
+			"resource_id":     r.ResourceID,
+			"description":     r.Name,
+			"region":          r.Region,
+			"unattached_days": ageDays,
+			"recommendation":  "Delete this network interface if no longer needed",
+		},
+		Status: models.FindingStatusOpen,
+	}
+}
+
+// checkUnusedSecurityGroup checks if a security group is not used by any resources.
+func (a *OrphanAnalyzer) checkUnusedSecurityGroup(ctx context.Context, r *models.Resource, now time.Time) *models.Finding {
+	// Skip default security groups - they can't be deleted
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err == nil {
+		if groupName, ok := raw["group_name"].(string); ok && groupName == "default" {
+			return nil
+		}
+	}
+
+	// Check if any resources use this security group via dependencies
+	// The security group's ResourceID (e.g., sg-xxx) would be the target in dependencies
+	// where relationship type is "uses_sg"
+	deps, err := a.store.Dependencies.GetByTarget(ctx, r.ResourceID)
+	if err != nil {
+		a.logger.Warn().Err(err).Str("sg_id", r.ResourceID).Msg("failed to check security group dependencies")
+		return nil
+	}
+
+	// If there are any dependencies pointing to this security group, it's in use
+	if len(deps) > 0 {
+		return nil
+	}
+
+	// Security group is not used by any tracked resources
+	resourceID := r.ID
+	return &models.Finding{
+		ID:         uuid.New().String(),
+		ResourceID: &resourceID,
+		Type:       models.FindingUnusedSecurityGroup,
+		Severity:   models.SeverityLow,
+		Summary:    fmt.Sprintf("Unused security group %s", r.Name),
+		Details: map[string]any{
+			"resource_id":    r.ResourceID,
+			"name":           r.Name,
+			"region":         r.Region,
+			"recommendation": "Delete this security group if no longer needed to reduce clutter",
+		},
+		Status: models.FindingStatusOpen,
+	}
+}
+
+// checkIdleNATGateway checks if a NAT Gateway might be idle.
+// Note: True idle detection requires CloudWatch metrics. This check flags
+// NAT Gateways that exist for review, as they're expensive (~$32/month).
+func (a *OrphanAnalyzer) checkIdleNATGateway(r *models.Resource, now time.Time) *models.Finding {
+	// Only check available NAT Gateways
+	if r.State != "available" {
+		return nil
+	}
+
+	// Get creation time from raw data
+	var createdAt time.Time
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err == nil {
+		if createStr, ok := raw["create_time"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339, createStr); err == nil {
+				createdAt = parsed
+			}
+		}
+	}
+
+	// Fallback to database CreatedAt
+	if createdAt.IsZero() {
+		createdAt = r.CreatedAt
+	}
+
+	age := now.Sub(createdAt)
+	ageDays := int(age.Hours() / 24)
+
+	// Only flag older NAT Gateways for review
+	if ageDays <= idleNATGatewayAgeDays {
+		return nil
+	}
+
+	resourceID := r.ID
+	return &models.Finding{
+		ID:         uuid.New().String(),
+		ResourceID: &resourceID,
+		Type:       models.FindingIdleNATGateway,
+		Severity:   models.SeverityMedium,
+		Summary:    fmt.Sprintf("NAT Gateway %s may be idle (review recommended)", r.Name),
+		Details: map[string]any{
+			"resource_id":            r.ResourceID,
+			"name":                   r.Name,
+			"region":                 r.Region,
+			"age_days":               ageDays,
+			"estimated_monthly_cost": 32.40,
+			"recommendation":         "Review CloudWatch metrics to verify traffic. Delete if unused to save ~$32/month",
 		},
 		Status: models.FindingStatusOpen,
 	}

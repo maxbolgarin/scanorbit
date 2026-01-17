@@ -35,6 +35,8 @@ const serviceLabels: Record<ServiceType, string> = {
   security_group: "Security Groups",
   secret: "Secrets",
   kms_key: "KMS Keys",
+  eni: "Network Interfaces",
+  nat_gateway: "NAT Gateways",
 };
 
 export function ResourceFilters({

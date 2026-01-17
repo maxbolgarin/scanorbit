@@ -228,7 +228,7 @@ func (a *CostAnalyzer) checkStoppedInstance(r *models.Resource, now time.Time) [
 		ID:         uuid.New().String(),
 		ResourceID: &resourceID,
 		Type:       models.FindingStoppedInstance,
-		Severity:   models.SeverityMedium,
+		Severity:   models.SeverityLow,
 		Summary:    fmt.Sprintf("EC2 instance '%s' has been stopped for at least %d days", r.Name, daysStopped),
 		Details: map[string]any{
 			"resource_id":      r.ResourceID,
@@ -281,7 +281,7 @@ func (a *CostAnalyzer) checkUnusedLogGroup(r *models.Resource, now time.Time) []
 		ID:         uuid.New().String(),
 		ResourceID: &resourceID,
 		Type:       models.FindingUnusedLogGroup,
-		Severity:   models.SeverityLow,
+		Severity:   models.SeverityTrivial,
 		Summary:    fmt.Sprintf("CloudWatch log group '%s' has %.1f MB stored", r.Name, storedMB),
 		Details: map[string]any{
 			"resource_id":      r.ResourceID,

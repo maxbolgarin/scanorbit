@@ -2,7 +2,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { OrgSettings } from "@/components/settings/OrgSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
-import { User, Building2, Shield } from "lucide-react";
+import { ViewingSettings } from "@/components/settings/ViewingSettings";
+import { User, Building2, Shield, SlidersHorizontal } from "lucide-react";
 
 export default function Settings() {
   return (
@@ -24,6 +25,10 @@ export default function Settings() {
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Organization</span>
           </TabsTrigger>
+          <TabsTrigger value="viewing" className="gap-2">
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">Viewing</span>
+          </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Security</span>
@@ -36,6 +41,10 @@ export default function Settings() {
 
         <TabsContent value="organization">
           <OrgSettings />
+        </TabsContent>
+
+        <TabsContent value="viewing">
+          <ViewingSettings />
         </TabsContent>
 
         <TabsContent value="security">

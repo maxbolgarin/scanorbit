@@ -18,6 +18,8 @@ import {
   Clock,
   EyeOff,
   AlertTriangle,
+  History,
+  RefreshCw,
 } from "lucide-react";
 
 interface FindingDetailModalProps {
@@ -137,6 +139,54 @@ export function FindingDetailModal({
 
           {recommendation && <Separator />}
 
+          {/* Detection Lifecycle */}
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <h4 className="mb-3 flex items-center gap-2 font-medium">
+              <History className="h-4 w-4 text-blue-500" />
+              Detection History
+            </h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">First Detected</p>
+                <p className="mt-1">{formatDateTime(finding.firstDetectedAt || finding.createdAt)}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Last Detected</p>
+                <p className="mt-1">{formatDateTime(finding.lastDetectedAt || finding.updatedAt)}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3" />
+                  Detection Count
+                </p>
+                <p className="mt-1">
+                  {finding.detectionCount || 1}
+                  {(finding.detectionCount || 1) > 1 && (
+                    <span className="ml-2 text-xs text-amber-600">Recurring issue</span>
+                  )}
+                </p>
+              </div>
+              {finding.resolvedAt && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Resolved At
+                  </p>
+                  <p className="mt-1">{formatDateTime(finding.resolvedAt)}</p>
+                </div>
+              )}
+              {finding.snoozedUntil && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Snoozed Until
+                  </p>
+                  <p className="mt-1">{formatDateTime(finding.snoozedUntil)}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Details */}
           <div className="grid gap-3 sm:grid-cols-2">
             {region && (
@@ -161,26 +211,6 @@ export function FindingDetailModal({
                   Expires At
                 </p>
                 <p className="mt-1">{formatDateTime(expiresAt)}</p>
-              </div>
-            )}
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Detected</p>
-              <p className="mt-1">{formatDateTime(finding.createdAt)}</p>
-            </div>
-            {finding.resolvedAt && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Resolved At
-                </p>
-                <p className="mt-1">{formatDateTime(finding.resolvedAt)}</p>
-              </div>
-            )}
-            {finding.snoozedUntil && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Snoozed Until
-                </p>
-                <p className="mt-1">{formatDateTime(finding.snoozedUntil)}</p>
               </div>
             )}
           </div>

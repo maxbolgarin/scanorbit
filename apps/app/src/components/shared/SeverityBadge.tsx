@@ -6,18 +6,26 @@ interface SeverityBadgeProps {
   severity: FindingSeverity;
 }
 
-const severityConfig = {
+const severityConfig: Record<FindingSeverity, { variant: "destructive" | "error" | "warning" | "secondary" | "outline"; label: string }> = {
+  critical: {
+    variant: "destructive",
+    label: "Critical",
+  },
   high: {
-    variant: "error" as const,
+    variant: "error",
     label: "High",
   },
   medium: {
-    variant: "warning" as const,
+    variant: "warning",
     label: "Medium",
   },
   low: {
-    variant: "secondary" as const,
+    variant: "secondary",
     label: "Low",
+  },
+  trivial: {
+    variant: "outline",
+    label: "Trivial",
   },
 };
 

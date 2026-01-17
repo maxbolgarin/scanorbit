@@ -3,6 +3,7 @@ import type {
   User,
   Org,
   OrgMember,
+  OrgSettings,
   AwsAccount,
   Resource,
   Finding,
@@ -20,6 +21,12 @@ import type {
   PaginatedResponse,
   ResourceStats,
   FindingStats,
+  DependencyWithResource,
+  DependentWithResource,
+  ResourceScanHistory,
+  EnhancedDashboardSummary,
+  FindingScanHistory,
+  FindingTimelineEntry,
 } from "@/types";
 
 function normalizeApiUrl(value: unknown): string | undefined {
@@ -234,6 +241,27 @@ export async function getOrgMembers(orgId: string): Promise<OrgMember[]> {
   }
 }
 
+export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
+  try {
+    const { data } = await api.get<{ data: OrgSettings }>(`/orgs/${orgId}/settings`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateOrgSettings(
+  orgId: string,
+  settings: Partial<OrgSettings>
+): Promise<OrgSettings> {
+  try {
+    const { data } = await api.patch<{ data: OrgSettings }>(`/orgs/${orgId}/settings`, settings);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 // ============================================
 // AWS Accounts API
 // ============================================
@@ -363,9 +391,12 @@ export async function getResource(resourceId: string): Promise<Resource> {
   }
 }
 
-export async function getResourceStats(): Promise<ResourceStats> {
+export async function getResourceStats(filters?: { awsAccountId?: string }): Promise<ResourceStats> {
   try {
-    const { data } = await api.get<{ data: ResourceStats }>("/resources/stats");
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    const queryString = params.toString();
+    const { data } = await api.get<{ data: ResourceStats }>(`/resources/stats${queryString ? `?${queryString}` : ""}`);
     return data.data;
   } catch (error) {
     handleApiError(error);
@@ -384,6 +415,55 @@ export async function getDistinctRegions(): Promise<string[]> {
 export async function getDistinctServices(): Promise<string[]> {
   try {
     const { data } = await api.get<{ data: string[] }>("/resources/services");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceDependencies(resourceId: string): Promise<DependencyWithResource[]> {
+  try {
+    const { data } = await api.get<{ data: DependencyWithResource[] }>(`/resources/${resourceId}/dependencies`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceDependents(resourceId: string): Promise<DependentWithResource[]> {
+  try {
+    const { data } = await api.get<{ data: DependentWithResource[] }>(`/resources/${resourceId}/dependents`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceScanHistory(resourceId: string): Promise<ResourceScanHistory[]> {
+  try {
+    const { data } = await api.get<{ data: ResourceScanHistory[] }>(`/resources/${resourceId}/scan-history`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
+ * Dependency as stored in the database
+ */
+export interface DBDependency {
+  id: string;
+  orgId: string;
+  sourceResourceId: string;
+  targetResourceId: string;
+  targetService: string;
+  relationshipType: string;
+  createdAt: string;
+}
+
+export async function getAllDependencies(): Promise<DBDependency[]> {
+  try {
+    const { data } = await api.get<{ data: DBDependency[] }>("/resources/dependencies/all");
     return data.data;
   } catch (error) {
     handleApiError(error);
@@ -420,9 +500,12 @@ export async function getFinding(findingId: string): Promise<Finding> {
   }
 }
 
-export async function getFindingStats(): Promise<FindingStats> {
+export async function getFindingStats(filters?: { awsAccountId?: string }): Promise<FindingStats> {
   try {
-    const { data } = await api.get<{ data: FindingStats }>("/findings/stats");
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    const queryString = params.toString();
+    const { data } = await api.get<{ data: FindingStats }>(`/findings/stats${queryString ? `?${queryString}` : ""}`);
     return data.data;
   } catch (error) {
     handleApiError(error);
@@ -460,11 +543,29 @@ export async function bulkUpdateFindingStatus(
   }
 }
 
+export async function getFindingHistory(findingId: string): Promise<FindingScanHistory[]> {
+  try {
+    const { data } = await api.get<{ data: FindingScanHistory[] }>(`/findings/${findingId}/history`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceFindingTimeline(resourceId: string): Promise<FindingTimelineEntry[]> {
+  try {
+    const { data } = await api.get<{ data: FindingTimelineEntry[] }>(`/resources/${resourceId}/finding-timeline`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 // ============================================
 // Dashboard API (computed from other endpoints)
 // ============================================
 
-export async function getDashboardSummary(): Promise<{
+export async function getDashboardSummary(filters?: { awsAccountId?: string }): Promise<{
   totalResources: number;
   resourcesTrend: number;
   orphanedResources: number;
@@ -476,15 +577,20 @@ export async function getDashboardSummary(): Promise<{
   try {
     // Fetch stats from backend
     const [resourceStats, findingStats] = await Promise.all([
-      getResourceStats(),
-      getFindingStats(),
+      getResourceStats(filters),
+      getFindingStats(filters),
     ]);
 
     // Compute dashboard metrics from stats
+    // Count all orphaned/unused/idle resources
     const orphanedCount =
       (findingStats.byType["orphaned_volume"] || 0) +
       (findingStats.byType["orphaned_eip"] || 0) +
-      (findingStats.byType["orphaned_snapshot"] || 0);
+      (findingStats.byType["orphaned_snapshot"] || 0) +
+      (findingStats.byType["orphaned_eni"] || 0) +
+      (findingStats.byType["idle_load_balancer"] || 0) +
+      (findingStats.byType["idle_nat_gateway"] || 0) +
+      (findingStats.byType["unused_security_group"] || 0);
 
     return {
       totalResources: resourceStats.totalCount,
@@ -500,17 +606,314 @@ export async function getDashboardSummary(): Promise<{
   }
 }
 
-export async function getRecommendedActions(): Promise<Finding[]> {
+export async function getRecommendedActions(filters?: { awsAccountId?: string }): Promise<Finding[]> {
   try {
     // Get open findings sorted by severity
     const { data: findings } = await getFindings({
       status: "open",
       limit: 10,
+      awsAccountId: filters?.awsAccountId,
     });
 
     // Sort by severity (high first)
     const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
     return findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// Helper: Calculate health score from metrics
+function calculateHealthScores(
+  findingStats: FindingStats,
+  resourceStats: ResourceStats,
+  orphanedCount: number,
+  residencyViolations: number,
+  expiringCerts: number
+): { overall: number; security: number; compliance: number; costEfficiency: number } {
+  const totalResources = resourceStats.totalCount || 1; // Avoid division by zero
+
+  // Security score (40% weight): Based on finding severity
+  // Penalize: critical -20, high -10, medium -5, low -2 per finding (max penalty 100)
+  const criticalFindings = findingStats.bySeverity["critical"] || 0;
+  const highFindings = findingStats.bySeverity["high"] || 0;
+  const mediumFindings = findingStats.bySeverity["medium"] || 0;
+  const lowFindings = findingStats.bySeverity["low"] || 0;
+
+  const securityPenalty = Math.min(100,
+    criticalFindings * 20 + highFindings * 10 + mediumFindings * 5 + lowFindings * 2
+  );
+  const securityScore = Math.max(0, 100 - securityPenalty);
+
+  // Compliance score (30% weight): Certs + residency
+  // Each expiring cert = -15, each violation = -20
+  const compliancePenalty = Math.min(100, expiringCerts * 15 + residencyViolations * 20);
+  const complianceScore = Math.max(0, 100 - compliancePenalty);
+
+  // Cost efficiency score (30% weight): Orphaned resources ratio
+  // If >10% orphaned = bad, scale down to 0% = 100
+  const orphanedRatio = orphanedCount / totalResources;
+  const costScore = Math.max(0, Math.round(100 - (orphanedRatio * 1000))); // 10% orphaned = 0 score
+
+  // Overall weighted score
+  const overall = Math.round(
+    securityScore * 0.4 + complianceScore * 0.3 + costScore * 0.3
+  );
+
+  return {
+    overall,
+    security: securityScore,
+    compliance: complianceScore,
+    costEfficiency: costScore,
+  };
+}
+
+// Helper: Get health status from score
+function getHealthStatus(score: number): 'excellent' | 'good' | 'fair' | 'needs_attention' {
+  if (score >= 90) return 'excellent';
+  if (score >= 70) return 'good';
+  if (score >= 50) return 'fair';
+  return 'needs_attention';
+}
+
+// Helper: Calculate issues to resolve for next level
+function calculateIssuesToResolve(
+  currentScore: number,
+  highFindings: number,
+  criticalFindings: number
+): number {
+  // Estimate how many high-severity issues to fix to reach next level
+  if (currentScore >= 90) return 0;
+  if (currentScore >= 70) {
+    // Need to reach 90 - each high finding is ~10 points
+    return Math.min(highFindings + criticalFindings, Math.ceil((90 - currentScore) / 8));
+  }
+  if (currentScore >= 50) {
+    return Math.min(highFindings + criticalFindings, Math.ceil((70 - currentScore) / 8));
+  }
+  return Math.min(highFindings + criticalFindings, Math.ceil((50 - currentScore) / 8));
+}
+
+// Helper: Aggregate cost savings from findings
+function aggregateCostInsights(
+  findings: Finding[]
+): { totalPotentialSavings: number; byCategory: Array<{ type: string; label: string; count: number; savings: number }> } {
+  const categoryMap: Record<string, { label: string; count: number; savings: number }> = {};
+
+  const costFindingTypes: Record<string, string> = {
+    orphaned_volume: "Orphaned Volumes",
+    orphaned_eip: "Orphaned Elastic IPs",
+    orphaned_snapshot: "Orphaned Snapshots",
+    orphaned_eni: "Orphaned ENIs",
+    idle_load_balancer: "Idle Load Balancers",
+    idle_nat_gateway: "Idle NAT Gateways",
+    unused_security_group: "Unused Security Groups",
+    stopped_instance: "Stopped Instances",
+    unused_resource: "Unused Resources",
+  };
+
+  findings.forEach(finding => {
+    if (costFindingTypes[finding.type]) {
+      const savings = (finding.details?.estimatedMonthlySavings as number) ||
+                      (finding.details?.estimated_savings as number) ||
+                      (finding.details?.monthlyCost as number) || 0;
+
+      if (!categoryMap[finding.type]) {
+        categoryMap[finding.type] = {
+          label: costFindingTypes[finding.type],
+          count: 0,
+          savings: 0
+        };
+      }
+      categoryMap[finding.type].count++;
+      categoryMap[finding.type].savings += savings;
+    }
+  });
+
+  const byCategory = Object.entries(categoryMap)
+    .map(([type, data]) => ({ type, ...data }))
+    .filter(c => c.count > 0)
+    .sort((a, b) => b.savings - a.savings);
+
+  const totalPotentialSavings = byCategory.reduce((sum, c) => sum + c.savings, 0);
+
+  return { totalPotentialSavings, byCategory };
+}
+
+// Helper: Calculate resource health based on findings
+function calculateResourceHealth(
+  resourceStats: ResourceStats,
+  openFindings: Finding[]
+): { total: number; healthy: number; warning: number; critical: number } {
+  const total = resourceStats.totalCount;
+
+  // Group findings by resourceId and find highest severity per resource
+  const resourceSeverities = new Map<string, string>();
+  const severityRank: Record<string, number> = {
+    critical: 5, high: 4, medium: 3, low: 2, trivial: 1
+  };
+
+  openFindings.forEach(finding => {
+    if (!finding.resourceId) return;
+    const current = resourceSeverities.get(finding.resourceId);
+    const severity = finding.severity;
+
+    // Keep highest severity for each resource
+    if (!current || (severityRank[severity] || 0) > (severityRank[current] || 0)) {
+      resourceSeverities.set(finding.resourceId, severity);
+    }
+  });
+
+  // Count resources by their highest severity finding
+  let critical = 0;
+  let warning = 0;
+
+  resourceSeverities.forEach(severity => {
+    if (severity === 'critical' || severity === 'high') {
+      critical++;
+    } else {
+      warning++;
+    }
+  });
+
+  // Resources without any findings are healthy
+  const healthy = Math.max(0, total - critical - warning);
+
+  return {
+    total,
+    healthy,
+    warning,
+    critical,
+  };
+}
+
+// Enhanced Dashboard Summary with all computed metrics
+export async function getEnhancedDashboardSummary(filters?: { awsAccountId?: string }): Promise<EnhancedDashboardSummary> {
+  try {
+    // Fetch all required data
+    console.log("[getEnhancedDashboardSummary] Fetching data...");
+    const [resourceStats, findingStats, openFindingsResult] = await Promise.all([
+      getResourceStats(filters),
+      getFindingStats(filters),
+      getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId }),
+    ]);
+
+    const openFindings = openFindingsResult?.data || [];
+    console.log("[getEnhancedDashboardSummary] Data fetched:", {
+      resourceStats: !!resourceStats,
+      findingStats: !!findingStats,
+      openFindingsCount: openFindings.length
+    });
+
+    // Safety checks
+    if (!resourceStats || !findingStats) {
+      console.error("[getEnhancedDashboardSummary] Missing data:", { resourceStats, findingStats });
+      throw new Error("Failed to fetch dashboard data");
+    }
+
+    // Compute basic metrics (same as before)
+    const byType = findingStats.byType || {};
+    const bySeverity = findingStats.bySeverity || {};
+
+    const orphanedCount =
+      (byType["orphaned_volume"] || 0) +
+      (byType["orphaned_eip"] || 0) +
+      (byType["orphaned_snapshot"] || 0) +
+      (byType["orphaned_eni"] || 0) +
+      (byType["idle_load_balancer"] || 0) +
+      (byType["idle_nat_gateway"] || 0) +
+      (byType["unused_security_group"] || 0);
+
+    const expiringCertificates = byType["ssl_expiry"] || 0;
+    const residencyViolations = byType["data_residency_violation"] || 0;
+
+    // Compute enhanced metrics
+    const healthScores = calculateHealthScores(
+      findingStats,
+      resourceStats,
+      orphanedCount,
+      residencyViolations,
+      expiringCertificates
+    );
+
+    const healthStatus = getHealthStatus(healthScores.overall);
+
+    const criticalFindings = bySeverity["critical"] || 0;
+    const highFindings = bySeverity["high"] || 0;
+    const issuesToResolve = calculateIssuesToResolve(healthScores.overall, highFindings, criticalFindings);
+
+    // Finding counts - calculate total from individual counts to ensure consistency
+    const mediumFindings = bySeverity["medium"] || 0;
+    const lowFindings = bySeverity["low"] || 0;
+    const trivialFindings = bySeverity["trivial"] || 0;
+    const findingCounts = {
+      critical: criticalFindings,
+      high: highFindings,
+      medium: mediumFindings,
+      low: lowFindings,
+      trivial: trivialFindings,
+      total: criticalFindings + highFindings + mediumFindings + lowFindings + trivialFindings,
+    };
+
+    // Cost insights from actual findings
+    const costInsights = aggregateCostInsights(openFindings);
+
+    // Certificate insights
+    // Count SSL findings by urgency from details
+    let urgentCerts = 0;
+    let expiringSoonCerts = 0;
+    let nearestExpiryDays: number | null = null;
+
+    openFindings.filter(f => f.type === "ssl_expiry").forEach(f => {
+      const daysUntil = (f.details?.days_until_expiry as number) ||
+                        (f.details?.daysUntilExpiry as number) || 30;
+      if (nearestExpiryDays === null || daysUntil < nearestExpiryDays) {
+        nearestExpiryDays = daysUntil;
+      }
+      if (daysUntil <= 7) {
+        urgentCerts++;
+      } else if (daysUntil <= 30) {
+        expiringSoonCerts++;
+      }
+    });
+
+    const certificateInsights = {
+      total: expiringCertificates,
+      healthy: 0, // Would need total certs from separate query
+      expiringSoon: expiringSoonCerts,
+      urgent: urgentCerts,
+      nearestExpiryDays,
+    };
+
+    // Resource health based on findings
+    const resourceHealth = calculateResourceHealth(resourceStats, openFindings);
+
+    // Compliance details
+    const complianceDetails = {
+      residencyViolations,
+      missingTags: byType["missing_tag"] || 0,
+      securityIssues: criticalFindings + highFindings,
+    };
+
+    return {
+      // Legacy fields
+      totalResources: resourceStats.totalCount,
+      resourcesTrend: 0,
+      orphanedResources: orphanedCount,
+      orphanedSavings: costInsights.totalPotentialSavings,
+      expiringCertificates,
+      urgentCertificates: urgentCerts,
+      residencyViolations,
+      // Enhanced fields
+      healthScores,
+      healthStatus,
+      issuesToResolve,
+      findingCounts,
+      costInsights,
+      certificateInsights,
+      resourceHealth,
+      complianceDetails,
+    };
   } catch (error) {
     handleApiError(error);
   }

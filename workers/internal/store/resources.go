@@ -73,6 +73,67 @@ func (s *resourceStore) Upsert(ctx context.Context, resource *models.Resource) e
 	return nil
 }
 
+// UpsertWithStatus inserts or updates a resource and returns whether it was new.
+// Returns the resource ID and a boolean indicating if the resource was newly inserted.
+func (s *resourceStore) UpsertWithStatus(ctx context.Context, resource *models.Resource) (string, bool, error) {
+	finish := metrics.TrackDBQuery("upsert_with_status", "resources")
+
+	// Generate ID if not set
+	if resource.ID == "" {
+		resource.ID = uuid.New().String()
+	}
+
+	// Marshal tags to JSON
+	tagsJSON, err := json.Marshal(resource.Tags)
+	if err != nil {
+		finish("error")
+		return "", false, fmt.Errorf("marshal tags: %w", err)
+	}
+
+	// Use xmax to detect if this was an INSERT or UPDATE
+	// xmax = 0 means INSERT (new row), xmax > 0 means UPDATE (existing row)
+	query := `
+		INSERT INTO resources (
+			id, org_id, aws_account_id, resource_id, service, region,
+			name, state, tags, cost_estimate_monthly, last_seen_at, raw, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11, NOW(), NOW())
+		ON CONFLICT (org_id, aws_account_id, resource_id)
+		DO UPDATE SET
+			name = EXCLUDED.name,
+			state = EXCLUDED.state,
+			tags = EXCLUDED.tags,
+			cost_estimate_monthly = EXCLUDED.cost_estimate_monthly,
+			last_seen_at = NOW(),
+			raw = EXCLUDED.raw,
+			updated_at = NOW()
+		RETURNING id, (xmax = 0) as is_new
+	`
+
+	var resourceID string
+	var isNew bool
+	err = s.db.Pool().QueryRow(ctx, query,
+		resource.ID,
+		resource.OrgID,
+		resource.AWSAccountID,
+		resource.ResourceID,
+		string(resource.Service),
+		resource.Region,
+		resource.Name,
+		resource.State,
+		tagsJSON,
+		resource.CostEstimateMonthly,
+		resource.Raw,
+	).Scan(&resourceID, &isNew)
+	if err != nil {
+		finish("error")
+		return "", false, fmt.Errorf("upsert resource with status: %w", err)
+	}
+
+	finish("success")
+	return resourceID, isNew, nil
+}
+
 // GetByAccountID retrieves all resources for an AWS account.
 func (s *resourceStore) GetByAccountID(ctx context.Context, accountID string) ([]*models.Resource, error) {
 	finish := metrics.TrackDBQuery("select", "resources")

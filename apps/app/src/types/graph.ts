@@ -5,13 +5,23 @@ import type { Resource, ServiceType } from './index';
  * Relationship types between resources
  */
 export type RelationshipType =
-  | 'vpc'            // Resource is in a VPC
-  | 'subnet'         // Resource is in a subnet
-  | 'security_group' // Resource uses a security group
-  | 'attachment'     // Resource is attached (EBS to EC2, etc.)
-  | 'dependency'     // Generic dependency relationship
-  | 'kms'            // Encrypted with KMS key
-  | 'iam';           // Uses IAM role/user
+  | 'vpc'            // Resource is in a VPC (legacy)
+  | 'subnet'         // Resource is in a subnet (legacy)
+  | 'security_group' // Resource uses a security group (legacy)
+  | 'attachment'     // Resource is attached (EBS to EC2, etc.) (legacy)
+  | 'dependency'     // Generic dependency relationship (legacy)
+  | 'kms'            // Encrypted with KMS key (legacy)
+  | 'iam'            // Uses IAM role/user (legacy)
+  // New DB-backed relationship types
+  | 'uses_role'      // Lambda/EC2 → IAM Role
+  | 'in_vpc'         // EC2/RDS/Lambda → VPC
+  | 'in_subnet'      // EC2/RDS/ENI → Subnet
+  | 'uses_sg'        // EC2/RDS/Lambda/ENI → Security Group
+  | 'attached_to'    // EBS/ENI → EC2
+  | 'targets'        // Target Group → EC2/Lambda
+  | 'owns'           // ALB → Target Group
+  | 'uses_layer'     // Lambda → Lambda Layer
+  | 'encrypted_by';  // EBS/RDS/S3 → KMS Key
 
 /**
  * Criticality level for visual highlighting

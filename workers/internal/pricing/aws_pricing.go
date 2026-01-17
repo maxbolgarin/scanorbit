@@ -170,6 +170,9 @@ const RDSSnapshotCostPerGB = 0.095
 // ALB Monthly Base Cost (hourly + LCU)
 const ALBBaseCost = 16.43 // ~$0.0225/hour base
 
+// NAT Gateway Monthly Base Cost (hourly only, data processing extra)
+const NATGatewayBaseCost = 32.40 // ~$0.045/hour base
+
 // CloudWatch costs
 const CloudWatchAlarmCost = 0.10         // per alarm-month (standard)
 const CloudWatchLogsIngestionPerGB = 0.50 // per GB ingested

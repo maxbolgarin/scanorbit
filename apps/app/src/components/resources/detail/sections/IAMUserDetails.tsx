@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { DetailSection } from '../DetailSection';
 import { DetailRow, DetailGrid } from '../DetailRow';
 import { TagsSection } from '../TagsSection';
@@ -17,30 +16,6 @@ export function IAMUserDetails({ resource }: IAMUserDetailsProps) {
 
   return (
     <div className="space-y-4">
-      {data.mfaEnabled === false && (
-        <div className="flex items-center gap-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-          <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-orange-500">MFA Not Enabled</p>
-            <p className="text-sm text-muted-foreground">
-              This user does not have multi-factor authentication enabled
-            </p>
-          </div>
-        </div>
-      )}
-
-      {data.mfaEnabled === true && (
-        <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-          <ShieldCheck className="h-5 w-5 text-green-500 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-green-500">MFA Enabled</p>
-            <p className="text-sm text-muted-foreground">
-              This user has multi-factor authentication enabled
-            </p>
-          </div>
-        </div>
-      )}
-
       <DetailSection title="User Configuration">
         <DetailGrid>
           <DetailRow label="User Name" value={data.userName} />

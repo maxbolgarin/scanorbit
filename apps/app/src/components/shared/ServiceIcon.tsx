@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   Lock,
   KeyRound,
+  Network,
+  Router,
 } from "lucide-react";
 import type { ServiceType } from "@/types";
 import { cn } from "@/lib/utils";
@@ -45,6 +47,8 @@ const serviceIcons: Record<ServiceType, React.ElementType> = {
   security_group: ShieldCheck,
   secret: Lock,
   kms_key: KeyRound,
+  eni: Network,
+  nat_gateway: Router,
 };
 
 const serviceColors: Record<ServiceType, string> = {
@@ -66,6 +70,8 @@ const serviceColors: Record<ServiceType, string> = {
   security_group: "text-emerald-500",
   secret: "text-violet-500",
   kms_key: "text-slate-500",
+  eni: "text-sky-500",
+  nat_gateway: "text-lime-500",
 };
 
 export function ServiceIcon({ service, className }: ServiceIconProps) {
@@ -95,6 +101,8 @@ export function getServiceLabel(service: ServiceType): string {
     security_group: "Security Group",
     secret: "Secret",
     kms_key: "KMS Key",
+    eni: "ENI",
+    nat_gateway: "NAT Gateway",
   };
   return labels[service] || service.toUpperCase();
 }

@@ -86,6 +86,8 @@ export function useTriggerScan() {
       queryClient.invalidateQueries({ queryKey: ["aws-accounts"] });
       // Immediately refresh active scans to show the new scan
       queryClient.invalidateQueries({ queryKey: ["active-scans"] });
+      // Refresh recent scans list (used by Scans page)
+      queryClient.invalidateQueries({ queryKey: ["recent-scans"] });
     },
   });
 }

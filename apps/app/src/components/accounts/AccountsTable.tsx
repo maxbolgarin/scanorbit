@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -22,11 +23,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AccountStatusBadge } from "@/components/shared/StatusBadge";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { formatRelativeTime } from "@/lib/utils";
-import type { AwsAccount } from "@/types";
-import { MoreHorizontal, RefreshCw, History, Trash2 } from "lucide-react";
+import type { AwsAccount, Scan } from "@/types";
+import { MoreHorizontal, RefreshCw, History, Trash2, Loader2, LayoutDashboard } from "lucide-react";
 
 interface AccountsTableProps {
   accounts: AwsAccount[];
@@ -34,6 +41,7 @@ interface AccountsTableProps {
   onViewHistory: (accountId: string) => void;
   onDisconnect: (accountId: string) => void;
   rescanningId?: string | null;
+  activeScans?: Scan[];
 }
 
 export function AccountsTable({
@@ -42,8 +50,14 @@ export function AccountsTable({
   onViewHistory,
   onDisconnect,
   rescanningId,
+  activeScans = [],
 }: AccountsTableProps) {
+  const navigate = useNavigate();
   const [rescanAccount, setRescanAccount] = useState<AwsAccount | null>(null);
+
+  // Helper to check if account has an active scan
+  const getActiveScanForAccount = (accountId: string) =>
+    activeScans.find((scan) => scan.awsAccountId === accountId);
 
   const handleRescanConfirm = () => {
     if (rescanAccount) {
@@ -67,7 +81,14 @@ export function AccountsTable({
         <TableBody>
           {accounts.map((account) => (
             <TableRow key={account.id}>
-              <TableCell className="font-medium">{account.name}</TableCell>
+              <TableCell className="font-medium">
+                <button
+                  onClick={() => navigate(`/accounts/${account.id}`)}
+                  className="hover:text-primary hover:underline text-left"
+                >
+                  {account.name}
+                </button>
+              </TableCell>
               <TableCell className="font-mono text-sm">
                 {account.awsAccountId}
               </TableCell>
@@ -81,21 +102,51 @@ export function AccountsTable({
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setRescanAccount(account)}
-                    disabled={rescanningId === account.id || account.status !== "ok"}
-                  >
-                    {rescanningId === account.id ? (
-                      <LoadingSpinner size="sm" />
-                    ) : (
-                      <>
-                        <RefreshCw className="mr-1 h-4 w-4" />
-                        <span className="hidden sm:inline">Rescan</span>
-                      </>
-                    )}
-                  </Button>
+                  {(() => {
+                    const activeScan = getActiveScanForAccount(account.id);
+                    const isScanning = !!activeScan;
+                    const isDisabled = rescanningId === account.id || account.status !== "ok" || isScanning;
+
+                    const button = (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRescanAccount(account)}
+                        disabled={isDisabled}
+                      >
+                        {rescanningId === account.id ? (
+                          <LoadingSpinner size="sm" />
+                        ) : isScanning ? (
+                          <>
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            <span className="hidden sm:inline">Scanning...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-1 h-4 w-4" />
+                            <span className="hidden sm:inline">Rescan</span>
+                          </>
+                        )}
+                      </Button>
+                    );
+
+                    if (isScanning) {
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {button}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Scan in progress ({activeScan.status})</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    }
+
+                    return button;
+                  })()}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -103,6 +154,10 @@ export function AccountsTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/accounts/${account.id}`)}>
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        View Dashboard
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onViewHistory(account.id)}>
                         <History className="mr-2 h-4 w-4" />
                         View scan history

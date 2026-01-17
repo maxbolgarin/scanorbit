@@ -30,6 +30,7 @@ interface ResourcesTableAdvancedProps {
   isLoading?: boolean;
   initialSortField?: SortField;
   initialSortDirection?: SortDirection;
+  baseUrl?: string;
 }
 
 type SortField = "name" | "service" | "region" | "state" | "cost" | "lastSeen";
@@ -51,6 +52,7 @@ export function ResourcesTableAdvanced({
   isLoading,
   initialSortField,
   initialSortDirection,
+  baseUrl = "",
 }: ResourcesTableAdvancedProps) {
   const navigate = useNavigate();
   const [sortField, setSortField] = useLocalStorage<SortField>(
@@ -244,7 +246,7 @@ export function ResourcesTableAdvanced({
                 <TableRow
                   key={resource.id}
                   className="cursor-pointer group"
-                  onClick={() => navigate(`/resources/${resource.id}`)}
+                  onClick={() => navigate(`${baseUrl ? baseUrl : ""}/resources/${resource.id}`)}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">

@@ -24,6 +24,7 @@ import {
   ChevronRightIcon,
   ChevronsRight,
   DollarSign,
+  RefreshCw,
 } from "lucide-react";
 
 interface FindingsTableAdvancedProps {
@@ -45,15 +46,23 @@ const typeLabels: Record<string, string> = {
   ssl_expiry: "SSL Expiry",
   // Compliance findings
   data_residency_violation: "Data Residency",
+  cloudtrail_disabled: "CloudTrail Disabled",
+  vpc_flow_logs_disabled: "VPC Flow Logs Disabled",
+  backup_not_configured: "Backup Not Configured",
   // Security findings
   unencrypted_resource: "Unencrypted Resource",
   public_access: "Public Access",
   permissive_security_group: "Permissive Security Group",
   open_all_ports: "Open All Ports",
+  publicly_accessible_rds: "Publicly Accessible RDS",
+  public_snapshot: "Public Snapshot",
+  insecure_tls: "Insecure TLS",
   // Cost findings
   unused_resource: "Unused Resource",
   stopped_instance: "Stopped Instance",
   unused_log_group: "Unused Log Group",
+  idle_nat_gateway: "Idle NAT Gateway",
+  oversized_instance: "Oversized Instance",
   // Tagging findings
   missing_tag: "Missing Tag",
   // IAM findings
@@ -61,9 +70,12 @@ const typeLabels: Record<string, string> = {
   unused_access_key: "Unused Access Key",
   unused_iam_role: "Unused IAM Role",
   user_without_mfa: "User Without MFA",
+  root_account_usage: "Root Account Usage",
+  overly_permissive_policy: "Overly Permissive Policy",
+  cross_account_trust: "Cross Account Trust",
 };
 
-const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, trivial: 4 };
 const statusOrder: Record<string, number> = { open: 0, snoozed: 1, ignored: 2, resolved: 3 };
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -101,7 +113,10 @@ export function FindingsTableAdvanced({
           comparison = savingsB - savingsA; // Higher savings first by default
           break;
         case "createdAt":
-          comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          // Use firstDetectedAt when available, fallback to createdAt
+          const dateA = new Date(a.firstDetectedAt || a.createdAt).getTime();
+          const dateB = new Date(b.firstDetectedAt || b.createdAt).getTime();
+          comparison = dateB - dateA;
           break;
       }
 
@@ -342,9 +357,20 @@ export function FindingsTableAdvanced({
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <span className="text-sm text-muted-foreground">
-                      {formatRelativeTime(finding.createdAt)}
-                    </span>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {(finding.detectionCount || 1) > 1 && (
+                        <span
+                          className="flex items-center gap-0.5 text-xs text-amber-600"
+                          title={`Detected ${finding.detectionCount} times`}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          {finding.detectionCount}
+                        </span>
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {formatRelativeTime(finding.firstDetectedAt || finding.createdAt)}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />

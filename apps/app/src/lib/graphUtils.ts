@@ -111,17 +111,30 @@ function createEdge(
  */
 function getEdgeStyle(type: RelationshipType): React.CSSProperties {
   switch (type) {
+    // Legacy types
     case 'security_group':
+    case 'uses_sg':
       return { stroke: '#3b82f6', strokeWidth: 2, strokeDasharray: '5,5' };
     case 'attachment':
+    case 'attached_to':
       return { stroke: '#6b7280', strokeWidth: 2 };
     case 'vpc':
     case 'subnet':
+    case 'in_vpc':
+    case 'in_subnet':
       return { stroke: '#10b981', strokeWidth: 1.5 };
     case 'kms':
+    case 'encrypted_by':
       return { stroke: '#f59e0b', strokeWidth: 1.5 };
     case 'iam':
+    case 'uses_role':
       return { stroke: '#8b5cf6', strokeWidth: 1.5 };
+    case 'targets':
+      return { stroke: '#ec4899', strokeWidth: 2 };
+    case 'owns':
+      return { stroke: '#06b6d4', strokeWidth: 2 };
+    case 'uses_layer':
+      return { stroke: '#84cc16', strokeWidth: 1.5 };
     default:
       return { stroke: '#9ca3af', strokeWidth: 1 };
   }
@@ -445,6 +458,174 @@ export function buildInfrastructureGraph(
   return {
     nodes,
     edges: Array.from(uniqueEdges.values()),
+  };
+}
+
+/**
+ * Database dependency type from API
+ */
+export interface DBDependency {
+  id: string;
+  orgId: string;
+  sourceResourceId: string;
+  targetResourceId: string;
+  targetService: string;
+  relationshipType: string;
+  createdAt: string;
+}
+
+/**
+ * Build graph edges from database dependencies
+ * This is the preferred method when dependencies are available from the API
+ */
+export function buildEdgesFromDependencies(
+  dependencies: DBDependency[],
+  resourceMap: Map<string, Resource>
+): RelationshipEdge[] {
+  const edges: RelationshipEdge[] = [];
+  edgeIdCounter = 0;
+
+  dependencies.forEach((dep) => {
+    // Find source resource by DB ID
+    const sourceResource = Array.from(resourceMap.values()).find(
+      (r) => r.id === dep.sourceResourceId
+    );
+    if (!sourceResource) return;
+
+    // Check if target exists in our resources (by AWS resource ID)
+    const targetResource = resourceMap.get(dep.targetResourceId);
+
+    // Only create edges where both endpoints are in our resource map
+    // (for now, to keep the graph clean)
+    if (targetResource) {
+      const edge = createEdge(
+        sourceResource.resourceId,
+        targetResource.resourceId,
+        dep.relationshipType as RelationshipType,
+        sourceResource.service,
+        targetResource.service
+      );
+      edges.push(edge);
+    }
+  });
+
+  // Deduplicate edges
+  const uniqueEdges = new Map<string, RelationshipEdge>();
+  edges.forEach((edge) => {
+    const edgeType = edge.data?.type || 'unknown';
+    const key = `${edge.source}-${edge.target}-${edgeType}`;
+    if (!uniqueEdges.has(key)) {
+      uniqueEdges.set(key, edge);
+    }
+  });
+
+  return Array.from(uniqueEdges.values());
+}
+
+/**
+ * Build infrastructure graph using database dependencies (preferred)
+ * Falls back to raw data extraction if dependencies are not provided
+ */
+export function buildInfrastructureGraphWithDependencies(
+  resources: Resource[],
+  findings: Finding[],
+  dependencies?: DBDependency[]
+): GraphData {
+  // Reset edge counter
+  edgeIdCounter = 0;
+
+  const nodes: ResourceNode[] = [];
+
+  // Build lookup map by resourceId
+  const resourceMap = new Map<string, Resource>();
+  resources.forEach((r) => resourceMap.set(r.resourceId, r));
+
+  // Simple grid layout - will be improved with dagre
+  const GRID_COLS = 8;
+  const NODE_WIDTH = 200;
+  const NODE_HEIGHT = 100;
+
+  // Group resources by service for better initial layout
+  const serviceGroups = new Map<ServiceType, Resource[]>();
+  resources.forEach((r) => {
+    const group = serviceGroups.get(r.service) || [];
+    group.push(r);
+    serviceGroups.set(r.service, group);
+  });
+
+  // Create nodes with simple grid positions
+  let index = 0;
+  serviceGroups.forEach((serviceResources) => {
+    serviceResources.forEach((resource) => {
+      const row = Math.floor(index / GRID_COLS);
+      const col = index % GRID_COLS;
+      const position = {
+        x: col * NODE_WIDTH + Math.random() * 50,
+        y: row * NODE_HEIGHT + Math.random() * 30,
+      };
+      nodes.push(createResourceNode(resource, findings, position));
+      index++;
+    });
+  });
+
+  // Build edges from DB dependencies if available, otherwise fall back to raw data extraction
+  let edges: RelationshipEdge[];
+  if (dependencies && dependencies.length > 0) {
+    edges = buildEdgesFromDependencies(dependencies, resourceMap);
+  } else {
+    // Fall back to legacy raw data extraction
+    edges = [];
+    resources.forEach((resource) => {
+      let resourceEdges: RelationshipEdge[] = [];
+
+      switch (resource.service) {
+        case 'ec2':
+          resourceEdges = extractEC2Relationships(resource, resourceMap);
+          break;
+        case 'ebs':
+          resourceEdges = extractEBSRelationships(resource, resourceMap);
+          break;
+        case 'rds':
+          resourceEdges = extractRDSRelationships(resource, resourceMap);
+          break;
+        case 'alb':
+          resourceEdges = extractALBRelationships(resource, resourceMap);
+          break;
+        case 'security_group':
+          resourceEdges = extractSecurityGroupRelationships(resource, resourceMap);
+          break;
+        case 'eip':
+          resourceEdges = extractEIPRelationships(resource, resourceMap);
+          break;
+        case 'rds_snapshot':
+          resourceEdges = extractRDSSnapshotRelationships(resource, resourceMap);
+          break;
+        case 'secret':
+          resourceEdges = extractSecretsRelationships(resource, resourceMap);
+          break;
+        case 'cloudwatch_logs':
+          resourceEdges = extractCloudWatchLogsRelationships(resource, resourceMap);
+          break;
+      }
+
+      edges.push(...resourceEdges);
+    });
+
+    // Deduplicate edges
+    const uniqueEdges = new Map<string, RelationshipEdge>();
+    edges.forEach((edge) => {
+      const edgeType = edge.data?.type || 'unknown';
+      const key = `${edge.source}-${edge.target}-${edgeType}`;
+      if (!uniqueEdges.has(key)) {
+        uniqueEdges.set(key, edge);
+      }
+    });
+    edges = Array.from(uniqueEdges.values());
+  }
+
+  return {
+    nodes,
+    edges,
   };
 }
 

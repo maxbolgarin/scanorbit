@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,6 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -27,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useRecentScans, useAwsAccounts, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useRecentScans, useAwsAccounts, useTriggerScan, useScanCompletionRefresh, useActiveScans } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import type { Scan, ScanStatus } from "@/types";
@@ -103,12 +112,21 @@ export default function Scans() {
   const [statusFilter, setStatusFilter] = useLocalStorage<string>("scans:statusFilter", "all");
   const [accountFilter, setAccountFilter] = useLocalStorage<string>("scans:accountFilter", "all");
   const [showArchived, setShowArchived] = useLocalStorage<boolean>("scans:showArchived", false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [isStartingScan, setIsStartingScan] = useState(false);
+  const [showStartScanDialog, setShowStartScanDialog] = useState(false);
+  const [showScanAllDialog, setShowScanAllDialog] = useState(false);
   const { data: scans = [], isLoading, refetch } = useRecentScans(100, showArchived);
   const { accounts, isLoading: accountsLoading } = useAwsAccounts();
   const triggerScan = useTriggerScan();
+  const { data: activeScansData } = useActiveScans();
 
   // Auto-refresh data when scans complete
   const { activeScans } = useScanCompletionRefresh();
+
+  // Helper to check if account has an active scan
+  const getActiveScanForAccount = (accountId: string) =>
+    activeScansData?.find((scan) => scan.awsAccountId === accountId);
 
   const getAccountName = (awsAccountId: string | null) => {
     if (!awsAccountId) return "Deleted Account";
@@ -168,6 +186,31 @@ export default function Scans() {
     }
   };
 
+  const handleStartScan = async () => {
+    if (!selectedAccountId) return;
+
+    setIsStartingScan(true);
+    try {
+      await triggerScan.mutateAsync(selectedAccountId);
+      const accountName = accounts.find(a => a.id === selectedAccountId)?.name || "Account";
+      toast({
+        title: "Scan started",
+        description: `Started scanning ${accountName}.`,
+        type: "success",
+      });
+      setSelectedAccountId("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to start scan. Please try again.";
+      toast({
+        title: "Scan failed",
+        description: message,
+        type: "error",
+      });
+    } finally {
+      setIsStartingScan(false);
+    }
+  };
+
   const hasAccounts = accounts && accounts.length > 0;
   const hasAnyScans = scans.length > 0;
   const hasScanInProgress = (activeScans && activeScans.length > 0) ||
@@ -212,6 +255,95 @@ export default function Scans() {
             <Button className="mt-6" onClick={() => navigate("/accounts")}>
               Connect AWS Account
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Start Scan panel - show when there are accounts */}
+      {hasAccounts && (
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Play className="h-5 w-5 text-primary" />
+              Start Scan
+            </CardTitle>
+            <CardDescription>
+              Select an AWS account to scan its infrastructure
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an account to scan..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((account) => {
+                      const activeScan = getActiveScanForAccount(account.id);
+                      const isScanning = !!activeScan;
+                      return (
+                        <SelectItem
+                          key={account.id}
+                          value={account.id}
+                          disabled={account.status !== "ok" || isScanning}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{account.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({account.awsAccountId})
+                            </span>
+                            {isScanning && (
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                {activeScan.status}
+                              </Badge>
+                            )}
+                            {account.status !== "ok" && !isScanning && (
+                              <Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
+                                {account.status}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowStartScanDialog(true)}
+                  disabled={!selectedAccountId || isStartingScan || !!getActiveScanForAccount(selectedAccountId)}
+                >
+                  {isStartingScan ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Start Scan
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowScanAllDialog(true)}
+                  disabled={triggerScan.isPending || hasScanInProgress}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Scan All
+                </Button>
+              </div>
+            </div>
+            {selectedAccountId && getActiveScanForAccount(selectedAccountId) && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                <Loader2 className="h-3 w-3 inline mr-1 animate-spin" />
+                Scan already in progress for this account ({getActiveScanForAccount(selectedAccountId)?.status})
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -285,7 +417,7 @@ export default function Scans() {
               </p>
               <Button
                 className="mt-6"
-                onClick={handleScanAll}
+                onClick={() => setShowScanAllDialog(true)}
                 disabled={triggerScan.isPending || hasScanInProgress}
               >
                 <Play className="mr-2 h-4 w-4" />
@@ -430,6 +562,65 @@ export default function Scans() {
         </CardContent>
       </Card>
       )}
+
+      {/* Start Scan confirmation dialog */}
+      <Dialog open={showStartScanDialog} onOpenChange={setShowStartScanDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Scan</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to scan{" "}
+              <span className="font-medium text-foreground">
+                {accounts.find(a => a.id === selectedAccountId)?.name || "this account"}
+              </span>
+              ? This will scan all resources in the AWS account and may take a few minutes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStartScanDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowStartScanDialog(false);
+                handleStartScan();
+              }}
+              disabled={isStartingScan}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Start Scan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scan All confirmation dialog */}
+      <Dialog open={showScanAllDialog} onOpenChange={setShowScanAllDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Scan All Accounts</DialogTitle>
+            <DialogDescription>
+              This will start a scan for all {accounts?.length || 0} connected AWS account(s).
+              Scanning may take several minutes depending on the size of your infrastructure.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowScanAllDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowScanAllDialog(false);
+                handleScanAll();
+              }}
+              disabled={triggerScan.isPending}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Start Scan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

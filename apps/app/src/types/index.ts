@@ -17,6 +17,13 @@ export interface Org {
   updatedAt: string;
 }
 
+// Organization viewing settings (global filters)
+export interface OrgSettings {
+  requiredTags: string[];
+  hiddenFindingTypes: FindingType[];
+  hideTrivial: boolean;
+}
+
 export interface OrgMember {
   id: string;
   userId: string;
@@ -62,7 +69,9 @@ export type ServiceType =
   | "iam_access_key"
   | "security_group"
   | "secret"
-  | "kms_key";
+  | "kms_key"
+  | "eni"
+  | "nat_gateway";
 
 // Free services (no direct monthly cost)
 export const FREE_SERVICES: ServiceType[] = [
@@ -71,6 +80,7 @@ export const FREE_SERVICES: ServiceType[] = [
   "iam_policy",
   "iam_access_key",
   "security_group",
+  "eni",
 ];
 
 // Paid services (incur direct costs)
@@ -88,6 +98,7 @@ export const PAID_SERVICES: ServiceType[] = [
   "cloudwatch_alarm",
   "secret",
   "kms_key",
+  "nat_gateway",
 ];
 
 export type CostFilterType = "all" | "paid" | "free";
@@ -139,28 +150,53 @@ export type FindingType =
   | "orphaned_volume"
   | "orphaned_eip"
   | "orphaned_snapshot"
+  | "orphaned_eni"
+  | "idle_load_balancer"
+  | "unused_security_group"
   // SSL findings
   | "ssl_expiry"
   // Compliance findings
   | "data_residency_violation"
+  | "cloudtrail_disabled"
+  | "vpc_flow_logs_disabled"
+  | "backup_not_configured"
   // Security findings
   | "unencrypted_resource"
   | "public_access"
   | "permissive_security_group"
   | "open_all_ports"
+  | "publicly_accessible_rds"
+  | "public_snapshot"
+  | "insecure_tls"
   // Cost findings
   | "unused_resource"
   | "stopped_instance"
   | "unused_log_group"
+  | "idle_nat_gateway"
+  | "oversized_instance"
   // Tagging findings
   | "missing_tag"
   // IAM findings
   | "old_access_key"
   | "unused_access_key"
   | "unused_iam_role"
-  | "user_without_mfa";
+  | "user_without_mfa"
+  | "root_account_usage"
+  | "overly_permissive_policy"
+  | "cross_account_trust";
 
-export type FindingSeverity = "low" | "medium" | "high";
+export type FindingSeverity = "critical" | "high" | "medium" | "low" | "trivial";
+
+// Orphaned/unused resource finding types (for dashboard click-through)
+export const ORPHANED_FINDING_TYPES: FindingType[] = [
+  "orphaned_volume",
+  "orphaned_eip",
+  "orphaned_snapshot",
+  "orphaned_eni",
+  "idle_load_balancer",
+  "idle_nat_gateway",
+  "unused_security_group",
+];
 
 export type FindingStatus = "open" | "resolved" | "snoozed" | "ignored";
 
@@ -177,6 +213,11 @@ export interface Finding {
   details: Record<string, unknown>;
   resolvedAt: string | null;
   snoozedUntil: string | null;
+  // Lifecycle tracking fields
+  firstDetectedAt: string | null;
+  lastDetectedAt: string | null;
+  detectionCount: number;
+  lastScanId: string | null;
   createdAt: string;
   updatedAt: string;
   // Joined fields
@@ -265,6 +306,7 @@ export interface PaginatedResponse<T> {
 // Filter Types
 export interface FindingFilters {
   type?: FindingType;
+  types?: FindingType[];  // For multi-type filtering (e.g., orphaned resources)
   severity?: FindingSeverity;
   status?: FindingStatus;
   awsAccountId?: string;
@@ -282,7 +324,7 @@ export interface ResourceFilters {
   limit?: number;
 }
 
-// Dashboard Summary
+// Dashboard Summary (Legacy - keep for backward compatibility)
 export interface DashboardSummary {
   totalResources: number;
   resourcesTrend: number;
@@ -291,6 +333,68 @@ export interface DashboardSummary {
   expiringCertificates: number;
   urgentCertificates: number;
   residencyViolations: number;
+}
+
+// Enhanced Dashboard Summary with full metrics
+export interface EnhancedDashboardSummary extends DashboardSummary {
+  // Health scores by category (0-100)
+  healthScores: {
+    overall: number;
+    security: number;
+    compliance: number;
+    costEfficiency: number;
+  };
+
+  // Health status text
+  healthStatus: 'excellent' | 'good' | 'fair' | 'needs_attention';
+
+  // Issues to resolve for next status level
+  issuesToResolve: number;
+
+  // Finding counts by severity (for open findings only)
+  findingCounts: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    trivial: number;
+    total: number;
+  };
+
+  // Cost insights
+  costInsights: {
+    totalPotentialSavings: number;
+    byCategory: Array<{
+      type: string;
+      label: string;
+      count: number;
+      savings: number;
+    }>;
+  };
+
+  // Certificate insights
+  certificateInsights: {
+    total: number;
+    healthy: number;
+    expiringSoon: number;  // 7-30 days
+    urgent: number;        // <7 days
+    nearestExpiryDays: number | null;
+  };
+
+  // Resource health by state
+  resourceHealth: {
+    total: number;
+    healthy: number;
+    warning: number;
+    critical: number;
+  };
+
+  // Compliance details
+  complianceDetails: {
+    residencyViolations: number;
+    missingTags: number;
+    securityIssues: number;
+  };
 }
 
 // Stats
@@ -307,6 +411,7 @@ export interface FindingStats {
   byType: Record<string, number>;
   bySeverity: Record<string, number>;
   byStatus: Record<string, number>;
+  byTypeSeverity: Record<string, string>;  // type -> severity mapping for filtering
 }
 
 // Auth Types
@@ -350,4 +455,93 @@ export interface TestConnectionResult {
   success: boolean;
   message: string;
   regions?: string[];
+}
+
+// Resource Dependencies
+export type RelationshipType =
+  | 'uses_role'      // Lambda/EC2 → IAM Role
+  | 'in_vpc'         // EC2/RDS/Lambda → VPC
+  | 'in_subnet'      // EC2/RDS/ENI → Subnet
+  | 'uses_sg'        // EC2/RDS/Lambda/ENI → Security Group
+  | 'attached_to'    // EBS/ENI → EC2
+  | 'targets'        // Target Group → EC2/Lambda
+  | 'owns'           // ALB → Target Group
+  | 'uses_layer'     // Lambda → Lambda Layer
+  | 'encrypted_by';  // EBS/RDS/S3 → KMS Key
+
+export interface DependencyWithResource {
+  id: string;
+  targetResourceId: string;
+  targetService: string;
+  relationshipType: RelationshipType;
+  createdAt: string;
+  targetResource?: {
+    id: string;
+    name: string | null;
+    region: string | null;
+    state: string | null;
+  };
+}
+
+export interface DependentWithResource {
+  id: string;
+  sourceResourceId: string;
+  sourceService: string;
+  relationshipType: RelationshipType;
+  createdAt: string;
+  sourceResource: {
+    id: string;
+    resourceId: string;
+    name: string | null;
+    region: string | null;
+    state: string | null;
+    service: string;
+  };
+}
+
+// Resource Scan History
+export type ResourceScanStatus = 'new' | 'updated' | 'removed';
+
+export interface ResourceScanHistory {
+  id: string;
+  scanId: string;
+  status: ResourceScanStatus;
+  createdAt: string;
+  scanStartedAt: string | null;
+  scanCompletedAt: string | null;
+  scanStatus: ScanStatus;
+  resourcesDiscovered: number;
+  resourcesDelta: number;
+}
+
+// Finding Scan History (detection tracking)
+export type FindingScanStatus = 'detected' | 'not_detected';
+
+export interface FindingScanHistory {
+  id: string;
+  findingId: string;
+  scanId: string;
+  status: FindingScanStatus;
+  createdAt: string;
+  scan?: {
+    id: string;
+    status: ScanStatus;
+    startedAt: string | null;
+    completedAt: string | null;
+    resourcesDiscovered: number;
+  };
+}
+
+// Finding timeline entry for resource detail view
+export interface FindingTimelineEntry {
+  finding: Finding;
+  detectionHistory: Array<{
+    id: string;
+    status: FindingScanStatus;
+    createdAt: string;
+    scan: {
+      id: string;
+      completedAt: string | null;
+    };
+  }>;
 }

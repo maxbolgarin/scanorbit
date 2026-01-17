@@ -100,19 +100,42 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		return fmt.Errorf("analyze: %w", err)
 	}
 
-	// Persist findings
+	// Persist findings with history tracking
 	persistedCount := 0
+	var detectedFindingIDs []string
+	var findingScanRecords []*models.FindingScan
+
 	for _, f := range findings {
-		if err := o.store.Findings.Upsert(ctx, f); err != nil {
+		findingID, isNew, err := o.store.Findings.UpsertWithHistory(ctx, f, job.ScanID)
+		if err != nil {
 			o.logger.Error().Err(err).
 				Str("finding_id", f.ID).
 				Str("type", string(f.Type)).
 				Msg("failed to upsert finding")
 			continue
 		}
+
 		persistedCount++
+		detectedFindingIDs = append(detectedFindingIDs, findingID)
+
+		// Track finding-scan detection
+		findingScanRecords = append(findingScanRecords, models.NewFindingScan(
+			findingID,
+			job.ScanID,
+			models.FindingScanDetected,
+		))
+
 		// Track findings by severity
-		metrics.FindingsCreated.WithLabelValues(analyzerType, string(f.Severity)).Inc()
+		if isNew {
+			metrics.FindingsCreated.WithLabelValues(analyzerType, string(f.Severity)).Inc()
+		}
+	}
+
+	// Record finding-scan history
+	if len(findingScanRecords) > 0 {
+		if err := o.store.FindingScans.BulkUpsert(ctx, findingScanRecords); err != nil {
+			o.logger.Error().Err(err).Msg("failed to record finding-scan history")
+		}
 	}
 
 	// Atomically mark job as complete and check scan completion
@@ -121,6 +144,14 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		o.logger.Warn().Err(err).Str("job_id", job.JobID).Msg("failed to complete analyzer job")
 	} else if scanCompleted {
 		o.logger.Info().Str("scan_id", job.ScanID).Msg("all analyzer jobs complete, scan marked as complete")
+
+		// Auto-resolve findings that were not detected in this scan
+		resolved, resolveErr := o.store.Findings.AutoResolveByScanID(ctx, job.ScanID, job.AccountID)
+		if resolveErr != nil {
+			o.logger.Warn().Err(resolveErr).Str("scan_id", job.ScanID).Msg("failed to auto-resolve missing findings")
+		} else if resolved > 0 {
+			o.logger.Info().Int64("count", resolved).Str("scan_id", job.ScanID).Msg("auto-resolved findings not detected in scan")
+		}
 	}
 
 	// Track successful completion

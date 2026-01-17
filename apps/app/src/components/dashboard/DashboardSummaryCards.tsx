@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -20,6 +21,8 @@ interface DashboardSummaryCardsProps {
 }
 
 export function DashboardSummaryCards({ summary, isLoading }: DashboardSummaryCardsProps) {
+  const navigate = useNavigate();
+
   if (isLoading) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -77,7 +80,10 @@ export function DashboardSummaryCards({ summary, isLoading }: DashboardSummaryCa
       </Card>
 
       {/* Orphaned Resources */}
-      <Card className={hasOrphanedIssues ? "border-orange-200 dark:border-orange-900" : ""}>
+      <Card
+        className={`cursor-pointer transition-colors hover:border-primary/50 ${hasOrphanedIssues ? "border-orange-200 dark:border-orange-900" : ""}`}
+        onClick={() => navigate("/findings?category=orphaned")}
+      >
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">

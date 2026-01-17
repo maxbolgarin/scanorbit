@@ -23,10 +23,13 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
     ip: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
   });
 
+  let errorCaught: Error | undefined;
+  
   try {
     await next();
   } catch (error) {
-    // Re-throw unhandled errors - error handler will process them
+    // Store error for logging before re-throwing
+    errorCaught = error instanceof Error ? error : new Error(String(error));
     throw error;
   }
 
@@ -35,24 +38,49 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
   const status = c.res.status;
 
   // Try to extract error info from response for error statuses
-  let errorInfo: { error?: string; message?: string } | undefined;
+  let errorInfo: { error?: string; message?: string; details?: unknown } | undefined;
+  
   if (status >= 400) {
-    try {
-      // Clone response to read body without consuming the original
-      const clonedRes = c.res.clone();
-      const contentType = clonedRes.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        const body = await clonedRes.json().catch(() => null) as unknown;
-        if (body && typeof body === 'object' && body !== null) {
-          const bodyObj = body as Record<string, unknown>;
-          errorInfo = {
-            error: typeof bodyObj.error === 'string' ? bodyObj.error : undefined,
-            message: typeof bodyObj.message === 'string' ? bodyObj.message : undefined,
-          };
+    // First, try to get error info from context (set by error handler)
+    const errorInfoKey = '__error_info__';
+    const contextErrorInfo = (c as unknown as { [key: string]: unknown })[errorInfoKey];
+    if (contextErrorInfo && typeof contextErrorInfo === 'object') {
+      const errInfo = contextErrorInfo as Record<string, unknown>;
+      errorInfo = {
+        error: typeof errInfo.error === 'string' ? errInfo.error : undefined,
+        message: typeof errInfo.message === 'string' ? errInfo.message : undefined,
+        details: errInfo.details,
+      };
+    }
+    
+    // Try to read from response body if we don't have error info yet
+    if (!errorInfo) {
+      try {
+        // Clone response to read body without consuming the original
+        const clonedRes = c.res.clone();
+        const contentType = clonedRes.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const body = await clonedRes.json().catch(() => null) as unknown;
+          if (body && typeof body === 'object' && body !== null) {
+            const bodyObj = body as Record<string, unknown>;
+            errorInfo = {
+              error: typeof bodyObj.error === 'string' ? bodyObj.error : undefined,
+              message: typeof bodyObj.message === 'string' ? bodyObj.message : undefined,
+              details: bodyObj.details,
+            };
+          }
         }
+      } catch {
+        // Ignore errors reading response body - not critical for logging
       }
-    } catch {
-      // Ignore errors reading response body - not critical for logging
+    }
+    
+    // Fallback to caught error if we still don't have info
+    if (!errorInfo && errorCaught) {
+      errorInfo = {
+        error: errorCaught.name,
+        message: errorCaught.message,
+      };
     }
   }
 
@@ -68,6 +96,7 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
   if (errorInfo) {
     if (errorInfo.error) logData.error_type = errorInfo.error;
     if (errorInfo.message) logData.error_message = errorInfo.message;
+    if (errorInfo.details) logData.error_details = errorInfo.details;
   }
 
   // Use appropriate message and log level based on status

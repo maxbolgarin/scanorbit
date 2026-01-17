@@ -9,14 +9,14 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  useFindings,
+  useFilteredFindings,
   useUpdateFindingStatus,
-  useFindingStats,
+  useFilteredFindingStats,
 } from "@/hooks/use-findings";
 import { useAwsAccounts, useRecentScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
-import { ACTIVE_SCAN_STATUSES } from "@/types";
+import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES } from "@/types";
 import { AlertTriangle, RefreshCw, Scan, Play, ArrowRight, Server } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -28,9 +28,9 @@ export default function Findings() {
   const [searchQuery, setSearchQuery] = useLocalStorage<string>("findings:search", "");
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
 
-  const { data: findingsResponse, isLoading, isFetching } = useFindings(filters);
+  const { data: findingsResponse, isLoading, isFetching } = useFilteredFindings(filters);
   const allFindings = findingsResponse?.data || [];
-  const { data: stats, isLoading: statsLoading } = useFindingStats();
+  const { data: stats, isLoading: statsLoading, unfilteredData: unfilteredStats } = useFilteredFindingStats();
   const updateStatus = useUpdateFindingStatus();
 
   // Fetch accounts and scans for empty state logic
@@ -63,6 +63,39 @@ export default function Findings() {
       }
     }
   }, [searchParams, allFindings]);
+
+  // Handle URL parameters for filters (e.g., from dashboard click-through)
+  useEffect(() => {
+    const category = searchParams.get("category");
+    const severity = searchParams.get("severity");
+    const status = searchParams.get("status");
+
+    let hasChanges = false;
+    const newFilters: Partial<Filters> = {};
+
+    if (category === "orphaned") {
+      // Set multi-type filter for orphaned resources
+      newFilters.types = ORPHANED_FINDING_TYPES;
+      newFilters.type = undefined;
+      hasChanges = true;
+    }
+
+    if (severity && ["critical", "high", "medium", "low", "trivial"].includes(severity)) {
+      newFilters.severity = severity as Filters["severity"];
+      hasChanges = true;
+    }
+
+    if (status && ["open", "resolved", "snoozed", "ignored"].includes(status)) {
+      newFilters.status = status as Filters["status"];
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
+      setFilters((prev) => ({ ...prev, ...newFilters }));
+      // Clear the URL params after reading
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
 
   const handleSelectFinding = (finding: Finding) => {
     setSelectedFinding(finding);
@@ -138,19 +171,22 @@ export default function Findings() {
     }
   };
 
+  // Use unfiltered stats to determine if there are any findings at all
+  // This way the UI still shows when all findings are hidden by viewing settings
   const hasAnyFindings = useMemo(() => {
-    if (!stats) return false;
-    if (stats.totalCount && stats.totalCount > 0) return true;
+    const checkStats = unfilteredStats;
+    if (!checkStats) return false;
+    if (checkStats.totalCount && checkStats.totalCount > 0) return true;
 
     // Fallback: check byStatus
-    const byStatus = stats.byStatus || {};
+    const byStatus = checkStats.byStatus || {};
     const statusTotal = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
     if (statusTotal > 0) return true;
 
     // Fallback: check byType
-    const byType = stats.byType || {};
+    const byType = checkStats.byType || {};
     return Object.values(byType).reduce((sum, count) => sum + count, 0) > 0;
-  }, [stats]);
+  }, [unfilteredStats]);
   const hasAccounts = accounts && accounts.length > 0;
   const hasCompletedScan = recentScans?.some(scan =>
     scan.status === "complete" || scan.status === "partial"

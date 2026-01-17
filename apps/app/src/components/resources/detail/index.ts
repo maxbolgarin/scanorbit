@@ -2,6 +2,7 @@ export { DetailRow, DetailGrid } from './DetailRow';
 export { DetailSection } from './DetailSection';
 export { ResourceRelationshipBadge, ResourceRelationshipList } from './ResourceRelationshipBadge';
 export { ResourceRawViewer } from './ResourceRawViewer';
+export { ResourceScanHistory } from './ResourceScanHistory';
 export { SecurityRulesTable } from './SecurityRulesTable';
 export { TagsSection } from './TagsSection';
 

@@ -111,4 +111,17 @@ findingsRoute.patch(
   }
 );
 
+// GET /findings/:id/history - Get finding detection history
+findingsRoute.get('/:id/history', async (c) => {
+  const orgId = c.get('orgId');
+  const findingId = c.req.param('id');
+
+  if (!orgId) {
+    throw new HTTP400Error('No organization selected');
+  }
+
+  const history = await findingService.getFindingHistory(orgId, findingId);
+  return c.json({ data: history });
+});
+
 export default findingsRoute;

@@ -15,10 +15,10 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import '@/styles/infrastructure-map.css';
-import { useAllResources } from '@/hooks/use-resources';
-import { useFindings } from '@/hooks/use-findings';
+import { useAllResources, useAllDependencies } from '@/hooks/use-resources';
+import { useFilteredFindings } from '@/hooks/use-findings';
 import {
-  buildInfrastructureGraph,
+  buildInfrastructureGraphWithDependencies,
   filterGraph,
   calculateGraphStats,
   getDefaultFilters,
@@ -122,7 +122,8 @@ function getMinimapNodeColor(node: Node): string {
 
 export default function InfrastructureMap() {
   const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources();
-  const { data: findingsData, isLoading: findingsLoading } = useFindings();
+  const { data: findingsData, isLoading: findingsLoading } = useFilteredFindings();
+  const { data: dependenciesData } = useAllDependencies();
 
   const [filters, setFilters] = useState<MapFilters>(getDefaultFilters);
   const [layoutPreset, setLayoutPresetState] = useState<LayoutPreset>(loadLayoutPreset);
@@ -167,11 +168,15 @@ export default function InfrastructureMap() {
     setPositionsVersion((v) => v + 1);
   }, []);
 
-  // Build full graph from resources
+  // Build full graph from resources with DB dependencies
   const fullGraph = useMemo(() => {
     if (!resourcesData?.data) return { nodes: [], edges: [] };
-    return buildInfrastructureGraph(resourcesData.data, findingsData?.data || []);
-  }, [resourcesData, findingsData]);
+    return buildInfrastructureGraphWithDependencies(
+      resourcesData.data,
+      findingsData?.data || [],
+      dependenciesData
+    );
+  }, [resourcesData, findingsData, dependenciesData]);
 
   // Apply filters and layout to graph, then restore saved positions
   const filteredGraph = useMemo(() => {

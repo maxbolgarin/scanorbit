@@ -45,6 +45,21 @@ func (s *scanStore) Create(ctx context.Context, scan *Scan) error {
 func (s *scanStore) UpdateStatus(ctx context.Context, id string, status string, resourceCount int, errorMsg string) error {
 	finish := metrics.TrackDBQuery("update", "scans")
 
+	// Get previous scan's resource count for delta calculation
+	var prevResourceCount int
+	prevQuery := `
+		SELECT COALESCE(resources_discovered, 0)
+		FROM scans
+		WHERE aws_account_id = (SELECT aws_account_id FROM scans WHERE id = $1)
+		  AND id != $1
+		  AND status IN ('complete', 'partial')
+		ORDER BY completed_at DESC
+		LIMIT 1
+	`
+	// Ignore error - if no previous scan, delta is just resourceCount
+	_ = s.db.Pool().QueryRow(ctx, prevQuery, id).Scan(&prevResourceCount)
+	resourcesDelta := resourceCount - prevResourceCount
+
 	var completedAt *time.Time
 	if status == "complete" || status == "error" || status == "partial" || status == "canceled" {
 		now := time.Now()
@@ -53,11 +68,11 @@ func (s *scanStore) UpdateStatus(ctx context.Context, id string, status string, 
 
 	query := `
 		UPDATE scans
-		SET status = $2, resources_discovered = $3, error_message = $4, completed_at = $5
+		SET status = $2, resources_discovered = $3, resources_delta = $4, error_message = $5, completed_at = $6
 		WHERE id = $1
 	`
 
-	_, err := s.db.Pool().Exec(ctx, query, id, status, resourceCount, errorMsg, completedAt)
+	_, err := s.db.Pool().Exec(ctx, query, id, status, resourceCount, resourcesDelta, errorMsg, completedAt)
 	if err != nil {
 		finish("error")
 		return fmt.Errorf("update scan status: %w", err)
@@ -81,6 +96,27 @@ func (s *scanStore) UpdateStatusOnly(ctx context.Context, id string, status stri
 	if err != nil {
 		finish("error")
 		return fmt.Errorf("update scan status: %w", err)
+	}
+
+	finish("success")
+	return nil
+}
+
+// UpdateStatusWithStart updates status and sets started_at timestamp.
+// Use this when transitioning to "processing" status to record when the scan actually started.
+func (s *scanStore) UpdateStatusWithStart(ctx context.Context, id string, status string) error {
+	finish := metrics.TrackDBQuery("update", "scans")
+
+	query := `
+		UPDATE scans
+		SET status = $2, started_at = NOW()
+		WHERE id = $1
+	`
+
+	_, err := s.db.Pool().Exec(ctx, query, id, status)
+	if err != nil {
+		finish("error")
+		return fmt.Errorf("update scan status with start: %w", err)
 	}
 
 	finish("success")

@@ -57,10 +57,11 @@ func (a *SSLAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([]*m
 		var severity models.FindingSeverity
 		switch {
 		case daysUntilExpiry < 0:
-			// Already expired
-			severity = models.SeverityHigh
+			// Already expired - CRITICAL
+			severity = models.SeverityCritical
 		case daysUntilExpiry < sslHighSeverityDays:
-			severity = models.SeverityHigh
+			// < 7 days - CRITICAL
+			severity = models.SeverityCritical
 		case daysUntilExpiry < sslMediumSeverityDays:
 			severity = models.SeverityMedium
 		case daysUntilExpiry < sslLowSeverityDays:

@@ -38,6 +38,7 @@ type Scanner struct {
 	securityGroupScanner  *awsclient.SecurityGroupScanner
 	secretsManagerScanner *awsclient.SecretsManagerScanner
 	kmsScanner            *awsclient.KMSScanner
+	dependencyExtractor   *DependencyExtractor
 	concurrency           int
 	logger                zerolog.Logger
 }
@@ -63,6 +64,7 @@ func NewScanner(
 		securityGroupScanner:  awsclient.NewSecurityGroupScanner(logger),
 		secretsManagerScanner: awsclient.NewSecretsManagerScanner(logger),
 		kmsScanner:            awsclient.NewKMSScanner(logger),
+		dependencyExtractor:   NewDependencyExtractor(),
 		concurrency:           concurrency,
 		logger:                logger.With().Str("component", "scanner").Logger(),
 	}
@@ -116,7 +118,7 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	if job.ScanID != "" {
 		// Use existing scan record from job payload
 		scanID = job.ScanID
-		if err := s.store.Scans.UpdateStatusOnly(ctx, scanID, string(models.ScanStatusProcessing)); err != nil {
+		if err := s.store.Scans.UpdateStatusWithStart(ctx, scanID, string(models.ScanStatusProcessing)); err != nil {
 			s.logger.Warn().Err(err).Str("scan_id", scanID).Msg("failed to update scan to processing")
 		}
 	} else {
@@ -235,6 +237,10 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	var scanErrors []error
 	var partialFailures int
 
+	// Track resource-scan history
+	var resourceScanRecords []*models.ResourceScan
+	var foundResourceIDs []string
+
 	for result := range resultsChan {
 		if result.Error != nil {
 			s.logger.Warn().Err(result.Error).Str("region", result.Region).Msg("region scan failed")
@@ -253,17 +259,58 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		// Track region scanned
 		metrics.RegionsScanned.WithLabelValues(result.Region).Inc()
 
-		// Persist resources
+		// Persist resources and extract dependencies
+		var allDeps []*models.ResourceDependency
 		for _, r := range result.Resources {
 			r.OrgID = job.OrgID
 			r.AWSAccountID = job.AccountID
-			if err := s.store.Resources.Upsert(ctx, r); err != nil {
+
+			// Upsert with status to track new vs updated resources
+			resourceID, isNew, err := s.store.Resources.UpsertWithStatus(ctx, r)
+			if err != nil {
 				s.logger.Error().Err(err).Str("resource_id", r.ResourceID).Msg("failed to upsert resource")
 				continue
 			}
+			// CRITICAL: Update resource ID to match the DB ID (for existing resources, UpsertWithStatus returns the existing ID)
+			r.ID = resourceID
+			s.logger.Debug().Str("resource_id", r.ResourceID).Str("db_id", r.ID).Bool("is_new", isNew).Msg("resource upserted with DB ID")
 			totalResources++
+
+			// Track for resource-scan history
+			foundResourceIDs = append(foundResourceIDs, resourceID)
+			status := models.ResourceScanStatusUpdated
+			if isNew {
+				status = models.ResourceScanStatusNew
+			}
+			resourceScanRecords = append(resourceScanRecords, models.NewResourceScan(resourceID, scanID, status))
+
 			// Track resource discovery by type and region
 			metrics.ResourcesDiscovered.WithLabelValues(string(r.Service), result.Region).Inc()
+
+			// Extract dependencies for this resource
+			deps := s.dependencyExtractor.ExtractDependencies(r)
+			for _, dep := range deps {
+				dep.OrgID = job.OrgID
+			}
+			allDeps = append(allDeps, deps...)
+		}
+
+		// Bulk upsert dependencies for this region
+		if len(allDeps) > 0 {
+			s.logger.Debug().Int("count", len(allDeps)).Str("region", result.Region).Msg("upserting dependencies")
+			if err := s.store.Dependencies.BulkUpsert(ctx, allDeps); err != nil {
+				s.logger.Error().Err(err).Int("count", len(allDeps)).Str("region", result.Region).Msg("failed to upsert dependencies")
+				// Log first dependency for debugging
+				if len(allDeps) > 0 {
+					s.logger.Error().
+						Str("source_resource_id", allDeps[0].SourceResourceID).
+						Str("target_resource_id", allDeps[0].TargetResourceID).
+						Str("org_id", allDeps[0].OrgID).
+						Msg("first dependency that failed")
+				}
+			} else {
+				s.logger.Info().Int("count", len(allDeps)).Str("region", result.Region).Msg("dependencies upserted successfully")
+			}
 		}
 
 		// Persist certificates
@@ -276,17 +323,79 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 		}
 	}
 
-	// Persist global resources (S3, IAM)
+	// Persist global resources (S3, IAM) and extract dependencies
+	var globalDeps []*models.ResourceDependency
 	for _, r := range globalResources {
 		r.OrgID = job.OrgID
 		r.AWSAccountID = job.AccountID
-		if err := s.store.Resources.Upsert(ctx, r); err != nil {
+
+		// Upsert with status to track new vs updated resources
+		resourceID, isNew, err := s.store.Resources.UpsertWithStatus(ctx, r)
+		if err != nil {
 			s.logger.Error().Err(err).Str("resource_id", r.ResourceID).Msg("failed to upsert global resource")
 			continue
 		}
+		// CRITICAL: Update resource ID to match the DB ID (for existing resources, UpsertWithStatus returns the existing ID)
+		r.ID = resourceID
+		s.logger.Debug().Str("resource_id", r.ResourceID).Str("db_id", r.ID).Bool("is_new", isNew).Msg("global resource upserted with DB ID")
 		totalResources++
+
+		// Track for resource-scan history
+		foundResourceIDs = append(foundResourceIDs, resourceID)
+		status := models.ResourceScanStatusUpdated
+		if isNew {
+			status = models.ResourceScanStatusNew
+		}
+		resourceScanRecords = append(resourceScanRecords, models.NewResourceScan(resourceID, scanID, status))
+
 		// Track global resource discovery (region is "global" for S3/IAM)
 		metrics.ResourcesDiscovered.WithLabelValues(string(r.Service), "global").Inc()
+
+		// Extract dependencies for this resource
+		deps := s.dependencyExtractor.ExtractDependencies(r)
+		for _, dep := range deps {
+			dep.OrgID = job.OrgID
+		}
+		globalDeps = append(globalDeps, deps...)
+	}
+
+	// Bulk upsert global resource dependencies
+	if len(globalDeps) > 0 {
+		s.logger.Debug().Int("count", len(globalDeps)).Msg("upserting global dependencies")
+		if err := s.store.Dependencies.BulkUpsert(ctx, globalDeps); err != nil {
+			s.logger.Error().Err(err).Int("count", len(globalDeps)).Msg("failed to upsert global dependencies")
+			if len(globalDeps) > 0 {
+				s.logger.Error().
+					Str("source_resource_id", globalDeps[0].SourceResourceID).
+					Str("target_resource_id", globalDeps[0].TargetResourceID).
+					Str("org_id", globalDeps[0].OrgID).
+					Msg("first global dependency that failed")
+			}
+		} else {
+			s.logger.Info().Int("count", len(globalDeps)).Msg("global dependencies upserted successfully")
+		}
+	}
+
+	// 7.1. Resource-scan history tracking
+	// Mark resources that were in the previous scan but not in this scan as 'removed'
+	if err := s.store.ResourceScans.MarkRemovedResources(ctx, scanID, job.AccountID, foundResourceIDs); err != nil {
+		s.logger.Error().Err(err).Msg("failed to mark removed resources")
+	}
+
+	// Bulk insert resource-scan records
+	if len(resourceScanRecords) > 0 {
+		if err := s.store.ResourceScans.BulkUpsert(ctx, resourceScanRecords); err != nil {
+			s.logger.Error().Err(err).Msg("failed to insert resource-scan records")
+		}
+	}
+
+	// Auto-delete stale resources (removed in 3+ consecutive scans)
+	const minScansForDeletion = 3
+	deleted, err := s.store.ResourceScans.DeleteStaleResources(ctx, job.AccountID, minScansForDeletion)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("failed to delete stale resources")
+	} else if deleted > 0 {
+		s.logger.Info().Int64("count", deleted).Msg("deleted stale resources")
 	}
 
 	// 8. Update scan status
@@ -374,6 +483,36 @@ func (s *Scanner) scanRegion(ctx context.Context, cfg aws.Config, region string)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("region", region).Msg("eip scan failed")
 			recordError("eips", err)
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// ENIs (Elastic Network Interfaces)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.ec2Scanner.ScanENIs(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("eni scan failed")
+			recordError("enis", err)
+			return
+		}
+		mu.Lock()
+		result.Resources = append(result.Resources, resources...)
+		mu.Unlock()
+	}()
+
+	// NAT Gateways
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resources, err := s.ec2Scanner.ScanNATGateways(ctx, cfg, region)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("region", region).Msg("nat gateway scan failed")
+			recordError("nat_gateways", err)
 			return
 		}
 		mu.Lock()

@@ -6,36 +6,55 @@ import "time"
 type FindingSeverity string
 
 const (
-	SeverityLow    FindingSeverity = "low"
-	SeverityMedium FindingSeverity = "medium"
-	SeverityHigh   FindingSeverity = "high"
+	SeverityCritical FindingSeverity = "critical"
+	SeverityHigh     FindingSeverity = "high"
+	SeverityMedium   FindingSeverity = "medium"
+	SeverityLow      FindingSeverity = "low"
+	SeverityTrivial  FindingSeverity = "trivial"
 )
 
 // FindingType represents the type of finding.
 type FindingType string
 
 const (
+	// Orphan findings
 	FindingOrphanedVolume   FindingType = "orphaned_volume"
 	FindingOrphanedEIP      FindingType = "orphaned_eip"
 	FindingOrphanedSnapshot FindingType = "orphaned_snapshot"
-	FindingSSLExpiry        FindingType = "ssl_expiry"
-	FindingDataResidency    FindingType = "data_residency_violation"
+	FindingOrphanedENI      FindingType = "orphaned_eni"
+	FindingIdleLoadBalancer FindingType = "idle_load_balancer"
+	FindingUnusedSecurityGroup FindingType = "unused_security_group"
+	// SSL findings
+	FindingSSLExpiry FindingType = "ssl_expiry"
+	// Compliance findings
+	FindingDataResidency       FindingType = "data_residency_violation"
+	FindingCloudtrailDisabled  FindingType = "cloudtrail_disabled"
+	FindingVPCFlowLogsDisabled FindingType = "vpc_flow_logs_disabled"
+	FindingBackupNotConfigured FindingType = "backup_not_configured"
 	// Security findings
-	FindingUnencryptedResource FindingType = "unencrypted_resource"
-	FindingPublicAccess        FindingType = "public_access"
-	FindingPermissiveSG        FindingType = "permissive_security_group"
-	FindingOpenAllPorts        FindingType = "open_all_ports"
+	FindingUnencryptedResource   FindingType = "unencrypted_resource"
+	FindingPublicAccess          FindingType = "public_access"
+	FindingPermissiveSG          FindingType = "permissive_security_group"
+	FindingOpenAllPorts          FindingType = "open_all_ports"
+	FindingPubliclyAccessibleRDS FindingType = "publicly_accessible_rds"
+	FindingPublicSnapshot        FindingType = "public_snapshot"
+	FindingInsecureTLS           FindingType = "insecure_tls"
 	// Cost findings
-	FindingUnusedResource   FindingType = "unused_resource"
-	FindingStoppedInstance  FindingType = "stopped_instance"
-	FindingUnusedLogGroup   FindingType = "unused_log_group"
+	FindingUnusedResource    FindingType = "unused_resource"
+	FindingStoppedInstance   FindingType = "stopped_instance"
+	FindingUnusedLogGroup    FindingType = "unused_log_group"
+	FindingIdleNATGateway    FindingType = "idle_nat_gateway"
+	FindingOversizedInstance FindingType = "oversized_instance"
 	// Tagging findings
 	FindingMissingTag FindingType = "missing_tag"
 	// IAM findings
-	FindingOldAccessKey    FindingType = "old_access_key"
-	FindingUnusedAccessKey FindingType = "unused_access_key"
-	FindingUnusedIAMRole   FindingType = "unused_iam_role"
-	FindingUserWithoutMFA  FindingType = "user_without_mfa"
+	FindingOldAccessKey          FindingType = "old_access_key"
+	FindingUnusedAccessKey       FindingType = "unused_access_key"
+	FindingUnusedIAMRole         FindingType = "unused_iam_role"
+	FindingUserWithoutMFA        FindingType = "user_without_mfa"
+	FindingRootAccountUsage      FindingType = "root_account_usage"
+	FindingOverlyPermissivePolicy FindingType = "overly_permissive_policy"
+	FindingCrossAccountTrust     FindingType = "cross_account_trust"
 )
 
 // FindingStatus represents the status of a finding.
@@ -60,8 +79,39 @@ type Finding struct {
 	Summary       string
 	Details       map[string]any
 	Status        FindingStatus
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// Lifecycle tracking fields
+	FirstDetectedAt time.Time
+	LastDetectedAt  time.Time
+	DetectionCount  int
+	LastScanID      *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// FindingScanStatus represents the detection status of a finding in a scan.
+type FindingScanStatus string
+
+const (
+	FindingScanDetected    FindingScanStatus = "detected"
+	FindingScanNotDetected FindingScanStatus = "not_detected"
+)
+
+// FindingScan tracks when a finding was detected in a scan.
+type FindingScan struct {
+	ID        string
+	FindingID string
+	ScanID    string
+	Status    FindingScanStatus
+	CreatedAt time.Time
+}
+
+// NewFindingScan creates a new FindingScan record.
+func NewFindingScan(findingID, scanID string, status FindingScanStatus) *FindingScan {
+	return &FindingScan{
+		FindingID: findingID,
+		ScanID:    scanID,
+		Status:    status,
+	}
 }
 
 // NewFinding creates a new Finding with sensible defaults.

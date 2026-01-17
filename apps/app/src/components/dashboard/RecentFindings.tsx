@@ -18,10 +18,11 @@ import {
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { formatRelativeTime } from "@/lib/utils";
 import type { Finding } from "@/types";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 
 interface RecentFindingsProps {
   findings: Finding[];
+  baseUrl?: string;
 }
 
 const typeLabels: Record<string, string> = {
@@ -51,12 +52,14 @@ const typeLabels: Record<string, string> = {
   user_without_mfa: "User Without MFA",
 };
 
-export function RecentFindings({ findings }: RecentFindingsProps) {
+export function RecentFindings({ findings, baseUrl = "" }: RecentFindingsProps) {
   const navigate = useNavigate();
 
   const recentFindings = findings
     .filter((f) => f.status === "open")
     .slice(0, 5);
+
+  const findingsPath = baseUrl ? `${baseUrl}/findings` : "/findings";
 
   return (
     <Card>
@@ -65,7 +68,7 @@ export function RecentFindings({ findings }: RecentFindingsProps) {
           <CardTitle>Recent Findings</CardTitle>
           <CardDescription>Latest issues detected in your infrastructure</CardDescription>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => navigate("/findings")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(findingsPath)}>
           View all <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       </CardHeader>
@@ -89,7 +92,7 @@ export function RecentFindings({ findings }: RecentFindingsProps) {
                 <TableRow
                   key={finding.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/findings?id=${finding.id}`)}
+                  onClick={() => navigate(`${findingsPath}?id=${finding.id}`)}
                 >
                   <TableCell>
                     <SeverityBadge severity={finding.severity} />
@@ -100,8 +103,21 @@ export function RecentFindings({ findings }: RecentFindingsProps) {
                   <TableCell className="hidden max-w-[300px] truncate md:table-cell">
                     {finding.summary}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatRelativeTime(finding.createdAt)}
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {(finding.detectionCount || 1) > 1 && (
+                        <span
+                          className="flex items-center gap-0.5 text-xs text-amber-600"
+                          title={`Detected ${finding.detectionCount} times`}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          {finding.detectionCount}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">
+                        {formatRelativeTime(finding.firstDetectedAt || finding.createdAt)}
+                      </span>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

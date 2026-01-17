@@ -5,7 +5,7 @@ import { AccountsTable } from "@/components/accounts/AccountsTable";
 import { ScanHistory } from "@/components/accounts/ScanHistory";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useAwsAccounts, useTriggerScan } from "@/hooks/use-aws-accounts";
+import { useAwsAccounts, useTriggerScan, useActiveScans } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { Cloud, Plus } from "lucide-react";
 import {
@@ -21,6 +21,7 @@ export default function Accounts() {
   const navigate = useNavigate();
   const { accounts, isLoading, deleteAccount } = useAwsAccounts();
   const triggerScan = useTriggerScan();
+  const { data: activeScans } = useActiveScans();
 
   const [rescanningId, setRescanningId] = useState<string | null>(null);
   const [historyAccountId, setHistoryAccountId] = useState<string | null>(null);
@@ -35,10 +36,11 @@ export default function Accounts() {
         description: "Your AWS account is being scanned.",
         type: "success",
       });
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to start scan. Please try again.";
       toast({
         title: "Scan failed",
-        description: "Failed to start scan. Please try again.",
+        description: message,
         type: "error",
       });
     } finally {
@@ -99,6 +101,7 @@ export default function Accounts() {
           onViewHistory={setHistoryAccountId}
           onDisconnect={setDisconnectAccountId}
           rescanningId={rescanningId}
+          activeScans={activeScans}
         />
       ) : (
         <EmptyState

@@ -51,7 +51,26 @@ func (s *LambdaScanner) ScanFunctions(ctx context.Context, cfg aws.Config, regio
 				r.Tags = tagsOutput.Tags
 			}
 
-			// Store function details in raw
+			// Build VPC config struct for JSON
+			var vpcConfig map[string]any
+			if fn.VpcConfig != nil {
+				vpcConfig = map[string]any{
+					"VpcId":            aws.ToString(fn.VpcConfig.VpcId),
+					"SubnetIds":        fn.VpcConfig.SubnetIds,
+					"SecurityGroupIds": fn.VpcConfig.SecurityGroupIds,
+				}
+			}
+
+			// Build layers array for JSON
+			var layers []map[string]any
+			for _, layer := range fn.Layers {
+				layers = append(layers, map[string]any{
+					"Arn":      aws.ToString(layer.Arn),
+					"CodeSize": layer.CodeSize,
+				})
+			}
+
+			// Store function details in raw (including dependency-related fields)
 			raw, _ := json.Marshal(map[string]any{
 				"function_name":      aws.ToString(fn.FunctionName),
 				"function_arn":       aws.ToString(fn.FunctionArn),
@@ -65,6 +84,11 @@ func (s *LambdaScanner) ScanFunctions(ctx context.Context, cfg aws.Config, regio
 				"architectures":      fn.Architectures,
 				"package_type":       string(fn.PackageType),
 				"ephemeral_storage":  fn.EphemeralStorage,
+				// Dependency-related fields
+				"Role":       aws.ToString(fn.Role),
+				"VpcConfig":  vpcConfig,
+				"Layers":     layers,
+				"KMSKeyArn":  aws.ToString(fn.KMSKeyArn),
 			})
 			r.Raw = raw
 

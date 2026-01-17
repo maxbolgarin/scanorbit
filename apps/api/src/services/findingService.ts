@@ -1,7 +1,7 @@
 import { eq, and, desc, count, inArray } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
-import { findings, resources, certificates } from '../db/schema.js';
+import { findings, resources, certificates, findingScans, scans } from '../db/schema.js';
 import type { Finding } from '../db/schema.js';
 import type { FindingFilters, PaginatedResponse, FindingStatus } from '../types/index.js';
 
@@ -197,6 +197,15 @@ export const findingService = {
       .where(eq(findings.orgId, orgId))
       .groupBy(findings.type);
 
+    // Get severity for each type (for filtering calculations)
+    const typeSeverities = await db
+      .selectDistinct({
+        type: findings.type,
+        severity: findings.severity,
+      })
+      .from(findings)
+      .where(eq(findings.orgId, orgId));
+
     // Get total count
     const [totalResult] = await db
       .select({ count: count() })
@@ -238,6 +247,13 @@ export const findingService = {
         }),
         {} as Record<string, number>
       ),
+      byTypeSeverity: typeSeverities.reduce(
+        (acc, item) => ({
+          ...acc,
+          [item.type]: item.severity,
+        }),
+        {} as Record<string, string>
+      ),
     };
   },
 
@@ -272,5 +288,96 @@ export const findingService = {
       .returning({ id: findings.id });
 
     return result.length;
+  },
+
+  /**
+   * Get detection history for a finding.
+   * Returns a list of scans where this finding was detected or not detected.
+   */
+  async getFindingHistory(orgId: string, findingId: string) {
+    // Verify the finding belongs to this org
+    const [finding] = await db
+      .select({ id: findings.id })
+      .from(findings)
+      .where(
+        and(
+          eq(findings.id, findingId),
+          eq(findings.orgId, orgId)
+        )
+      )
+      .limit(1);
+
+    if (!finding) {
+      throw new HTTP404Error('Finding not found');
+    }
+
+    // Get detection history with scan info
+    const history = await db
+      .select({
+        id: findingScans.id,
+        findingId: findingScans.findingId,
+        scanId: findingScans.scanId,
+        status: findingScans.status,
+        createdAt: findingScans.createdAt,
+        scan: {
+          id: scans.id,
+          status: scans.status,
+          startedAt: scans.startedAt,
+          completedAt: scans.completedAt,
+          resourcesDiscovered: scans.resourcesDiscovered,
+        },
+      })
+      .from(findingScans)
+      .innerJoin(scans, eq(findingScans.scanId, scans.id))
+      .where(eq(findingScans.findingId, findingId))
+      .orderBy(desc(findingScans.createdAt));
+
+    return history;
+  },
+
+  /**
+   * Get finding timeline for a specific resource.
+   * Shows all findings and their detection history for that resource.
+   */
+  async getResourceFindingTimeline(orgId: string, resourceId: string) {
+    // Get all findings for this resource
+    const resourceFindings = await db
+      .select()
+      .from(findings)
+      .where(
+        and(
+          eq(findings.resourceId, resourceId),
+          eq(findings.orgId, orgId)
+        )
+      )
+      .orderBy(desc(findings.firstDetectedAt));
+
+    // For each finding, get its detection history
+    const timeline = await Promise.all(
+      resourceFindings.map(async (finding) => {
+        const history = await db
+          .select({
+            id: findingScans.id,
+            status: findingScans.status,
+            createdAt: findingScans.createdAt,
+            scan: {
+              id: scans.id,
+              completedAt: scans.completedAt,
+            },
+          })
+          .from(findingScans)
+          .innerJoin(scans, eq(findingScans.scanId, scans.id))
+          .where(eq(findingScans.findingId, finding.id))
+          .orderBy(desc(findingScans.createdAt))
+          .limit(10); // Limit history per finding
+
+        return {
+          finding,
+          detectionHistory: history,
+        };
+      })
+    );
+
+    return timeline;
   },
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -6,11 +6,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { FindingFilters as Filters, FindingType, FindingSeverity, FindingStatus } from "@/types";
-import { Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { ORPHANED_FINDING_TYPES } from "@/types";
+import { Search, X, SlidersHorizontal, ChevronDown, HardDrive } from "lucide-react";
 
 interface FindingFiltersAdvancedProps {
   filters: Filters;
@@ -27,29 +34,45 @@ const typeOptions: { value: FindingType; label: string; category: string }[] = [
   { value: "public_access", label: "Public Access", category: "Security" },
   { value: "permissive_security_group", label: "Permissive Security Group", category: "Security" },
   { value: "open_all_ports", label: "Open All Ports", category: "Security" },
-  // Cost findings
+  { value: "publicly_accessible_rds", label: "Publicly Accessible RDS", category: "Security" },
+  { value: "public_snapshot", label: "Public Snapshot", category: "Security" },
+  { value: "insecure_tls", label: "Insecure TLS", category: "Security" },
+  // Cost findings (including orphaned resources)
   { value: "orphaned_volume", label: "Orphaned Volume", category: "Cost" },
   { value: "orphaned_eip", label: "Orphaned EIP", category: "Cost" },
   { value: "orphaned_snapshot", label: "Orphaned Snapshot", category: "Cost" },
+  { value: "orphaned_eni", label: "Orphaned ENI", category: "Cost" },
+  { value: "idle_load_balancer", label: "Idle Load Balancer", category: "Cost" },
+  { value: "idle_nat_gateway", label: "Idle NAT Gateway", category: "Cost" },
+  { value: "unused_security_group", label: "Unused Security Group", category: "Cost" },
   { value: "unused_resource", label: "Unused Resource", category: "Cost" },
   { value: "stopped_instance", label: "Stopped Instance", category: "Cost" },
   { value: "unused_log_group", label: "Unused Log Group", category: "Cost" },
+  { value: "oversized_instance", label: "Oversized Instance", category: "Cost" },
   // Compliance findings
   { value: "ssl_expiry", label: "SSL Expiry", category: "Compliance" },
   { value: "data_residency_violation", label: "Data Residency", category: "Compliance" },
+  { value: "cloudtrail_disabled", label: "CloudTrail Disabled", category: "Compliance" },
+  { value: "vpc_flow_logs_disabled", label: "VPC Flow Logs Disabled", category: "Compliance" },
+  { value: "backup_not_configured", label: "Backup Not Configured", category: "Compliance" },
   // IAM findings
   { value: "old_access_key", label: "Old Access Key", category: "IAM" },
   { value: "unused_access_key", label: "Unused Access Key", category: "IAM" },
   { value: "unused_iam_role", label: "Unused IAM Role", category: "IAM" },
   { value: "user_without_mfa", label: "User Without MFA", category: "IAM" },
+  { value: "root_account_usage", label: "Root Account Usage", category: "IAM" },
+  { value: "overly_permissive_policy", label: "Overly Permissive Policy", category: "IAM" },
+  { value: "cross_account_trust", label: "Cross Account Trust", category: "IAM" },
   // Tagging findings
   { value: "missing_tag", label: "Missing Tag", category: "Tagging" },
 ];
 
 const severityOptions: { value: FindingSeverity; label: string; color: string }[] = [
+  { value: "critical", label: "Critical", color: "text-red-600" },
   { value: "high", label: "High", color: "text-red-500" },
   { value: "medium", label: "Medium", color: "text-yellow-500" },
   { value: "low", label: "Low", color: "text-blue-500" },
+  { value: "trivial", label: "Trivial", color: "text-muted-foreground" },
 ];
 
 const statusOptions: { value: FindingStatus; label: string }[] = [
@@ -59,7 +82,7 @@ const statusOptions: { value: FindingStatus; label: string }[] = [
   { value: "ignored", label: "Ignored" },
 ];
 
-// Group types by category for the dropdown
+// Group types by category
 const groupedTypes = typeOptions.reduce((acc, type) => {
   if (!acc[type.category]) {
     acc[type.category] = [];
@@ -67,6 +90,9 @@ const groupedTypes = typeOptions.reduce((acc, type) => {
   acc[type.category].push(type);
   return acc;
 }, {} as Record<string, typeof typeOptions>);
+
+// Category order for display
+const categoryOrder = ["Security", "Cost", "Compliance", "IAM", "Tagging"];
 
 export function FindingFiltersAdvanced({
   filters,
@@ -76,10 +102,25 @@ export function FindingFiltersAdvanced({
   totalCount,
   filteredCount,
 }: FindingFiltersAdvancedProps) {
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [typePopoverOpen, setTypePopoverOpen] = useState(false);
 
-  const hasFilters = filters.type || filters.severity || filters.status || searchQuery;
-  const activeFilterCount = [filters.type, filters.severity, filters.status, searchQuery].filter(Boolean).length;
+  // Get selected types (either from types array or single type)
+  const selectedTypes = useMemo(() => {
+    if (filters.types && filters.types.length > 0) {
+      return filters.types;
+    }
+    if (filters.type) {
+      return [filters.type];
+    }
+    return [];
+  }, [filters.types, filters.type]);
+
+  // Check if all orphaned types are selected
+  const isOrphanedSelected = useMemo(() => {
+    return ORPHANED_FINDING_TYPES.every((t) => selectedTypes.includes(t));
+  }, [selectedTypes]);
+
+  const hasFilters = selectedTypes.length > 0 || filters.severity || filters.status || searchQuery;
 
   const clearFilters = () => {
     onFiltersChange({});
@@ -93,11 +134,80 @@ export function FindingFiltersAdvanced({
   };
 
   const getTypeLabel = (type: FindingType) => {
-    return typeOptions.find(t => t.value === type)?.label || type;
+    return typeOptions.find((t) => t.value === type)?.label || type;
   };
 
   const getSeverityColor = (severity: FindingSeverity) => {
-    return severityOptions.find(s => s.value === severity)?.color || "";
+    return severityOptions.find((s) => s.value === severity)?.color || "";
+  };
+
+  // Toggle a single type
+  const toggleType = (type: FindingType) => {
+    const newTypes = selectedTypes.includes(type)
+      ? selectedTypes.filter((t) => t !== type)
+      : [...selectedTypes, type];
+
+    if (newTypes.length === 0) {
+      // Clear types filter
+      const newFilters = { ...filters };
+      delete newFilters.types;
+      delete newFilters.type;
+      onFiltersChange(newFilters);
+    } else {
+      onFiltersChange({ ...filters, types: newTypes, type: undefined });
+    }
+  };
+
+  // Toggle all orphaned types
+  const toggleOrphaned = () => {
+    if (isOrphanedSelected) {
+      // Remove all orphaned types
+      const newTypes = selectedTypes.filter((t) => !ORPHANED_FINDING_TYPES.includes(t));
+      if (newTypes.length === 0) {
+        const newFilters = { ...filters };
+        delete newFilters.types;
+        delete newFilters.type;
+        onFiltersChange(newFilters);
+      } else {
+        onFiltersChange({ ...filters, types: newTypes, type: undefined });
+      }
+    } else {
+      // Add all orphaned types
+      const newTypes = [...new Set([...selectedTypes, ...ORPHANED_FINDING_TYPES])];
+      onFiltersChange({ ...filters, types: newTypes, type: undefined });
+    }
+  };
+
+  // Toggle all types in a category
+  const toggleCategory = (category: string) => {
+    const categoryTypes = groupedTypes[category]?.map((t) => t.value) || [];
+    const allSelected = categoryTypes.every((t) => selectedTypes.includes(t));
+
+    if (allSelected) {
+      // Remove all category types
+      const newTypes = selectedTypes.filter((t) => !categoryTypes.includes(t));
+      if (newTypes.length === 0) {
+        const newFilters = { ...filters };
+        delete newFilters.types;
+        delete newFilters.type;
+        onFiltersChange(newFilters);
+      } else {
+        onFiltersChange({ ...filters, types: newTypes, type: undefined });
+      }
+    } else {
+      // Add all category types
+      const newTypes = [...new Set([...selectedTypes, ...categoryTypes])];
+      onFiltersChange({ ...filters, types: newTypes, type: undefined });
+    }
+  };
+
+  // Clear all type filters
+  const clearTypes = () => {
+    const newFilters = { ...filters };
+    delete newFilters.types;
+    delete newFilters.type;
+    onFiltersChange(newFilters);
+    setTypePopoverOpen(false);
   };
 
   return (
@@ -171,20 +281,126 @@ export function FindingFiltersAdvanced({
             </SelectContent>
           </Select>
 
-          {/* Advanced filters toggle */}
+          {/* Type filter with multi-select */}
+          <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={selectedTypes.length > 0 ? "bg-muted border-primary/50" : ""}
+              >
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                Types
+                {selectedTypes.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 px-1.5 py-0 text-xs">
+                    {selectedTypes.length}
+                  </Badge>
+                )}
+                <ChevronDown className="ml-1 h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <div className="p-3 border-b">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">Filter by Type</span>
+                  {selectedTypes.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearTypes} className="h-7 px-2 text-xs">
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick preset: Orphaned Resources */}
+              <div className="p-3 border-b bg-muted/30">
+                <Checkbox
+                  id="orphaned-preset"
+                  checked={isOrphanedSelected}
+                  onChange={toggleOrphaned}
+                  label={
+                    <div className="flex items-center gap-2">
+                      <HardDrive className="h-4 w-4 text-orange-500" />
+                      <span className="font-medium">Orphaned Resources</span>
+                      <span className="text-xs text-muted-foreground">({ORPHANED_FINDING_TYPES.length} types)</span>
+                    </div>
+                  }
+                />
+              </div>
+
+              {/* Types by category */}
+              <div className="max-h-[300px] overflow-y-auto">
+                {categoryOrder.map((category) => {
+                  const types = groupedTypes[category];
+                  if (!types) return null;
+                  const allSelected = types.every((t) => selectedTypes.includes(t.value));
+                  const someSelected = types.some((t) => selectedTypes.includes(t.value));
+
+                  return (
+                    <div key={category} className="border-b last:border-b-0">
+                      {/* Category header with toggle all */}
+                      <div
+                        className="flex items-center gap-2 px-3 py-2 bg-muted/50 cursor-pointer hover:bg-muted"
+                        onClick={() => toggleCategory(category)}
+                      >
+                        <div
+                          className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+                            allSelected
+                              ? "bg-primary border-primary"
+                              : someSelected
+                              ? "bg-primary/30 border-primary/50"
+                              : "border-border"
+                          }`}
+                        >
+                          {(allSelected || someSelected) && (
+                            <svg className="h-3 w-3 text-primary-foreground" viewBox="0 0 12 12">
+                              {allSelected ? (
+                                <path
+                                  d="M10 3L4.5 8.5 2 6"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  fill="none"
+                                />
+                              ) : (
+                                <rect x="2" y="5" width="8" height="2" fill="currentColor" />
+                              )}
+                            </svg>
+                          )}
+                        </div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {category}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {types.filter((t) => selectedTypes.includes(t.value)).length}/{types.length}
+                        </span>
+                      </div>
+
+                      {/* Individual type checkboxes */}
+                      <div className="px-3 py-2 space-y-2">
+                        {types.map((type) => (
+                          <Checkbox
+                            key={type.value}
+                            id={type.value}
+                            checked={selectedTypes.includes(type.value)}
+                            onChange={() => toggleType(type.value)}
+                            label={<span className="text-sm">{type.label}</span>}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Quick orphaned toggle button */}
           <Button
-            variant="outline"
+            variant={isOrphanedSelected ? "default" : "outline"}
             size="default"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className={showAdvanced ? "bg-muted" : ""}
+            onClick={toggleOrphaned}
+            className={isOrphanedSelected ? "" : ""}
           >
-            <SlidersHorizontal className="mr-2 h-4 w-4" />
-            Type
-            {showAdvanced ? (
-              <ChevronUp className="ml-1 h-4 w-4" />
-            ) : (
-              <ChevronDown className="ml-1 h-4 w-4" />
-            )}
+            <HardDrive className="mr-2 h-4 w-4" />
+            Orphaned
           </Button>
 
           {/* Clear all button */}
@@ -196,41 +412,6 @@ export function FindingFiltersAdvanced({
           )}
         </div>
       </div>
-
-      {/* Advanced filters - Type selection */}
-      {showAdvanced && (
-        <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="text-sm font-medium text-muted-foreground mb-3">Filter by Type</p>
-          <Select
-            value={filters.type || "all"}
-            onValueChange={(value) =>
-              onFiltersChange({
-                ...filters,
-                type: value === "all" ? undefined : (value as FindingType),
-              })
-            }
-          >
-            <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {Object.entries(groupedTypes).map(([category, types]) => (
-                <div key={category}>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                    {category}
-                  </div>
-                  {types.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       {/* Active filters badges & count */}
       <div className="flex flex-wrap items-center gap-2">
@@ -249,7 +430,7 @@ export function FindingFiltersAdvanced({
         </span>
 
         {/* Active filter badges */}
-        {activeFilterCount > 0 && (
+        {(searchQuery || filters.severity || filters.status || selectedTypes.length > 0) && (
           <div className="flex flex-wrap gap-1.5 ml-2">
             {searchQuery && (
               <Badge variant="secondary" className="gap-1 pr-1">
@@ -286,17 +467,17 @@ export function FindingFiltersAdvanced({
                 </button>
               </Badge>
             )}
-            {filters.type && (
-              <Badge variant="secondary" className="gap-1 pr-1">
-                {getTypeLabel(filters.type)}
+            {selectedTypes.map((type) => (
+              <Badge key={type} variant="secondary" className="gap-1 pr-1">
+                {getTypeLabel(type)}
                 <button
-                  onClick={() => clearSingleFilter("type")}
+                  onClick={() => toggleType(type)}
                   className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </Badge>
-            )}
+            ))}
           </div>
         )}
       </div>

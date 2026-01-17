@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { setCookie } from 'hono/cookie';
 import { requireAuth } from '../middlewares/auth.js';
 import { orgService } from '../services/orgService.js';
+import { orgSettingsService } from '../services/orgSettingsService.js';
 import type { Variables } from '../types/index.js';
 
 // Helper to set JWT cookie (same as in auth routes)
@@ -32,6 +33,12 @@ const createOrgSchema = z.object({
 const updateOrgSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   logoUrl: z.string().url().max(255).optional().nullable(),
+});
+
+const updateOrgSettingsSchema = z.object({
+  requiredTags: z.array(z.string().min(1).max(100)).max(20).optional(),
+  hiddenFindingTypes: z.array(z.string()).max(50).optional(),
+  hideTrivial: z.boolean().optional(),
 });
 
 // POST /orgs - Create organization (Step 4 of signup flow)
@@ -80,6 +87,37 @@ orgsRoute.get('/:id/members', async (c) => {
 
   const members = await orgService.getOrgMembers(orgId, userId);
   return c.json({ data: members });
+});
+
+// GET /orgs/:id/settings - Get organization viewing settings
+orgsRoute.get('/:id/settings', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+
+  const settings = await orgSettingsService.getSettings(orgId, userId);
+  return c.json({
+    data: {
+      requiredTags: settings.requiredTags as string[],
+      hiddenFindingTypes: settings.hiddenFindingTypes as string[],
+      hideTrivial: settings.hideTrivial,
+    },
+  });
+});
+
+// PATCH /orgs/:id/settings - Update organization viewing settings
+orgsRoute.patch('/:id/settings', zValidator('json', updateOrgSettingsSchema), async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const data = c.req.valid('json');
+
+  const settings = await orgSettingsService.updateSettings(orgId, userId, data);
+  return c.json({
+    data: {
+      requiredTags: settings.requiredTags as string[],
+      hiddenFindingTypes: settings.hiddenFindingTypes as string[],
+      hideTrivial: settings.hideTrivial,
+    },
+  });
 });
 
 export default orgsRoute;

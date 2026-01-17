@@ -32,6 +32,7 @@ export const orgsRelations = relations(orgs, ({ many }) => ({
   members: many(userOrgMembers),
   awsAccounts: many(awsAccounts),
   resources: many(resources),
+  resourceDependencies: many(resourceDependencies),
   certificates: many(certificates),
   findings: many(findings),
   scans: many(scans),
@@ -157,6 +158,59 @@ export const resourcesRelations = relations(resources, ({ one, many }) => ({
     references: [awsAccounts.id],
   }),
   findings: many(findings),
+  dependencies: many(resourceDependencies),
+}));
+
+// Resource Dependencies (relationships between resources)
+export const resourceDependencies = pgTable('resource_dependencies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  sourceResourceId: uuid('source_resource_id').notNull().references(() => resources.id, { onDelete: 'cascade' }),
+  targetResourceId: varchar('target_resource_id', { length: 512 }).notNull(), // AWS ARN/ID (may not exist in our DB)
+  targetService: varchar('target_service', { length: 50 }).notNull(), // 'ec2', 'iam_role', 'vpc', 'security_group', etc.
+  relationshipType: varchar('relationship_type', { length: 50 }).notNull(), // 'uses_role', 'in_vpc', 'in_subnet', 'uses_sg', 'attached_to', 'targets', 'owns', 'uses_layer', 'encrypted_by'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('resource_dependencies_unique_idx').on(table.orgId, table.sourceResourceId, table.targetResourceId, table.relationshipType),
+  index('resource_dependencies_org_id_idx').on(table.orgId),
+  index('resource_dependencies_source_resource_id_idx').on(table.sourceResourceId),
+  index('resource_dependencies_target_resource_id_idx').on(table.targetResourceId),
+  index('resource_dependencies_relationship_type_idx').on(table.relationshipType),
+]);
+
+export const resourceDependenciesRelations = relations(resourceDependencies, ({ one }) => ({
+  org: one(orgs, {
+    fields: [resourceDependencies.orgId],
+    references: [orgs.id],
+  }),
+  sourceResource: one(resources, {
+    fields: [resourceDependencies.sourceResourceId],
+    references: [resources.id],
+  }),
+}));
+
+// Resource-Scan History (tracks which resources were found in which scans)
+export const resourceScans = pgTable('resource_scans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  resourceId: uuid('resource_id').notNull().references(() => resources.id, { onDelete: 'cascade' }),
+  scanId: uuid('scan_id').notNull().references(() => scans.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).notNull(), // 'new', 'updated', 'removed'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('resource_scans_resource_scan_idx').on(table.resourceId, table.scanId),
+  index('resource_scans_scan_id_idx').on(table.scanId),
+  index('resource_scans_resource_id_idx').on(table.resourceId),
+]);
+
+export const resourceScansRelations = relations(resourceScans, ({ one }) => ({
+  resource: one(resources, {
+    fields: [resourceScans.resourceId],
+    references: [resources.id],
+  }),
+  scan: one(scans, {
+    fields: [resourceScans.scanId],
+    references: [scans.id],
+  }),
 }));
 
 // Certificates
@@ -206,6 +260,11 @@ export const findings = pgTable('findings', {
   status: varchar('status', { length: 50 }).default('open').notNull(), // 'open', 'resolved', 'snoozed', 'ignored'
   resolvedAt: timestamp('resolved_at'),
   snoozedUntil: timestamp('snoozed_until'),
+  // Lifecycle tracking fields
+  firstDetectedAt: timestamp('first_detected_at'),
+  lastDetectedAt: timestamp('last_detected_at'),
+  detectionCount: integer('detection_count').default(1).notNull(),
+  lastScanId: uuid('last_scan_id').references(() => scans.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
@@ -213,9 +272,10 @@ export const findings = pgTable('findings', {
   index('findings_type_idx').on(table.type),
   index('findings_severity_idx').on(table.severity),
   index('findings_status_idx').on(table.status),
+  index('findings_last_scan_id_idx').on(table.lastScanId),
 ]);
 
-export const findingsRelations = relations(findings, ({ one }) => ({
+export const findingsRelations = relations(findings, ({ one, many }) => ({
   org: one(orgs, {
     fields: [findings.orgId],
     references: [orgs.id],
@@ -231,6 +291,35 @@ export const findingsRelations = relations(findings, ({ one }) => ({
   certificate: one(certificates, {
     fields: [findings.certificateId],
     references: [certificates.id],
+  }),
+  lastScan: one(scans, {
+    fields: [findings.lastScanId],
+    references: [scans.id],
+  }),
+  findingScans: many(findingScans),
+}));
+
+// Finding-Scan History (tracks which findings were detected in which scans)
+export const findingScans = pgTable('finding_scans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  findingId: uuid('finding_id').notNull().references(() => findings.id, { onDelete: 'cascade' }),
+  scanId: uuid('scan_id').notNull().references(() => scans.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).notNull(), // 'detected', 'not_detected'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('finding_scans_finding_scan_idx').on(table.findingId, table.scanId),
+  index('finding_scans_scan_id_idx').on(table.scanId),
+  index('finding_scans_finding_id_idx').on(table.findingId),
+]);
+
+export const findingScansRelations = relations(findingScans, ({ one }) => ({
+  finding: one(findings, {
+    fields: [findingScans.findingId],
+    references: [findings.id],
+  }),
+  scan: one(scans, {
+    fields: [findingScans.scanId],
+    references: [scans.id],
   }),
 }));
 
@@ -400,6 +489,27 @@ export const dataDeletionRequestsRelations = relations(dataDeletionRequests, ({ 
   }),
 }));
 
+// =============================================================================
+// Organization Settings (Viewing Parameters)
+// =============================================================================
+// Organization-wide settings for viewing parameters (required tags, hidden finding types, etc.)
+export const orgSettings = pgTable('org_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().unique().references(() => orgs.id, { onDelete: 'cascade' }),
+  requiredTags: jsonb('required_tags').default(['Environment', 'Owner', 'CostCenter']).notNull(),
+  hiddenFindingTypes: jsonb('hidden_finding_types').default([]).notNull(),
+  hideTrivial: boolean('hide_trivial').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const orgSettingsRelations = relations(orgSettings, ({ one }) => ({
+  org: one(orgs, {
+    fields: [orgSettings.orgId],
+    references: [orgs.id],
+  }),
+}));
+
 // Type exports for use in services
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -429,3 +539,11 @@ export type RetentionPolicy = typeof retentionPolicies.$inferSelect;
 export type NewRetentionPolicy = typeof retentionPolicies.$inferInsert;
 export type DataDeletionRequest = typeof dataDeletionRequests.$inferSelect;
 export type NewDataDeletionRequest = typeof dataDeletionRequests.$inferInsert;
+export type ResourceDependency = typeof resourceDependencies.$inferSelect;
+export type NewResourceDependency = typeof resourceDependencies.$inferInsert;
+export type OrgSettings = typeof orgSettings.$inferSelect;
+export type NewOrgSettings = typeof orgSettings.$inferInsert;
+export type ResourceScan = typeof resourceScans.$inferSelect;
+export type NewResourceScan = typeof resourceScans.$inferInsert;
+export type FindingScan = typeof findingScans.$inferSelect;
+export type NewFindingScan = typeof findingScans.$inferInsert;

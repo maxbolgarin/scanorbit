@@ -71,11 +71,12 @@ type ScanAccountJob struct {
 
 // AnalyzeJob is the payload for analyze jobs.
 type AnalyzeJob struct {
-	JobID     string           `json:"job_id"`  // DB job record ID for status tracking
-	ScanID    string           `json:"scan_id"` // DB scan record ID to link analyzer to scan
-	AccountID string           `json:"account_id"`
-	OrgID     string           `json:"org_id"`
-	Policy    *ResidencyPolicy `json:"policy,omitempty"`
+	JobID        string           `json:"job_id"`  // DB job record ID for status tracking
+	ScanID       string           `json:"scan_id"` // DB scan record ID to link analyzer to scan
+	AccountID    string           `json:"account_id"`
+	OrgID        string           `json:"org_id"`
+	Policy       *ResidencyPolicy `json:"policy,omitempty"`
+	RequiredTags []string         `json:"required_tags,omitempty"` // Required tags from org settings for tagging analyzer
 }
 
 // ResidencyPolicy defines allowed regions for data residency checks.

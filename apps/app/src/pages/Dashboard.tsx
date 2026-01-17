@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useDashboardSummary, useRecommendedActions } from "@/hooks/use-dashboard";
-import { useFindings } from "@/hooks/use-findings";
+import { useFilteredFindings } from "@/hooks/use-findings";
 import { useAwsAccounts, useTriggerScan, useRecentScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
@@ -37,7 +37,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: summary, isLoading: summaryLoading, isFetching } = useDashboardSummary();
-  const { data: findings, isLoading: findingsLoading } = useFindings();
+  const { data: findings, isLoading: findingsLoading, unfilteredData } = useFilteredFindings();
   const { data: actions, isLoading: actionsLoading } = useRecommendedActions();
   const { accounts, isLoading: accountsLoading } = useAwsAccounts();
   const { data: recentScans } = useRecentScans(10);
@@ -106,7 +106,8 @@ export default function Dashboard() {
   };
 
   const hasAccounts = accounts && accounts.length > 0;
-  const hasAnyFindings = findings?.data && findings.data.length > 0;
+  // Use unfiltered data to determine if findings exist (so UI shows even when all filtered out)
+  const hasAnyFindings = unfilteredData?.data && unfilteredData.data.length > 0;
   const openFindings = findings?.data?.filter(f => f.status === "open") || [];
   const hasCompletedScan = recentScans?.some(scan =>
     scan.status === "complete" || scan.status === "partial"

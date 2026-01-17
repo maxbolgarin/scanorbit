@@ -63,10 +63,10 @@ export function useResource(id: string) {
   });
 }
 
-export function useResourceStats() {
+export function useResourceStats(filters?: { awsAccountId?: string }) {
   return useQuery({
-    queryKey: ["resource-stats"],
-    queryFn: api.getResourceStats,
+    queryKey: ["resource-stats", filters],
+    queryFn: () => api.getResourceStats(filters),
   });
 }
 
@@ -81,5 +81,37 @@ export function useResourceServices() {
   return useQuery({
     queryKey: ["resource-services"],
     queryFn: api.getDistinctServices,
+  });
+}
+
+export function useResourceDependencies(resourceId: string) {
+  return useQuery({
+    queryKey: ["resource-dependencies", resourceId],
+    queryFn: () => api.getResourceDependencies(resourceId),
+    enabled: !!resourceId,
+  });
+}
+
+export function useResourceDependents(resourceId: string) {
+  return useQuery({
+    queryKey: ["resource-dependents", resourceId],
+    queryFn: () => api.getResourceDependents(resourceId),
+    enabled: !!resourceId,
+  });
+}
+
+export function useResourceScanHistory(resourceId: string) {
+  return useQuery({
+    queryKey: ["resource-scan-history", resourceId],
+    queryFn: () => api.getResourceScanHistory(resourceId),
+    enabled: !!resourceId,
+  });
+}
+
+export function useAllDependencies() {
+  return useQuery({
+    queryKey: ["all-dependencies"],
+    queryFn: () => api.getAllDependencies(),
+    staleTime: 60000, // Cache for 1 minute
   });
 }

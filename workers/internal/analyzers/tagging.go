@@ -46,11 +46,23 @@ func (a *TaggingAnalyzer) Name() string {
 
 // Analyze checks for missing mandatory tags.
 func (a *TaggingAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([]*models.Finding, error) {
+	// Use tags from job if provided (from org settings), otherwise fall back to default
+	requiredTags := a.requiredTags
+	if len(job.RequiredTags) > 0 {
+		requiredTags = job.RequiredTags
+	}
+
 	a.logger.Info().
 		Str("account_id", job.AccountID).
 		Str("org_id", job.OrgID).
-		Strs("required_tags", a.requiredTags).
+		Strs("required_tags", requiredTags).
 		Msg("starting tagging analysis")
+
+	// If no tags are required, skip analysis
+	if len(requiredTags) == 0 {
+		a.logger.Info().Msg("no required tags configured, skipping tagging analysis")
+		return nil, nil
+	}
 
 	resources, err := a.store.Resources.GetByAccountID(ctx, job.AccountID)
 	if err != nil {
@@ -80,9 +92,9 @@ func (a *TaggingAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) (
 			continue
 		}
 
-		missingTags := a.findMissingTags(r)
+		missingTags := a.findMissingTagsWithList(r, requiredTags)
 		if len(missingTags) > 0 {
-			finding := a.createTaggingFinding(r, missingTags)
+			finding := a.createTaggingFindingWithList(r, missingTags, requiredTags)
 			finding.OrgID = job.OrgID
 			finding.AWSAccountID = job.AccountID
 			findings = append(findings, finding)
@@ -97,11 +109,11 @@ func (a *TaggingAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) (
 	return findings, nil
 }
 
-// findMissingTags returns a list of required tags that are missing from the resource.
-func (a *TaggingAnalyzer) findMissingTags(r *models.Resource) []string {
+// findMissingTagsWithList returns a list of required tags that are missing from the resource.
+func (a *TaggingAnalyzer) findMissingTagsWithList(r *models.Resource, requiredTags []string) []string {
 	var missing []string
 
-	for _, requiredTag := range a.requiredTags {
+	for _, requiredTag := range requiredTags {
 		found := false
 		// Check case-insensitive match
 		for tagKey := range r.Tags {
@@ -121,8 +133,8 @@ func (a *TaggingAnalyzer) findMissingTags(r *models.Resource) []string {
 	return missing
 }
 
-// createTaggingFinding creates a finding for a resource with missing tags.
-func (a *TaggingAnalyzer) createTaggingFinding(r *models.Resource, missingTags []string) *models.Finding {
+// createTaggingFindingWithList creates a finding for a resource with missing tags.
+func (a *TaggingAnalyzer) createTaggingFindingWithList(r *models.Resource, missingTags []string, requiredTags []string) *models.Finding {
 	serviceUpper := strings.ToUpper(string(r.Service))
 	resourceName := r.Name
 	if resourceName == "" {
@@ -141,7 +153,7 @@ func (a *TaggingAnalyzer) createTaggingFinding(r *models.Resource, missingTags [
 		ID:         uuid.New().String(),
 		ResourceID: &resourceID,
 		Type:       models.FindingMissingTag,
-		Severity:   models.SeverityLow,
+		Severity:   models.SeverityTrivial,
 		Summary:    summary,
 		Details: map[string]any{
 			"resource_id":    r.ResourceID,
@@ -150,7 +162,7 @@ func (a *TaggingAnalyzer) createTaggingFinding(r *models.Resource, missingTags [
 			"region":         r.Region,
 			"missing_tags":   missingTags,
 			"existing_tags":  r.Tags,
-			"required_tags":  a.requiredTags,
+			"required_tags":  requiredTags,
 			"recommendation": fmt.Sprintf("Add the following tags to this resource: %s. Proper tagging helps with cost allocation, security, and resource management.", strings.Join(missingTags, ", ")),
 		},
 		Status: models.FindingStatusOpen,

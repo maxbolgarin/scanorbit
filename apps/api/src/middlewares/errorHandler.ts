@@ -3,22 +3,46 @@ import { HTTPError } from '../lib/errors.js';
 import { ZodError } from 'zod';
 import { logger } from '../lib/logger.js';
 import { errorsTotal } from '../lib/metrics.js';
+import { config } from '../lib/config.js';
 
 export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
   const route = c.req.path;
 
+  // Store error info in context for structured logger to access
+  // Use a symbol or string key that won't conflict
+  const errorInfoKey = '__error_info__';
+  
   // Handle custom HTTP errors
   if (err instanceof HTTPError) {
     errorsTotal.inc({ type: err.name, route });
     
-    // Log 5xx errors, skip logging expected client errors
+    // Store error info in context for structured logger
+    (c as unknown as { [key: string]: unknown })[errorInfoKey] = {
+      error: err.name,
+      message: err.message,
+      statusCode: err.statusCode,
+    };
+    
+    // Log all errors for debugging - use warn for 4xx, error for 5xx
+    const logContext = {
+      statusCode: err.statusCode,
+      method: c.req.method,
+      path: c.req.path,
+      error: err.name,
+      message: err.message,
+      query: c.req.query(),
+    };
+    
     if (err.statusCode >= 500) {
-      logger.error('HTTP error', err, {
-        statusCode: err.statusCode,
-        method: c.req.method,
-        path: c.req.path,
+      logger.error('HTTP error', err, logContext);
+    } else {
+      logger.warn('HTTP error', {
+        ...logContext,
+        error: err.message,
+        stack: config.nodeEnv === 'development' ? err.stack : undefined,
       });
     }
+    
     return c.json(
       {
         error: err.name,
@@ -30,8 +54,31 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {
-    // Don't log validation errors - they're expected user input issues
     errorsTotal.inc({ type: 'ValidationError', route });
+    
+    // Store error info in context for structured logger
+    (c as unknown as { [key: string]: unknown })[errorInfoKey] = {
+      error: 'ValidationError',
+      message: 'Invalid request data',
+      details: err.errors.map((e) => ({
+        path: e.path.join('.'),
+        message: e.message,
+      })),
+    };
+    
+    // Log validation errors for debugging
+    logger.warn('Validation error', {
+      method: c.req.method,
+      path: c.req.path,
+      query: c.req.query(),
+      error: err.message,
+      errors: err.errors.map((e) => ({
+        path: e.path.join('.'),
+        message: e.message,
+      })),
+      stack: config.nodeEnv === 'development' ? err.stack : undefined,
+    });
+    
     return c.json(
       {
         error: 'ValidationError',
