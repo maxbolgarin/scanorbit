@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0](https://github.com/maxbolgarin/scanorbit/compare/v1.5.0...v1.6.0) (2026-01-17)
+
+### Features
+
+* **db,api,app,workers:** add scanner enablement configuration and audit log optimization ([06136be](https://github.com/maxbolgarin/scanorbit/commit/06136be2cf466a3a1492ef8010f005b5d92a950b))
+
 ## [1.5.0](https://github.com/maxbolgarin/scanorbit/compare/v1.4.0...v1.5.0) (2026-01-17)
 
 ### Features
