@@ -5,7 +5,7 @@ import { relations } from 'drizzle-orm';
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(),
-  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }), // Nullable for OAuth-only users
   fullName: varchar('full_name', { length: 255 }),
   emailVerified: boolean('email_verified').default(false).notNull(),
   emailVerificationCode: varchar('email_verification_code', { length: 6 }),
@@ -16,6 +16,32 @@ export const users = pgTable('users', {
 
 export const usersRelations = relations(users, ({ many }) => ({
   orgMembers: many(userOrgMembers),
+  oauthAccounts: many(userOauthAccounts),
+}));
+
+// OAuth Accounts (for Google, GitHub, etc.)
+export const userOauthAccounts = pgTable('user_oauth_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 50 }).notNull(), // 'google', 'github', etc.
+  providerUserId: varchar('provider_user_id', { length: 255 }).notNull(), // Provider's unique user ID
+  providerEmail: varchar('provider_email', { length: 255 }),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  tokenExpiresAt: timestamp('token_expires_at'),
+  rawProfile: jsonb('raw_profile'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('user_oauth_accounts_provider_user_idx').on(table.provider, table.providerUserId),
+  index('user_oauth_accounts_user_id_idx').on(table.userId),
+]);
+
+export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one }) => ({
+  user: one(users, {
+    fields: [userOauthAccounts.userId],
+    references: [users.id],
+  }),
 }));
 
 // Organizations
@@ -540,3 +566,5 @@ export type ResourceScan = typeof resourceScans.$inferSelect;
 export type NewResourceScan = typeof resourceScans.$inferInsert;
 export type FindingScan = typeof findingScans.$inferSelect;
 export type NewFindingScan = typeof findingScans.$inferInsert;
+export type UserOauthAccount = typeof userOauthAccounts.$inferSelect;
+export type NewUserOauthAccount = typeof userOauthAccounts.$inferInsert;

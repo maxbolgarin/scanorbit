@@ -64,7 +64,7 @@ export function SecurityPostureCard({ summary, isLoading, accountId }: SecurityP
 
   const { findingCounts } = summary;
   const total = findingCounts.total;
-  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/findings";
+  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
 
   // Calculate percentages for the bar
   const percentages = {

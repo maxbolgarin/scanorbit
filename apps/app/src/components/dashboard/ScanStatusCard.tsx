@@ -1,6 +1,16 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Clock, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RefreshCw, Clock, CheckCircle2, AlertCircle, Loader2, Play, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import type { Scan, AwsAccount } from "@/types";
@@ -12,6 +22,7 @@ interface ScanStatusCardProps {
   onTriggerScan: (accountId: string) => void;
   isTriggeringScan: boolean;
   isLoading?: boolean;
+  accountId?: string;
 }
 
 export function ScanStatusCard({
@@ -21,6 +32,7 @@ export function ScanStatusCard({
   onTriggerScan,
   isTriggeringScan,
   isLoading,
+  accountId,
 }: ScanStatusCardProps) {
   if (isLoading) {
     return (
@@ -89,12 +101,17 @@ export function ScanStatusCard({
   // Get accounts that can be scanned (have OK status)
   const scannableAccounts = accounts.filter(a => a.status === "ok");
   const canScan = scannableAccounts.length > 0 && !hasActiveScans && !isTriggeringScan;
+  const isSingleAccount = accounts.length === 1;
+
+  const [showScanDialog, setShowScanDialog] = useState(false);
+  const navigate = useNavigate();
 
   const handleScanAll = () => {
     // Trigger scan for each account
     scannableAccounts.forEach(account => {
       onTriggerScan(account.id);
     });
+    setShowScanDialog(false);
   };
 
   return (
@@ -129,7 +146,7 @@ export function ScanStatusCard({
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={handleScanAll}
+          onClick={() => setShowScanDialog(true)}
           disabled={!canScan}
         >
           {isTriggeringScan ? (
@@ -145,7 +162,7 @@ export function ScanStatusCard({
           ) : (
             <>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Scan All Accounts
+              {isSingleAccount ? "Scan Account" : "Scan All Accounts"}
             </>
           )}
         </Button>
@@ -178,7 +195,50 @@ export function ScanStatusCard({
             </span>
           </div>
         )}
+
+        {/* View all scans link */}
+        <Button
+          variant="link"
+          size="sm"
+          className="w-full text-xs h-auto py-1"
+          onClick={() => navigate(accountId ? `/accounts/${accountId}/scans` : "/overview/scans")}
+        >
+          View Scan History
+          <ArrowRight className="h-3 w-3 ml-1" />
+        </Button>
       </CardContent>
+
+      {/* Scan confirmation dialog */}
+      <Dialog open={showScanDialog} onOpenChange={setShowScanDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isSingleAccount ? "Start Scan" : "Scan All Accounts"}</DialogTitle>
+            <DialogDescription>
+              {isSingleAccount ? (
+                <>This will start a scan for <span className="font-medium">{accounts[0]?.name}</span>.</>
+              ) : (
+                <>This will start a scan for all {scannableAccounts.length} connected AWS account{scannableAccounts.length !== 1 ? "s" : ""}.</>
+              )}
+              {" "}Scanning may take several minutes depending on the size of your infrastructure.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowScanDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleScanAll}
+              disabled={isTriggeringScan}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Start Scan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

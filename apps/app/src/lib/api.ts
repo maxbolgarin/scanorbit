@@ -18,6 +18,7 @@ import type {
   FindingFilters,
   ResourceFilters,
   FindingStatus,
+  FindingType,
   PaginatedResponse,
   ResourceStats,
   FindingStats,
@@ -75,8 +76,10 @@ const api = axios.create({
 
 // Error handler helper
 function handleApiError(error: unknown): never {
+  console.error("API Error:", error);
   if (error instanceof AxiosError) {
     const data = error.response?.data;
+    console.log("API Error response data:", data);
 
     // Handle validation errors with details array
     if (data?.details && Array.isArray(data.details)) {
@@ -90,6 +93,7 @@ function handleApiError(error: unknown): never {
       : typeof data?.error === 'string'
         ? data.error
         : error.message;
+    console.log("Throwing error with message:", message);
     throw new Error(message);
   }
   throw error;
@@ -165,9 +169,9 @@ export async function verifyCode(email: string, code: string): Promise<{ success
   }
 }
 
-export async function completeSignup(signupToken: string, password: string): Promise<{ user: User; token: string }> {
+export async function completeSignup(signupToken: string, password: string, consent: boolean): Promise<{ user: User; token: string }> {
   try {
-    const { data } = await api.post<{ user: User; token: string }>("/auth/complete-signup", { signupToken, password });
+    const { data } = await api.post<{ user: User; token: string }>("/auth/complete-signup", { signupToken, password, consent });
     return data;
   } catch (error) {
     handleApiError(error);
@@ -789,11 +793,13 @@ function calculateResourceHealth(
   });
 
   // Count resources by their highest severity finding
+  // Only actual "critical" severity maps to Critical category
+  // "high" and below map to Warning category
   let critical = 0;
   let warning = 0;
 
   resourceSeverities.forEach(severity => {
-    if (severity === 'critical' || severity === 'high') {
+    if (severity === 'critical') {
       critical++;
     } else {
       warning++;
@@ -812,7 +818,10 @@ function calculateResourceHealth(
 }
 
 // Enhanced Dashboard Summary with all computed metrics
-export async function getEnhancedDashboardSummary(filters?: { awsAccountId?: string }): Promise<EnhancedDashboardSummary> {
+export async function getEnhancedDashboardSummary(filters?: {
+  awsAccountId?: string;
+  hiddenFindingTypes?: FindingType[];
+}): Promise<EnhancedDashboardSummary> {
   try {
     // Fetch all required data
     console.log("[getEnhancedDashboardSummary] Fetching data...");
@@ -822,11 +831,18 @@ export async function getEnhancedDashboardSummary(filters?: { awsAccountId?: str
       getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId }),
     ]);
 
-    const openFindings = openFindingsResult?.data || [];
+    const hiddenTypes = new Set(filters?.hiddenFindingTypes || []);
+
+    // Filter open findings to exclude hidden types
+    const openFindings = (openFindingsResult?.data || []).filter(
+      f => !hiddenTypes.has(f.type as FindingType)
+    );
+
     console.log("[getEnhancedDashboardSummary] Data fetched:", {
       resourceStats: !!resourceStats,
       findingStats: !!findingStats,
-      openFindingsCount: openFindings.length
+      openFindingsCount: openFindings.length,
+      hiddenTypesCount: hiddenTypes.size
     });
 
     // Safety checks
@@ -835,9 +851,24 @@ export async function getEnhancedDashboardSummary(filters?: { awsAccountId?: str
       throw new Error("Failed to fetch dashboard data");
     }
 
-    // Compute basic metrics (same as before)
-    const byType = findingStats.byType || {};
-    const bySeverity = findingStats.bySeverity || {};
+    // Filter byType to exclude hidden types
+    const rawByType = findingStats.byType || {};
+    const byType: Record<string, number> = {};
+    for (const [type, count] of Object.entries(rawByType)) {
+      if (!hiddenTypes.has(type as FindingType)) {
+        byType[type] = count;
+      }
+    }
+
+    // Recalculate bySeverity from filtered byType using the type->severity mapping
+    const byTypeSeverity = findingStats.byTypeSeverity || {};
+    const bySeverity: Record<string, number> = {};
+    for (const [type, count] of Object.entries(byType)) {
+      const severity = byTypeSeverity[type];
+      if (severity) {
+        bySeverity[severity] = (bySeverity[severity] || 0) + count;
+      }
+    }
 
     const orphanedCount =
       (byType["orphaned_volume"] || 0) +
@@ -851,9 +882,13 @@ export async function getEnhancedDashboardSummary(filters?: { awsAccountId?: str
     const expiringCertificates = byType["ssl_expiry"] || 0;
     const residencyViolations = byType["data_residency_violation"] || 0;
 
-    // Compute enhanced metrics
+    // Compute enhanced metrics using filtered bySeverity (accounts for hidden types)
+    const filteredFindingStats = {
+      ...findingStats,
+      bySeverity,
+    };
     const healthScores = calculateHealthScores(
-      findingStats,
+      filteredFindingStats,
       resourceStats,
       orphanedCount,
       residencyViolations,
@@ -913,10 +948,11 @@ export async function getEnhancedDashboardSummary(filters?: { awsAccountId?: str
     const resourceHealth = calculateResourceHealth(resourceStats, openFindings);
 
     // Compliance details
+    // Security issues should count security-related finding types (matching the filter link in ComplianceStatusCard)
     const complianceDetails = {
       residencyViolations,
       missingTags: byType["missing_tag"] || 0,
-      securityIssues: criticalFindings + highFindings,
+      securityIssues: (byType["public_access"] || 0) + (byType["permissive_security_group"] || 0) + (byType["unencrypted_resource"] || 0),
     };
 
     return {

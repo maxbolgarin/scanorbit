@@ -90,8 +90,8 @@ export function PriorityActionsCard({ findings, summary, isLoading, accountId }:
     );
   }
 
-  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/findings";
-  const baseResourcesUrl = accountId ? `/accounts/${accountId}/resources` : "/resources";
+  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
+  const baseResourcesUrl = accountId ? `/accounts/${accountId}/resources` : "/overview/resources";
 
   // Sort findings by priority: severity, then urgency (SSL expiry), then cost impact
   const sortedFindings = [...findings].sort((a, b) => {

@@ -10,6 +10,7 @@ import {
 import { AwsAccountForm } from "@/components/onboarding/AwsAccountForm";
 import { ScannerSelection } from "@/components/onboarding/ScannerSelection";
 import { PolicyGuide } from "@/components/onboarding/PolicyGuide";
+import { RoleGuide } from "@/components/onboarding/RoleGuide";
 import { TestConnection } from "@/components/onboarding/TestConnection";
 import { useAwsAccounts, useTriggerScan } from "@/hooks/use-aws-accounts";
 import * as api from "@/lib/api";
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Cloud, Orbit, X } from "lucide-react";
 import type { CreateAwsAccountInput, ScannerType } from "@/types";
 
-type Step = "details" | "scanners" | "policy" | "connect";
+type Step = "details" | "scanners" | "policy" | "role" | "connect";
 
 const STORAGE_KEY = "scanorbit_aws_onboarding";
 
@@ -223,8 +224,12 @@ export default function AwsSetup() {
       description: "Select which resources ScanOrbit should scan",
     },
     policy: {
+      title: "Create IAM Policy",
+      description: "Create a read-only IAM policy for ScanOrbit",
+    },
+    role: {
       title: "Create IAM Role",
-      description: "Set up a read-only IAM role for ScanOrbit to scan your infrastructure",
+      description: "Set up an IAM role and attach the policy",
     },
     connect: {
       title: "Connect Role",
@@ -235,7 +240,8 @@ export default function AwsSetup() {
   const stepNumber =
     step === "details" ? 1 :
     step === "scanners" ? 2 :
-    step === "policy" ? 3 : 4;
+    step === "policy" ? 3 :
+    step === "role" ? 4 : 5;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
@@ -253,7 +259,7 @@ export default function AwsSetup() {
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
             1
           </div>
-          <div className="h-0.5 w-8 bg-primary" />
+          <div className="h-0.5 w-6 bg-primary" />
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
               stepNumber >= 2
@@ -263,7 +269,7 @@ export default function AwsSetup() {
           >
             2
           </div>
-          <div className={`h-0.5 w-8 ${stepNumber >= 2 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-0.5 w-6 ${stepNumber >= 2 ? "bg-primary" : "bg-muted"}`} />
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
               stepNumber >= 3
@@ -273,7 +279,7 @@ export default function AwsSetup() {
           >
             3
           </div>
-          <div className={`h-0.5 w-8 ${stepNumber >= 3 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-0.5 w-6 ${stepNumber >= 3 ? "bg-primary" : "bg-muted"}`} />
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
               stepNumber >= 4
@@ -282,6 +288,16 @@ export default function AwsSetup() {
             }`}
           >
             4
+          </div>
+          <div className={`h-0.5 w-6 ${stepNumber >= 4 ? "bg-primary" : "bg-muted"}`} />
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+              stepNumber >= 5
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            5
           </div>
         </div>
 
@@ -317,12 +333,18 @@ export default function AwsSetup() {
                 initialCategories={selectedCategories.length > 0 ? selectedCategories : undefined}
               />
             )}
-            {step === "policy" && accountDetails && (
+            {step === "policy" && (
               <PolicyGuide
-                externalId={accountDetails.externalId}
                 selectedCategories={selectedCategories}
-                onNext={() => setStep("connect")}
+                onNext={() => setStep("role")}
                 onBack={() => setStep("scanners")}
+              />
+            )}
+            {step === "role" && accountDetails && (
+              <RoleGuide
+                externalId={accountDetails.externalId}
+                onNext={() => setStep("connect")}
+                onBack={() => setStep("policy")}
               />
             )}
             {step === "connect" && accountDetails && (
@@ -330,7 +352,7 @@ export default function AwsSetup() {
                 awsAccountId={accountDetails.awsAccountId}
                 onTest={handleTestConnection}
                 onSubmit={handleConnect}
-                onBack={() => setStep("policy")}
+                onBack={() => setStep("role")}
                 isLoading={isCreating || isTesting || triggerScan.isPending}
               />
             )}

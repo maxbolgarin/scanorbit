@@ -3,7 +3,6 @@ import { HTTPError } from '../lib/errors.js';
 import { ZodError } from 'zod';
 import { logger } from '../lib/logger.js';
 import { errorsTotal } from '../lib/metrics.js';
-import { config } from '../lib/config.js';
 
 export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
   const route = c.req.path;
@@ -39,7 +38,6 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
       logger.warn('HTTP error', {
         ...logContext,
         error: err.message,
-        stack: config.nodeEnv === 'development' ? err.stack : undefined,
       });
     }
     
@@ -76,7 +74,6 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
         path: e.path.join('.'),
         message: e.message,
       })),
-      stack: config.nodeEnv === 'development' ? err.stack : undefined,
     });
     
     return c.json(

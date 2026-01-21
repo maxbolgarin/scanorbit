@@ -17,14 +17,12 @@ import { CriticalAlertBanner } from "@/components/dashboard/CriticalAlertBanner"
 import { HealthScoreCard } from "@/components/dashboard/HealthScoreCard";
 import { OpenIssuesCard } from "@/components/dashboard/OpenIssuesCard";
 import { ScanStatusCard } from "@/components/dashboard/ScanStatusCard";
-import { SecurityPostureCard } from "@/components/dashboard/SecurityPostureCard";
 import { ResourceHealthCard } from "@/components/dashboard/ResourceHealthCard";
 import { CostOptimizationCard } from "@/components/dashboard/CostOptimizationCard";
 import { ComplianceStatusCard } from "@/components/dashboard/ComplianceStatusCard";
-import { PriorityActionsCard } from "@/components/dashboard/PriorityActionsCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 
-import { useEnhancedDashboardSummary, useRecommendedActions } from "@/hooks/use-dashboard";
+import { useEnhancedDashboardSummary } from "@/hooks/use-dashboard";
 import { useAwsAccount, useTriggerScan, useScanHistory, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
@@ -47,7 +45,6 @@ export default function AccountDashboard() {
   // Fetch account-specific data
   const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);
   const { data: summary, isLoading: summaryLoading, isFetching } = useEnhancedDashboardSummary({ awsAccountId: accountId });
-  const { data: actions, isLoading: actionsLoading } = useRecommendedActions({ awsAccountId: accountId });
   const { data: scanHistory, isLoading: scansLoading } = useScanHistory(accountId!);
   const { data: activeScans } = useActiveScans();
   const triggerScan = useTriggerScan();
@@ -290,25 +287,13 @@ export default function AccountDashboard() {
               onTriggerScan={handleTriggerScan}
               isTriggeringScan={triggerScan.isPending}
               isLoading={scansLoading}
+              accountId={accountId}
             />
           </div>
 
-          {/* TIER 2: Primary Monitoring Cards */}
+          {/* TIER 2: Resource & Compliance */}
           <div className="grid gap-4 md:grid-cols-2">
-            <SecurityPostureCard
-              summary={summary}
-              isLoading={summaryLoading}
-              accountId={accountId}
-            />
             <ResourceHealthCard
-              summary={summary}
-              isLoading={summaryLoading}
-              accountId={accountId}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <CostOptimizationCard
               summary={summary}
               isLoading={summaryLoading}
               accountId={accountId}
@@ -320,12 +305,11 @@ export default function AccountDashboard() {
             />
           </div>
 
-          {/* TIER 3: Supporting Data */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PriorityActionsCard
-              findings={actions}
+          {/* TIER 3: Cost & Activity */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <CostOptimizationCard
               summary={summary}
-              isLoading={actionsLoading}
+              isLoading={summaryLoading}
               accountId={accountId}
             />
             <RecentActivityCard

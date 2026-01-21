@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { AlertCircle, Building2 } from "lucide-react";
 import { createOrg, type JobTitle } from "@/lib/api";
@@ -31,9 +30,6 @@ const profileSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
   orgName: z.string().min(2, "Organization name must be at least 2 characters"),
   title: z.enum(["devops", "cto", "developer", "security", "personal", "other"]).optional(),
-  consent: z.boolean().refine((val) => val === true, {
-    message: "You must agree to the Terms of Service and Privacy Policy",
-  }),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -55,13 +51,9 @@ export function ProfileStep({ onComplete }: ProfileStepProps) {
     formState: { errors },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      consent: false,
-    },
   });
 
   const title = watch("title");
-  const consent = watch("consent");
 
   const onSubmit = async (data: ProfileFormData) => {
     setError(null);
@@ -154,43 +146,9 @@ export function ProfileStep({ onComplete }: ProfileStepProps) {
           </p>
         </div>
 
-        {/* Consent checkbox */}
-        <div className="pt-2">
-          <Checkbox
-            id="consent"
-            checked={consent}
-            onChange={(e) => setValue("consent", e.target.checked, { shouldValidate: true })}
-            disabled={isLoading}
-            label={
-              <span className="text-sm text-muted-foreground">
-                I agree to the{" "}
-                <a
-                  href="/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  Terms of Service
-                </a>{" "}
-                and{" "}
-                <a
-                  href="/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  Privacy Policy
-                </a>
-              </span>
-            }
-          />
-          {errors.consent && (
-            <p className="text-sm text-destructive mt-1">{errors.consent.message}</p>
-          )}
-        </div>
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading || !consent}>
+      <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? (
           <>
             <LoadingSpinner size="sm" className="mr-2" />

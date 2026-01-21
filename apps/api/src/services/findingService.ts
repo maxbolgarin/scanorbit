@@ -177,24 +177,34 @@ export const findingService = {
       .where(eq(findings.orgId, orgId))
       .groupBy(findings.status);
 
-    // Get counts by severity
+    // Get counts by severity (only open findings)
     const bySeverity = await db
       .select({
         severity: findings.severity,
         count: count(),
       })
       .from(findings)
-      .where(eq(findings.orgId, orgId))
+      .where(
+        and(
+          eq(findings.orgId, orgId),
+          eq(findings.status, 'open')
+        )
+      )
       .groupBy(findings.severity);
 
-    // Get counts by type
+    // Get counts by type (only open findings)
     const byType = await db
       .select({
         type: findings.type,
         count: count(),
       })
       .from(findings)
-      .where(eq(findings.orgId, orgId))
+      .where(
+        and(
+          eq(findings.orgId, orgId),
+          eq(findings.status, 'open')
+        )
+      )
       .groupBy(findings.type);
 
     // Get severity for each type (for filtering calculations)

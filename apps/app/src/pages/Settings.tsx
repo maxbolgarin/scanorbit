@@ -3,8 +3,7 @@ import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { OrgSettings } from "@/components/settings/OrgSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { ViewingSettings } from "@/components/settings/ViewingSettings";
-import { AwsAccountsSettings } from "@/components/settings/AwsAccountsSettings";
-import { User, Building2, Shield, SlidersHorizontal, Cloud } from "lucide-react";
+import { User, Building2, Shield, SlidersHorizontal } from "lucide-react";
 
 export default function Settings() {
   return (
@@ -26,10 +25,6 @@ export default function Settings() {
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Organization</span>
           </TabsTrigger>
-          <TabsTrigger value="aws" className="gap-2">
-            <Cloud className="h-4 w-4" />
-            <span className="hidden sm:inline">AWS Accounts</span>
-          </TabsTrigger>
           <TabsTrigger value="viewing" className="gap-2">
             <SlidersHorizontal className="h-4 w-4" />
             <span className="hidden sm:inline">Viewing</span>
@@ -46,10 +41,6 @@ export default function Settings() {
 
         <TabsContent value="organization">
           <OrgSettings />
-        </TabsContent>
-
-        <TabsContent value="aws">
-          <AwsAccountsSettings />
         </TabsContent>
 
         <TabsContent value="viewing">

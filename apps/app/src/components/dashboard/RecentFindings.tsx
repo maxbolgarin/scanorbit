@@ -59,7 +59,7 @@ export function RecentFindings({ findings, baseUrl = "" }: RecentFindingsProps) 
     .filter((f) => f.status === "open")
     .slice(0, 5);
 
-  const findingsPath = baseUrl ? `${baseUrl}/findings` : "/findings";
+  const findingsPath = baseUrl ? `${baseUrl}/findings` : "/overview/findings";
 
   return (
     <Card>

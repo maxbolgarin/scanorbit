@@ -5,6 +5,7 @@ import { setCookie, deleteCookie } from 'hono/cookie';
 import { authService } from '../services/authService.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
+import { config } from '../lib/config.js';
 import type { Variables } from '../types/index.js';
 
 const authRoute = new Hono<{ Variables: Variables }>();
@@ -48,6 +49,9 @@ const verifyCodeSchema = z.object({
 const completeSignupSchema = z.object({
   signupToken: z.string().min(1, 'Signup token is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  consent: z.boolean().refine((val) => val === true, {
+    message: 'You must agree to the Terms of Service and Privacy Policy',
+  }),
 });
 
 const resendCodeSchema = z.object({
@@ -185,9 +189,10 @@ authRoute.post('/verify-code', rateLimiters.verifyCode, zValidator('json', verif
 
 // POST /auth/complete-signup - Complete signup with password (Step 3) - Rate limited
 authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', completeSignupSchema), async (c) => {
+  // consent is validated by zod schema (must be true)
   const { signupToken, password } = c.req.valid('json');
 
-  // Extract consent info for GDPR logging
+  // Extract client info for GDPR consent logging
   const ipAddress = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
     || c.req.header('x-real-ip')
     || 'unknown';
@@ -246,5 +251,107 @@ authRoute.patch(
     return c.json(result);
   }
 );
+
+// ============================================
+// Google OAuth Endpoints
+// ============================================
+
+// Validation schema for ID token flow
+const googleTokenSchema = z.object({
+  idToken: z.string().min(1, 'ID token is required'),
+});
+
+// GET /auth/google - Initiate Google OAuth flow
+authRoute.get('/google', async (c) => {
+  const state = await authService.generateOAuthState();
+  const authUrl = authService.getGoogleAuthUrl(state);
+  return c.redirect(authUrl);
+});
+
+// GET /auth/google/callback - Handle Google OAuth callback
+authRoute.get('/google/callback', async (c) => {
+  const code = c.req.query('code');
+  const state = c.req.query('state');
+  const error = c.req.query('error');
+
+  // User denied access or other error
+  if (error) {
+    return c.redirect(`${config.frontendUrl}/login?error=oauth_denied`);
+  }
+
+  // Missing required parameters
+  if (!code || !state) {
+    return c.redirect(`${config.frontendUrl}/login?error=invalid_request`);
+  }
+
+  try {
+    const result = await authService.handleGoogleCallback(code, state);
+    setAuthCookie(c, result.token);
+
+    // Redirect based on whether user has an org
+    const redirectPath = result.hasOrg ? '/overview' : '/onboarding/create-org';
+    return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'oauth_failed';
+    return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
+  }
+});
+
+// POST /auth/google/token - Exchange ID token (for frontend-initiated flow)
+authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c) => {
+  const { idToken } = c.req.valid('json');
+
+  const result = await authService.handleGoogleIdToken(idToken);
+  setAuthCookie(c, result.token);
+
+  return c.json({
+    user: result.user,
+    orgs: result.orgs,
+    isNewUser: result.isNewUser,
+    token: result.token,
+  });
+});
+
+// ============================================
+// GitHub OAuth Endpoints
+// ============================================
+
+// GET /auth/github - Initiate GitHub OAuth flow
+authRoute.get('/github', async (c) => {
+  const state = await authService.generateOAuthState();
+  const authUrl = authService.getGithubAuthUrl(state);
+  return c.redirect(authUrl);
+});
+
+// GET /auth/github/callback - Handle GitHub OAuth callback
+authRoute.get('/github/callback', async (c) => {
+  const code = c.req.query('code');
+  const state = c.req.query('state');
+  const error = c.req.query('error');
+  const errorDescription = c.req.query('error_description');
+
+  // User denied access or other error
+  if (error) {
+    const errorMsg = error === 'access_denied' ? 'oauth_denied' : (errorDescription || 'oauth_failed');
+    return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMsg)}`);
+  }
+
+  // Missing required parameters
+  if (!code || !state) {
+    return c.redirect(`${config.frontendUrl}/login?error=invalid_request`);
+  }
+
+  try {
+    const result = await authService.handleGithubCallback(code, state);
+    setAuthCookie(c, result.token);
+
+    // Redirect based on whether user has an org
+    const redirectPath = result.hasOrg ? '/overview' : '/onboarding/create-org';
+    return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'oauth_failed';
+    return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
+  }
+});
 
 export default authRoute;

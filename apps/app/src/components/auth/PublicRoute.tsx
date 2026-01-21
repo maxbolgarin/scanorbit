@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/auth-store";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ interface PublicRouteProps {
 export function PublicRoute({ children }: PublicRouteProps) {
   const { isAuthenticated, hasOrg, isLoading, checkAuth } = useAuthStore();
   const [hasChecked, setHasChecked] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     // Check auth on mount to validate persisted state
@@ -39,9 +40,13 @@ export function PublicRoute({ children }: PublicRouteProps) {
     );
   }
 
-  // If authenticated, redirect to dashboard (or onboarding if no org)
+  // If authenticated, redirect to dashboard (or let signup page handle org creation)
   if (isAuthenticated) {
-    return <Navigate to={hasOrg ? "/dashboard" : "/onboarding/org"} replace />;
+    // Allow signup page to handle authenticated users without org (profile step)
+    if (!hasOrg && location.pathname === "/signup") {
+      return <>{children}</>;
+    }
+    return <Navigate to={hasOrg ? "/dashboard" : "/signup"} replace />;
   }
 
   return <>{children}</>;

@@ -29,11 +29,12 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 interface PasswordStepProps {
   signupToken: string;
   email: string;
+  consent: boolean;
   onNext: () => void;
   onTokenError?: () => void;
 }
 
-export function PasswordStep({ signupToken, email, onNext, onTokenError }: PasswordStepProps) {
+export function PasswordStep({ signupToken, email, consent, onNext, onTokenError }: PasswordStepProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +63,7 @@ export function PasswordStep({ signupToken, email, onNext, onTokenError }: Passw
     setError(null);
     setIsLoading(true);
     try {
-      const result = await completeSignup(signupToken, data.password);
+      const result = await completeSignup(signupToken, data.password, consent);
       // Store user and token in auth store
       setUser({ ...result.user, emailVerified: true });
       setToken(result.token);
@@ -109,6 +110,7 @@ export function PasswordStep({ signupToken, email, onNext, onTokenError }: Passw
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="Enter password"
+              autoComplete="new-password"
               autoFocus
               {...register("password")}
               disabled={isLoading}
@@ -145,12 +147,13 @@ export function PasswordStep({ signupToken, email, onNext, onTokenError }: Passw
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Label htmlFor="confirm-password">Confirm Password</Label>
           <div className="relative">
             <Input
-              id="confirmPassword"
+              id="confirm-password"
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm password"
+              autoComplete="new-password"
               {...register("confirmPassword")}
               disabled={isLoading}
               className="pr-10"

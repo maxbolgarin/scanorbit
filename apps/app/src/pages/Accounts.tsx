@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AccountsTable } from "@/components/accounts/AccountsTable";
 import { ScanHistory } from "@/components/accounts/ScanHistory";
+import { ScannerConfigModal } from "@/components/accounts/ScannerConfigModal";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useAwsAccounts, useTriggerScan, useActiveScans } from "@/hooks/use-aws-accounts";
+import { useAwsAccounts } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { Cloud, Plus } from "lucide-react";
 import {
@@ -20,33 +21,10 @@ import {
 export default function Accounts() {
   const navigate = useNavigate();
   const { accounts, isLoading, deleteAccount } = useAwsAccounts();
-  const triggerScan = useTriggerScan();
-  const { data: activeScans } = useActiveScans();
 
-  const [rescanningId, setRescanningId] = useState<string | null>(null);
+  const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [historyAccountId, setHistoryAccountId] = useState<string | null>(null);
   const [disconnectAccountId, setDisconnectAccountId] = useState<string | null>(null);
-
-  const handleRescan = async (accountId: string) => {
-    setRescanningId(accountId);
-    try {
-      await triggerScan.mutateAsync(accountId);
-      toast({
-        title: "Scan started",
-        description: "Your AWS account is being scanned.",
-        type: "success",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to start scan. Please try again.";
-      toast({
-        title: "Scan failed",
-        description: message,
-        type: "error",
-      });
-    } finally {
-      setRescanningId(null);
-    }
-  };
 
   const handleDisconnect = async () => {
     if (!disconnectAccountId) return;
@@ -68,6 +46,7 @@ export default function Accounts() {
     }
   };
 
+  const editAccount = accounts.find((a) => a.id === editAccountId);
   const historyAccount = accounts.find((a) => a.id === historyAccountId);
   const disconnectAccountData = accounts.find((a) => a.id === disconnectAccountId);
 
@@ -97,11 +76,9 @@ export default function Accounts() {
       {accounts.length > 0 ? (
         <AccountsTable
           accounts={accounts}
-          onRescan={handleRescan}
+          onEdit={setEditAccountId}
           onViewHistory={setHistoryAccountId}
           onDisconnect={setDisconnectAccountId}
-          rescanningId={rescanningId}
-          activeScans={activeScans}
         />
       ) : (
         <EmptyState
@@ -110,6 +87,17 @@ export default function Accounts() {
           description="Connect your first AWS account to start scanning your infrastructure"
           actionLabel="Add Account"
           onAction={() => navigate("/onboarding/aws")}
+        />
+      )}
+
+      {/* Scanner Configuration Modal */}
+      {editAccount && (
+        <ScannerConfigModal
+          accountId={editAccount.id}
+          accountName={editAccount.name}
+          currentScanners={editAccount.enabledScanners || []}
+          open={!!editAccountId}
+          onClose={() => setEditAccountId(null)}
         />
       )}
 

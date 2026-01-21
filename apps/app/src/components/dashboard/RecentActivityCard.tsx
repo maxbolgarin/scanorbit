@@ -49,8 +49,8 @@ export function RecentActivityCard({ scans, accounts, isLoading, accountId }: Re
     );
   }
 
-  const baseScansUrl = accountId ? `/accounts/${accountId}/scans` : "/scans";
-  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/findings";
+  const baseScansUrl = accountId ? `/accounts/${accountId}/scans` : "/overview/scans";
+  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
 
   // Build activity items from scans
   const activities: ActivityItem[] = [];

@@ -213,10 +213,6 @@ export class Logger {
 
     if (error instanceof Error) {
       errorContext.error = error.message;
-      // Include stack trace in development, but not in production to avoid leaking internal paths
-      if (config.nodeEnv === 'development') {
-        errorContext.stack = error.stack;
-      }
     } else if (error !== undefined) {
       errorContext.error = String(error);
     }
@@ -232,10 +228,6 @@ export class Logger {
 
     if (error instanceof Error) {
       errorContext.error = error.message;
-      // Include stack trace in development, but not in production to avoid leaking internal paths
-      if (config.nodeEnv === 'development') {
-        errorContext.stack = error.stack;
-      }
     } else if (error !== undefined) {
       errorContext.error = String(error);
     }

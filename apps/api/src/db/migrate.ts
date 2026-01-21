@@ -146,34 +146,11 @@ async function runMigrations() {
       console.log('');
     });
 
-    // Check for pending migrations
-    const pendingMigrations = journal.entries.filter((entry) => {
-      return !appliedMigrations.some((applied) => applied.hash === entry.tag);
-    });
-
-    if (pendingMigrations.length === 0) {
-      console.log('✨ Database is up to date! No migrations to apply.\n');
-      return;
-    }
-
-    // Show preview of pending migrations
-    console.log(`📦 ${pendingMigrations.length} migration(s) will be applied:\n`);
-    const migrationsDir = getMigrationsDir();
-    for (const migration of pendingMigrations) {
-      const sqlPath = join(migrationsDir, `${migration.tag}.sql`);
-      if (existsSync(sqlPath)) {
-        const sqlContent = readFileSync(sqlPath, 'utf-8');
-        const statements = sqlContent.split('--> statement-breakpoint').length - 1;
-        console.log(`  • ${migration.tag}`);
-        console.log(`    SQL statements: ${statements}`);
-        console.log('');
-      } else {
-        console.log(`  • ${migration.tag} (SQL file not found)`);
-        console.log('');
-      }
-    }
-
-    console.log(`🔄 Applying migrations...\n`);
+    // Note: We show status above, but always let Drizzle's migrator determine
+    // what needs to be applied, as it uses content hashes, not tag names.
+    // The pending migrations check above is just for display purposes.
+    
+    console.log(`🔄 Applying migrations with Drizzle migrator...\n`);
 
     // Resolve migrations folder path (always use source directory)
     const migrationsFolder = getMigrationsDir();
@@ -195,42 +172,22 @@ async function runMigrations() {
     await ensureMigrationsTable(pool);
 
     // Run migrations with drizzle's migrator
+    // Drizzle will determine which migrations need to be applied based on content hashes
     try {
       await migrate(db, {
         migrationsFolder,
       });
-      console.log('✅ All migrations applied successfully!\n');
+      console.log('✅ Migrations check completed!\n');
     } catch (error) {
-      // If migrate fails but tables exist, it might be a tracking issue
-      console.error('⚠️  Migration error (but checking if migrations were applied):', error);
+      // If migrate fails, show the error but continue to check status
+      console.error('⚠️  Migration error:', error);
       if (error instanceof Error) {
         console.error('Error message:', error.message);
+        if (error.stack) {
+          console.error('Stack trace:', error.stack);
+        }
       }
-    }
-
-    // After migration, ensure migrations table exists and backfill if needed
-    await ensureMigrationsTable(pool);
-    
-    // Check if migrations were applied but not recorded
-    const afterMigrationCheck = await getAppliedMigrations(pool);
-    if (afterMigrationCheck.length === 0 && pendingMigrations.length > 0) {
-      // Migrations were likely applied but not recorded - backfill the tracking table
-      console.log('⚠️  Migrations appear to have been applied but not recorded.');
-      console.log('📝 Backfilling migration tracking table...\n');
-      
-      for (const migration of pendingMigrations) {
-        // Check if this migration's tables/features exist
-        // For now, we'll record all pending migrations as applied
-        // since the tables already exist
-        const timestamp = Date.now();
-        await pool.query(`
-          INSERT INTO __drizzle_migrations (hash, created_at)
-          VALUES ($1, $2)
-          ON CONFLICT (hash) DO NOTHING
-        `, [migration.tag, timestamp]);
-        console.log(`  ✓ Recorded: ${migration.tag}`);
-      }
-      console.log('');
+      // Don't exit - let's check what's actually in the database
     }
 
     // Verify final state

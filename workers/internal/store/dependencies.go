@@ -31,7 +31,7 @@ func (s *dependencyStore) Upsert(ctx context.Context, dep *models.ResourceDepend
 			id, org_id, source_resource_id, target_resource_id, target_service, relationship_type, created_at
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW())
-		ON CONFLICT ON CONSTRAINT resource_dependencies_unique_idx
+		ON CONFLICT (org_id, source_resource_id, target_resource_id, relationship_type)
 		DO UPDATE SET
 			target_service = EXCLUDED.target_service
 	`
@@ -68,7 +68,7 @@ func (s *dependencyStore) BulkUpsert(ctx context.Context, deps []*models.Resourc
 				id, org_id, source_resource_id, target_resource_id, target_service, relationship_type, created_at
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, NOW())
-			ON CONFLICT ON CONSTRAINT resource_dependencies_unique_idx
+			ON CONFLICT (org_id, source_resource_id, target_resource_id, relationship_type)
 			DO UPDATE SET
 				target_service = EXCLUDED.target_service
 		`

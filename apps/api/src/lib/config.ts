@@ -34,6 +34,20 @@ export const config = {
   ),
   jwtExpiry: process.env.JWT_EXPIRY || '7d',
 
+  // Google OAuth
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:4000/api/auth/google/callback',
+  },
+
+  // GitHub OAuth
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID || '',
+    clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+    callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:4000/api/auth/github/callback',
+  },
+
   // AWS
   awsRegion: process.env.AWS_REGION || 'eu-central-1',
 

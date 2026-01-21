@@ -16,15 +16,12 @@ import { CriticalAlertBanner } from "@/components/dashboard/CriticalAlertBanner"
 import { HealthScoreCard } from "@/components/dashboard/HealthScoreCard";
 import { OpenIssuesCard } from "@/components/dashboard/OpenIssuesCard";
 import { ScanStatusCard } from "@/components/dashboard/ScanStatusCard";
-import { SecurityPostureCard } from "@/components/dashboard/SecurityPostureCard";
 import { ResourceHealthCard } from "@/components/dashboard/ResourceHealthCard";
 import { CostOptimizationCard } from "@/components/dashboard/CostOptimizationCard";
 import { ComplianceStatusCard } from "@/components/dashboard/ComplianceStatusCard";
-import { PriorityActionsCard } from "@/components/dashboard/PriorityActionsCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
-import { AccountStatus } from "@/components/dashboard/AccountStatus";
 
-import { useEnhancedDashboardSummary, useRecommendedActions } from "@/hooks/use-dashboard";
+import { useEnhancedDashboardSummary } from "@/hooks/use-dashboard";
 import { useAwsAccounts, useTriggerScan, useRecentScans, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { toast } from "@/hooks/use-toast";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
@@ -45,7 +42,6 @@ export default function Overview() {
 
   // Data hooks
   const { data: summary, isLoading: summaryLoading, isFetching, error: summaryError } = useEnhancedDashboardSummary();
-  const { data: actions, isLoading: actionsLoading } = useRecommendedActions();
 
   // Debug: log summary error
   if (summaryError) {
@@ -59,11 +55,9 @@ export default function Overview() {
   // Auto-refresh data when scans complete
   useScanCompletionRefresh();
 
-  const [rescanningAccount, setRescanningAccount] = useState<string | null>(null);
   const [showScanAllDialog, setShowScanAllDialog] = useState(false);
 
   const handleRescan = async (accountId: string) => {
-    setRescanningAccount(accountId);
     try {
       await triggerScan.mutateAsync(accountId);
       toast({
@@ -77,8 +71,6 @@ export default function Overview() {
         description: "Failed to start scan. Please try again.",
         type: "error",
       });
-    } finally {
-      setRescanningAccount(null);
     }
   };
 
@@ -288,20 +280,9 @@ export default function Overview() {
             />
           </div>
 
-          {/* TIER 2: Primary Monitoring Cards */}
+          {/* TIER 2: Resource & Compliance */}
           <div className="grid gap-4 md:grid-cols-2">
-            <SecurityPostureCard
-              summary={summary}
-              isLoading={summaryLoading}
-            />
             <ResourceHealthCard
-              summary={summary}
-              isLoading={summaryLoading}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <CostOptimizationCard
               summary={summary}
               isLoading={summaryLoading}
             />
@@ -311,12 +292,11 @@ export default function Overview() {
             />
           </div>
 
-          {/* TIER 3: Supporting Data */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PriorityActionsCard
-              findings={actions}
+          {/* TIER 3: Cost & Activity */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <CostOptimizationCard
               summary={summary}
-              isLoading={actionsLoading}
+              isLoading={summaryLoading}
             />
             <RecentActivityCard
               scans={recentScans}
@@ -324,15 +304,6 @@ export default function Overview() {
               isLoading={scansLoading}
             />
           </div>
-
-          {/* Account status */}
-          {hasAccounts && (
-            <AccountStatus
-              accounts={accounts}
-              onRescan={handleRescan}
-              isRescanning={rescanningAccount}
-            />
-          )}
         </>
       )}
 

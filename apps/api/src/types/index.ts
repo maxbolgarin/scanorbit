@@ -389,3 +389,72 @@ export function getAnalyzersForScanners(enabledScanners: ScannerType[]): string[
     .filter(([_, deps]) => deps.some(d => enabledScanners.includes(d)))
     .map(([analyzer]) => analyzer);
 }
+
+// =============================================================================
+// OAuth Types
+// =============================================================================
+
+export const OAuthProvider = {
+  GOOGLE: 'google',
+  GITHUB: 'github',
+} as const;
+export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
+
+// Google user info from ID token verification
+export interface GoogleUserInfo {
+  googleId: string;
+  email: string;
+  emailVerified: boolean;
+  fullName?: string;
+  picture?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: Date | null;
+  rawProfile?: Record<string, unknown>;
+}
+
+// Result from Google OAuth authentication
+export interface GoogleAuthResult {
+  user: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  };
+  orgs: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
+  token: string;
+  isNewUser: boolean;
+  hasOrg: boolean;
+}
+
+// GitHub user info from OAuth
+export interface GitHubUserInfo {
+  githubId: string;
+  email: string;
+  emailVerified: boolean;
+  fullName?: string;
+  picture?: string;
+  username?: string; // GitHub login handle
+  accessToken?: string;
+  rawProfile?: Record<string, unknown>;
+}
+
+// Result from GitHub OAuth authentication
+export interface GitHubAuthResult {
+  user: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  };
+  orgs: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
+  token: string;
+  isNewUser: boolean;
+  hasOrg: boolean;
+}

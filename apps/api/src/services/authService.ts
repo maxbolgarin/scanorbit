@@ -1,18 +1,29 @@
 import crypto, { timingSafeEqual } from 'crypto';
 import bcrypt from 'bcrypt';
 import { eq, and } from 'drizzle-orm';
+import { OAuth2Client } from 'google-auth-library';
 import { db } from '../lib/db.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
-import { users, orgs, userOrgMembers } from '../db/schema.js';
+import { users, orgs, userOrgMembers, userOauthAccounts } from '../db/schema.js';
 import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
-import { signupCodes } from '../lib/redis.js';
+import { signupCodes, redis } from '../lib/redis.js';
 import { consentService } from './consentService.js';
 import { authOperationsTotal } from '../lib/metrics.js';
+import { config } from '../lib/config.js';
+import type { GoogleUserInfo, GoogleAuthResult, GitHubUserInfo, GitHubAuthResult } from '../types/index.js';
 
 const SALT_ROUNDS = 10;
 const VERIFICATION_CODE_EXPIRY_HOURS = 24;
+const OAUTH_STATE_EXPIRY_SECONDS = 600; // 10 minutes
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(
+  config.google.clientId,
+  config.google.clientSecret,
+  config.google.callbackUrl
+);
 
 // Generate a 6-digit verification code using cryptographically secure random
 function generateVerificationCode(): string {
@@ -266,6 +277,12 @@ export const authService = {
     if (!user) {
       authOperationsTotal.inc({ operation: 'login', status: 'user_not_found' });
       throw new HTTP401Error('Invalid credentials');
+    }
+
+    // Check if user has a password (might be OAuth-only)
+    if (!user.passwordHash) {
+      authOperationsTotal.inc({ operation: 'login', status: 'oauth_only_user' });
+      throw new HTTP400Error('This account uses social sign-in. Please sign in with Google or GitHub.');
     }
 
     // Verify password
@@ -530,6 +547,11 @@ export const authService = {
       throw new HTTP401Error('User not found');
     }
 
+    // Check if user has a password (OAuth-only users can't change password)
+    if (!user.passwordHash) {
+      throw new HTTP400Error('This account uses social sign-in and does not have a password to change.');
+    }
+
     // Verify current password
     const match = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!match) {
@@ -618,5 +640,526 @@ export const authService = {
     await emailService.sendVerificationEmail(normalizedEmail, code);
 
     return { success: true, message: 'New verification code sent to your email.' };
+  },
+
+  // ============================================
+  // Google OAuth Methods
+  // ============================================
+
+  /**
+   * Generate OAuth state parameter for CSRF protection
+   */
+  async generateOAuthState(): Promise<string> {
+    const state = crypto.randomBytes(32).toString('hex');
+    await redis.set(`oauth_state:${state}`, '1', 'EX', OAUTH_STATE_EXPIRY_SECONDS);
+    return state;
+  },
+
+  /**
+   * Verify OAuth state parameter
+   */
+  async verifyOAuthState(state: string): Promise<boolean> {
+    const exists = await redis.get(`oauth_state:${state}`);
+    if (exists) {
+      await redis.del(`oauth_state:${state}`);
+      return true;
+    }
+    return false;
+  },
+
+  /**
+   * Generate Google OAuth authorization URL
+   */
+  getGoogleAuthUrl(state: string): string {
+    return googleClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ],
+      state,
+      prompt: 'consent',
+    });
+  },
+
+  /**
+   * Handle Google OAuth callback (authorization code flow)
+   */
+  async handleGoogleCallback(code: string, state: string): Promise<GoogleAuthResult> {
+    // Verify state parameter
+    if (!await this.verifyOAuthState(state)) {
+      authOperationsTotal.inc({ operation: 'google_oauth', status: 'invalid_state' });
+      throw new HTTP400Error('Invalid OAuth state. Please try again.');
+    }
+
+    // Exchange code for tokens
+    const { tokens } = await googleClient.getToken(code);
+    googleClient.setCredentials(tokens);
+
+    // Verify and decode ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token!,
+      audience: config.google.clientId,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      authOperationsTotal.inc({ operation: 'google_oauth', status: 'no_email' });
+      throw new HTTP400Error('Failed to get user info from Google');
+    }
+
+    return this.processGoogleAuth({
+      googleId: payload.sub,
+      email: payload.email,
+      emailVerified: payload.email_verified ?? false,
+      fullName: payload.name,
+      picture: payload.picture,
+      accessToken: tokens.access_token ?? undefined,
+      refreshToken: tokens.refresh_token ?? undefined,
+      tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+      rawProfile: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  /**
+   * Handle Google ID token (frontend-initiated flow with Google Sign-In)
+   */
+  async handleGoogleIdToken(idToken: string): Promise<GoogleAuthResult> {
+    // Verify ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: config.google.clientId,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      authOperationsTotal.inc({ operation: 'google_oauth', status: 'invalid_token' });
+      throw new HTTP400Error('Invalid ID token');
+    }
+
+    return this.processGoogleAuth({
+      googleId: payload.sub,
+      email: payload.email,
+      emailVerified: payload.email_verified ?? false,
+      fullName: payload.name,
+      picture: payload.picture,
+      rawProfile: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  /**
+   * Process Google authentication - create or link user
+   */
+  async processGoogleAuth(googleUser: GoogleUserInfo): Promise<GoogleAuthResult> {
+    const normalizedEmail = googleUser.email.toLowerCase();
+
+    // Check if OAuth account already exists
+    const existingOAuth = await db
+      .select({ userId: userOauthAccounts.userId })
+      .from(userOauthAccounts)
+      .where(and(
+        eq(userOauthAccounts.provider, 'google'),
+        eq(userOauthAccounts.providerUserId, googleUser.googleId)
+      ))
+      .limit(1);
+
+    if (existingOAuth.length > 0) {
+      // Existing OAuth account - just log in
+      authOperationsTotal.inc({ operation: 'google_oauth', status: 'existing_oauth' });
+      return this.completeOAuthLogin(existingOAuth[0].userId, googleUser, false);
+    }
+
+    // Check if user exists by email (for account linking)
+    const existingUser = await db
+      .select({ id: users.id, emailVerified: users.emailVerified })
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      // Link Google account to existing user
+      await this.linkGoogleAccount(existingUser[0].id, googleUser);
+
+      // Mark email as verified if Google says it's verified
+      if (googleUser.emailVerified && !existingUser[0].emailVerified) {
+        await db
+          .update(users)
+          .set({ emailVerified: true, updatedAt: new Date() })
+          .where(eq(users.id, existingUser[0].id));
+      }
+
+      authOperationsTotal.inc({ operation: 'google_oauth', status: 'linked_account' });
+      return this.completeOAuthLogin(existingUser[0].id, googleUser, false);
+    }
+
+    // Create new user with Google account
+    const newUser = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: normalizedEmail,
+          passwordHash: null, // OAuth-only user, no password
+          fullName: googleUser.fullName || '',
+          emailVerified: googleUser.emailVerified,
+        })
+        .returning({
+          id: users.id,
+          email: users.email,
+          fullName: users.fullName,
+        });
+
+      // Link OAuth account
+      await tx.insert(userOauthAccounts).values({
+        userId: user.id,
+        provider: 'google',
+        providerUserId: googleUser.googleId,
+        providerEmail: googleUser.email,
+        accessToken: googleUser.accessToken,
+        refreshToken: googleUser.refreshToken,
+        tokenExpiresAt: googleUser.tokenExpiresAt,
+        rawProfile: googleUser.rawProfile,
+      });
+
+      return user;
+    });
+
+    authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
+    return this.completeOAuthLogin(newUser.id, googleUser, true);
+  },
+
+  /**
+   * Link Google account to existing user
+   */
+  async linkGoogleAccount(userId: string, googleUser: GoogleUserInfo): Promise<void> {
+    await db.insert(userOauthAccounts).values({
+      userId,
+      provider: 'google',
+      providerUserId: googleUser.googleId,
+      providerEmail: googleUser.email,
+      accessToken: googleUser.accessToken,
+      refreshToken: googleUser.refreshToken,
+      tokenExpiresAt: googleUser.tokenExpiresAt,
+      rawProfile: googleUser.rawProfile,
+    });
+  },
+
+  /**
+   * Complete OAuth login - get user data and issue JWT
+   */
+  async completeOAuthLogin(
+    userId: string,
+    _googleUser: GoogleUserInfo,
+    isNewUser: boolean
+  ): Promise<GoogleAuthResult> {
+    // Get user info
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP401Error('User not found');
+    }
+
+    // Get user's orgs
+    const userOrgs = await db
+      .select({
+        id: orgs.id,
+        name: orgs.name,
+        slug: orgs.slug,
+      })
+      .from(orgs)
+      .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
+      .where(eq(userOrgMembers.userId, userId));
+
+    // Sign JWT
+    const token = await jwt.sign({
+      userId,
+      orgId: userOrgs[0]?.id ?? null,
+    });
+
+    return {
+      user,
+      orgs: userOrgs,
+      token,
+      isNewUser,
+      hasOrg: userOrgs.length > 0,
+    };
+  },
+
+  // ============================================
+  // GitHub OAuth Methods
+  // ============================================
+
+  /**
+   * Generate GitHub OAuth authorization URL
+   */
+  getGithubAuthUrl(state: string): string {
+    const params = new URLSearchParams({
+      client_id: config.github.clientId,
+      redirect_uri: config.github.callbackUrl,
+      scope: 'user:email',
+      state,
+    });
+    return `https://github.com/login/oauth/authorize?${params.toString()}`;
+  },
+
+  /**
+   * Handle GitHub OAuth callback
+   */
+  async handleGithubCallback(code: string, state: string): Promise<GitHubAuthResult> {
+    // Verify state parameter
+    if (!await this.verifyOAuthState(state)) {
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'invalid_state' });
+      throw new HTTP400Error('Invalid OAuth state. Please try again.');
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: config.github.clientId,
+        client_secret: config.github.clientSecret,
+        code,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json() as { access_token?: string; error?: string; error_description?: string };
+
+    if (tokenData.error || !tokenData.access_token) {
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'token_error' });
+      throw new HTTP400Error(tokenData.error_description || 'Failed to get access token from GitHub');
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // Fetch user profile
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!userResponse.ok) {
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'user_fetch_error' });
+      throw new HTTP400Error('Failed to get user info from GitHub');
+    }
+
+    const userData = await userResponse.json() as {
+      id: number;
+      login: string;
+      name?: string;
+      email?: string;
+      avatar_url?: string;
+    };
+
+    // Fetch user emails (needed if primary email is private)
+    let email = userData.email;
+    let emailVerified = false;
+
+    if (!email) {
+      const emailsResponse = await fetch('https://api.github.com/user/emails', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+
+      if (emailsResponse.ok) {
+        const emails = await emailsResponse.json() as Array<{
+          email: string;
+          primary: boolean;
+          verified: boolean;
+        }>;
+
+        // Find primary verified email
+        const primaryEmail = emails.find(e => e.primary && e.verified);
+        if (primaryEmail) {
+          email = primaryEmail.email;
+          emailVerified = primaryEmail.verified;
+        } else {
+          // Fallback to any verified email
+          const verifiedEmail = emails.find(e => e.verified);
+          if (verifiedEmail) {
+            email = verifiedEmail.email;
+            emailVerified = verifiedEmail.verified;
+          }
+        }
+      }
+    } else {
+      // If email was in profile, assume it's verified (GitHub only shows verified emails in profile)
+      emailVerified = true;
+    }
+
+    if (!email) {
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'no_email' });
+      throw new HTTP400Error('No email address associated with your GitHub account. Please add a verified email to your GitHub account.');
+    }
+
+    return this.processGithubAuth({
+      githubId: userData.id.toString(),
+      email,
+      emailVerified,
+      fullName: userData.name,
+      picture: userData.avatar_url,
+      username: userData.login,
+      accessToken,
+      rawProfile: userData as unknown as Record<string, unknown>,
+    });
+  },
+
+  /**
+   * Process GitHub authentication - create or link user
+   */
+  async processGithubAuth(githubUser: GitHubUserInfo): Promise<GitHubAuthResult> {
+    const normalizedEmail = githubUser.email.toLowerCase();
+
+    // Check if OAuth account already exists
+    const existingOAuth = await db
+      .select({ userId: userOauthAccounts.userId })
+      .from(userOauthAccounts)
+      .where(and(
+        eq(userOauthAccounts.provider, 'github'),
+        eq(userOauthAccounts.providerUserId, githubUser.githubId)
+      ))
+      .limit(1);
+
+    if (existingOAuth.length > 0) {
+      // Existing OAuth account - just log in
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'existing_oauth' });
+      return this.completeGithubOAuthLogin(existingOAuth[0].userId, githubUser, false);
+    }
+
+    // Check if user exists by email (for account linking)
+    const existingUser = await db
+      .select({ id: users.id, emailVerified: users.emailVerified })
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      // Link GitHub account to existing user
+      await this.linkGithubAccount(existingUser[0].id, githubUser);
+
+      // Mark email as verified if GitHub says it's verified
+      if (githubUser.emailVerified && !existingUser[0].emailVerified) {
+        await db
+          .update(users)
+          .set({ emailVerified: true, updatedAt: new Date() })
+          .where(eq(users.id, existingUser[0].id));
+      }
+
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'linked_account' });
+      return this.completeGithubOAuthLogin(existingUser[0].id, githubUser, false);
+    }
+
+    // Create new user with GitHub account
+    const newUser = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: normalizedEmail,
+          passwordHash: null, // OAuth-only user, no password
+          fullName: githubUser.fullName || '',
+          emailVerified: githubUser.emailVerified,
+        })
+        .returning({
+          id: users.id,
+          email: users.email,
+          fullName: users.fullName,
+        });
+
+      // Link OAuth account
+      await tx.insert(userOauthAccounts).values({
+        userId: user.id,
+        provider: 'github',
+        providerUserId: githubUser.githubId,
+        providerEmail: githubUser.email,
+        accessToken: githubUser.accessToken,
+        refreshToken: null, // GitHub doesn't provide refresh tokens
+        tokenExpiresAt: null, // GitHub tokens don't expire
+        rawProfile: githubUser.rawProfile,
+      });
+
+      return user;
+    });
+
+    authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
+    return this.completeGithubOAuthLogin(newUser.id, githubUser, true);
+  },
+
+  /**
+   * Link GitHub account to existing user
+   */
+  async linkGithubAccount(userId: string, githubUser: GitHubUserInfo): Promise<void> {
+    await db.insert(userOauthAccounts).values({
+      userId,
+      provider: 'github',
+      providerUserId: githubUser.githubId,
+      providerEmail: githubUser.email,
+      accessToken: githubUser.accessToken,
+      refreshToken: null, // GitHub doesn't provide refresh tokens
+      tokenExpiresAt: null, // GitHub tokens don't expire
+      rawProfile: githubUser.rawProfile,
+    });
+  },
+
+  /**
+   * Complete GitHub OAuth login - get user data and issue JWT
+   */
+  async completeGithubOAuthLogin(
+    userId: string,
+    _githubUser: GitHubUserInfo,
+    isNewUser: boolean
+  ): Promise<GitHubAuthResult> {
+    // Get user info
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP401Error('User not found');
+    }
+
+    // Get user's orgs
+    const userOrgs = await db
+      .select({
+        id: orgs.id,
+        name: orgs.name,
+        slug: orgs.slug,
+      })
+      .from(orgs)
+      .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
+      .where(eq(userOrgMembers.userId, userId));
+
+    // Sign JWT
+    const token = await jwt.sign({
+      userId,
+      orgId: userOrgs[0]?.id ?? null,
+    });
+
+    return {
+      user,
+      orgs: userOrgs,
+      token,
+      isNewUser,
+      hasOrg: userOrgs.length > 0,
+    };
   },
 };

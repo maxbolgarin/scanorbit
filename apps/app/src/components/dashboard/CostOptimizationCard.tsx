@@ -56,7 +56,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
   const totalSavings = costInsights.totalPotentialSavings;
   const hasOptimizations = totalSavings > 0 || orphanedResources > 0;
   const hasCostSavings = totalSavings > 0;
-  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/findings";
+  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
 
   // All cost-related finding types for "View all" link
   const allCostTypes = [

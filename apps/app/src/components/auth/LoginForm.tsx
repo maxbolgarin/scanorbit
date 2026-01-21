@@ -21,8 +21,11 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
-  const { login, isLoading } = useAuthStore();
-  const [error, setError] = useState<string | null>(null);
+  const { login, isLoading, error: storeError, clearError } = useAuthStore();
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  // Use local error or store error (store error persists across re-renders)
+  const error = localError || storeError;
 
   const {
     register,
@@ -33,20 +36,23 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    setError(null);
+    setLocalError(null);
+    clearError();
     try {
       await login(data.email, data.password);
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      console.error("Login error:", err);
+      const message = err instanceof Error ? err.message : "Login failed";
+      setLocalError(message);
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-          <AlertCircle className="h-4 w-4" />
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
       )}
@@ -61,7 +67,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           disabled={isLoading}
         />
         {errors.email && (
-          <p className="text-sm text-red-500">{errors.email.message}</p>
+          <p className="text-sm text-destructive">{errors.email.message}</p>
         )}
       </div>
 
@@ -75,7 +81,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           disabled={isLoading}
         />
         {errors.password && (
-          <p className="text-sm text-red-500">{errors.password.message}</p>
+          <p className="text-sm text-destructive">{errors.password.message}</p>
         )}
       </div>
 

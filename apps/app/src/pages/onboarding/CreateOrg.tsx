@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/auth-store";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 
-// Note: Organization is created automatically during signup in the backend.
-// This page redirects to AWS setup if user has an org, otherwise shows error.
+// Note: Organization is created during signup (ProfileStep).
+// This page redirects to AWS setup if user has an org, or to signup if not.
 export default function CreateOrg() {
   const navigate = useNavigate();
   const { hasOrg, org, isLoading } = useAuthStore();
@@ -14,27 +14,17 @@ export default function CreateOrg() {
       if (hasOrg && org) {
         // Org already exists, go to AWS setup
         navigate("/onboarding/aws", { replace: true });
+      } else {
+        // No org yet, redirect to signup to complete profile step
+        navigate("/signup", { replace: true });
       }
     }
   }, [hasOrg, org, isLoading, navigate]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
-  // If no org, show message (this shouldn't happen normally as org is created during signup)
+  // Show loading while checking auth state
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md text-center">
-        <p className="text-muted-foreground">
-          Setting up your organization...
-        </p>
-        <LoadingSpinner size="lg" className="mt-4 mx-auto" />
-      </div>
+    <div className="flex min-h-screen items-center justify-center">
+      <LoadingSpinner size="lg" />
     </div>
   );
 }

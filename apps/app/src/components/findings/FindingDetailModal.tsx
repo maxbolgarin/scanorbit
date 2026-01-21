@@ -217,12 +217,12 @@ export function FindingDetailModal({
         </p>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+      <div className="rounded-lg border bg-muted/30 p-4">
         <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+          <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium text-sm text-amber-800 dark:text-amber-200">Use this for</p>
-            <ul className="text-sm text-amber-700 dark:text-amber-300 mt-1 list-disc list-inside space-y-1">
+            <p className="font-medium text-sm">Use this for</p>
+            <ul className="text-sm text-muted-foreground mt-1 list-disc list-inside space-y-1">
               <li>False positives</li>
               <li>Accepted risks that don't need fixing</li>
               <li>Issues you've decided to accept</li>
@@ -342,12 +342,12 @@ export function FindingDetailModal({
           </p>
         </div>
 
-        <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/30 dark:border-blue-900">
+        <div className="rounded-lg border bg-muted/30 p-4">
           <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-medium text-sm text-blue-800 dark:text-blue-200">What happens next?</p>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              <p className="font-medium text-sm">What happens next?</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 {currentConfig.info}
               </p>
             </div>
