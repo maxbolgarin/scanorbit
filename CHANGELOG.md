@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0](https://github.com/maxbolgarin/scanorbit/compare/v1.6.0...v1.7.0) (2026-01-21)
+
+### Features
+
+* **auth,db,app:** add google and github oauth integration with enhanced authentication flow ([d9e1166](https://github.com/maxbolgarin/scanorbit/commit/d9e1166f29c64409e58908b892f41e18edee73eb))
+
 ## [1.6.0](https://github.com/maxbolgarin/scanorbit/compare/v1.5.0...v1.6.0) (2026-01-17)
 
 ### Features
