@@ -16,7 +16,7 @@ export function useAccountContext() {
   const location = useLocation();
   const { accounts } = useAwsAccounts();
   const { org } = useAuthStore();
-  const { currentAccountId, setCurrentAccount } = useAccountContextStore();
+  const { currentAccountId, setCurrentAccount, clearAccountContext } = useAccountContextStore();
 
   // Get tier limits
   const tier = org?.tier || 'free';
@@ -50,6 +50,26 @@ export function useAccountContext() {
       }
     }
   }, [accountId, accounts, currentAccountId, setCurrentAccount, navigate, location.pathname, canViewOrgOverview]);
+
+  // Detect when current account is deleted (not via URL change)
+  useEffect(() => {
+    // Only run if we have accounts loaded and a current account selected
+    if (accounts.length === 0 || !currentAccountId) return;
+
+    const accountExists = accounts.some(a => a.id === currentAccountId);
+
+    if (!accountExists) {
+      // Current account was deleted, need to redirect
+      clearAccountContext();
+
+      if (canViewOrgOverview) {
+        navigate("/overview", { replace: true });
+      } else if (accounts.length > 0) {
+        setCurrentAccount(accounts[0].id);
+        navigate(`/accounts/${accounts[0].id}`, { replace: true });
+      }
+    }
+  }, [accounts, currentAccountId, clearAccountContext, setCurrentAccount, navigate, canViewOrgOverview]);
 
   /**
    * Switch to a different account or overview mode.

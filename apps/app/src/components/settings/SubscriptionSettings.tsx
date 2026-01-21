@@ -15,7 +15,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import { CreditCard, Check, Sparkles, Crown, Zap } from "lucide-react";
-import type { SubscriptionTier, SubscriptionStatus } from "@/types";
+import type { SubscriptionTier } from "@/types";
 
 interface PlanFeature {
   text: string;

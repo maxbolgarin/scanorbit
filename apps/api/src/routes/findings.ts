@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
 import { findingService } from '../services/findingService.js';
 import { HTTP400Error, HTTP403Error } from '../lib/errors.js';
-import { TIER_LIMITS, type Variables, type FindingStatus, type SubscriptionTier } from '../types/index.js';
+import { TIER_LIMITS, type Variables, type FindingStatus } from '../types/index.js';
 import { getOrgTier } from '../services/orgService.js';
 
 const findingsRoute = new Hono<{ Variables: Variables }>();

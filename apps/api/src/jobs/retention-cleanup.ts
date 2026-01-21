@@ -39,12 +39,6 @@ async function main() {
     // Log to audit table
     await db.insert(auditLogs).values({
       action: 'retention_cleanup',
-      resource: 'system',
-      details: {
-        beforeStats,
-        result,
-        completedAt: new Date().toISOString(),
-      },
     });
 
     // Get stats after cleanup

@@ -8,7 +8,9 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAwsAccounts } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
+import { useAccountContextStore } from "@/stores/account-context-store";
 import { toast } from "@/hooks/use-toast";
+import { TIER_LIMITS } from "@/types";
 import { Cloud, Plus, Info } from "lucide-react";
 import {
   Dialog,
@@ -24,9 +26,11 @@ export default function Accounts() {
   const navigate = useNavigate();
   const { accounts, isLoading, deleteAccount } = useAwsAccounts();
   const { org } = useAuthStore();
+  const { currentAccountId, clearAccountContext, setCurrentAccount } = useAccountContextStore();
 
   const tier = org?.tier || 'free';
   const isTeamTier = tier === 'team';
+  const canViewOrgOverview = TIER_LIMITS[tier].canViewOrgOverview;
 
   const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [historyAccountId, setHistoryAccountId] = useState<string | null>(null);
@@ -34,6 +38,10 @@ export default function Accounts() {
 
   const handleDisconnect = async () => {
     if (!disconnectAccountId) return;
+
+    const wasCurrentAccount = currentAccountId === disconnectAccountId;
+    const remainingAccounts = accounts.filter(a => a.id !== disconnectAccountId);
+
     try {
       await deleteAccount(disconnectAccountId);
       toast({
@@ -41,6 +49,21 @@ export default function Accounts() {
         description: "The AWS account has been disconnected.",
         type: "success",
       });
+
+      // Handle navigation if deleted account was current
+      if (wasCurrentAccount) {
+        clearAccountContext();
+
+        if (remainingAccounts.length === 0) {
+          // Stay on accounts page - shows empty state with "Add Account" CTA
+          // No navigation needed
+        } else if (canViewOrgOverview) {
+          navigate("/overview", { replace: true });
+        } else {
+          setCurrentAccount(remainingAccounts[0].id);
+          navigate(`/accounts/${remainingAccounts[0].id}`, { replace: true });
+        }
+      }
     } catch {
       toast({
         title: "Disconnect failed",

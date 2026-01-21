@@ -31,7 +31,6 @@ import {
   X,
   Undo2,
   Info,
-  AlertCircle,
   Ban,
 } from "lucide-react";
 

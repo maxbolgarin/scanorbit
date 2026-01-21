@@ -41,8 +41,24 @@ export function useAwsAccounts() {
 
   const deleteMutation = useMutation({
     mutationFn: api.deleteAwsAccount,
-    onSuccess: () => {
+    onSuccess: (_, deletedAccountId) => {
+      // Remove from store immediately
+      useAwsStore.getState().removeAccount(deletedAccountId);
+
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["aws-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["aws-account", deletedAccountId] });
+      queryClient.invalidateQueries({ queryKey: ["findings"] });
+      queryClient.invalidateQueries({ queryKey: ["finding-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["resources"] });
+      queryClient.invalidateQueries({ queryKey: ["resource-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["resource-regions"] });
+      queryClient.invalidateQueries({ queryKey: ["resource-services"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["scan-history", deletedAccountId] });
+      queryClient.invalidateQueries({ queryKey: ["recent-scans"] });
+      queryClient.invalidateQueries({ queryKey: ["active-scans"] });
+      queryClient.invalidateQueries({ queryKey: ["recommended-actions"] });
     },
   });
 

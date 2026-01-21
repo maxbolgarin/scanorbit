@@ -3,11 +3,10 @@ import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { HTTP400Error, HTTP403Error, HTTP404Error, HTTP429Error } from '../lib/errors.js';
-import { awsAccounts, scans, jobs, orgSettings, orgs } from '../db/schema.js';
+import { awsAccounts, scans, jobs, orgSettings } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
-import { logger } from '../lib/logger.js';
 import { getOrgTier } from './orgService.js';
 import {
   ScanStatus,
@@ -17,7 +16,6 @@ import {
   ANALYZER_SCANNER_DEPS,
   TIER_LIMITS,
   type ScannerType,
-  type SubscriptionTier,
 } from '../types/index.js';
 
 interface CreateAccountData {
