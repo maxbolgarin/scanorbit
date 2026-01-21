@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import '@/styles/infrastructure-map.css';
 import { useAllResources, useAllDependencies } from '@/hooks/use-resources';
 import { useFilteredFindings } from '@/hooks/use-findings';
+import { useAuthStore } from '@/stores/auth-store';
 import {
   buildInfrastructureGraphWithDependencies,
   filterGraph,
@@ -29,10 +30,12 @@ import { ResourceNodeComponent } from '@/components/infrastructure-map/ResourceN
 import { ResourcePreviewModal } from '@/components/infrastructure-map/ResourcePreviewModal';
 import { MapFiltersComponent } from '@/components/infrastructure-map/MapFilters';
 import { MapLegend } from '@/components/infrastructure-map/MapLegend';
+import { PaywallBlocker } from '@/components/shared/PaywallBlocker';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { RefreshCw, Network, RotateCcw, Layout } from 'lucide-react';
 import type { ServiceType, Resource } from '@/types';
+import { TIER_LIMITS } from '@/types';
 import type { MapFilters, ResourceNodeData, ResourceNode, LayoutPreset } from '@/types/graph';
 import {
   DropdownMenu,
@@ -121,9 +124,30 @@ function getMinimapNodeColor(node: Node): string {
 }
 
 export default function InfrastructureMap() {
+  const { org } = useAuthStore();
+
+  // Check tier-based access
+  const tier = org?.tier || 'free';
+  const canViewInfrastructureMap = TIER_LIMITS[tier].canViewInfrastructureMap;
+
   const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources();
   const { data: findingsData, isLoading: findingsLoading } = useFilteredFindings();
   const { data: dependenciesData } = useAllDependencies();
+
+  // Show paywall for free tier
+  if (!canViewInfrastructureMap) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Infrastructure Map</h1>
+          <p className="text-muted-foreground">
+            Visualize your AWS infrastructure and dependencies
+          </p>
+        </div>
+        <PaywallBlocker feature="infrastructure-map" />
+      </div>
+    );
+  }
 
   const [filters, setFilters] = useState<MapFilters>(getDefaultFilters);
   const [layoutPreset, setLayoutPresetState] = useState<LayoutPreset>(loadLayoutPreset);

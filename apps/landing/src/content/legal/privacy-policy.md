@@ -1,7 +1,7 @@
 ---
 title: Privacy Policy
 description: ScanOrbit privacy policy. Learn how we handle and protect your data.
-lastUpdated: January 7, 2026
+lastUpdated: January 21, 2026
 ---
 
 ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
@@ -15,8 +15,18 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 **Account Registration:**
 - Email address
 - Full name
-- Password (hashed and encrypted)
+- Password (hashed, not stored for OAuth-only users)
 - Company/organization name
+
+**OAuth Sign-In (if used):**
+- OAuth provider ID (Google or GitHub user ID)
+- Email address from OAuth provider
+- Profile name from OAuth provider
+- OAuth access/refresh tokens (encrypted)
+
+**Two-Factor Authentication (if enabled):**
+- TOTP secret (AES-256-GCM encrypted)
+- Recovery codes (bcrypt hashed, 10 codes)
 
 **AWS Connection:**
 - AWS Account ID (12-digit identifier)
@@ -261,13 +271,17 @@ You can disable:
 
 ### 8.1 What We Access
 We connect to your AWS account using **read-only IAM role** and can only view:
-- EC2 instances and metadata
-- EBS volumes and snapshots
-- S3 buckets (location and tags only, not contents)
-- RDS databases (metadata only, no data)
-- Load balancers and configurations
+- EC2 instances, volumes, snapshots, security groups, and images
+- RDS databases and snapshots (metadata only, no data)
+- S3 buckets (configuration and tags only, NOT object contents)
+- Load balancers (ALB/NLB) and target groups
 - ACM certificates (metadata only)
-- Resource tags
+- Lambda functions and configurations
+- CloudWatch alarms and log groups
+- IAM users, roles, and access key metadata (no credentials)
+- KMS keys and rotation status
+- Secrets Manager secrets (metadata only, NOT secret values)
+- Resource tags across all services
 
 ### 8.2 What We Cannot Do
 - Terminate or modify instances
@@ -297,9 +311,12 @@ We use **essential cookies only:**
 **No tracking cookies used.**
 
 ### 9.2 Third-Party Analytics
-- **Google Analytics:** Optional, can be disabled
+- **No Google Analytics** - We do not use any third-party analytics
 - **No tracking pixels** on website
 - **No behavioral tracking**
+- **No advertising cookies**
+
+See our [Cookie Policy](/cookies) for complete details.
 
 ### 9.3 Managing Cookies
 You can:
@@ -403,5 +420,5 @@ If you do not agree with any part of this policy, please discontinue use of the 
 
 ---
 
-**Version:** 1.0
-**Effective Date:** January 7, 2026
+**Version:** 1.1
+**Effective Date:** January 21, 2026

@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import * as api from "@/lib/api";
 import type { ResourceFilters, Resource } from "@/types";
 
-export function useResources(filters?: ResourceFilters) {
+export function useResources(filters?: ResourceFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["resources", filters],
     queryFn: () => api.getResources(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -13,7 +14,7 @@ export function useResources(filters?: ResourceFilters) {
  * Fetch all resources by paginating through the API.
  * Used for the infrastructure map where we need all resources.
  */
-export function useAllResources(filters?: Omit<ResourceFilters, 'page' | 'limit'>) {
+export function useAllResources(filters?: Omit<ResourceFilters, 'page' | 'limit'>, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["all-resources", filters],
     queryFn: async () => {
@@ -52,6 +53,7 @@ export function useAllResources(filters?: Omit<ResourceFilters, 'page' | 'limit'
       };
     },
     staleTime: 60000, // Cache for 1 minute
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -108,10 +110,11 @@ export function useResourceScanHistory(resourceId: string) {
   });
 }
 
-export function useAllDependencies() {
+export function useAllDependencies(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["all-dependencies"],
     queryFn: () => api.getAllDependencies(),
     staleTime: 60000, // Cache for 1 minute
+    enabled: options?.enabled ?? true,
   });
 }

@@ -111,8 +111,10 @@ export function ScannerConfigModal({
     prevOpenRef.current = open;
   }, [open, currentScanners]);
 
-  // Check if there are new categories that weren't previously enabled
-  const hasNewCategories = selected.some((cat) => !initialCategories.includes(cat));
+  // Check if there are any changes from the initial configuration
+  const hasChanges = selected.length !== initialCategories.length ||
+    selected.some((cat) => !initialCategories.includes(cat)) ||
+    initialCategories.some((cat) => !selected.includes(cat));
 
   // Generate the new policy based on selected categories
   const allCategoryIds = PERMISSION_CATEGORIES.map((c) => c.id);
@@ -143,7 +145,7 @@ export function ScannerConfigModal({
 
     // Capture this value BEFORE the refetch, as it will change after
     // the component re-renders with updated currentScanners
-    const shouldShowPolicyStep = hasNewCategories;
+    const shouldShowPolicyStep = hasChanges;
 
     setIsSaving(true);
     setError(null);
@@ -212,13 +214,13 @@ export function ScannerConfigModal({
         {step === "select" ? (
           <div className="space-y-4 mt-4">
             {/* Warning about IAM policy */}
-            {hasNewCategories && (
+            {hasChanges && (
               <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-yellow-600">IAM Policy Update Required</p>
                   <p className="text-muted-foreground">
-                    You're enabling new scanners. After saving, you'll need to update your IAM policy in AWS.
+                    After saving, you'll need to update your IAM policy in AWS to match the new configuration.
                   </p>
                 </div>
               </div>
@@ -309,7 +311,7 @@ export function ScannerConfigModal({
               <div>
                 <p className="font-medium text-green-600">Configuration Saved</p>
                 <p className="text-muted-foreground">
-                  Now update your IAM policy to grant the required permissions.
+                  Now update your IAM policy to set the required permissions.
                 </p>
               </div>
             </div>

@@ -33,11 +33,12 @@ function generateMissingTagSummary(
   return `${serviceUpper} '${resourceName}' is missing ${missingTags.length} required tags: ${missingTags.join(", ")}`;
 }
 
-export function useFindings(filters?: FindingFilters) {
+export function useFindings(filters?: FindingFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["findings", filters],
     queryFn: () => api.getFindings(filters),
     refetchInterval: 60 * 1000, // Refetch every minute
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -45,8 +46,8 @@ export function useFindings(filters?: FindingFilters) {
  * Hook that returns findings with global viewing filters applied.
  * Use this in place of useFindings when you want to respect org viewing settings.
  */
-export function useFilteredFindings(filters?: FindingFilters) {
-  const query = useFindings(filters);
+export function useFilteredFindings(filters?: FindingFilters, options?: { enabled?: boolean }) {
+  const query = useFindings(filters, options);
   const settings = useViewingSettingsStore((state) => state.settings);
 
   const filteredData = useMemo(() => {

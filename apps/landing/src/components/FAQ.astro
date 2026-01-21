@@ -4,11 +4,11 @@ import { Icon } from "astro-icon/components";
 const faqs = [
   {
     question: "What's included in the Free plan?",
-    answer: "The Free plan includes 1 AWS account, limited scanner types, limited scan frequency, and 7-day data retention. It's perfect for trying out ScanOrbit and getting started with basic infrastructure monitoring.",
+    answer: "The Free plan includes 1 AWS account, all scanner types, single successful scan, overall healtj score. It's perfect for trying out ScanOrbit and getting started with basic infrastructure monitoring.",
   },
   {
     question: "What's the difference between Pro and Team?",
-    answer: "Pro (€19/month) is for individual DevOps engineers - you get 1 AWS account, all scanner types, unlimited scans, 30-day retention, and email support. Team (€79/month) adds 5 AWS accounts, API access, scan priority, custom schedules, team collaboration features, and priority email support.",
+    answer: "Pro (€19/month) is for individual DevOps engineers - you get 1 AWS account, access to all investigating tools, unlimited scans with cooldown, data retention. Team (€79/month) allws to add many AWS accounts, API access, scan priority, team collaboration features, and priority email support.",
   },
   {
     question: "Is there a free trial for paid plans?",
@@ -27,20 +27,16 @@ const faqs = [
     answer: "Never. We only scan and report. Our IAM role has no write permissions. We can't start, stop, create, or delete anything. It's technically impossible for us to make changes.",
   },
   {
-    question: "How long does the initial scan take?",
-    answer: "Typically 5-10 minutes depending on the size of your infrastructure. We scan all enabled regions in parallel for maximum speed. Subsequent scans are often faster as we optimize for changes.",
-  },
-  {
     question: "What scanner types are available?",
     answer: "We offer orphaned resource detection (EBS volumes, Elastic IPs, snapshots), SSL certificate expiry tracking, data residency compliance checks, and complete cloud inventory. Free plan has limited access, while Pro and Team get all scanner types.",
   },
   {
     question: "How long is data retained?",
-    answer: "Free: 7 days. Pro: 30 days. Team: 90 days. You can request deletion at any time, and all data is permanently removed within 30 days per GDPR requirements.",
+    answer: "Free: 7 days. Pro: 90 days. Team is negotiable. TTL counting starts after the last scan. You can request deletion at any time.",
   },
   {
     question: "Can I connect multiple AWS accounts?",
-    answer: "Free and Pro plans support 1 AWS account. Team plan supports up to 5 AWS accounts with consolidated dashboards and cross-account reporting.",
+    answer: "Free and Pro plans support 1 AWS account. Team plan supports many AWS accounts with consolidated dashboards and cross-account reporting.",
   },
   {
     question: "Can I cancel anytime?",

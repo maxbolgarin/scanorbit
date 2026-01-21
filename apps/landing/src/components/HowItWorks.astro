@@ -7,14 +7,14 @@ const steps = [
     number: "01",
     icon: "lucide:link",
     title: "Connect AWS",
-    description: "Create a read-only IAM role in your AWS account. We provide the exact policy - no write permissions needed.",
+    description: "Choose which scanners to enable and create a customized read-only IAM role. Only grant permissions for the services you want to scan.",
     color: "cyber-cyan",
   },
   {
     number: "02",
     icon: "lucide:scan",
     title: "Automatic Scan",
-    description: "Our scanner analyzes all your resources across all enabled regions. Typically completes in 5-10 minutes.",
+    description: "Our scanner analyzes all your resources across all enabled regions. Typically completes within a minute.",
     color: "orbit-purple",
   },
   {
@@ -34,10 +34,10 @@ const scanFeatures = [
 ];
 
 const findingFeatures = [
-  { icon: "lucide:alert-triangle", label: "Severity scoring" },
-  { icon: "lucide:dollar-sign", label: "Cost impact" },
-  { icon: "lucide:wrench", label: "Remediation steps" },
-  { icon: "lucide:download", label: "Export reports" },
+  { icon: "lucide:hard-drive", label: "Orphaned resources" },
+  { icon: "lucide:shield-alert", label: "SSL expiry alerts" },
+  { icon: "lucide:globe", label: "Data residency issues" },
+  { icon: "lucide:lock", label: "Security vulnerabilities" },
 ];
 ---
 
@@ -102,28 +102,25 @@ const findingFeatures = [
             <div class="w-3 h-3 rounded-full bg-warning-orange"></div>
             <div class="w-3 h-3 rounded-full bg-neon-green"></div>
           </div>
-          <span class="text-xs text-slate-gray font-mono">iam-policy.json</span>
+          <span class="text-xs text-slate-gray font-mono">example-policy.json</span>
         </div>
         <div class="bg-midnight rounded-xl p-4 overflow-x-auto">
           <pre class="text-xs font-mono leading-relaxed"><code><span class="text-slate-gray">{"{"}</span>
   <span class="text-cyber-cyan">"Version"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"2012-10-17"</span><span class="text-slate-gray">,</span>
   <span class="text-cyber-cyan">"Statement"</span><span class="text-slate-gray">: [{"{"}</span>
+    <span class="text-cyber-cyan">"Sid"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"ScanOrbitReadAccess"</span><span class="text-slate-gray">,</span>
     <span class="text-cyber-cyan">"Effect"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"Allow"</span><span class="text-slate-gray">,</span>
     <span class="text-cyber-cyan">"Action"</span><span class="text-slate-gray">: [</span>
-      <span class="text-neon-green">"ec2:Describe*"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"rds:Describe*"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"s3:GetBucketLocation"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"s3:GetBucketTagging"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"ec2:DescribeInstances"</span><span class="text-slate-gray">,</span>
+      <span class="text-neon-green">"ec2:DescribeVolumes"</span><span class="text-slate-gray">,</span>
       <span class="text-neon-green">"s3:ListAllMyBuckets"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"elasticloadbalancing:Describe*"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"acm:Describe*"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"acm:List*"</span>
+      <span class="text-orbit-purple italic">// ... based on selected scanners</span>
     <span class="text-slate-gray">],</span>
     <span class="text-cyber-cyan">"Resource"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"*"</span>
   <span class="text-slate-gray">{"}"}]</span>
 <span class="text-slate-gray">{"}"}</span></code></pre>
         </div>
-        <p class="text-xs text-slate-gray mt-4 text-center">Read-only permissions only. Zero write access.</p>
+        <p class="text-xs text-slate-gray mt-4 text-center">Example policy. Actual permissions depend on your scanner selection.</p>
       </div>
 
       <!-- Features Cards -->

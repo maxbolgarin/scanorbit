@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -7,37 +6,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AccountStatusBadge } from "@/components/shared/StatusBadge";
 import { formatRelativeTime } from "@/lib/utils";
-import { Cloud, Plus, RefreshCw } from "lucide-react";
+import { Cloud, Plus } from "lucide-react";
 import type { AwsAccount } from "@/types";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 
 interface AccountStatusProps {
   accounts: AwsAccount[];
-  onRescan: (accountId: string) => void;
-  isRescanning?: string | null;
 }
 
-export function AccountStatus({ accounts, onRescan, isRescanning }: AccountStatusProps) {
+export function AccountStatus({ accounts }: AccountStatusProps) {
   const navigate = useNavigate();
-  const [rescanAccount, setRescanAccount] = useState<AwsAccount | null>(null);
-
-  const handleRescanConfirm = () => {
-    if (rescanAccount) {
-      onRescan(rescanAccount.id);
-      setRescanAccount(null);
-    }
-  };
 
   return (
     <Card>
@@ -92,49 +72,11 @@ export function AccountStatus({ accounts, onRescan, isRescanning }: AccountStatu
                     </p>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setRescanAccount(account)}
-                  disabled={isRescanning === account.id || account.status !== "ok"}
-                >
-                  {isRescanning === account.id ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-1 h-4 w-4" />
-                      Rescan
-                    </>
-                  )}
-                </Button>
               </div>
             ))}
           </div>
         )}
       </CardContent>
-
-      {/* Rescan confirmation dialog */}
-      <Dialog open={!!rescanAccount} onOpenChange={(open) => !open && setRescanAccount(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Rescan</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to rescan{" "}
-              <span className="font-medium text-foreground">{rescanAccount?.name}</span>?
-              This will scan all resources in the AWS account and may take a few minutes.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRescanAccount(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRescanConfirm}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Start Rescan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

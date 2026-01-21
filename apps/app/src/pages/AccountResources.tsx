@@ -4,6 +4,7 @@ import { ResourceFiltersAdvanced } from "@/components/resources/ResourceFiltersA
 import { ResourcesTableAdvanced } from "@/components/resources/ResourcesTableAdvanced";
 import { ResourceStatsCards } from "@/components/resources/ResourceStatsCards";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PaywallBlocker } from "@/components/shared/PaywallBlocker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,11 +16,12 @@ import {
   useResourceStats,
 } from "@/hooks/use-resources";
 import { useAwsAccount, useScanHistory, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAuthStore } from "@/stores/auth-store";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import type { ResourceFilters as Filters, ServiceType, Resource } from "@/types";
-import { ACTIVE_SCAN_STATUSES } from "@/types";
+import { ACTIVE_SCAN_STATUSES, TIER_LIMITS } from "@/types";
 import { Server, RefreshCw, LayoutGrid, List, Scan, Play, ArrowRight, Cloud } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +33,11 @@ export default function AccountResources() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { org } = useAuthStore();
+
+  // Check tier-based access
+  const tier = org?.tier || 'free';
+  const canViewResourceList = TIER_LIMITS[tier].canViewResourceList;
 
   // Combine account filter with other filters
   const [baseFilters, setBaseFilters] = useLocalStorage<Filters>(`resources:filters:${accountId}`, {});
@@ -42,7 +49,7 @@ export default function AccountResources() {
 
   // Fetch account-specific data
   const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);
-  const { data: resourcesResponse, isLoading, isFetching } = useResources(filters);
+  const { data: resourcesResponse, isLoading, isFetching } = useResources(filters, { enabled: canViewResourceList });
   const allResources = resourcesResponse?.data || [];
   const { data: regions = [] } = useResourceRegions();
   const { data: services = [] } = useResourceServices();
@@ -176,6 +183,11 @@ export default function AccountResources() {
         />
       )}
 
+      {/* Paywall for free tier */}
+      {hasCompletedScan && !canViewResourceList && (
+        <PaywallBlocker feature="resources" />
+      )}
+
       {/* Invitation to start first scan */}
       {!accountLoading && account?.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
@@ -225,8 +237,8 @@ export default function AccountResources() {
         </Card>
       )}
 
-      {/* Main content - only show after first scan */}
-      {hasCompletedScan && (hasAnyResources || isLoading) && (
+      {/* Main content - only show after first scan and with permission */}
+      {hasCompletedScan && canViewResourceList && (hasAnyResources || isLoading) && (
         <div className="space-y-4">
           {/* Filters */}
           <ResourceFiltersAdvanced
@@ -260,7 +272,7 @@ export default function AccountResources() {
       )}
 
       {/* No resources found after scan */}
-      {hasCompletedScan && !hasAnyResources && !isLoading && (
+      {hasCompletedScan && canViewResourceList && !hasAnyResources && !isLoading && (
         <EmptyState
           icon={Server}
           title="No resources found"

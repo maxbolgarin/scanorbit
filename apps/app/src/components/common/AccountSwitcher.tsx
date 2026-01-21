@@ -1,4 +1,5 @@
-import { Check, ChevronDown, Building2, Cloud } from "lucide-react";
+import { Check, ChevronDown, Building2, Cloud, Plus, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,9 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAccountContext } from "@/hooks/use-account-context";
+import { useAuthStore } from "@/stores/auth-store";
 import { Badge } from "@/components/ui/badge";
+import { TIER_LIMITS } from "@/types";
 
 export function AccountSwitcher() {
+  const navigate = useNavigate();
   const {
     currentAccountId,
     currentAccount,
@@ -20,7 +24,12 @@ export function AccountSwitcher() {
     accounts,
     switchToAccount,
   } = useAccountContext();
+  const { org } = useAuthStore();
 
+  const tier = org?.tier || 'free';
+  const tierLimits = TIER_LIMITS[tier];
+  const canViewOrgOverview = tierLimits.canViewOrgOverview;
+  const isTeamTier = tier === 'team';
   const hasAccounts = accounts.length > 0;
 
   return (
@@ -62,24 +71,26 @@ export function AccountSwitcher() {
         <DropdownMenuLabel>Switch Context</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {/* Organization Overview option */}
-        <DropdownMenuItem
-          onClick={() => switchToAccount(null)}
-          className={cn(
-            "cursor-pointer",
-            isOrgOverview && "bg-accent"
-          )}
-        >
-          <Building2 className="mr-2 h-4 w-4" />
-          <div className="flex-1">
-            <span>Organization Overview</span>
-          </div>
-          {isOrgOverview && <Check className="ml-auto h-4 w-4" />}
-        </DropdownMenuItem>
+        {/* Organization Overview option - only show for Team tier */}
+        {canViewOrgOverview && (
+          <DropdownMenuItem
+            onClick={() => switchToAccount(null)}
+            className={cn(
+              "cursor-pointer",
+              isOrgOverview && "bg-accent"
+            )}
+          >
+            <Building2 className="mr-2 h-4 w-4" />
+            <div className="flex-1">
+              <span>Organization Overview</span>
+            </div>
+            {isOrgOverview && <Check className="ml-auto h-4 w-4" />}
+          </DropdownMenuItem>
+        )}
 
         {hasAccounts && (
           <>
-            <DropdownMenuSeparator />
+            {canViewOrgOverview && <DropdownMenuSeparator />}
             <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
               AWS Accounts ({accounts.length})
             </DropdownMenuLabel>
@@ -125,6 +136,30 @@ export function AccountSwitcher() {
           <div className="px-2 py-4 text-center text-sm text-muted-foreground">
             No AWS accounts connected
           </div>
+        )}
+
+        <DropdownMenuSeparator />
+
+        {/* Add Account button */}
+        {isTeamTier ? (
+          <DropdownMenuItem
+            onClick={() => navigate('/onboarding/aws')}
+            className="cursor-pointer"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            <span>Add Account</span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            disabled
+            className="cursor-not-allowed opacity-60"
+          >
+            <Lock className="mr-2 h-4 w-4" />
+            <span>Add Account</span>
+            <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
+              Team
+            </Badge>
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

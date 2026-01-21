@@ -1,7 +1,7 @@
 ---
 title: Terms of Service
 description: ScanOrbit Terms of Service. Legal agreement for using ScanOrbit AWS scanner.
-lastUpdated: January 7, 2026
+lastUpdated: January 21, 2026
 ---
 
 These Terms of Service ("Terms," "Agreement") govern your use of the ScanOrbit website, application, and services (collectively, the "Service"). By accessing or using ScanOrbit, you agree to be bound by these Terms. If you do not agree with any part of these Terms, please do not use the Service.
@@ -86,16 +86,44 @@ You must provide ScanOrbit with:
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ScanOrbitReadAccess",
       "Effect": "Allow",
       "Action": [
         "ec2:Describe*",
         "rds:Describe*",
+        "s3:ListAllMyBuckets",
         "s3:GetBucketLocation",
         "s3:GetBucketTagging",
-        "s3:ListAllMyBuckets",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetPublicAccessBlock",
         "elasticloadbalancing:Describe*",
+        "acm:List*",
         "acm:Describe*",
-        "acm:List*"
+        "lambda:ListFunctions",
+        "lambda:GetFunction",
+        "lambda:ListTags",
+        "kms:ListKeys",
+        "kms:DescribeKey",
+        "kms:ListResourceTags",
+        "kms:GetKeyRotationStatus",
+        "secretsmanager:ListSecrets",
+        "secretsmanager:DescribeSecret",
+        "logs:DescribeLogGroups",
+        "logs:ListTagsForResource",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:ListTagsForResource",
+        "iam:ListUsers",
+        "iam:ListUserTags",
+        "iam:ListMFADevices",
+        "iam:ListRoles",
+        "iam:ListRoleTags",
+        "iam:GetRole",
+        "iam:ListAccessKeys",
+        "iam:GetAccessKeyLastUsed",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy"
       ],
       "Resource": "*"
     }
@@ -106,13 +134,17 @@ You must provide ScanOrbit with:
 ### 3.2 What We Can Access
 
 With your read-only role, ScanOrbit can **view only:**
-- EC2 instances, images, security groups
-- EBS volumes, snapshots, and metadata
-- S3 bucket configurations (not contents)
-- RDS instance metadata (not data)
-- Load balancers and target groups
+- EC2 instances, images, security groups, volumes, snapshots
+- RDS instances and snapshots (metadata only, NOT database contents)
+- S3 bucket configurations (NOT object contents)
+- Load balancers (ALB/NLB) and target groups
 - ACM certificates and metadata
-- Resource tags and configurations
+- Lambda functions and configurations
+- CloudWatch alarms and log groups
+- IAM users, roles, and access key metadata (NOT credentials)
+- KMS keys and key rotation status
+- Secrets Manager secrets (metadata only, NOT secret values)
+- Resource tags across all services
 
 ### 3.3 What We Cannot Do
 
@@ -328,9 +360,16 @@ ScanOrbit offers the following plans:
 
 | Plan | Price | Features |
 |------|-------|----------|
-| **Free** | €0 | 1 AWS account, limited scanners, 7-day retention |
-| **Pro** | €19/month | 1 AWS account, all scanners, 30-day retention, email support |
-| **Team** | €79/month | 5 AWS accounts, all scanners, 90-day retention, API access, priority support |
+| **Free** | €0 | 1 AWS account, limited scanners, 7-day retention, dashboard stats only, 1 successful scan |
+| **Pro** | €19/month | 1 AWS account, all scanners, 30-day retention, full resource & finding access, infrastructure map, 1-hour scan cooldown, email support |
+| **Team** | €79/month | 5 AWS accounts, all scanners, 90-day retention, full access, unlimited scans, API access, priority support |
+
+**Free Tier Limitations:**
+- Can view aggregated dashboard statistics only
+- Cannot view detailed resource lists
+- Cannot view detailed finding lists
+- Cannot access infrastructure map
+- Limited to one successful scan (can retry on errors)
 
 ### 9.2 Payment Terms
 
@@ -532,5 +571,5 @@ If you do not agree, do not use the Service.
 
 ---
 
-**Version:** 1.0
-**Effective Date:** January 7, 2026
+**Version:** 1.1
+**Effective Date:** January 21, 2026

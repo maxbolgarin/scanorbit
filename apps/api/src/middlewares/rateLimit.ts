@@ -78,6 +78,31 @@ function getClientIP(c: Context<{ Variables: Variables }>): string {
 }
 
 /**
+ * Format TTL (time to live in seconds) into human-readable wait time
+ * Examples: "2 minutes", "45 seconds", "1 minute"
+ */
+function formatWaitTime(ttl: number): string {
+  if (ttl <= 0) {
+    return '';
+  }
+
+  const minutes = Math.floor(ttl / 60);
+  const seconds = ttl % 60;
+
+  if (minutes > 0) {
+    const minuteText = minutes === 1 ? 'minute' : 'minutes';
+    if (seconds > 0) {
+      const secondText = seconds === 1 ? 'second' : 'seconds';
+      return `${minutes} ${minuteText} and ${seconds} ${secondText}`;
+    }
+    return `${minutes} ${minuteText}`;
+  }
+
+  const secondText = seconds === 1 ? 'second' : 'seconds';
+  return `${seconds} ${secondText}`;
+}
+
+/**
  * Rate limiting middleware using Redis sliding window
  *
  * @example
@@ -139,7 +164,10 @@ export function rateLimit(options: RateLimitOptions) {
       // Check if over limit
       if (count > maxRequests) {
         c.header('Retry-After', ttl.toString());
-        throw new HTTP429Error(message);
+        // Format wait time into human-readable message
+        const waitTime = formatWaitTime(ttl);
+        const errorMessage = waitTime ? `${message} Please try again in ${waitTime}.` : message;
+        throw new HTTP429Error(errorMessage);
       }
 
       await next();
@@ -185,7 +213,7 @@ export const rateLimiters = {
     keyPrefix: 'sendcode',
     maxRequests: 3,
     windowSeconds: 5 * 60,
-    message: 'Too many verification code requests. Please wait a few minutes.',
+    message: 'Too many verification code requests',
   }),
 
   /** Verify code: 10 attempts per 15 minutes per IP */

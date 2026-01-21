@@ -19,6 +19,7 @@ import '@/styles/infrastructure-map.css';
 import { useAllResources, useAllDependencies } from '@/hooks/use-resources';
 import { useFilteredFindings } from '@/hooks/use-findings';
 import { useAwsAccount, useScanHistory, useScanCompletionRefresh } from '@/hooks/use-aws-accounts';
+import { useAuthStore } from '@/stores/auth-store';
 import {
   buildInfrastructureGraphWithDependencies,
   filterGraph,
@@ -31,13 +32,14 @@ import { ResourceNodeComponent } from '@/components/infrastructure-map/ResourceN
 import { ResourcePreviewModal } from '@/components/infrastructure-map/ResourcePreviewModal';
 import { MapFiltersComponent } from '@/components/infrastructure-map/MapFilters';
 import { MapLegend } from '@/components/infrastructure-map/MapLegend';
+import { PaywallBlocker } from '@/components/shared/PaywallBlocker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { RefreshCw, Network, RotateCcw, Layout, Scan, Play, ArrowRight, Cloud } from 'lucide-react';
 import type { Resource, ServiceType } from '@/types';
 import type { MapFilters, ResourceNodeData, ResourceNode, LayoutPreset } from '@/types/graph';
-import { ACTIVE_SCAN_STATUSES } from '@/types';
+import { ACTIVE_SCAN_STATUSES, TIER_LIMITS } from '@/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,12 +118,24 @@ const nodeTypes = {
 export default function AccountInfrastructureMap() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
+  const { org } = useAuthStore();
+
+  // Check tier-based access
+  const tier = org?.tier || 'free';
+  const canViewInfrastructureMap = TIER_LIMITS[tier].canViewInfrastructureMap;
 
   // Account-specific data
   const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);
-  const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources({ awsAccountId: accountId });
-  const { data: dependenciesData } = useAllDependencies();
-  const { data: findingsData } = useFilteredFindings({ awsAccountId: accountId });
+  // Only fetch data if user has permission to view infrastructure map
+  const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources(
+    { awsAccountId: accountId },
+    { enabled: canViewInfrastructureMap }
+  );
+  const { data: dependenciesData } = useAllDependencies({ enabled: canViewInfrastructureMap });
+  const { data: findingsData } = useFilteredFindings(
+    { awsAccountId: accountId },
+    { enabled: canViewInfrastructureMap }
+  );
   const { data: scanHistory } = useScanHistory(accountId!);
   const triggerScan = useTriggerScan();
 
@@ -234,9 +248,11 @@ export default function AccountInfrastructureMap() {
 
   // Update nodes/edges when filtered graph changes
   useEffect(() => {
+    // Skip if user doesn't have permission - prevents infinite loop with empty data
+    if (!canViewInfrastructureMap) return;
     setNodes(filteredGraph.nodes);
     setEdges(filteredGraph.edges);
-  }, [filteredGraph, setNodes, setEdges]);
+  }, [filteredGraph, setNodes, setEdges, canViewInfrastructureMap]);
 
   const handleScan = async () => {
     if (!accountId) return;
@@ -268,6 +284,26 @@ export default function AccountInfrastructureMap() {
     return (
       <div className="flex h-[calc(100vh-200px)] items-center justify-center">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Paywall for free tier
+  if (hasCompletedScan && !canViewInfrastructureMap) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-primary/10 p-2">
+            <Cloud className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Infrastructure Map</h1>
+            <p className="text-muted-foreground">
+              {account?.name} &bull; {account?.awsAccountId}
+            </p>
+          </div>
+        </div>
+        <PaywallBlocker feature="infrastructure-map" />
       </div>
     );
   }

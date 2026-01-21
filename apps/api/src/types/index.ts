@@ -1,5 +1,67 @@
 import type { Context } from 'hono';
 
+// =============================================================================
+// Subscription Tiers
+// =============================================================================
+
+export const SubscriptionTier = {
+  FREE: 'free',
+  PRO: 'pro',
+  TEAM: 'team',
+} as const;
+export type SubscriptionTier = (typeof SubscriptionTier)[keyof typeof SubscriptionTier];
+
+export interface TierLimits {
+  scanCooldownMinutes: number | null; // null = unlimited or one-time only (for free)
+  canViewResourceList: boolean;
+  canViewFindingList: boolean;
+  canViewInfrastructureMap: boolean;
+  allowRetryOnError: boolean;
+  maxAccounts: number; // -1 = unlimited
+  canViewOrgOverview: boolean;
+}
+
+export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
+  free: {
+    scanCooldownMinutes: null, // Only one successful scan ever allowed
+    canViewResourceList: false,
+    canViewFindingList: false,
+    canViewInfrastructureMap: false,
+    allowRetryOnError: true,
+    maxAccounts: 1,
+    canViewOrgOverview: false,
+  },
+  pro: {
+    scanCooldownMinutes: 60, // 1 hour cooldown
+    canViewResourceList: true,
+    canViewFindingList: true,
+    canViewInfrastructureMap: true,
+    allowRetryOnError: true,
+    maxAccounts: 1,
+    canViewOrgOverview: false,
+  },
+  team: {
+    scanCooldownMinutes: null, // Unlimited
+    canViewResourceList: true,
+    canViewFindingList: true,
+    canViewInfrastructureMap: true,
+    allowRetryOnError: true,
+    maxAccounts: -1, // unlimited
+    canViewOrgOverview: true,
+  },
+} as const;
+
+export interface SubscriptionStatus {
+  tier: SubscriptionTier;
+  tierUpgradedAt: string | null;
+  limits: TierLimits;
+  scanStatus: {
+    canScan: boolean;
+    reason?: string;
+    cooldownEndsAt?: string;
+  };
+}
+
 // JWT Payload type
 export interface JWTPayload {
   userId: string;
@@ -413,8 +475,8 @@ export interface GoogleUserInfo {
   rawProfile?: Record<string, unknown>;
 }
 
-// Result from Google OAuth authentication
-export interface GoogleAuthResult {
+// Result from Google OAuth authentication (without 2FA)
+export interface GoogleAuthResultSuccess {
   user: {
     id: string;
     email: string;
@@ -428,7 +490,18 @@ export interface GoogleAuthResult {
   token: string;
   isNewUser: boolean;
   hasOrg: boolean;
+  requires2FA?: false;
 }
+
+// Result when 2FA is required
+export interface GoogleAuthResult2FA {
+  requires2FA: true;
+  challengeToken: string;
+  isNewUser: boolean;
+}
+
+// Combined type
+export type GoogleAuthResult = GoogleAuthResultSuccess | GoogleAuthResult2FA;
 
 // GitHub user info from OAuth
 export interface GitHubUserInfo {
@@ -442,8 +515,8 @@ export interface GitHubUserInfo {
   rawProfile?: Record<string, unknown>;
 }
 
-// Result from GitHub OAuth authentication
-export interface GitHubAuthResult {
+// Result from GitHub OAuth authentication (without 2FA)
+export interface GitHubAuthResultSuccess {
   user: {
     id: string;
     email: string;
@@ -457,4 +530,15 @@ export interface GitHubAuthResult {
   token: string;
   isNewUser: boolean;
   hasOrg: boolean;
+  requires2FA?: false;
 }
+
+// Result when 2FA is required
+export interface GitHubAuthResult2FA {
+  requires2FA: true;
+  challengeToken: string;
+  isNewUser: boolean;
+}
+
+// Combined type
+export type GitHubAuthResult = GitHubAuthResultSuccess | GitHubAuthResult2FA;

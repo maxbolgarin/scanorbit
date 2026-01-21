@@ -10,6 +10,10 @@ export const users = pgTable('users', {
   emailVerified: boolean('email_verified').default(false).notNull(),
   emailVerificationCode: varchar('email_verification_code', { length: 6 }),
   emailVerificationExpiresAt: timestamp('email_verification_expires_at'),
+  // Two-Factor Authentication
+  twoFactorEnabled: boolean('two_factor_enabled').default(false).notNull(),
+  twoFactorSecret: varchar('two_factor_secret', { length: 255 }), // Encrypted TOTP secret
+  twoFactorRecoveryCodes: text('two_factor_recovery_codes'), // JSON array of hashed recovery codes
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -50,9 +54,14 @@ export const orgs = pgTable('orgs', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   logoUrl: varchar('logo_url', { length: 255 }),
+  // Subscription tier
+  tier: varchar('tier', { length: 20 }).default('free').notNull(), // 'free', 'pro', 'team'
+  tierUpgradedAt: timestamp('tier_upgraded_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+  index('orgs_tier_idx').on(table.tier),
+]);
 
 export const orgsRelations = relations(orgs, ({ many }) => ({
   members: many(userOrgMembers),

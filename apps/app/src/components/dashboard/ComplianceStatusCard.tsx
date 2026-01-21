@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileCheck, Award, MapPin, ShieldCheck, AlertTriangle, Clock } from "lucide-react";
+import { FileCheck, Award, MapPin, ShieldCheck, AlertTriangle, Clock, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import type { EnhancedDashboardSummary } from "@/types";
@@ -21,6 +21,11 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="h-6 w-32 bg-muted rounded" />
+              <div className="h-4 w-24 bg-muted rounded" />
+            </div>
+            <div className="h-2.5 w-full bg-muted rounded" />
             <div className="grid grid-cols-3 gap-2">
               <div className="h-20 bg-muted rounded" />
               <div className="h-20 bg-muted rounded" />
@@ -45,7 +50,7 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
   const certStatusConfig = {
     critical: { color: "text-red-500", bgColor: "bg-red-500/10", borderColor: "border-red-500/20" },
     warning: { color: "text-yellow-500", bgColor: "bg-yellow-500/10", borderColor: "border-yellow-500/20" },
-    good: { color: "text-green-500", bgColor: "bg-green-500/10", borderColor: "border-green-500/20" },
+    good: { color: "text-blue-500", bgColor: "bg-blue-500/10", borderColor: "border-blue-500/20" },
   };
 
   // Calculate compliance score (without tagging)
@@ -66,12 +71,56 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
             <FileCheck className="h-4 w-4" />
             Compliance Status
           </div>
-          <span className={cn("text-xs font-medium", statusConfig[overallStatus].color)}>
-            {statusConfig[overallStatus].label}
-          </span>
+          <Link
+            to={`${baseFindingsUrl}?status=open`}
+            className="text-xs text-primary hover:underline flex items-center gap-1"
+          >
+            View all
+            <ExternalLink className="h-3 w-3" />
+          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Header row - matches ResourceHealth */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-2xl font-bold">{totalIssues}</span>
+            <span className="text-sm text-muted-foreground ml-2">
+              {totalIssues === 1 ? "issue" : "issues"}
+            </span>
+          </div>
+          <span className={cn("text-sm font-medium", statusConfig[overallStatus].color)}>
+            {statusConfig[overallStatus].label}
+          </span>
+        </div>
+
+        {/* Distribution bar */}
+        {totalIssues > 0 && (
+          <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
+            {certificateInsights.urgent > 0 && (
+              <div
+                className="h-full bg-amber-500 transition-all"
+                style={{ width: `${(certificateInsights.urgent / totalIssues) * 100}%` }}
+                title={`${certificateInsights.urgent} Certificate issues`}
+              />
+            )}
+            {complianceDetails.residencyViolations > 0 && (
+              <div
+                className="h-full bg-red-500 transition-all"
+                style={{ width: `${(complianceDetails.residencyViolations / totalIssues) * 100}%` }}
+                title={`${complianceDetails.residencyViolations} Residency violations`}
+              />
+            )}
+            {complianceDetails.securityIssues > 0 && (
+              <div
+                className="h-full bg-orange-500 transition-all"
+                style={{ width: `${(complianceDetails.securityIssues / totalIssues) * 100}%` }}
+                title={`${complianceDetails.securityIssues} Security issues`}
+              />
+            )}
+          </div>
+        )}
+
         {/* Compliance metrics grid - 3 items */}
         <div className="grid grid-cols-3 gap-2">
           {/* Certificates */}

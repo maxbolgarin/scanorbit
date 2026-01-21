@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Trash2, HardDrive, Globe, Server, ExternalLink, Database, Cpu, Layers, Key, Clock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { DollarSign, Trash2, HardDrive, Globe, Server, ExternalLink, Database, Cpu, Layers, Key, Clock, Lock, CheckCircle2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthStore } from "@/stores/auth-store";
+import { TIER_LIMITS } from "@/types";
 import type { EnhancedDashboardSummary } from "@/types";
 
 interface CostOptimizationCardProps {
@@ -30,6 +33,11 @@ const categoryIcons: Record<string, typeof Trash2> = {
 };
 
 export function CostOptimizationCard({ summary, isLoading, accountId }: CostOptimizationCardProps) {
+  const navigate = useNavigate();
+  const { org } = useAuthStore();
+  const tier = org?.tier || 'free';
+  const canViewDetails = TIER_LIMITS[tier].canViewFindingList;
+
   if (isLoading || !summary) {
     return (
       <Card className="h-full">
@@ -57,6 +65,51 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
   const hasOptimizations = totalSavings > 0 || orphanedResources > 0;
   const hasCostSavings = totalSavings > 0;
   const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
+
+  // Free tier: show locked state or efficient message
+  if (!canViewDetails) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Cost Optimization
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {hasOptimizations ? (
+            <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
+              <div className="rounded-full bg-amber-500/10 p-3">
+                <Lock className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Cost insights available</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upgrade to Pro to see detailed cost optimization opportunities
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/settings?tab=subscription")}
+              >
+                Upgrade to Pro
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-4 text-center space-y-2">
+              <div className="rounded-full bg-green-500/10 p-3">
+                <CheckCircle2 className="h-6 w-6 text-green-500" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No cost optimization opportunities found. Your infrastructure is efficient!
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   // All cost-related finding types for "View all" link
   const allCostTypes = [

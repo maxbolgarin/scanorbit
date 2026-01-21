@@ -7,8 +7,9 @@ import { ScannerConfigModal } from "@/components/accounts/ScannerConfigModal";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAwsAccounts } from "@/hooks/use-aws-accounts";
+import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
-import { Cloud, Plus } from "lucide-react";
+import { Cloud, Plus, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,10 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function Accounts() {
   const navigate = useNavigate();
   const { accounts, isLoading, deleteAccount } = useAwsAccounts();
+  const { org } = useAuthStore();
+
+  const tier = org?.tier || 'free';
+  const isTeamTier = tier === 'team';
 
   const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [historyAccountId, setHistoryAccountId] = useState<string | null>(null);
@@ -67,11 +73,33 @@ export default function Accounts() {
             Manage your connected AWS accounts
           </p>
         </div>
-        <Button onClick={() => navigate("/onboarding/aws")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Account
-        </Button>
+        {isTeamTier && (
+          <Button onClick={() => navigate("/onboarding/aws")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Account
+          </Button>
+        )}
       </div>
+
+      {/* Info banner for non-team users */}
+      {!isTeamTier && (
+        <Card className="border-dashed bg-muted/30">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <Info className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Want to manage multiple AWS accounts?</p>
+                <p className="text-xs text-muted-foreground">
+                  Upgrade to Team to connect unlimited AWS accounts and view organization-wide insights
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate("/settings?tab=subscription")}>
+              Upgrade to Team
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {accounts.length > 0 ? (
         <AccountsTable

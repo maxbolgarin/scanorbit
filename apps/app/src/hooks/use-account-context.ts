@@ -1,7 +1,9 @@
 import { useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAccountContextStore } from "@/stores/account-context-store";
-import { useAwsStore } from "@/stores/aws-store";
+import { useAwsAccounts } from "@/hooks/use-aws-accounts";
+import { useAuthStore } from "@/stores/auth-store";
+import { TIER_LIMITS } from "@/types";
 
 /**
  * Hook for managing account context across the application.
@@ -12,8 +14,14 @@ export function useAccountContext() {
   const { accountId } = useParams<{ accountId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const accounts = useAwsStore((state) => state.accounts);
+  const { accounts } = useAwsAccounts();
+  const { org } = useAuthStore();
   const { currentAccountId, setCurrentAccount } = useAccountContextStore();
+
+  // Get tier limits
+  const tier = org?.tier || 'free';
+  const tierLimits = TIER_LIMITS[tier];
+  const canViewOrgOverview = tierLimits.canViewOrgOverview;
 
   // Sync URL param to store when route changes
   useEffect(() => {
@@ -23,16 +31,25 @@ export function useAccountContext() {
       if (accountExists) {
         setCurrentAccount(accountId);
       } else if (accounts.length > 0) {
-        // Account doesn't exist, redirect to overview
-        navigate("/overview", { replace: true });
+        // Account doesn't exist, redirect to overview or first account based on tier
+        if (canViewOrgOverview) {
+          navigate("/overview", { replace: true });
+        } else {
+          navigate(`/accounts/${accounts[0].id}`, { replace: true });
+        }
       }
     } else if (!accountId && location.pathname.startsWith("/overview")) {
-      // We're in overview mode, ensure store reflects that
-      if (currentAccountId !== null) {
+      // We're in overview mode
+      if (!canViewOrgOverview && accounts.length > 0) {
+        // Free/Pro tier users can't view org overview, redirect to first account
+        const pagePart = location.pathname.replace("/overview", "");
+        navigate(`/accounts/${accounts[0].id}${pagePart}`, { replace: true });
+      } else if (currentAccountId !== null) {
+        // Team tier - ensure store reflects overview mode
         setCurrentAccount(null);
       }
     }
-  }, [accountId, accounts, currentAccountId, setCurrentAccount, navigate, location.pathname]);
+  }, [accountId, accounts, currentAccountId, setCurrentAccount, navigate, location.pathname, canViewOrgOverview]);
 
   /**
    * Switch to a different account or overview mode.

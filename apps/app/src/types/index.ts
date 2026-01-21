@@ -4,6 +4,7 @@ export interface User {
   email: string;
   fullName: string | null;
   emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -13,8 +14,67 @@ export interface Org {
   name: string;
   slug: string;
   logoUrl: string | null;
+  tier: SubscriptionTier;
+  tierUpgradedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// =============================================================================
+// Subscription Tiers
+// =============================================================================
+
+export type SubscriptionTier = 'free' | 'pro' | 'team';
+
+export interface TierLimits {
+  scanCooldownMinutes: number | null;
+  canViewResourceList: boolean;
+  canViewFindingList: boolean;
+  canViewInfrastructureMap: boolean;
+  allowRetryOnError: boolean;
+  maxAccounts: number; // -1 = unlimited
+  canViewOrgOverview: boolean;
+}
+
+export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
+  free: {
+    scanCooldownMinutes: null,
+    canViewResourceList: false,
+    canViewFindingList: false,
+    canViewInfrastructureMap: false,
+    allowRetryOnError: true,
+    maxAccounts: 1,
+    canViewOrgOverview: false,
+  },
+  pro: {
+    scanCooldownMinutes: 60,
+    canViewResourceList: true,
+    canViewFindingList: true,
+    canViewInfrastructureMap: true,
+    allowRetryOnError: true,
+    maxAccounts: 1,
+    canViewOrgOverview: false,
+  },
+  team: {
+    scanCooldownMinutes: null,
+    canViewResourceList: true,
+    canViewFindingList: true,
+    canViewInfrastructureMap: true,
+    allowRetryOnError: true,
+    maxAccounts: -1, // unlimited
+    canViewOrgOverview: true,
+  },
+};
+
+export interface SubscriptionStatus {
+  tier: SubscriptionTier;
+  tierUpgradedAt: string | null;
+  limits: TierLimits;
+  scanStatus: {
+    canScan: boolean;
+    reason?: string;
+    cooldownEndsAt?: string;
+  };
 }
 
 // Organization viewing settings (global filters)
@@ -641,11 +701,21 @@ export interface SignupCredentials {
   fullName?: string;
 }
 
-export interface LoginResponse {
+// Login response without 2FA
+export interface LoginResponseSuccess {
   user: User;
   orgs: Org[];
   token: string;
+  requires2FA?: false;
 }
+
+// Login response when 2FA is required
+export interface LoginResponse2FA {
+  requires2FA: true;
+  challengeToken: string;
+}
+
+export type LoginResponse = LoginResponseSuccess | LoginResponse2FA;
 
 export interface SignupResponse {
   user: User;

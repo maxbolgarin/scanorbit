@@ -11,6 +11,7 @@ import {
   Settings,
   Network,
   BookOpen,
+  User,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -65,6 +66,11 @@ export function Sidebar() {
       label: "Docs",
       href: "/docs",
       icon: BookOpen,
+    },
+    {
+      label: "Profile",
+      href: "/profile",
+      icon: User,
     },
     {
       label: "Settings",

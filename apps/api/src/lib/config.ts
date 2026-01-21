@@ -34,6 +34,13 @@ export const config = {
   ),
   jwtExpiry: process.env.JWT_EXPIRY || '7d',
 
+  // Two-Factor Authentication - MUST be set in production (32 bytes hex for AES-256)
+  totpEncryptionKey: process.env.TOTP_ENCRYPTION_KEY || (
+    process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('TOTP_ENCRYPTION_KEY environment variable is required in production'); })()
+      : '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' // 64 hex chars = 32 bytes
+  ),
+
   // Google OAuth
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',

@@ -1,7 +1,7 @@
 ---
 title: Security Policy
 description: ScanOrbit security practices, infrastructure protection, and data security measures.
-lastUpdated: January 7, 2026
+lastUpdated: January 21, 2026
 ---
 
 At ScanOrbit, security is not a feature—it's foundational. This page explains how we secure your data, protect your AWS infrastructure, and maintain the integrity of our service.
@@ -35,9 +35,9 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 
 ### 2.1 Cloud Infrastructure
 
-**ScanOrbit is hosted on AWS:**
-- **Primary Region:** eu-central-1 (Frankfurt, Germany)
-- **Backup Region:** eu-west-1 (Amsterdam, Netherlands)
+**ScanOrbit is hosted on Scaleway Cloud:**
+- **Primary Region:** nl-ams (Amsterdam, Netherlands)
+- **Backup Storage:** Scaleway Object Storage (nl-ams, Amsterdam)
 - **Data Residency:** EU-only (GDPR compliant)
 - **No US Data Centers:** Data never leaves EU
 
@@ -52,16 +52,14 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 **Ingress (Inbound):**
 - HTTPS only (TLS 1.3)
 - HTTP automatically redirects to HTTPS
-- DDoS protection (AWS Shield)
-- WAF (Web Application Firewall) rules
+- DDoS protection enabled
 - Rate limiting on all endpoints
 - API authentication required
 
 **Egress (Outbound):**
-- API calls to AWS only (encrypted)
+- API calls to AWS only (for scanning your infrastructure)
 - HTTPS/TLS 1.3 for all connections
 - No data exfiltration possible
-- AWS VPC endpoints for private connectivity
 - Network segmentation between services
 
 ### 2.3 Compute Security
@@ -82,9 +80,9 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 ### 2.4 High Availability & Disaster Recovery
 
 **Redundancy:**
-- Multi-AZ deployment (Frankfurt + Amsterdam)
-- Database replication across regions
-- Automatic failover (RTO: <5 minutes)
+- EU-based deployment (Amsterdam, Netherlands)
+- Database replication and backups
+- Automatic failover capabilities
 - Load balancing across instances
 
 **Backups:**
@@ -183,21 +181,27 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 ### 4.2 Authentication & Authorization
 
 **User Authentication:**
-- Password hashing: bcrypt (12 rounds, salted)
-- Minimum password length: 12 characters
+- Password hashing: bcrypt (10 rounds, salted)
+- Minimum password length: 8 characters
 - Password strength requirements
-- No password reset links (MFA required instead)
-- Session tokens: JWT with 1-hour expiry
+- Password reset via secure email tokens (1-hour expiry)
+- Session tokens: JWT with 7-day expiry
 - Refresh tokens: 7-day expiry, rotated on use
+- OAuth integration: Google and GitHub sign-in supported
 
-**Multi-Factor Authentication (Future):**
-- TOTP (Google Authenticator, Authy) coming 2026
+**Multi-Factor Authentication:**
+- TOTP (Google Authenticator, Authy) - Implemented
+  - QR code setup flow
+  - 6-digit verification codes
+  - 10 recovery codes (single-use, securely hashed)
+  - TOTP secrets encrypted with AES-256-GCM
 - Hardware security keys coming 2027
 
 **Authorization:**
 - Role-based access control (RBAC)
 - Principle of least privilege
-- Per-account isolation
+- Per-organization isolation
+- Subscription tier-based feature access
 - API scopes and permissions
 
 ### 4.3 API Security
@@ -242,16 +246,44 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ScanOrbitReadAccess",
       "Effect": "Allow",
       "Action": [
         "ec2:Describe*",
         "rds:Describe*",
+        "s3:ListAllMyBuckets",
         "s3:GetBucketLocation",
         "s3:GetBucketTagging",
-        "s3:ListAllMyBuckets",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetPublicAccessBlock",
         "elasticloadbalancing:Describe*",
+        "acm:List*",
         "acm:Describe*",
-        "acm:List*"
+        "lambda:ListFunctions",
+        "lambda:GetFunction",
+        "lambda:ListTags",
+        "kms:ListKeys",
+        "kms:DescribeKey",
+        "kms:ListResourceTags",
+        "kms:GetKeyRotationStatus",
+        "secretsmanager:ListSecrets",
+        "secretsmanager:DescribeSecret",
+        "logs:DescribeLogGroups",
+        "logs:ListTagsForResource",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:ListTagsForResource",
+        "iam:ListUsers",
+        "iam:ListUserTags",
+        "iam:ListMFADevices",
+        "iam:ListRoles",
+        "iam:ListRoleTags",
+        "iam:GetRole",
+        "iam:ListAccessKeys",
+        "iam:GetAccessKeyLastUsed",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy"
       ],
       "Resource": "*"
     }
@@ -260,18 +292,23 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 ```
 
 **What This Allows:**
-- View EC2 instances, security groups, images
-- View EBS volumes, snapshots, configurations
-- List S3 buckets and metadata (NOT contents)
-- View RDS instances (metadata only, NOT data)
-- View load balancers and configurations
+- View EC2 instances, security groups, images, volumes, snapshots
+- View RDS instances and snapshots (metadata only, NOT data)
+- List S3 buckets and configurations (NOT object contents)
+- View load balancers (ALB/NLB) and target groups
 - View ACM certificates (metadata only)
+- View Lambda functions and configurations
+- View CloudWatch alarms and log groups
+- View IAM users, roles, and access key metadata (NOT credentials)
+- View KMS keys and key rotation status
+- View Secrets Manager secrets (metadata only, NOT secret values)
 
 **What This Prevents:**
 - Terminate or stop instances
 - Delete or modify volumes/snapshots
 - Delete or access S3 objects
 - Read RDS database contents
+- Read secret values from Secrets Manager
 - Create, modify, or delete security groups
 - Any write operations whatsoever
 
@@ -493,10 +530,12 @@ If a data breach occurs:
 - Incident response process
 
 **Approved Third Parties:**
-- AWS (infrastructure)
+- Scaleway Cloud (infrastructure hosting)
+- Scaleway Object Storage (encrypted backups)
 - Let's Encrypt (SSL certificates)
-- HashiCorp Vault (secrets management)
 - GitHub (code repository)
+- Google (OAuth authentication)
+- GitHub (OAuth authentication)
 - Future: SendGrid, Stripe (when added)
 
 ### 9.2 Data Processor Agreements
@@ -544,8 +583,8 @@ If a data breach occurs:
 - Compliance with NIS Directive (future)
 
 **Verification:**
-- AWS Frankfurt region (primary)
-- AWS Amsterdam region (backup)
+- Scaleway Amsterdam region (primary)
+- Scaleway Object Storage Amsterdam (backups)
 - No US or non-EU regions used
 - Regular audits to verify
 
@@ -763,5 +802,5 @@ We take security seriously and are happy to discuss:
 
 ---
 
-**Version:** 1.0
-**Effective Date:** January 7, 2026
+**Version:** 1.1
+**Effective Date:** January 21, 2026

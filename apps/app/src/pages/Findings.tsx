@@ -6,6 +6,7 @@ import { FindingsTableAdvanced } from "@/components/findings/FindingsTableAdvanc
 import { FindingStatsCards } from "@/components/findings/FindingStatsCards";
 import { FindingDetailModal } from "@/components/findings/FindingDetailModal";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PaywallBlocker } from "@/components/shared/PaywallBlocker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,21 +15,27 @@ import {
   useFilteredFindingStats,
 } from "@/hooks/use-findings";
 import { useAwsAccounts, useRecentScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
-import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES } from "@/types";
+import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES, TIER_LIMITS } from "@/types";
 import { AlertTriangle, RefreshCw, Scan, Play, ArrowRight, Server } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Findings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { org } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useLocalStorage<Filters>("findings:filters", {});
   const [searchQuery, setSearchQuery] = useLocalStorage<string>("findings:search", "");
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
 
-  const { data: findingsResponse, isLoading, isFetching } = useFilteredFindings(filters);
+  // Check tier-based access
+  const tier = org?.tier || 'free';
+  const canViewFindingList = TIER_LIMITS[tier].canViewFindingList;
+
+  const { data: findingsResponse, isLoading, isFetching } = useFilteredFindings(filters, { enabled: canViewFindingList });
   const allFindings = findingsResponse?.data || [];
   const { data: stats, isLoading: statsLoading, unfilteredData: unfilteredStats } = useFilteredFindingStats();
   const updateStatus = useUpdateFindingStatus();
@@ -245,6 +252,11 @@ export default function Findings() {
         />
       )}
 
+      {/* Paywall for free tier */}
+      {hasCompletedScan && !canViewFindingList && (
+        <PaywallBlocker feature="findings" />
+      )}
+
       {/* No accounts state */}
       {!accountsLoading && !hasAccounts && (
         <Card className="border-dashed">
@@ -324,8 +336,8 @@ export default function Findings() {
         </Card>
       )}
 
-      {/* Main content - only show after first scan */}
-      {hasCompletedScan && (hasAnyFindings || isLoading) && (
+      {/* Main content - only show after first scan and with permission */}
+      {hasCompletedScan && canViewFindingList && (hasAnyFindings || isLoading) && (
         <div className="space-y-4">
           {/* Filters */}
           <FindingFiltersAdvanced
@@ -347,7 +359,7 @@ export default function Findings() {
       )}
 
       {/* No findings after scan completed */}
-      {hasCompletedScan && !hasAnyFindings && !isLoading && (
+      {hasCompletedScan && canViewFindingList && !hasAnyFindings && !isLoading && (
         <EmptyState
           icon={AlertTriangle}
           title="No findings"

@@ -1,19 +1,23 @@
-import { eq, and, desc, inArray, not } from 'drizzle-orm';
+import { eq, and, desc, inArray, not, gte } from 'drizzle-orm';
 import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
-import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
-import { awsAccounts, scans, jobs, orgSettings } from '../db/schema.js';
+import { HTTP400Error, HTTP403Error, HTTP404Error, HTTP429Error } from '../lib/errors.js';
+import { awsAccounts, scans, jobs, orgSettings, orgs } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
+import { logger } from '../lib/logger.js';
+import { getOrgTier } from './orgService.js';
 import {
   ScanStatus,
   ACTIVE_SCAN_STATUSES,
   TERMINAL_SCAN_STATUSES,
   ALL_SCANNER_TYPES,
   ANALYZER_SCANNER_DEPS,
+  TIER_LIMITS,
   type ScannerType,
+  type SubscriptionTier,
 } from '../types/index.js';
 
 interface CreateAccountData {
@@ -262,6 +266,52 @@ export const awsAccountService = {
   async enqueueScan(orgId: string, accountId: string): Promise<Scan> {
     // Verify account exists and belongs to org
     const account = await this.getAccount(orgId, accountId);
+
+    // Get org tier (safely handles missing column)
+    const tier = await getOrgTier(orgId);
+
+    // Tier-based scan checks
+    if (tier === 'free') {
+      // Free tier: Only one successful scan ever allowed (unlimited retries until success)
+      const [successfulScan] = await db
+        .select({ id: scans.id })
+        .from(scans)
+        .where(
+          and(
+            eq(scans.orgId, orgId),
+            eq(scans.status, ScanStatus.COMPLETE)
+          )
+        )
+        .limit(1);
+
+      if (successfulScan) {
+        throw new HTTP403Error('Free tier allows only one successful scan. Upgrade to Pro for more.');
+      }
+    } else if (tier === 'pro') {
+      // Pro tier: 1 hour cooldown after successful scan
+      const cooldownMinutes = TIER_LIMITS.pro.scanCooldownMinutes!;
+      const cooldownTime = new Date(Date.now() - cooldownMinutes * 60 * 1000);
+
+      const [recentScan] = await db
+        .select({ id: scans.id, completedAt: scans.completedAt })
+        .from(scans)
+        .where(
+          and(
+            eq(scans.orgId, orgId),
+            eq(scans.status, ScanStatus.COMPLETE),
+            gte(scans.completedAt, cooldownTime)
+          )
+        )
+        .orderBy(desc(scans.completedAt))
+        .limit(1);
+
+      if (recentScan && recentScan.completedAt) {
+        const cooldownEndsAt = new Date(recentScan.completedAt.getTime() + cooldownMinutes * 60 * 1000);
+        const waitMinutes = Math.ceil((cooldownEndsAt.getTime() - Date.now()) / 60000);
+        throw new HTTP429Error(`Please wait ${waitMinutes} minutes before scanning again. Upgrade to Team for unlimited scans.`);
+      }
+    }
+    // Team tier: No additional checks (existing concurrency check remains)
 
     // Check if there's already an active scan for this account
     const [activeScan] = await db

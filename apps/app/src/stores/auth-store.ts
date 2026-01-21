@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { User, Org } from "@/types";
+import type { User, Org, LoginResponseSuccess } from "@/types";
 import * as api from "@/lib/api";
 
 interface AuthState {
@@ -12,17 +12,28 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
 
+  // 2FA Challenge State
+  requires2FA: boolean;
+  challengeToken: string | null;
+
   // Actions
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, fullName?: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
   setOrg: (org: Org) => void;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
   updateUser: (user: User) => void;
   clearError: () => void;
+
+  // 2FA Actions
+  set2FAChallenge: (challengeToken: string) => void;
+  verify2FA: (code: string) => Promise<void>;
+  verify2FARecovery: (recoveryCode: string) => Promise<void>;
+  clear2FAChallenge: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -36,19 +47,37 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
 
+      // 2FA Challenge State
+      requires2FA: false,
+      challengeToken: null,
+
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
           const response = await api.login({ email, password });
-          // Pick first org as active org
-          const activeOrg = response.orgs.length > 0 ? response.orgs[0] : null;
+
+          // Check if 2FA is required
+          if (response.requires2FA) {
+            set({
+              requires2FA: true,
+              challengeToken: response.challengeToken,
+              isLoading: false,
+            });
+            return;
+          }
+
+          // Normal login (no 2FA)
+          const successResponse = response as LoginResponseSuccess;
+          const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
           set({
-            user: response.user,
+            user: successResponse.user,
             org: activeOrg,
-            orgs: response.orgs,
+            orgs: successResponse.orgs,
             isAuthenticated: true,
             hasOrg: !!activeOrg,
             isLoading: false,
+            requires2FA: false,
+            challengeToken: null,
           });
         } catch (err) {
           console.error("Auth store login error:", err);
@@ -98,6 +127,8 @@ export const useAuthStore = create<AuthState>()(
             hasOrg: false,
             isLoading: false,
             error: null,
+            requires2FA: false,
+            challengeToken: null,
           });
         }
       },
@@ -127,6 +158,24 @@ export const useAuthStore = create<AuthState>()(
             hasOrg: false,
             isLoading: false,
           });
+        }
+      },
+
+      refreshAuth: async () => {
+        try {
+          const response = await api.getMe();
+          const currentOrg = get().org;
+          // Keep current org if still in orgs list, otherwise pick first
+          const activeOrg = response.orgs.find(o => o.id === currentOrg?.id)
+            || (response.orgs.length > 0 ? response.orgs[0] : null);
+          set({
+            user: response.user,
+            org: activeOrg,
+            orgs: response.orgs,
+            hasOrg: !!activeOrg,
+          });
+        } catch {
+          // Silent fail - don't update state on error
         }
       },
 
@@ -173,6 +222,96 @@ export const useAuthStore = create<AuthState>()(
 
       clearError: () => {
         set({ error: null });
+      },
+
+      // 2FA Actions
+      set2FAChallenge: (challengeToken: string) => {
+        set({
+          requires2FA: true,
+          challengeToken,
+        });
+      },
+
+      verify2FA: async (code: string) => {
+        const { challengeToken } = get();
+        if (!challengeToken) {
+          throw new Error("No 2FA challenge in progress");
+        }
+
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.verify2FAChallenge(challengeToken, code);
+
+          // Should always be a success response at this point
+          if (response.requires2FA) {
+            throw new Error("Unexpected 2FA challenge response");
+          }
+
+          const successResponse = response as LoginResponseSuccess;
+          const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
+          set({
+            user: successResponse.user,
+            org: activeOrg,
+            orgs: successResponse.orgs,
+            isAuthenticated: true,
+            hasOrg: !!activeOrg,
+            isLoading: false,
+            requires2FA: false,
+            challengeToken: null,
+          });
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : "Verification failed";
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw err;
+        }
+      },
+
+      verify2FARecovery: async (recoveryCode: string) => {
+        const { challengeToken } = get();
+        if (!challengeToken) {
+          throw new Error("No 2FA challenge in progress");
+        }
+
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.verify2FARecovery(challengeToken, recoveryCode);
+
+          // Should always be a success response at this point
+          if (response.requires2FA) {
+            throw new Error("Unexpected 2FA challenge response");
+          }
+
+          const successResponse = response as LoginResponseSuccess;
+          const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
+          set({
+            user: successResponse.user,
+            org: activeOrg,
+            orgs: successResponse.orgs,
+            isAuthenticated: true,
+            hasOrg: !!activeOrg,
+            isLoading: false,
+            requires2FA: false,
+            challengeToken: null,
+          });
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : "Recovery verification failed";
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw err;
+        }
+      },
+
+      clear2FAChallenge: () => {
+        set({
+          requires2FA: false,
+          challengeToken: null,
+          error: null,
+        });
       },
     }),
     {

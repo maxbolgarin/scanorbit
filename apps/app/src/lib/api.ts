@@ -28,6 +28,8 @@ import type {
   EnhancedDashboardSummary,
   FindingScanHistory,
   FindingTimelineEntry,
+  SubscriptionTier,
+  SubscriptionStatus,
 } from "@/types";
 
 function normalizeApiUrl(value: unknown): string | undefined {
@@ -141,6 +143,28 @@ export async function getMe(): Promise<MeResponse> {
 export async function switchOrg(orgId: string): Promise<{ token: string }> {
   try {
     const { data } = await api.post<{ token: string }>("/auth/switch-org", { orgId });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Password Reset API
+// ============================================
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  try {
+    const { data } = await api.post<{ message: string }>("/auth/forgot-password", { email });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function resetPassword(token: string, password: string): Promise<{ message: string }> {
+  try {
+    const { data } = await api.post<{ message: string }>("/auth/reset-password", { token, password });
     return data;
   } catch (error) {
     handleApiError(error);
@@ -824,13 +848,22 @@ export async function getEnhancedDashboardSummary(filters?: {
 }): Promise<EnhancedDashboardSummary> {
   try {
     // Fetch all required data
+    // Use Promise.allSettled for findings to handle tier restrictions gracefully
     console.log("[getEnhancedDashboardSummary] Fetching data...");
-    const [resourceStats, findingStats, openFindingsResult] = await Promise.all([
+    const [resourceStats, findingStats, openFindingsSettled] = await Promise.all([
       getResourceStats(filters),
       getFindingStats(filters),
-      getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId }),
+      // Wrap findings fetch to handle 403 errors for free tier users
+      getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId })
+        .catch((error) => {
+          // If findings list is blocked (403), return empty result
+          // This allows dashboard to still load with stats-only data
+          console.log("[getEnhancedDashboardSummary] Findings list not available (likely tier restriction):", error?.message);
+          return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
+        }),
     ]);
 
+    const openFindingsResult = openFindingsSettled;
     const hiddenTypes = new Set(filters?.hiddenFindingTypes || []);
 
     // Filter open findings to exclude hidden types
@@ -995,6 +1028,114 @@ export async function updateProfile(updates: { fullName?: string }): Promise<Use
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   try {
     await api.post("/auth/change-password", { currentPassword, newPassword });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Two-Factor Authentication API
+// ============================================
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  recoveryCodesRemaining: number;
+}
+
+export interface TwoFactorSetupInit {
+  qrCodeUri: string;
+  secret: string;
+}
+
+export interface TwoFactorSetupVerify {
+  recoveryCodes: string[];
+}
+
+export async function get2FAStatus(): Promise<TwoFactorStatus> {
+  try {
+    const { data } = await api.get<TwoFactorStatus>("/auth/2fa/status");
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function init2FASetup(): Promise<TwoFactorSetupInit> {
+  try {
+    const { data } = await api.post<TwoFactorSetupInit>("/auth/2fa/setup/init");
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verify2FASetup(code: string): Promise<TwoFactorSetupVerify> {
+  try {
+    const { data } = await api.post<TwoFactorSetupVerify>("/auth/2fa/setup/verify", { code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function disable2FA(password: string, code: string): Promise<void> {
+  try {
+    await api.post("/auth/2fa/disable", { password, code });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verify2FAChallenge(challengeToken: string, code: string): Promise<LoginResponse> {
+  try {
+    const { data } = await api.post<LoginResponse>("/auth/2fa/verify", { challengeToken, code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verify2FARecovery(challengeToken: string, recoveryCode: string): Promise<LoginResponse> {
+  try {
+    const { data } = await api.post<LoginResponse>("/auth/2fa/verify-recovery", { challengeToken, recoveryCode });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function regenerate2FARecoveryCodes(password: string, code: string): Promise<{ recoveryCodes: string[] }> {
+  try {
+    const { data } = await api.post<{ recoveryCodes: string[] }>("/auth/2fa/recovery-codes/regenerate", { password, code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Subscription API
+// ============================================
+
+export async function getSubscriptionStatus(orgId: string): Promise<SubscriptionStatus> {
+  try {
+    const { data } = await api.get<{ data: SubscriptionStatus }>(`/orgs/${orgId}/subscription`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function upgradeSubscription(
+  orgId: string,
+  targetTier: SubscriptionTier
+): Promise<{ tier: SubscriptionTier }> {
+  try {
+    const { data } = await api.post<{ data: { tier: SubscriptionTier } }>(
+      `/orgs/${orgId}/subscription/upgrade`,
+      { targetTier }
+    );
+    return data.data;
   } catch (error) {
     handleApiError(error);
   }

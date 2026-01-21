@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +22,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
-  const { login, isLoading, error: storeError, clearError } = useAuthStore();
+  const { login, isLoading, error: storeError, clearError, requires2FA } = useAuthStore();
   const [localError, setLocalError] = useState<string | null>(null);
 
   // Use local error or store error (store error persists across re-renders)
@@ -40,7 +41,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     clearError();
     try {
       await login(data.email, data.password);
-      onSuccess?.();
+      // If 2FA is required, don't call onSuccess - the Login page will handle showing the 2FA challenge
+      // onSuccess is only called when login is fully complete (no 2FA or 2FA verified)
+      // Check requires2FA state from store after login
+      const store = useAuthStore.getState();
+      if (!store.requires2FA) {
+        onSuccess?.();
+      }
     } catch (err) {
       console.error("Login error:", err);
       const message = err instanceof Error ? err.message : "Login failed";
@@ -50,7 +57,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && (
+      {error && !requires2FA && (
         <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
@@ -72,7 +79,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            to="/forgot-password"
+            className="text-sm text-primary hover:underline"
+            tabIndex={-1}
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"

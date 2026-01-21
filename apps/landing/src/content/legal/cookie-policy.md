@@ -1,7 +1,7 @@
 ---
 title: Cookie Policy
 description: ScanOrbit cookie policy. Learn how we use cookies on our website and service.
-lastUpdated: January 7, 2026
+lastUpdated: January 21, 2026
 ---
 
 This Cookie Policy explains how ScanOrbit uses cookies and similar technologies on our website and service. By using ScanOrbit, you consent to our use of cookies as described in this policy.
@@ -31,11 +31,13 @@ ScanOrbit uses **only essential cookies** necessary for the service to function.
 | `session_token` | Keep you logged into your account | 24 hours | Session | Yes |
 | `refresh_token` | Refresh your authentication session | 7 days | Persistent | Yes |
 | `csrf_token` | Prevent cross-site request forgery attacks | Session | Session | Yes |
+| `2fa_challenge` | Temporary 2FA challenge token during login | 10 minutes | Session | Conditional |
 
 **What they do:**
 - Allow you to log in and stay logged in
 - Protect against unauthorized requests
 - Maintain your authentication state
+- Enable two-factor authentication verification (if 2FA is enabled)
 
 **Technical details:**
 - Stored securely with `httpOnly` flag (inaccessible to JavaScript)
@@ -191,6 +193,7 @@ When we add services in the future (such as email providers or payment processor
 | **session_token** | 24 hours | After 24 hours or logout | Session end or logout |
 | **refresh_token** | 7 days | After 7 days | Session end or logout |
 | **csrf_token** | Session | Browser close | Close browser |
+| **2fa_challenge** | 10 minutes | After verification or timeout | After 2FA verification or 10 minutes |
 | **theme_preference** | 1 year | After 1 year | Manual delete or browser clear |
 | **language_preference** | 1 year | After 1 year | Manual delete or browser clear |
 
@@ -292,5 +295,5 @@ Email: dpa@scanorbit.cloud
 
 ---
 
-**Version:** 1.0
-**Effective Date:** January 7, 2026
+**Version:** 1.1
+**Effective Date:** January 21, 2026

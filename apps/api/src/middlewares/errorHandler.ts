@@ -89,10 +89,41 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
     );
   }
 
+  // Check if it's a database error (PostgreSQL errors have specific properties)
+  const dbError = err as Error & { code?: string; detail?: string; hint?: string; position?: string };
+  const isDatabaseError = dbError.code !== undefined || err.message.includes('Failed query') || err.message.includes('column') || err.message.includes('relation');
+
+  if (isDatabaseError) {
+    errorsTotal.inc({ type: 'DatabaseError', route });
+    
+    // Log database errors with full details for debugging
+    logger.error('Database error', err, {
+      method: c.req.method,
+      path: c.req.path,
+      dbCode: dbError.code,
+      detail: dbError.detail,
+      hint: dbError.hint,
+      position: dbError.position,
+      message: err.message,
+      stack: err.stack,
+    });
+
+    // Return generic error (don't expose database structure)
+    return c.json(
+      {
+        error: 'DatabaseError',
+        message: 'A database error occurred. Please try again later.',
+      },
+      500
+    );
+  }
+
   // Log unexpected errors with structured logging (redacts sensitive data)
   logger.error('Unhandled error', err, {
     method: c.req.method,
     path: c.req.path,
+    message: err.message,
+    stack: err.stack,
   });
   errorsTotal.inc({ type: 'InternalServerError', route });
 

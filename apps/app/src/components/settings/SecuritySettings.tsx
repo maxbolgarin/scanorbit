@@ -1,3 +1,7 @@
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Card,
   CardContent,
@@ -5,17 +9,134 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { useAwsAccounts } from "@/hooks/use-aws-accounts";
-import { AccountStatusBadge } from "@/components/shared/StatusBadge";
-import { Shield, Cloud, Smartphone, Key } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { TwoFactorSetup } from "./TwoFactorSetup";
+import { Shield, Smartphone, Key, AlertCircle, CheckCircle2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import * as api from "@/lib/api";
+
+const disableSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+  code: z.string().length(6, "Code must be 6 digits").regex(/^\d+$/, "Code must contain only numbers"),
+});
+
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(8, "Password must be at least 8 characters"),
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+type DisableFormData = z.infer<typeof disableSchema>;
+type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export function SecuritySettings() {
-  const { accounts } = useAwsAccounts();
+  const [twoFactorStatus, setTwoFactorStatus] = useState<api.TwoFactorStatus | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+  const [isDisabling, setIsDisabling] = useState(false);
+  const [disableError, setDisableError] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset: resetDisableForm,
+  } = useForm<DisableFormData>({
+    resolver: zodResolver(disableSchema),
+  });
+
+  const passwordForm = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordSchema),
+  });
+
+  const fetchStatus = async () => {
+    try {
+      const status = await api.get2FAStatus();
+      setTwoFactorStatus(status);
+    } catch (error) {
+      console.error("Failed to fetch 2FA status:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const handleSetupSuccess = () => {
+    fetchStatus();
+  };
+
+  const handleDisable = async (data: DisableFormData) => {
+    setIsDisabling(true);
+    setDisableError(null);
+    try {
+      await api.disable2FA(data.password, data.code);
+      setTwoFactorStatus({ enabled: false, recoveryCodesRemaining: 0 });
+      setShowDisableDialog(false);
+      resetDisableForm();
+      toast({
+        title: "2FA Disabled",
+        description: "Two-factor authentication has been disabled for your account.",
+        type: "success",
+      });
+    } catch (err) {
+      setDisableError(err instanceof Error ? err.message : "Failed to disable 2FA");
+    } finally {
+      setIsDisabling(false);
+    }
+  };
+
+  const closeDisableDialog = () => {
+    setShowDisableDialog(false);
+    setDisableError(null);
+    resetDisableForm();
+  };
+
+  const handlePasswordSubmit = async (data: PasswordFormData) => {
+    setIsUpdatingPassword(true);
+    try {
+      await api.changePassword(data.currentPassword, data.newPassword);
+      toast({
+        title: "Password changed",
+        description: "Your password has been changed successfully.",
+        type: "success",
+      });
+      passwordForm.reset();
+    } catch (err) {
+      toast({
+        title: "Update failed",
+        description: err instanceof Error ? err.message : "Failed to change password",
+        type: "error",
+      });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* 2FA - Future feature */}
+      {/* 2FA Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -27,53 +148,115 @@ export function SecuritySettings() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">2FA Status</p>
-              <p className="text-sm text-muted-foreground">
-                Protect your account with two-factor authentication
-              </p>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <LoadingSpinner />
             </div>
-            <Badge variant="secondary">Coming Soon</Badge>
-          </div>
+          ) : twoFactorStatus?.enabled ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="font-medium">2FA is enabled</p>
+                    <p className="text-sm text-muted-foreground">
+                      {twoFactorStatus.recoveryCodesRemaining} recovery codes remaining
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="success">Active</Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDisableDialog(true)}
+                >
+                  Disable 2FA
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="font-medium">2FA Status</p>
+                <p className="text-sm text-muted-foreground">
+                  Protect your account with two-factor authentication
+                </p>
+              </div>
+              <Button onClick={() => setShowSetupDialog(true)}>
+                Enable 2FA
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Connected AWS Accounts */}
+      {/* Change Password */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Cloud className="h-5 w-5" />
-            Connected AWS Accounts
+            <Key className="h-5 w-5" />
+            Change Password
           </CardTitle>
-          <CardDescription>
-            IAM roles with access to your AWS infrastructure
-          </CardDescription>
+          <CardDescription>Update your password</CardDescription>
         </CardHeader>
         <CardContent>
-          {accounts.length > 0 ? (
-            <div className="space-y-3">
-              {accounts.map((account) => (
-                <div
-                  key={account.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium">{account.name}</p>
-                    <p className="text-sm text-muted-foreground font-mono">
-                      {account.awsAccountId}
-                    </p>
-                    <p className="text-xs text-muted-foreground break-all">
-                      {account.roleArn}
-                    </p>
-                  </div>
-                  <AccountStatusBadge status={account.status} />
-                </div>
-              ))}
+          <form
+            onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                {...passwordForm.register("currentPassword")}
+                disabled={isUpdatingPassword}
+              />
+              {passwordForm.formState.errors.currentPassword && (
+                <p className="text-sm text-red-500">
+                  {passwordForm.formState.errors.currentPassword.message}
+                </p>
+              )}
             </div>
-          ) : (
-            <p className="text-muted-foreground">No AWS accounts connected</p>
-          )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  {...passwordForm.register("newPassword")}
+                  disabled={isUpdatingPassword}
+                />
+                {passwordForm.formState.errors.newPassword && (
+                  <p className="text-sm text-red-500">
+                    {passwordForm.formState.errors.newPassword.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  {...passwordForm.register("confirmPassword")}
+                  disabled={isUpdatingPassword}
+                />
+                {passwordForm.formState.errors.confirmPassword && (
+                  <p className="text-sm text-red-500">
+                    {passwordForm.formState.errors.confirmPassword.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button type="submit" disabled={isUpdatingPassword}>
+              {isUpdatingPassword && (
+                <LoadingSpinner size="sm" className="mr-2" />
+              )}
+              Change Password
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
@@ -100,20 +283,92 @@ export function SecuritySettings() {
                 <Smartphone className="h-4 w-4 text-muted-foreground" />
                 <span>Two-factor authentication</span>
               </div>
-              <Badge variant="secondary">Not enabled</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Cloud className="h-4 w-4 text-muted-foreground" />
-                <span>AWS connections</span>
-              </div>
-              <Badge variant="secondary">
-                {accounts.length} account{accounts.length !== 1 ? "s" : ""}
-              </Badge>
+              {isLoading ? (
+                <LoadingSpinner size="sm" />
+              ) : twoFactorStatus?.enabled ? (
+                <Badge variant="success">Enabled</Badge>
+              ) : (
+                <Badge variant="secondary">Not enabled</Badge>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* 2FA Setup Dialog */}
+      <TwoFactorSetup
+        open={showSetupDialog}
+        onOpenChange={setShowSetupDialog}
+        onSuccess={handleSetupSuccess}
+      />
+
+      {/* Disable 2FA Dialog */}
+      <Dialog open={showDisableDialog} onOpenChange={closeDisableDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Enter your password and a verification code from your authenticator app to disable 2FA.
+            </DialogDescription>
+          </DialogHeader>
+
+          {disableError && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              {disableError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(handleDisable)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="disable-password">Password</Label>
+              <Input
+                id="disable-password"
+                type="password"
+                placeholder="Enter your password"
+                {...register("password")}
+                disabled={isDisabling}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="disable-code">Verification Code</Label>
+              <Input
+                id="disable-code"
+                placeholder="000000"
+                maxLength={6}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                {...register("code")}
+                disabled={isDisabling}
+                className="text-center text-lg tracking-widest font-mono"
+              />
+              {errors.code && (
+                <p className="text-sm text-destructive">{errors.code.message}</p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeDisableDialog}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={isDisabling}>
+                {isDisabling ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Disabling...
+                  </>
+                ) : (
+                  "Disable 2FA"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

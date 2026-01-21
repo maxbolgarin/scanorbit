@@ -46,28 +46,7 @@ export default function Dashboard() {
 
   // Auto-refresh data when scans complete
   const { activeScans } = useScanCompletionRefresh();
-  const [rescanningAccount, setRescanningAccount] = useState<string | null>(null);
   const [showScanAllDialog, setShowScanAllDialog] = useState(false);
-
-  const handleRescan = async (accountId: string) => {
-    setRescanningAccount(accountId);
-    try {
-      await triggerScan.mutateAsync(accountId);
-      toast({
-        title: "Scan started",
-        description: "Your AWS account is being scanned. This may take a few minutes.",
-        type: "success",
-      });
-    } catch {
-      toast({
-        title: "Scan failed",
-        description: "Failed to start scan. Please try again.",
-        type: "error",
-      });
-    } finally {
-      setRescanningAccount(null);
-    }
-  };
 
   const handleScanAll = async () => {
     if (!accounts || accounts.length === 0) return;
@@ -346,11 +325,7 @@ export default function Dashboard() {
 
       {/* Account status */}
       {hasAccounts && (
-        <AccountStatus
-          accounts={accounts}
-          onRescan={handleRescan}
-          isRescanning={rescanningAccount}
-        />
+        <AccountStatus accounts={accounts} />
       )}
         </>
       )}

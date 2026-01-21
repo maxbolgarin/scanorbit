@@ -6,6 +6,7 @@ import { FindingsTableAdvanced } from "@/components/findings/FindingsTableAdvanc
 import { FindingStatsCards } from "@/components/findings/FindingStatsCards";
 import { FindingDetailModal } from "@/components/findings/FindingDetailModal";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PaywallBlocker } from "@/components/shared/PaywallBlocker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,9 +15,10 @@ import {
   useFilteredFindingStats,
 } from "@/hooks/use-findings";
 import { useAwsAccount, useScanHistory, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
-import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES } from "@/types";
+import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES, TIER_LIMITS } from "@/types";
 import { AlertTriangle, RefreshCw, Scan, Play, ArrowRight, Cloud } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -25,6 +27,11 @@ export default function AccountFindings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { org } = useAuthStore();
+
+  // Check tier-based access
+  const tier = org?.tier || 'free';
+  const canViewFindingList = TIER_LIMITS[tier].canViewFindingList;
 
   // Combine account filter with other filters
   const [baseFilters, setBaseFilters] = useLocalStorage<Filters>(`findings:filters:${accountId}`, {});
@@ -35,7 +42,7 @@ export default function AccountFindings() {
 
   // Fetch account-specific data
   const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);
-  const { data: findingsResponse, isLoading, isFetching } = useFilteredFindings(filters);
+  const { data: findingsResponse, isLoading, isFetching } = useFilteredFindings(filters, { enabled: canViewFindingList });
   const allFindings = findingsResponse?.data || [];
   const { data: stats, isLoading: statsLoading, unfilteredData: unfilteredStats } = useFilteredFindingStats({ awsAccountId: accountId });
   const updateStatus = useUpdateFindingStatus();
@@ -241,6 +248,11 @@ export default function AccountFindings() {
         />
       )}
 
+      {/* Paywall for free tier */}
+      {hasCompletedScan && !canViewFindingList && (
+        <PaywallBlocker feature="findings" />
+      )}
+
       {/* Invitation to start first scan */}
       {!accountLoading && account?.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
@@ -290,8 +302,8 @@ export default function AccountFindings() {
         </Card>
       )}
 
-      {/* Main content - only show after first scan */}
-      {hasCompletedScan && (hasAnyFindings || isLoading) && (
+      {/* Main content - only show after first scan and with permission */}
+      {hasCompletedScan && canViewFindingList && (hasAnyFindings || isLoading) && (
         <div className="space-y-4">
           {/* Filters */}
           <FindingFiltersAdvanced
@@ -313,7 +325,7 @@ export default function AccountFindings() {
       )}
 
       {/* No findings after scan completed */}
-      {hasCompletedScan && !hasAnyFindings && !isLoading && (
+      {hasCompletedScan && canViewFindingList && !hasAnyFindings && !isLoading && (
         <EmptyState
           icon={AlertTriangle}
           title="No findings"

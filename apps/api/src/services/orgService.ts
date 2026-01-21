@@ -1,10 +1,12 @@
 import crypto from 'crypto';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, gte } from 'drizzle-orm';
 import { db } from '../lib/db.js';
-import { HTTP403Error, HTTP404Error } from '../lib/errors.js';
-import { orgs, userOrgMembers, users } from '../db/schema.js';
+import { HTTP400Error, HTTP403Error, HTTP404Error } from '../lib/errors.js';
+import { orgs, userOrgMembers, users, scans } from '../db/schema.js';
 import type { Org } from '../db/schema.js';
 import { jwt } from '../lib/jwt.js';
+import { TIER_LIMITS, ScanStatus, type SubscriptionTier, type SubscriptionStatus } from '../types/index.js';
+import { logger } from '../lib/logger.js';
 
 // Generate URL-safe slug from org name
 function generateSlug(name: string): string {
@@ -24,6 +26,34 @@ function generateSlug(name: string): string {
 interface UpdateOrgData {
   name?: string;
   logoUrl?: string | null;
+}
+
+/**
+ * Safely get organization tier, defaulting to 'free' if column doesn't exist (migration not run)
+ * This is exported so it can be used in routes and other services
+ */
+export async function getOrgTier(orgId: string): Promise<SubscriptionTier> {
+  try {
+    const [org] = await db
+      .select({ tier: orgs.tier })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    return (org?.tier || 'free') as SubscriptionTier;
+  } catch (error) {
+    // If tier column doesn't exist (migration not run), default to 'free'
+    const err = error as Error;
+    if (err.message.includes('column') && err.message.includes('tier')) {
+      logger.warn('Tier column not found, defaulting to free tier', {
+        orgId,
+        error: err.message,
+      });
+      return 'free';
+    }
+    // Re-throw other database errors
+    throw error;
+  }
 }
 
 export const orgService = {
@@ -205,5 +235,155 @@ export const orgService = {
       .from(userOrgMembers)
       .innerJoin(users, eq(userOrgMembers.userId, users.id))
       .where(eq(userOrgMembers.orgId, orgId));
+  },
+
+  /**
+   * Get subscription status for an organization
+   */
+  async getSubscriptionStatus(orgId: string, userId: string): Promise<SubscriptionStatus> {
+    // Verify user has access to org
+    const [membership] = await db
+      .select({ role: userOrgMembers.role })
+      .from(userOrgMembers)
+      .where(
+        and(
+          eq(userOrgMembers.userId, userId),
+          eq(userOrgMembers.orgId, orgId)
+        )
+      )
+      .limit(1);
+
+    if (!membership) {
+      throw new HTTP403Error('You do not have access to this organization');
+    }
+
+    // Get org with tier
+    const [org] = await db
+      .select({
+        tier: orgs.tier,
+        tierUpgradedAt: orgs.tierUpgradedAt,
+      })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (!org) {
+      throw new HTTP404Error('Organization not found');
+    }
+
+    // Safely get tier (handles missing column)
+    const tier = await getOrgTier(orgId);
+    const limits = TIER_LIMITS[tier];
+
+    // Determine scan status
+    let canScan = true;
+    let reason: string | undefined;
+    let cooldownEndsAt: string | undefined;
+
+    if (tier === 'free') {
+      // Check if org has any successful scan
+      const [successfulScan] = await db
+        .select({ id: scans.id })
+        .from(scans)
+        .where(
+          and(
+            eq(scans.orgId, orgId),
+            eq(scans.status, ScanStatus.COMPLETE)
+          )
+        )
+        .limit(1);
+
+      if (successfulScan) {
+        canScan = false;
+        reason = 'Free tier allows only one successful scan. Upgrade to Pro for more.';
+      }
+    } else if (tier === 'pro') {
+      // Check cooldown
+      const cooldownMinutes = TIER_LIMITS.pro.scanCooldownMinutes!;
+      const cooldownTime = new Date(Date.now() - cooldownMinutes * 60 * 1000);
+
+      const [recentScan] = await db
+        .select({ completedAt: scans.completedAt })
+        .from(scans)
+        .where(
+          and(
+            eq(scans.orgId, orgId),
+            eq(scans.status, ScanStatus.COMPLETE),
+            gte(scans.completedAt, cooldownTime)
+          )
+        )
+        .orderBy(desc(scans.completedAt))
+        .limit(1);
+
+      if (recentScan && recentScan.completedAt) {
+        canScan = false;
+        const endsAt = new Date(recentScan.completedAt.getTime() + cooldownMinutes * 60 * 1000);
+        cooldownEndsAt = endsAt.toISOString();
+        const waitMinutes = Math.ceil((endsAt.getTime() - Date.now()) / 60000);
+        reason = `Please wait ${waitMinutes} minutes before scanning again.`;
+      }
+    }
+
+    return {
+      tier,
+      tierUpgradedAt: org.tierUpgradedAt?.toISOString() || null,
+      limits,
+      scanStatus: {
+        canScan,
+        reason,
+        cooldownEndsAt,
+      },
+    };
+  },
+
+  /**
+   * Upgrade organization tier (mock implementation for demo)
+   */
+  async upgradeSubscription(
+    orgId: string,
+    userId: string,
+    targetTier: SubscriptionTier
+  ): Promise<{ tier: SubscriptionTier }> {
+    // Verify user is admin of org
+    const [membership] = await db
+      .select({ role: userOrgMembers.role })
+      .from(userOrgMembers)
+      .where(
+        and(
+          eq(userOrgMembers.userId, userId),
+          eq(userOrgMembers.orgId, orgId)
+        )
+      )
+      .limit(1);
+
+    if (!membership) {
+      throw new HTTP403Error('You do not have access to this organization');
+    }
+
+    if (membership.role !== 'admin') {
+      throw new HTTP403Error('Only admins can manage subscription');
+    }
+
+    // Validate target tier
+    if (!['free', 'pro', 'team'].includes(targetTier)) {
+      throw new HTTP400Error('Invalid tier. Must be free, pro, or team.');
+    }
+
+    // Update org tier
+    const [updated] = await db
+      .update(orgs)
+      .set({
+        tier: targetTier,
+        tierUpgradedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(orgs.id, orgId))
+      .returning({ tier: orgs.tier });
+
+    if (!updated) {
+      throw new HTTP404Error('Organization not found');
+    }
+
+    return { tier: updated.tier as SubscriptionTier };
   },
 };

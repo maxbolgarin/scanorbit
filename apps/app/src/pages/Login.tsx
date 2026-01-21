@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { TwoFactorChallenge } from "@/components/auth/TwoFactorChallenge";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { GitHubAuthButton } from "@/components/auth/GitHubAuthButton";
 import { useAuthStore } from "@/stores/auth-store";
@@ -37,15 +38,21 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { checkAuth } = useAuthStore();
+  const {
+    checkAuth,
+    requires2FA,
+    set2FAChallenge,
+    clear2FAChallenge,
+  } = useAuthStore();
 
   const requestedPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
   const from = isValidInternalPath(requestedPath) ? requestedPath : "/overview";
 
-  // Handle OAuth callback
+  // Handle OAuth callback and 2FA challenge from OAuth
   useEffect(() => {
     const oauthStatus = searchParams.get("oauth");
     const error = searchParams.get("error");
+    const twoFaChallenge = searchParams.get("2fa_challenge");
 
     if (oauthStatus === "success") {
       // OAuth was successful, refresh auth state and navigate
@@ -54,6 +61,10 @@ export default function Login() {
         setSearchParams({}, { replace: true });
         navigate(from, { replace: true });
       });
+    } else if (twoFaChallenge) {
+      // OAuth returned with 2FA challenge - set in store and clear URL
+      set2FAChallenge(twoFaChallenge);
+      setSearchParams({}, { replace: true });
     } else if (error) {
       // Show error message
       const message = OAUTH_ERROR_MESSAGES[error] || decodeURIComponent(error);
@@ -65,11 +76,45 @@ export default function Login() {
       // Clear the error from URL
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, checkAuth, navigate, from, setSearchParams]);
+  }, [searchParams, checkAuth, navigate, from, setSearchParams, set2FAChallenge]);
 
-  const handleSuccess = () => {
+  const handleLoginSuccess = () => {
+    // If 2FA is required, the login store will handle showing the challenge
+    // Otherwise, navigate to the intended destination
+    if (!requires2FA) {
+      navigate(from, { replace: true });
+    }
+  };
+
+  const handle2FASuccess = () => {
     navigate(from, { replace: true });
   };
+
+  const handleBack2FA = () => {
+    clear2FAChallenge();
+  };
+
+  // Show 2FA challenge if required
+  if (requires2FA) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="mb-8 flex items-center justify-center gap-2">
+            <Orbit className="h-10 w-10 text-cyber-cyan" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+              ScanOrbit
+            </span>
+          </div>
+
+          <TwoFactorChallenge
+            onBack={handleBack2FA}
+            onSuccess={handle2FASuccess}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
@@ -91,7 +136,7 @@ export default function Login() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Email/Password Form */}
-            <LoginForm onSuccess={handleSuccess} />
+            <LoginForm onSuccess={handleLoginSuccess} />
 
             {/* Divider */}
             <div className="relative">

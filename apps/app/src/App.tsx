@@ -11,6 +11,8 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 // Lazy load pages for code splitting
 const Login = lazy(() => import("@/pages/Login"));
 const Signup = lazy(() => import("@/pages/Signup"));
+const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const CreateOrg = lazy(() => import("@/pages/onboarding/CreateOrg"));
 const AwsSetup = lazy(() => import("@/pages/onboarding/AwsSetup"));
 const Scanning = lazy(() => import("@/pages/onboarding/Scanning"));
@@ -71,6 +73,22 @@ function App() {
             element={
               <PublicRoute>
                 <Signup />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPassword />
               </PublicRoute>
             }
           />

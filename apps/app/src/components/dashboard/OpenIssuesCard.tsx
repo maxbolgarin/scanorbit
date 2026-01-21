@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink, AlertCircle, AlertOctagon, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import type { EnhancedDashboardSummary } from "@/types";
@@ -53,11 +53,12 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               <div className="h-6 w-32 bg-muted rounded" />
               <div className="h-4 w-24 bg-muted rounded" />
             </div>
-            <div className="h-3 w-full bg-muted rounded" />
-            <div className="flex gap-3">
-              <div className="h-4 w-14 bg-muted rounded" />
-              <div className="h-4 w-14 bg-muted rounded" />
-              <div className="h-4 w-14 bg-muted rounded" />
+            <div className="h-2.5 w-full bg-muted rounded" />
+            <div className="grid grid-cols-4 gap-2">
+              <div className="h-16 bg-muted rounded" />
+              <div className="h-16 bg-muted rounded" />
+              <div className="h-16 bg-muted rounded" />
+              <div className="h-16 bg-muted rounded" />
             </div>
           </div>
         </CardContent>
@@ -141,27 +142,96 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
           </div>
         )}
 
-        {/* Severity breakdown - all clickable */}
+        {/* Severity breakdown grid - visual boxes like ResourceHealth */}
         {total > 0 ? (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-            {(["critical", "high", "medium", "low", "trivial"] as const).map((severity) => {
-              const count = findingCounts[severity];
-              if (count === 0) return null;
-              return (
-                <Link
-                  key={severity}
-                  to={`${baseFindingsUrl}?severity=${severity}&status=open`}
-                  className={cn(
-                    "flex items-center gap-1 hover:underline",
-                    severityConfig[severity].textColor
-                  )}
-                >
-                  <span className={cn("h-2 w-2 rounded-full", severityConfig[severity].color)} />
-                  {count} {severityConfig[severity].label}
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              );
-            })}
+          <div className="grid grid-cols-4 gap-2">
+            {/* Critical */}
+            <Link
+              to={`${baseFindingsUrl}?severity=critical&status=open`}
+              className={cn(
+                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                findingCounts.critical > 0
+                  ? "bg-red-500/10 border-red-500/20"
+                  : "bg-muted/50 border-border"
+              )}
+            >
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <AlertOctagon className="h-3.5 w-3.5 text-red-500" />
+              </div>
+              <div className={cn(
+                "text-lg font-semibold",
+                findingCounts.critical > 0 ? "text-red-500" : "text-muted-foreground"
+              )}>
+                {findingCounts.critical}
+              </div>
+              <div className="text-xs text-muted-foreground">Critical</div>
+            </Link>
+
+            {/* High */}
+            <Link
+              to={`${baseFindingsUrl}?severity=high&status=open`}
+              className={cn(
+                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                findingCounts.high > 0
+                  ? "bg-orange-500/10 border-orange-500/20"
+                  : "bg-muted/50 border-border"
+              )}
+            >
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
+              </div>
+              <div className={cn(
+                "text-lg font-semibold",
+                findingCounts.high > 0 ? "text-orange-500" : "text-muted-foreground"
+              )}>
+                {findingCounts.high}
+              </div>
+              <div className="text-xs text-muted-foreground">High</div>
+            </Link>
+
+            {/* Medium */}
+            <Link
+              to={`${baseFindingsUrl}?severity=medium&status=open`}
+              className={cn(
+                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                findingCounts.medium > 0
+                  ? "bg-yellow-500/10 border-yellow-500/20"
+                  : "bg-muted/50 border-border"
+              )}
+            >
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+              </div>
+              <div className={cn(
+                "text-lg font-semibold",
+                findingCounts.medium > 0 ? "text-yellow-500" : "text-muted-foreground"
+              )}>
+                {findingCounts.medium}
+              </div>
+              <div className="text-xs text-muted-foreground">Medium</div>
+            </Link>
+
+            {/* Low */}
+            <Link
+              to={`${baseFindingsUrl}?severity=low&status=open`}
+              className={cn(
+                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                findingCounts.low > 0
+                  ? "bg-blue-500/10 border-blue-500/20"
+                  : "bg-muted/50 border-border"
+              )}
+            >
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Info className="h-3.5 w-3.5 text-blue-500" />
+              </div>
+              <div className={cn(
+                "text-lg font-semibold",
+                findingCounts.low > 0 ? "text-blue-500" : "text-muted-foreground"
+              )}>
+                {findingCounts.low}
+              </div>
+              <div className="text-xs text-muted-foreground">Low</div>
+            </Link>
           </div>
         ) : (
           <div className="text-center py-2 text-sm text-muted-foreground">

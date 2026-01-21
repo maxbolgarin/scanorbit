@@ -3,8 +3,9 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
 import { findingService } from '../services/findingService.js';
-import { HTTP400Error } from '../lib/errors.js';
-import type { Variables, FindingStatus } from '../types/index.js';
+import { HTTP400Error, HTTP403Error } from '../lib/errors.js';
+import { TIER_LIMITS, type Variables, type FindingStatus, type SubscriptionTier } from '../types/index.js';
+import { getOrgTier } from '../services/orgService.js';
 
 const findingsRoute = new Hono<{ Variables: Variables }>();
 
@@ -37,6 +38,12 @@ findingsRoute.get('/', zValidator('query', querySchema), async (c) => {
 
   if (!orgId) {
     throw new HTTP400Error('No organization selected');
+  }
+
+  // Check tier-based access (safely handles missing column)
+  const tier = await getOrgTier(orgId);
+  if (!TIER_LIMITS[tier].canViewFindingList) {
+    throw new HTTP403Error('Finding list is not available on the Free tier. Upgrade to Pro for full access.');
   }
 
   const filters = c.req.valid('query');

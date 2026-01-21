@@ -6,10 +6,11 @@ import { requireAuth } from '../middlewares/auth.js';
 import { resourceService } from '../services/resourceService.js';
 import { dependencyService } from '../services/dependencyService.js';
 import { findingService } from '../services/findingService.js';
-import { HTTP400Error } from '../lib/errors.js';
+import { HTTP400Error, HTTP403Error } from '../lib/errors.js';
 import { db } from '../lib/db.js';
 import { resourceScans, scans, resources } from '../db/schema.js';
-import type { Variables } from '../types/index.js';
+import { TIER_LIMITS, type Variables } from '../types/index.js';
+import { getOrgTier } from '../services/orgService.js';
 
 const resourcesRoute = new Hono<{ Variables: Variables }>();
 
@@ -37,6 +38,12 @@ resourcesRoute.get('/', zValidator('query', querySchema), async (c) => {
 
   if (!orgId) {
     throw new HTTP400Error('No organization selected');
+  }
+
+  // Check tier-based access (safely handles missing column)
+  const tier = await getOrgTier(orgId);
+  if (!TIER_LIMITS[tier].canViewResourceList) {
+    throw new HTTP403Error('Resource list is not available on the Free tier. Upgrade to Pro for full access.');
   }
 
   const filters = c.req.valid('query');
@@ -86,6 +93,12 @@ resourcesRoute.get('/dependencies/all', async (c) => {
 
   if (!orgId) {
     throw new HTTP400Error('No organization selected');
+  }
+
+  // Check tier-based access (infrastructure map) - safely handles missing column
+  const tier = await getOrgTier(orgId);
+  if (!TIER_LIMITS[tier].canViewInfrastructureMap) {
+    throw new HTTP403Error('Infrastructure map is not available on the Free tier. Upgrade to Pro for full access.');
   }
 
   const dependencies = await dependencyService.getAllDependencies(orgId);

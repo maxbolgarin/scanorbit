@@ -5,7 +5,7 @@ import { setCookie } from 'hono/cookie';
 import { requireAuth } from '../middlewares/auth.js';
 import { orgService } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
-import type { Variables } from '../types/index.js';
+import type { Variables, SubscriptionTier } from '../types/index.js';
 
 // Helper to set JWT cookie (same as in auth routes)
 const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
@@ -118,6 +118,33 @@ orgsRoute.patch('/:id/settings', zValidator('json', updateOrgSettingsSchema), as
       hideTrivial: settings.hideTrivial,
     },
   });
+});
+
+// =============================================================================
+// Subscription Routes
+// =============================================================================
+
+const upgradeSubscriptionSchema = z.object({
+  targetTier: z.enum(['free', 'pro', 'team']),
+});
+
+// GET /orgs/:id/subscription - Get subscription status
+orgsRoute.get('/:id/subscription', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+
+  const status = await orgService.getSubscriptionStatus(orgId, userId);
+  return c.json({ data: status });
+});
+
+// POST /orgs/:id/subscription/upgrade - Upgrade tier (mock)
+orgsRoute.post('/:id/subscription/upgrade', zValidator('json', upgradeSubscriptionSchema), async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const { targetTier } = c.req.valid('json');
+
+  const result = await orgService.upgradeSubscription(orgId, userId, targetTier as SubscriptionTier);
+  return c.json({ data: result });
 });
 
 export default orgsRoute;

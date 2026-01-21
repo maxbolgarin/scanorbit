@@ -3,9 +3,11 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { authService } from '../services/authService.js';
+import { twoFactorService } from '../services/twoFactorService.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
 import { config } from '../lib/config.js';
+import { twoFactorStore } from '../lib/redis.js';
 import type { Variables } from '../types/index.js';
 
 const authRoute = new Hono<{ Variables: Variables }>();
@@ -67,6 +69,31 @@ const updateProfileSchema = z.object({
   fullName: z.string().min(1, 'Full name must not be empty').optional(),
 });
 
+// 2FA schemas
+const twoFactorVerifySchema = z.object({
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
+const twoFactorDisableSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
+const twoFactorChallengeVerifySchema = z.object({
+  challengeToken: z.string().min(1, 'Challenge token is required'),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
+const twoFactorRecoveryVerifySchema = z.object({
+  challengeToken: z.string().min(1, 'Challenge token is required'),
+  recoveryCode: z.string().min(1, 'Recovery code is required'),
+});
+
+const twoFactorRegenerateCodesSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+  code: z.string().length(6, 'Verification code must be 6 digits'),
+});
+
 // Helper to set JWT cookie
 const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
   setCookie(c, 'jwt', token, {
@@ -124,8 +151,18 @@ authRoute.post('/resend-verification', rateLimiters.sendCode, zValidator('json',
 authRoute.post('/login', rateLimiters.login, zValidator('json', loginSchema), async (c) => {
   const { email, password } = c.req.valid('json');
 
-  const { user, orgs, token } = await authService.login(email, password);
+  const result = await authService.login(email, password);
 
+  // Check if 2FA is required
+  if ('requires2FA' in result && result.requires2FA) {
+    return c.json({
+      requires2FA: true,
+      challengeToken: result.challengeToken,
+    });
+  }
+
+  // Normal login (no 2FA)
+  const { user, orgs, token } = result;
   setAuthCookie(c, token);
 
   return c.json({
@@ -218,6 +255,43 @@ authRoute.post('/resend-code', rateLimiters.sendCode, zValidator('json', resendC
 });
 
 // ============================================
+// Password Reset Endpoints (Public)
+// ============================================
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Please enter a valid email'),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+// POST /auth/forgot-password - Request password reset email
+authRoute.post(
+  '/forgot-password',
+  rateLimiters.passwordReset,
+  zValidator('json', forgotPasswordSchema),
+  async (c) => {
+    const { email } = c.req.valid('json');
+    const result = await authService.requestPasswordReset(email);
+    return c.json(result);
+  }
+);
+
+// POST /auth/reset-password - Reset password with token
+authRoute.post(
+  '/reset-password',
+  rateLimiters.passwordReset,
+  zValidator('json', resetPasswordSchema),
+  async (c) => {
+    const { token, password } = c.req.valid('json');
+    const result = await authService.resetPassword(token, password);
+    return c.json(result);
+  }
+);
+
+// ============================================
 // Password & Profile Endpoints
 // ============================================
 
@@ -247,6 +321,170 @@ authRoute.patch(
     const updates = c.req.valid('json');
 
     const result = await authService.updateProfile(userId, updates);
+
+    return c.json(result);
+  }
+);
+
+// ============================================
+// Two-Factor Authentication Endpoints
+// ============================================
+
+// GET /auth/2fa/status - Get 2FA status
+authRoute.get('/2fa/status', requireAuth, async (c) => {
+  const userId = c.get('userId');
+  const status = await twoFactorService.getStatus(userId);
+  return c.json(status);
+});
+
+// POST /auth/2fa/setup/init - Start 2FA setup
+authRoute.post('/2fa/setup/init', requireAuth, async (c) => {
+  const userId = c.get('userId');
+  const result = await twoFactorService.initSetup(userId);
+  return c.json(result);
+});
+
+// POST /auth/2fa/setup/verify - Verify code and enable 2FA
+authRoute.post(
+  '/2fa/setup/verify',
+  requireAuth,
+  rateLimiters.verifyCode,
+  zValidator('json', twoFactorVerifySchema),
+  async (c) => {
+    const userId = c.get('userId');
+    const { code } = c.req.valid('json');
+
+    const result = await twoFactorService.verifyAndEnable(userId, code);
+
+    return c.json(result);
+  }
+);
+
+// POST /auth/2fa/disable - Disable 2FA
+authRoute.post(
+  '/2fa/disable',
+  requireAuth,
+  rateLimiters.verifyCode,
+  zValidator('json', twoFactorDisableSchema),
+  async (c) => {
+    const userId = c.get('userId');
+    const { password, code } = c.req.valid('json');
+
+    await twoFactorService.disable(userId, password, code);
+
+    return c.json({ success: true, message: 'Two-factor authentication has been disabled' });
+  }
+);
+
+// POST /auth/2fa/verify - Verify TOTP during login challenge
+authRoute.post(
+  '/2fa/verify',
+  rateLimiters.verifyCode,
+  zValidator('json', twoFactorChallengeVerifySchema),
+  async (c) => {
+    const { challengeToken, code } = c.req.valid('json');
+
+    // Verify challenge token
+    const challenge = await twoFactorStore.getChallenge(challengeToken);
+    if (!challenge) {
+      return c.json({ error: 'Challenge expired or invalid. Please log in again.' }, 400);
+    }
+
+    // Rate limiting by userId
+    const attempts = await twoFactorStore.checkVerifyAttempts(`login:${challenge.userId}`);
+    if (!attempts.allowed) {
+      return c.json({ error: 'Too many verification attempts. Please try again later.' }, 429);
+    }
+
+    await twoFactorStore.incrementVerifyAttempts(`login:${challenge.userId}`);
+
+    // Verify TOTP code
+    const isValid = await twoFactorService.verify(challenge.userId, code);
+
+    if (!isValid) {
+      const remaining = attempts.attemptsRemaining - 1;
+      return c.json({
+        error: `Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+      }, 400);
+    }
+
+    // Success - delete challenge and complete login
+    await twoFactorStore.deleteChallenge(challengeToken);
+    await twoFactorStore.resetVerifyAttempts(`login:${challenge.userId}`);
+
+    // Complete login - get user data and issue JWT
+    const result = await authService.completeLoginAfter2FA(challenge.userId);
+
+    setAuthCookie(c, result.token);
+
+    return c.json({
+      user: result.user,
+      orgs: result.orgs,
+      token: result.token,
+    });
+  }
+);
+
+// POST /auth/2fa/verify-recovery - Use recovery code during login
+authRoute.post(
+  '/2fa/verify-recovery',
+  rateLimiters.verifyCode,
+  zValidator('json', twoFactorRecoveryVerifySchema),
+  async (c) => {
+    const { challengeToken, recoveryCode } = c.req.valid('json');
+
+    // Verify challenge token
+    const challenge = await twoFactorStore.getChallenge(challengeToken);
+    if (!challenge) {
+      return c.json({ error: 'Challenge expired or invalid. Please log in again.' }, 400);
+    }
+
+    // Rate limiting by userId
+    const attempts = await twoFactorStore.checkVerifyAttempts(`recovery:${challenge.userId}`);
+    if (!attempts.allowed) {
+      return c.json({ error: 'Too many recovery attempts. Please try again later.' }, 429);
+    }
+
+    await twoFactorStore.incrementVerifyAttempts(`recovery:${challenge.userId}`);
+
+    // Verify recovery code
+    const isValid = await twoFactorService.verifyRecoveryCode(challenge.userId, recoveryCode);
+
+    if (!isValid) {
+      const remaining = attempts.attemptsRemaining - 1;
+      return c.json({
+        error: `Invalid recovery code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+      }, 400);
+    }
+
+    // Success - delete challenge and complete login
+    await twoFactorStore.deleteChallenge(challengeToken);
+    await twoFactorStore.resetVerifyAttempts(`recovery:${challenge.userId}`);
+
+    // Complete login
+    const result = await authService.completeLoginAfter2FA(challenge.userId);
+
+    setAuthCookie(c, result.token);
+
+    return c.json({
+      user: result.user,
+      orgs: result.orgs,
+      token: result.token,
+    });
+  }
+);
+
+// POST /auth/2fa/recovery-codes/regenerate - Regenerate recovery codes
+authRoute.post(
+  '/2fa/recovery-codes/regenerate',
+  requireAuth,
+  rateLimiters.verifyCode,
+  zValidator('json', twoFactorRegenerateCodesSchema),
+  async (c) => {
+    const userId = c.get('userId');
+    const { password, code } = c.req.valid('json');
+
+    const result = await twoFactorService.regenerateRecoveryCodes(userId, password, code);
 
     return c.json(result);
   }
@@ -286,6 +524,13 @@ authRoute.get('/google/callback', async (c) => {
 
   try {
     const result = await authService.handleGoogleCallback(code, state);
+
+    // Check if 2FA is required
+    if (result.requires2FA) {
+      // Redirect to login with 2FA challenge token
+      return c.redirect(`${config.frontendUrl}/login?2fa_challenge=${result.challengeToken}`);
+    }
+
     setAuthCookie(c, result.token);
 
     // Redirect based on whether user has an org
@@ -302,6 +547,15 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   const { idToken } = c.req.valid('json');
 
   const result = await authService.handleGoogleIdToken(idToken);
+
+  // Check if 2FA is required
+  if (result.requires2FA) {
+    return c.json({
+      requires2FA: true,
+      challengeToken: result.challengeToken,
+    });
+  }
+
   setAuthCookie(c, result.token);
 
   return c.json({
@@ -343,6 +597,13 @@ authRoute.get('/github/callback', async (c) => {
 
   try {
     const result = await authService.handleGithubCallback(code, state);
+
+    // Check if 2FA is required
+    if (result.requires2FA) {
+      // Redirect to login with 2FA challenge token
+      return c.redirect(`${config.frontendUrl}/login?2fa_challenge=${result.challengeToken}`);
+    }
+
     setAuthCookie(c, result.token);
 
     // Redirect based on whether user has an org

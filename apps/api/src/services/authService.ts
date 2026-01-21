@@ -8,10 +8,11 @@ import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../db/schema.js';
 import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
-import { signupCodes, redis } from '../lib/redis.js';
+import { signupCodes, redis, twoFactorStore, passwordResetStore } from '../lib/redis.js';
 import { consentService } from './consentService.js';
 import { authOperationsTotal } from '../lib/metrics.js';
 import { config } from '../lib/config.js';
+import { logger } from '../lib/logger.js';
 import type { GoogleUserInfo, GoogleAuthResult, GitHubUserInfo, GitHubAuthResult } from '../types/index.js';
 
 const SALT_ROUNDS = 10;
@@ -67,10 +68,18 @@ interface SignupResult {
 }
 
 interface LoginResult {
-  user: Pick<User, 'id' | 'email' | 'fullName'> & { emailVerified: boolean };
+  requires2FA?: false;
+  user: Pick<User, 'id' | 'email' | 'fullName'> & { emailVerified: boolean; twoFactorEnabled: boolean };
   orgs: Pick<Org, 'id' | 'name' | 'slug'>[];
   token: string;
 }
+
+interface LoginResultWith2FA {
+  requires2FA: true;
+  challengeToken: string;
+}
+
+type LoginResponse = LoginResult | LoginResultWith2FA;
 
 export const authService = {
   async signup(
@@ -260,7 +269,7 @@ export const authService = {
     return { message: 'If an account exists with this email, a verification code will be sent.' };
   },
 
-  async login(email: string, password: string): Promise<LoginResult> {
+  async login(email: string, password: string): Promise<LoginResponse> {
     // Get user by email
     const [user] = await db
       .select({
@@ -269,6 +278,7 @@ export const authService = {
         fullName: users.fullName,
         passwordHash: users.passwordHash,
         emailVerified: users.emailVerified,
+        twoFactorEnabled: users.twoFactorEnabled,
       })
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
@@ -290,6 +300,17 @@ export const authService = {
     if (!match) {
       authOperationsTotal.inc({ operation: 'login', status: 'invalid_password' });
       throw new HTTP401Error('Invalid credentials');
+    }
+
+    // Check if 2FA is enabled
+    if (user.twoFactorEnabled) {
+      // Create challenge token and return
+      const challengeToken = await twoFactorStore.createChallenge(user.id);
+      authOperationsTotal.inc({ operation: 'login', status: '2fa_required' });
+      return {
+        requires2FA: true,
+        challengeToken,
+      };
     }
 
     // Get user's orgs
@@ -317,6 +338,61 @@ export const authService = {
         email: user.email,
         fullName: user.fullName,
         emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+      },
+      orgs: userOrgs,
+      token,
+    };
+  },
+
+  /**
+   * Complete login after 2FA verification
+   * Called from 2FA verify endpoint
+   */
+  async completeLoginAfter2FA(userId: string): Promise<LoginResult> {
+    // Get user
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+        emailVerified: users.emailVerified,
+        twoFactorEnabled: users.twoFactorEnabled,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP401Error('User not found');
+    }
+
+    // Get user's orgs
+    const userOrgs = await db
+      .select({
+        id: orgs.id,
+        name: orgs.name,
+        slug: orgs.slug,
+      })
+      .from(orgs)
+      .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
+      .where(eq(userOrgMembers.userId, userId));
+
+    // Sign JWT
+    const token = await jwt.sign({
+      userId,
+      orgId: userOrgs[0]?.id ?? null,
+    });
+
+    authOperationsTotal.inc({ operation: 'login_2fa', status: 'success' });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
       },
       orgs: userOrgs,
       token,
@@ -331,6 +407,7 @@ export const authService = {
         email: users.email,
         fullName: users.fullName,
         emailVerified: users.emailVerified,
+        twoFactorEnabled: users.twoFactorEnabled,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -388,14 +465,26 @@ export const authService = {
 
     // Check if email already registered
     const existing = await db
-      .select({ id: users.id })
+      .select({ id: users.id, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.email, normalizedEmail))
       .limit(1);
 
     if (existing.length > 0) {
-      // Use generic message to prevent user enumeration
-      throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+      if (existing[0].emailVerified) {
+        // Email exists and is verified - user should login instead
+        // Use generic message to prevent user enumeration
+        logger.warn('Attempted to send verification code to verified email', {
+          email: normalizedEmail,
+          reason: 'email_already_verified',
+        });
+        throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+      }
+      // Email exists but isn't verified - allow them to proceed (completing signup)
+      logger.info('Sending verification code to unverified existing email', {
+        email: normalizedEmail,
+        reason: 'completing_signup',
+      });
     }
 
     // Check resend cooldown
@@ -410,7 +499,18 @@ export const authService = {
     await signupCodes.setResendCooldown(normalizedEmail);
 
     // Send email
-    await emailService.sendVerificationEmail(normalizedEmail, code);
+    const emailResult = await emailService.sendVerificationEmail(normalizedEmail, code);
+    if (!emailResult.success) {
+      // If email sending fails, clean up the stored code and throw error
+      await signupCodes.deleteCode(normalizedEmail);
+      const errorMessage = emailResult.error || 'Unknown error';
+      logger.error('Failed to send verification email', undefined, {
+        email: normalizedEmail,
+        error: errorMessage,
+        reason: 'email_send_failed',
+      });
+      throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+    }
 
     return { success: true, message: 'Verification code sent to your email.' };
   },
@@ -615,14 +715,26 @@ export const authService = {
 
     // Check if email already registered
     const existing = await db
-      .select({ id: users.id })
+      .select({ id: users.id, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.email, normalizedEmail))
       .limit(1);
 
     if (existing.length > 0) {
-      // Use generic message to prevent user enumeration
-      throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+      if (existing[0].emailVerified) {
+        // Email exists and is verified - user should login instead
+        // Use generic message to prevent user enumeration
+        logger.warn('Attempted to resend verification code to verified email', {
+          email: normalizedEmail,
+          reason: 'email_already_verified',
+        });
+        throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+      }
+      // Email exists but isn't verified - allow them to proceed (completing signup)
+      logger.info('Resending verification code to unverified existing email', {
+        email: normalizedEmail,
+        reason: 'completing_signup',
+      });
     }
 
     // Check cooldown
@@ -637,7 +749,18 @@ export const authService = {
     await signupCodes.setResendCooldown(normalizedEmail);
 
     // Send email
-    await emailService.sendVerificationEmail(normalizedEmail, code);
+    const emailResult = await emailService.sendVerificationEmail(normalizedEmail, code);
+    if (!emailResult.success) {
+      // If email sending fails, clean up the stored code and throw error
+      await signupCodes.deleteCode(normalizedEmail);
+      const errorMessage = emailResult.error || 'Unknown error';
+      logger.error('Failed to resend verification email', undefined, {
+        email: normalizedEmail,
+        error: errorMessage,
+        reason: 'email_send_failed',
+      });
+      throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+    }
 
     return { success: true, message: 'New verification code sent to your email.' };
   },
@@ -845,6 +968,7 @@ export const authService = {
 
   /**
    * Complete OAuth login - get user data and issue JWT
+   * If 2FA is enabled, returns challenge token instead
    */
   async completeOAuthLogin(
     userId: string,
@@ -857,6 +981,7 @@ export const authService = {
         id: users.id,
         email: users.email,
         fullName: users.fullName,
+        twoFactorEnabled: users.twoFactorEnabled,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -864,6 +989,17 @@ export const authService = {
 
     if (!user) {
       throw new HTTP401Error('User not found');
+    }
+
+    // Check if 2FA is enabled (not for new users as they can't have 2FA yet)
+    if (user.twoFactorEnabled && !isNewUser) {
+      const challengeToken = await twoFactorStore.createChallenge(userId);
+      authOperationsTotal.inc({ operation: 'google_oauth', status: '2fa_required' });
+      return {
+        requires2FA: true,
+        challengeToken,
+        isNewUser: false,
+      };
     }
 
     // Get user's orgs
@@ -884,7 +1020,11 @@ export const authService = {
     });
 
     return {
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+      },
       orgs: userOrgs,
       token,
       isNewUser,
@@ -1116,6 +1256,7 @@ export const authService = {
 
   /**
    * Complete GitHub OAuth login - get user data and issue JWT
+   * If 2FA is enabled, returns challenge token instead
    */
   async completeGithubOAuthLogin(
     userId: string,
@@ -1128,6 +1269,7 @@ export const authService = {
         id: users.id,
         email: users.email,
         fullName: users.fullName,
+        twoFactorEnabled: users.twoFactorEnabled,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -1135,6 +1277,17 @@ export const authService = {
 
     if (!user) {
       throw new HTTP401Error('User not found');
+    }
+
+    // Check if 2FA is enabled (not for new users as they can't have 2FA yet)
+    if (user.twoFactorEnabled && !isNewUser) {
+      const challengeToken = await twoFactorStore.createChallenge(userId);
+      authOperationsTotal.inc({ operation: 'github_oauth', status: '2fa_required' });
+      return {
+        requires2FA: true,
+        challengeToken,
+        isNewUser: false,
+      };
     }
 
     // Get user's orgs
@@ -1155,11 +1308,130 @@ export const authService = {
     });
 
     return {
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+      },
       orgs: userOrgs,
       token,
       isNewUser,
       hasOrg: userOrgs.length > 0,
     };
+  },
+
+  // ============================================
+  // Password Reset Methods
+  // ============================================
+
+  /**
+   * Request password reset - sends email with reset link
+   * Returns generic message for security (doesn't reveal if email exists)
+   */
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const normalizedEmail = email.toLowerCase();
+
+    // Find user by email
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+
+    // Generic response message (same for all cases to prevent email enumeration)
+    const genericMessage = 'If an account exists with this email, a reset link has been sent.';
+
+    // If user doesn't exist, return generic success (security - don't reveal user existence)
+    if (!user) {
+      logger.info('Password reset requested for non-existent email', { email: normalizedEmail });
+      return { message: genericMessage };
+    }
+
+    // If user has no password (OAuth-only), return generic success
+    // These users should use their OAuth provider to sign in
+    if (!user.passwordHash) {
+      logger.info('Password reset requested for OAuth-only user', { email: normalizedEmail });
+      return { message: genericMessage };
+    }
+
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Store token → email mapping in Redis (1 hour TTL)
+    await passwordResetStore.setToken(resetToken, normalizedEmail);
+
+    // Send password reset email
+    const emailResult = await emailService.sendPasswordResetEmail(
+      normalizedEmail,
+      resetToken,
+      user.fullName ?? undefined
+    );
+
+    if (!emailResult.success) {
+      // Clean up token if email fails
+      await passwordResetStore.deleteToken(resetToken);
+      logger.error('Failed to send password reset email', undefined, {
+        email: normalizedEmail,
+        error: emailResult.error || 'Unknown error',
+      });
+      // Still return generic message
+      return { message: genericMessage };
+    }
+
+    logger.info('Password reset email sent', { email: normalizedEmail });
+    authOperationsTotal.inc({ operation: 'password_reset_request', status: 'success' });
+
+    return { message: genericMessage };
+  },
+
+  /**
+   * Reset password using token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    // Get email from Redis using token
+    const email = await passwordResetStore.getEmail(token);
+
+    if (!email) {
+      authOperationsTotal.inc({ operation: 'password_reset', status: 'invalid_token' });
+      throw new HTTP400Error('Invalid or expired reset link. Please request a new password reset.');
+    }
+
+    // Find user by email
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (!user) {
+      // This shouldn't happen, but handle gracefully
+      await passwordResetStore.deleteToken(token);
+      throw new HTTP400Error('Invalid or expired reset link. Please request a new password reset.');
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Update user's password
+    await db
+      .update(users)
+      .set({
+        passwordHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    // Delete token from Redis (single-use)
+    await passwordResetStore.deleteToken(token);
+
+    logger.info('Password reset successful', { userId: user.id });
+    authOperationsTotal.inc({ operation: 'password_reset', status: 'success' });
+
+    return { message: 'Password reset successfully. You can now sign in with your new password.' };
   },
 };

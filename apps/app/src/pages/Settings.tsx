@@ -1,11 +1,16 @@
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { OrgSettings } from "@/components/settings/OrgSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { ViewingSettings } from "@/components/settings/ViewingSettings";
-import { User, Building2, Shield, SlidersHorizontal } from "lucide-react";
+import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
+import { User, Building2, Shield, SlidersHorizontal, CreditCard } from "lucide-react";
 
 export default function Settings() {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "profile";
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,7 +20,7 @@ export default function Settings() {
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
@@ -33,6 +38,10 @@ export default function Settings() {
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
+          <TabsTrigger value="subscription" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            <span className="hidden sm:inline">Subscription</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -49,6 +58,10 @@ export default function Settings() {
 
         <TabsContent value="security">
           <SecuritySettings />
+        </TabsContent>
+
+        <TabsContent value="subscription">
+          <SubscriptionSettings />
         </TabsContent>
       </Tabs>
     </div>

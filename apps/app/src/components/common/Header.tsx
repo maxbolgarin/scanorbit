@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TierBadge } from "@/components/shared/TierBadge";
 import { ChevronDown, LogOut, Orbit, Settings, User } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ export function Header() {
           {org && (
             <div className="hidden items-center gap-2 rounded-md border px-3 py-1.5 text-sm md:flex">
               <span className="font-medium">{org.name}</span>
+              <TierBadge tier={org.tier || 'free'} />
             </div>
           )}
 
