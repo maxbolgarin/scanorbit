@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.1](https://github.com/maxbolgarin/scanorbit/compare/v1.8.0...v1.8.1) (2026-01-21)
+
+### Code Refactoring
+
+* **api,app,hooks:** remove unused imports and simplify audit logging ([11a03aa](https://github.com/maxbolgarin/scanorbit/commit/11a03aa2371c90b5a4a2f0c06035947c7b3ea1bc))
+
 ## [1.8.0](https://github.com/maxbolgarin/scanorbit/compare/v1.7.0...v1.8.0) (2026-01-21)
 
 ### Features
