@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0](https://github.com/maxbolgarin/scanorbit/compare/v1.7.0...v1.8.0) (2026-01-21)
+
+### Features
+
+* **auth,app,api:** add two-factor authentication (2fa) with totp, subscription tiers, and enhanced security ([7c86b95](https://github.com/maxbolgarin/scanorbit/commit/7c86b95d6d964f1f659829472f814253933f1383))
+
 ## [1.7.0](https://github.com/maxbolgarin/scanorbit/compare/v1.6.0...v1.7.0) (2026-01-21)
 
 ### Features
