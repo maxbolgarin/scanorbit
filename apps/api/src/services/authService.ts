@@ -8,11 +8,12 @@ import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../db/schema.js';
 import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
-import { signupCodes, redis, twoFactorStore, passwordResetStore } from '../lib/redis.js';
+import { signupCodes, redis, twoFactorStore, passwordResetStore, accountLockoutStore } from '../lib/redis.js';
 import { consentService } from './consentService.js';
 import { authOperationsTotal } from '../lib/metrics.js';
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
+import { encryptOAuthTokenOptional } from '../lib/crypto.js';
 import type { GoogleUserInfo, GoogleAuthResult, GitHubUserInfo, GitHubAuthResult } from '../types/index.js';
 
 const SALT_ROUNDS = 10;
@@ -270,6 +271,16 @@ export const authService = {
   },
 
   async login(email: string, password: string): Promise<LoginResponse> {
+    // Check for account lockout (protection against brute force attacks)
+    const lockoutStatus = await accountLockoutStore.checkLockout(email);
+    if (lockoutStatus.locked) {
+      authOperationsTotal.inc({ operation: 'login', status: 'account_locked' });
+      const minutes = Math.ceil(lockoutStatus.remainingLockoutSeconds / 60);
+      throw new HTTP401Error(
+        `Account temporarily locked due to too many failed login attempts. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'} or reset your password.`
+      );
+    }
+
     // Get user by email
     const [user] = await db
       .select({
@@ -285,6 +296,8 @@ export const authService = {
       .limit(1);
 
     if (!user) {
+      // Record failed attempt even for non-existent users to prevent user enumeration timing attacks
+      await accountLockoutStore.recordFailedAttempt(email);
       authOperationsTotal.inc({ operation: 'login', status: 'user_not_found' });
       throw new HTTP401Error('Invalid credentials');
     }
@@ -298,9 +311,14 @@ export const authService = {
     // Verify password
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) {
+      // Record failed attempt
+      await accountLockoutStore.recordFailedAttempt(email);
       authOperationsTotal.inc({ operation: 'login', status: 'invalid_password' });
       throw new HTTP401Error('Invalid credentials');
     }
+
+    // Clear lockout counter on successful password verification
+    await accountLockoutStore.clearLockout(email);
 
     // Check if 2FA is enabled
     if (user.twoFactorEnabled) {
@@ -932,14 +950,14 @@ export const authService = {
           fullName: users.fullName,
         });
 
-      // Link OAuth account
+      // Link OAuth account (encrypt tokens before storage)
       await tx.insert(userOauthAccounts).values({
         userId: user.id,
         provider: 'google',
         providerUserId: googleUser.googleId,
         providerEmail: googleUser.email,
-        accessToken: googleUser.accessToken,
-        refreshToken: googleUser.refreshToken,
+        accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
+        refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
         tokenExpiresAt: googleUser.tokenExpiresAt,
         rawProfile: googleUser.rawProfile,
       });
@@ -955,13 +973,14 @@ export const authService = {
    * Link Google account to existing user
    */
   async linkGoogleAccount(userId: string, googleUser: GoogleUserInfo): Promise<void> {
+    // Encrypt tokens before storage
     await db.insert(userOauthAccounts).values({
       userId,
       provider: 'google',
       providerUserId: googleUser.googleId,
       providerEmail: googleUser.email,
-      accessToken: googleUser.accessToken,
-      refreshToken: googleUser.refreshToken,
+      accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
+      refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
       tokenExpiresAt: googleUser.tokenExpiresAt,
       rawProfile: googleUser.rawProfile,
     });
@@ -1220,13 +1239,13 @@ export const authService = {
           fullName: users.fullName,
         });
 
-      // Link OAuth account
+      // Link OAuth account (encrypt tokens before storage)
       await tx.insert(userOauthAccounts).values({
         userId: user.id,
         provider: 'github',
         providerUserId: githubUser.githubId,
         providerEmail: githubUser.email,
-        accessToken: githubUser.accessToken,
+        accessToken: encryptOAuthTokenOptional(githubUser.accessToken),
         refreshToken: null, // GitHub doesn't provide refresh tokens
         tokenExpiresAt: null, // GitHub tokens don't expire
         rawProfile: githubUser.rawProfile,
@@ -1243,12 +1262,13 @@ export const authService = {
    * Link GitHub account to existing user
    */
   async linkGithubAccount(userId: string, githubUser: GitHubUserInfo): Promise<void> {
+    // Encrypt tokens before storage
     await db.insert(userOauthAccounts).values({
       userId,
       provider: 'github',
       providerUserId: githubUser.githubId,
       providerEmail: githubUser.email,
-      accessToken: githubUser.accessToken,
+      accessToken: encryptOAuthTokenOptional(githubUser.accessToken),
       refreshToken: null, // GitHub doesn't provide refresh tokens
       tokenExpiresAt: null, // GitHub tokens don't expire
       rawProfile: githubUser.rawProfile,

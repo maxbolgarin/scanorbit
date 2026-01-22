@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { FindingFiltersAdvanced } from "@/components/findings/FindingFiltersAdvanced";
 import { FindingsTableAdvanced } from "@/components/findings/FindingsTableAdvanced";
@@ -7,24 +7,24 @@ import { FindingStatsCards } from "@/components/findings/FindingStatsCards";
 import { FindingDetailModal } from "@/components/findings/FindingDetailModal";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PaywallBlocker } from "@/components/shared/PaywallBlocker";
+import { ConnectionErrorState } from "@/components/shared/ConnectionErrorState";
+import { NoScanState } from "@/components/shared/NoScanState";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   useFilteredFindings,
   useUpdateFindingStatus,
   useFilteredFindingStats,
 } from "@/hooks/use-findings";
-import { useAwsAccount, useScanHistory, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAwsAccount, useScanHistory, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
 import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES, TIER_LIMITS } from "@/types";
-import { AlertTriangle, RefreshCw, Scan, Play, ArrowRight, Cloud } from "lucide-react";
+import { AlertTriangle, RefreshCw, Cloud } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function AccountFindings() {
   const { accountId } = useParams<{ accountId: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { org } = useAuthStore();
@@ -49,7 +49,6 @@ export default function AccountFindings() {
 
   // Fetch scan data for empty state logic
   const { data: scanHistory } = useScanHistory(accountId!);
-  const triggerScan = useTriggerScan();
 
   // Auto-refresh data when scans complete
   const { activeScans } = useScanCompletionRefresh();
@@ -168,25 +167,6 @@ export default function AccountFindings() {
     }
   };
 
-  const handleScan = async () => {
-    if (!accountId) return;
-
-    try {
-      await triggerScan.mutateAsync(accountId);
-      toast({
-        title: "Scan started",
-        description: "Your AWS account is being scanned.",
-        type: "success",
-      });
-    } catch {
-      toast({
-        title: "Scan failed",
-        description: "Failed to start scan. Please try again.",
-        type: "error",
-      });
-    }
-  };
-
   // Use unfiltered stats to determine if there are any findings at all
   const hasAnyFindings = useMemo(() => {
     const checkStats = unfilteredStats;
@@ -206,8 +186,6 @@ export default function AccountFindings() {
   );
   const hasScanInProgress = activeScans?.some(scan => scan.awsAccountId === accountId) ||
     scanHistory?.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
-
-  const baseUrl = `/accounts/${accountId}`;
 
   return (
     <div className="space-y-6">
@@ -248,58 +226,35 @@ export default function AccountFindings() {
         />
       )}
 
+      {/* Account error state - blocks entire page content */}
+      {!accountLoading && account?.status === "error" && (
+        <ConnectionErrorState
+          accountId={accountId}
+          accountName={account.name}
+          errorMessage={account.lastError}
+        />
+      )}
+
       {/* Paywall for free tier */}
-      {hasCompletedScan && !canViewFindingList && (
+      {hasCompletedScan && !canViewFindingList && account?.status !== "error" && (
         <PaywallBlocker feature="findings" />
       )}
 
-      {/* Invitation to start first scan */}
+      {/* Invitation to start first scan - redirect to Scans page */}
       {!accountLoading && account?.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <Scan className="h-10 w-10 text-primary" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Discover security and cost issues</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              Run a scan to identify security vulnerabilities, cost optimization opportunities,
-              and compliance issues in this account.
-            </p>
-            <Button
-              size="lg"
-              className="mt-8"
-              onClick={handleScan}
-              disabled={triggerScan.isPending || hasScanInProgress}
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Start Scan
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          title="Discover security and cost issues"
+          description="Go to the Scans page to start identifying security vulnerabilities, cost optimization opportunities, and compliance issues in this account."
+        />
       )}
 
       {/* Scan in progress state */}
       {!accountLoading && account?.status === "ok" && !hasCompletedScan && hasScanInProgress && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Analyzing your infrastructure...</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              This account is being scanned. Findings will appear here once the scan completes.
-            </p>
-            <Button
-              variant="outline"
-              size="lg"
-              className="mt-8"
-              onClick={() => navigate(`${baseUrl}/scans`)}
-            >
-              View Scan Progress
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          isScanning={true}
+        />
       )}
 
       {/* Main content - only show after first scan and with permission */}

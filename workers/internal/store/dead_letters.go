@@ -38,6 +38,9 @@ func (s *deadLetterStore) Create(ctx context.Context, job *DeadLetterJob) error 
 		job.ID = uuid.New().String()
 	}
 
+	// Sanitize error message before storing
+	job.Error = SanitizeErrorMessage(job.Error)
+
 	// Ensure payload is never nil - use empty JSON object if nil
 	payload := job.Payload
 	if payload == nil {

@@ -2,6 +2,8 @@ package awsclient
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -46,17 +48,32 @@ func NewClient(ctx context.Context, logger zerolog.Logger) (*Client, error) {
 func (c *Client) AssumeRole(ctx context.Context, roleARN, externalID string) (aws.CredentialsProvider, error) {
 	stsClient := sts.NewFromConfig(c.baseConfig)
 
-	c.logger.Debug().Str("role_arn", roleARN).Msg("assuming role")
+	// Generate unique session name for CloudTrail audit trail
+	sessionName := generateSessionName()
+	c.logger.Debug().Str("role_arn", roleARN).Str("session_name", sessionName).Msg("assuming role")
 
 	// Use AssumeRoleProvider which automatically refreshes credentials before expiry
 	opts := func(o *stscreds.AssumeRoleOptions) {
-		o.RoleSessionName = "scanorbit-scanner"
+		o.RoleSessionName = sessionName
 		if externalID != "" {
 			o.ExternalID = aws.String(externalID)
 		}
 	}
 
 	return stscreds.NewAssumeRoleProvider(stsClient, roleARN, opts), nil
+}
+
+// generateSessionName creates a unique session name for AWS role assumption.
+// Format: scanorbit-<timestamp>-<random> (max 64 chars per AWS limits)
+func generateSessionName() string {
+	// Generate 4 random bytes for uniqueness
+	randomBytes := make([]byte, 4)
+	if _, err := rand.Read(randomBytes); err != nil {
+		// Fallback to timestamp only if random fails
+		return fmt.Sprintf("scanorbit-%d", time.Now().UnixNano())
+	}
+	randomHex := hex.EncodeToString(randomBytes)
+	return fmt.Sprintf("scanorbit-%d-%s", time.Now().Unix(), randomHex)
 }
 
 // GetConfigForAccount returns an AWS config with assumed role credentials.

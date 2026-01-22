@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   ReactFlow,
   Controls,
@@ -43,10 +43,11 @@ import { ResourcePreviewModal } from '@/components/infrastructure-map/ResourcePr
 import { MapFiltersComponent } from '@/components/infrastructure-map/MapFilters';
 import { MapLegend } from '@/components/infrastructure-map/MapLegend';
 import { PaywallBlocker } from '@/components/shared/PaywallBlocker';
+import { ConnectionErrorState } from '@/components/shared/ConnectionErrorState';
+import { NoScanState } from '@/components/shared/NoScanState';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { RefreshCw, Network, RotateCcw, Layout, Scan, Play, ArrowRight, Cloud, GitBranch, Waypoints, Globe, EyeOff } from 'lucide-react';
+import { RefreshCw, Network, RotateCcw, Layout, Cloud, GitBranch, Waypoints, Globe, EyeOff } from 'lucide-react';
 import type { Resource, ServiceType } from '@/types';
 import type {
   MapFilters,
@@ -65,8 +66,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toast } from '@/hooks/use-toast';
-import { useTriggerScan } from '@/hooks/use-aws-accounts';
 
 // Storage keys - per account
 const getNodePositionsKey = (accountId: string) => `infrastructure-map:node-positions:${accountId}`;
@@ -249,7 +248,6 @@ const nodeTypes = {
 
 export default function AccountInfrastructureMap() {
   const { accountId } = useParams<{ accountId: string }>();
-  const navigate = useNavigate();
   const { org } = useAuthStore();
 
   // Check tier-based access
@@ -269,7 +267,6 @@ export default function AccountInfrastructureMap() {
     { enabled: canViewInfrastructureMap }
   );
   const { data: scanHistory } = useScanHistory(accountId!);
-  const triggerScan = useTriggerScan();
 
   const { activeScans } = useScanCompletionRefresh();
 
@@ -485,30 +482,12 @@ export default function AccountInfrastructureMap() {
     return () => clearTimeout(timeoutId);
   }, [filteredGraph, setNodes, setEdges, canViewInfrastructureMap]);
 
-  const handleScan = async () => {
-    if (!accountId) return;
-    try {
-      await triggerScan.mutateAsync(accountId);
-      toast({
-        title: "Scan started",
-        description: "Your AWS account is being scanned.",
-      });
-    } catch {
-      toast({
-        title: "Scan failed",
-        description: "Failed to start scan. Please try again.",
-        type: "error",
-      });
-    }
-  };
-
   const hasCompletedScan = scanHistory?.some(scan =>
     scan.status === "complete" || scan.status === "partial"
   );
   const hasScanInProgress = activeScans?.some(scan => scan.awsAccountId === accountId) ||
     scanHistory?.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
 
-  const baseUrl = `/accounts/${accountId}`;
   const isLoading = accountLoading || resourcesLoading;
 
   if (isLoading) {
@@ -539,7 +518,31 @@ export default function AccountInfrastructureMap() {
     );
   }
 
-  // Empty states
+  // Account error state
+  if (account?.status === "error") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-primary/10 p-2">
+            <Cloud className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Infrastructure Map</h1>
+            <p className="text-muted-foreground">
+              {account?.name} &bull; {account?.awsAccountId}
+            </p>
+          </div>
+        </div>
+        <ConnectionErrorState
+          accountId={accountId}
+          accountName={account.name}
+          errorMessage={account.lastError}
+        />
+      </div>
+    );
+  }
+
+  // Empty states - redirect to Scans page
   if (!hasCompletedScan && !hasScanInProgress && account?.status === "ok") {
     return (
       <div className="space-y-6">
@@ -554,26 +557,11 @@ export default function AccountInfrastructureMap() {
             </p>
           </div>
         </div>
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <Scan className="h-10 w-10 text-primary" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Visualize your infrastructure</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              Run a scan to discover your resources and visualize their relationships.
-            </p>
-            <Button
-              size="lg"
-              className="mt-8"
-              onClick={handleScan}
-              disabled={triggerScan.isPending || hasScanInProgress}
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Start Scan
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          title="Visualize your infrastructure"
+          description="Go to the Scans page to start discovering your resources and visualize their relationships."
+        />
       </div>
     );
   }
@@ -592,26 +580,10 @@ export default function AccountInfrastructureMap() {
             </p>
           </div>
         </div>
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Scanning your infrastructure...</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              Resources will appear on the map once the scan completes.
-            </p>
-            <Button
-              variant="outline"
-              size="lg"
-              className="mt-8"
-              onClick={() => navigate(`${baseUrl}/scans`)}
-            >
-              View Scan Progress
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          isScanning={true}
+        />
       </div>
     );
   }

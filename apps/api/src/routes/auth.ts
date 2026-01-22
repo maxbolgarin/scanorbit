@@ -16,8 +16,8 @@ const authRoute = new Hono<{ Variables: Variables }>();
 const signupSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  fullName: z.string().min(1, 'Full name is required').optional(),
-  orgName: z.string().min(2, 'Organization name must be at least 2 characters').optional(),
+  fullName: z.string().min(1, 'Full name is required').max(64, 'Full name must be at most 64 characters').optional(),
+  orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(32, 'Organization name must be at most 32 characters').optional(),
 });
 
 const verifyEmailSchema = z.object({
@@ -66,7 +66,7 @@ const changePasswordSchema = z.object({
 });
 
 const updateProfileSchema = z.object({
-  fullName: z.string().min(1, 'Full name must not be empty').optional(),
+  fullName: z.string().min(1, 'Full name must not be empty').max(64, 'Full name must be at most 64 characters').optional(),
 });
 
 // 2FA schemas

@@ -1,6 +1,31 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"regexp"
+)
+
+// Valid scanner types for ScanAccountJob
+var validScanners = map[string]bool{
+	"ec2":             true,
+	"rds":             true,
+	"s3":              true,
+	"alb":             true,
+	"acm":             true,
+	"lambda":          true,
+	"cloudwatch":      true,
+	"iam":             true,
+	"security_groups": true,
+	"secrets_manager": true,
+	"kms":             true,
+}
+
+// MaxEnabledScanners is the maximum number of scanners that can be enabled
+const MaxEnabledScanners = 20
+
+// uuidRegex validates UUID format
+var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // JobType represents the type of background job.
 type JobType string
@@ -85,14 +110,40 @@ type ResidencyPolicy struct {
 	AllowedRegions []string `json:"allowed_regions"`
 }
 
-// Validate checks that required fields are present in ScanAccountJob.
+// Validate checks that required fields are present and valid in ScanAccountJob.
 func (j *ScanAccountJob) Validate() error {
 	if j.AccountID == "" {
 		return errors.New("account_id is required")
 	}
+	if !uuidRegex.MatchString(j.AccountID) {
+		return errors.New("account_id must be a valid UUID")
+	}
+
 	if j.OrgID == "" {
 		return errors.New("org_id is required")
 	}
+	if !uuidRegex.MatchString(j.OrgID) {
+		return errors.New("org_id must be a valid UUID")
+	}
+
+	// Validate optional job_id and scan_id if provided
+	if j.JobID != "" && !uuidRegex.MatchString(j.JobID) {
+		return errors.New("job_id must be a valid UUID")
+	}
+	if j.ScanID != "" && !uuidRegex.MatchString(j.ScanID) {
+		return errors.New("scan_id must be a valid UUID")
+	}
+
+	// Validate enabled scanners
+	if len(j.EnabledScanners) > MaxEnabledScanners {
+		return fmt.Errorf("enabled_scanners cannot exceed %d items", MaxEnabledScanners)
+	}
+	for _, scanner := range j.EnabledScanners {
+		if !validScanners[scanner] {
+			return fmt.Errorf("invalid scanner type: %s", scanner)
+		}
+	}
+
 	return nil
 }
 
@@ -111,13 +162,39 @@ func (j *ScanAccountJob) IsScannerEnabled(scanner string) bool {
 	return false
 }
 
-// Validate checks that required fields are present in AnalyzeJob.
+// Validate checks that required fields are present and valid in AnalyzeJob.
 func (j *AnalyzeJob) Validate() error {
 	if j.AccountID == "" {
 		return errors.New("account_id is required")
 	}
+	if !uuidRegex.MatchString(j.AccountID) {
+		return errors.New("account_id must be a valid UUID")
+	}
+
 	if j.OrgID == "" {
 		return errors.New("org_id is required")
 	}
+	if !uuidRegex.MatchString(j.OrgID) {
+		return errors.New("org_id must be a valid UUID")
+	}
+
+	// Validate optional job_id and scan_id if provided
+	if j.JobID != "" && !uuidRegex.MatchString(j.JobID) {
+		return errors.New("job_id must be a valid UUID")
+	}
+	if j.ScanID != "" && !uuidRegex.MatchString(j.ScanID) {
+		return errors.New("scan_id must be a valid UUID")
+	}
+
+	// Validate residency policy if provided
+	if j.Policy != nil && len(j.Policy.AllowedRegions) > 50 {
+		return errors.New("allowed_regions cannot exceed 50 items")
+	}
+
+	// Validate required tags list
+	if len(j.RequiredTags) > 100 {
+		return errors.New("required_tags cannot exceed 100 items")
+	}
+
 	return nil
 }

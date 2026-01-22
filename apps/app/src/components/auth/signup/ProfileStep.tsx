@@ -27,8 +27,8 @@ const JOB_TITLES: { value: JobTitle; label: string }[] = [
 ];
 
 const profileSchema = z.object({
-  fullName: z.string().min(2, "Name must be at least 2 characters"),
-  orgName: z.string().min(2, "Organization name must be at least 2 characters"),
+  fullName: z.string().min(2, "Name must be at least 2 characters").max(64, "Name must be at most 64 characters"),
+  orgName: z.string().min(2, "Organization name must be at least 2 characters").max(32, "Organization name must be at most 32 characters"),
   title: z.enum(["devops", "cto", "developer", "security", "personal", "other"]).optional(),
 });
 

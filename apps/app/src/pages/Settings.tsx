@@ -5,7 +5,8 @@ import { OrgSettings } from "@/components/settings/OrgSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { ViewingSettings } from "@/components/settings/ViewingSettings";
 import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
-import { User, Building2, Shield, SlidersHorizontal, CreditCard } from "lucide-react";
+import { DataPrivacySettings } from "@/components/settings/DataPrivacySettings";
+import { User, Building2, Shield, SlidersHorizontal, CreditCard, FileText } from "lucide-react";
 
 export default function Settings() {
   const [searchParams] = useSearchParams();
@@ -42,6 +43,10 @@ export default function Settings() {
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Subscription</span>
           </TabsTrigger>
+          <TabsTrigger value="privacy" className="gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Data & Privacy</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -62,6 +67,10 @@ export default function Settings() {
 
         <TabsContent value="subscription">
           <SubscriptionSettings />
+        </TabsContent>
+
+        <TabsContent value="privacy">
+          <DataPrivacySettings />
         </TabsContent>
       </Tabs>
     </div>

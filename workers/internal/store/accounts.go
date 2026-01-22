@@ -91,6 +91,9 @@ func (s *accountStore) UpdateLastScanAt(ctx context.Context, id string, scannedA
 func (s *accountStore) UpdateStatus(ctx context.Context, id string, status string, lastError string) error {
 	finish := metrics.TrackDBQuery("update", "aws_accounts")
 
+	// Sanitize error message before storing
+	lastError = SanitizeErrorMessage(lastError)
+
 	query := `
 		UPDATE aws_accounts
 		SET status = $2, last_error = $3, updated_at = NOW()

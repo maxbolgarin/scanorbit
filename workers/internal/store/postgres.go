@@ -22,11 +22,13 @@ type TxOptions = pgx.TxOptions
 
 // DB represents a PostgreSQL database connection pool.
 type DB struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	stopCh    chan struct{} // Channel to signal stats goroutine to stop
+	stoppedCh chan struct{} // Channel to signal stats goroutine has stopped
 }
 
 // NewDB creates a new database connection pool.
-// If caCertPath is provided and sslmode=require is in the URL, the CA certificate will be used for TLS verification.
+// If sslmode=require is in the URL, CA certificate is required for secure TLS verification.
 func NewDB(ctx context.Context, databaseURL, caCertPath string) (*DB, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
@@ -40,19 +42,25 @@ func NewDB(ctx context.Context, databaseURL, caCertPath string) (*DB, error) {
 	config.MaxConnIdleTime = 30 * time.Minute
 	config.HealthCheckPeriod = time.Minute
 
-	// Configure TLS for SSL connections
-	if strings.Contains(databaseURL, "sslmode=require") {
-		tlsConfig := &tls.Config{}
-		if caCertPath != "" {
-			caCert, err := os.ReadFile(caCertPath)
-			if err != nil {
-				return nil, fmt.Errorf("read CA cert: %w", err)
-			}
-			certPool := x509.NewCertPool()
-			if !certPool.AppendCertsFromPEM(caCert) {
-				return nil, fmt.Errorf("failed to parse CA certificate")
-			}
-			tlsConfig.RootCAs = certPool
+	// Configure TLS for SSL connections - require CA certificate for security
+	if strings.Contains(databaseURL, "sslmode=require") || strings.Contains(databaseURL, "sslmode=verify-full") {
+		if caCertPath == "" {
+			return nil, fmt.Errorf("CA certificate path is required for TLS connections (sslmode=require)")
+		}
+
+		caCert, err := os.ReadFile(caCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("read CA cert: %w", err)
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+
+		tlsConfig := &tls.Config{
+			RootCAs:            certPool,
+			InsecureSkipVerify: false, // Explicitly enforce certificate verification
+			MinVersion:         tls.VersionTLS12,
 		}
 		config.ConnConfig.TLSConfig = tlsConfig
 	}
@@ -68,7 +76,11 @@ func NewDB(ctx context.Context, databaseURL, caCertPath string) (*DB, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	db := &DB{pool: pool}
+	db := &DB{
+		pool:      pool,
+		stopCh:    make(chan struct{}),
+		stoppedCh: make(chan struct{}),
+	}
 
 	// Start background goroutine to track connection pool stats
 	go db.trackConnectionStats()
@@ -81,8 +93,19 @@ func (db *DB) Pool() *pgxpool.Pool {
 	return db.pool
 }
 
-// Close closes the database connection pool.
+// Close closes the database connection pool and stops background goroutines.
 func (db *DB) Close() {
+	// Signal stats goroutine to stop
+	close(db.stopCh)
+
+	// Wait for stats goroutine to stop (with timeout)
+	select {
+	case <-db.stoppedCh:
+		// Stats goroutine stopped cleanly
+	case <-time.After(5 * time.Second):
+		// Continue anyway if it doesn't stop in time
+	}
+
 	db.pool.Close()
 }
 
@@ -127,14 +150,22 @@ func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
 }
 
 // trackConnectionStats periodically updates connection pool metrics.
+// Gracefully stops when stopCh is closed.
 func (db *DB) trackConnectionStats() {
+	defer close(db.stoppedCh)
+
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		stats := db.pool.Stat()
-		metrics.DBConnectionsOpen.WithLabelValues("total").Set(float64(stats.TotalConns()))
-		metrics.DBConnectionsOpen.WithLabelValues("idle").Set(float64(stats.IdleConns()))
-		metrics.DBConnectionsOpen.WithLabelValues("in_use").Set(float64(stats.AcquiredConns()))
+	for {
+		select {
+		case <-db.stopCh:
+			return
+		case <-ticker.C:
+			stats := db.pool.Stat()
+			metrics.DBConnectionsOpen.WithLabelValues("total").Set(float64(stats.TotalConns()))
+			metrics.DBConnectionsOpen.WithLabelValues("idle").Set(float64(stats.IdleConns()))
+			metrics.DBConnectionsOpen.WithLabelValues("in_use").Set(float64(stats.AcquiredConns()))
+		}
 	}
 }

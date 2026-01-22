@@ -25,13 +25,13 @@ orgsRoute.use(requireAuth);
 
 // Validation schemas
 const createOrgSchema = z.object({
-  orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(255),
-  fullName: z.string().min(1, 'Full name is required').max(255).optional(),
+  orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(32, 'Organization name must be at most 32 characters'),
+  fullName: z.string().min(1, 'Full name is required').max(64, 'Full name must be at most 64 characters').optional(),
   title: z.enum(['devops', 'cto', 'developer', 'security', 'personal', 'other']).optional(),
 });
 
 const updateOrgSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
+  name: z.string().min(1).max(32, 'Organization name must be at most 32 characters').optional(),
   logoUrl: z.string().url().max(255).optional().nullable(),
 });
 

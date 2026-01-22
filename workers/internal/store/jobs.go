@@ -34,6 +34,9 @@ func (s *jobStore) UpdateStatus(ctx context.Context, id string, status models.Jo
 		return nil // Skip if no job ID (backwards compatibility)
 	}
 
+	// Sanitize error message before storing
+	errorMsg = SanitizeErrorMessage(errorMsg)
+
 	var completedAt *time.Time
 	if status == models.JobStatusComplete || status == models.JobStatusError {
 		now := time.Now()

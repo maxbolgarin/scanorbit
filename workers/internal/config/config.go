@@ -9,13 +9,16 @@ import (
 
 // Config holds all configuration for the workers.
 type Config struct {
-	DatabaseURL     string
-	DBCACert        string
-	RedisURL        string
-	RedisCACert     string
-	LogLevel        string
-	ScanConcurrency int
-	ShutdownTimeout time.Duration
+	DatabaseURL      string
+	DBCACert         string
+	RedisURL         string
+	RedisCACert      string
+	LogLevel         string
+	Environment      string // Environment name (e.g., production, staging, development)
+	ScanConcurrency  int
+	ScanTimeout      time.Duration // Overall timeout for scan operations
+	ShutdownTimeout  time.Duration
+	MetricsBindAddr  string // Bind address for metrics server (default: 127.0.0.1 for security)
 }
 
 // Load reads configuration from environment variables.
@@ -26,8 +29,11 @@ func Load() (*Config, error) {
 		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
 		RedisCACert:     getEnv("REDIS_CA_CERT", ""),
 		LogLevel:        getEnv("LOG_LEVEL", "info"),
+		Environment:     getEnv("ENVIRONMENT", "development"),
 		ScanConcurrency: getEnvInt("SCAN_CONCURRENCY", 10),
+		ScanTimeout:     time.Duration(getEnvInt("SCAN_TIMEOUT_MINUTES", 60)) * time.Minute,
 		ShutdownTimeout: time.Duration(getEnvInt("SHUTDOWN_TIMEOUT_SECONDS", 30)) * time.Second,
+		MetricsBindAddr: getEnv("METRICS_BIND_ADDR", "127.0.0.1"), // Default to localhost for security
 	}
 
 	if err := cfg.Validate(); err != nil {

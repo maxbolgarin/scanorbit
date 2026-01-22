@@ -44,7 +44,8 @@ type MemoryInfo struct {
 }
 
 // NewServer creates a new metrics server
-func NewServer(port int, serviceName, version, env string, logger zerolog.Logger) *Server {
+// bindAddr should be "127.0.0.1" for security (localhost only) or "0.0.0.0" if external access is needed
+func NewServer(port int, bindAddr, serviceName, version, env string, logger zerolog.Logger) *Server {
 	mux := http.NewServeMux()
 
 	s := &Server{
@@ -63,8 +64,13 @@ func NewServer(port int, serviceName, version, env string, logger zerolog.Logger
 	// Status endpoint (JSON format)
 	mux.HandleFunc("/status", s.handleStatus)
 
+	// Default to localhost for security if not specified
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1"
+	}
+
 	s.server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
+		Addr:         fmt.Sprintf("%s:%d", bindAddr, port),
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,

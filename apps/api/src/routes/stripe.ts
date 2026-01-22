@@ -168,9 +168,11 @@ stripeRoute.post('/webhook', async (c) => {
     logger.error('Error processing webhook event', {
       type: event.type,
       error: error.message,
+      stack: error.stack,
     });
-    // Return 200 to prevent Stripe from retrying
-    // We log the error for debugging
+    // Return 500 to trigger Stripe retry for transient failures
+    // This ensures we don't miss critical subscription events
+    return c.json({ error: 'Webhook processing failed' }, 500);
   }
 
   return c.json({ received: true });

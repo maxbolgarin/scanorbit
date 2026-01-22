@@ -10,6 +10,7 @@ import { AlertCircle } from "lucide-react";
 const createAccountSchema = (existingNames: string[], existingAwsAccountIds: string[]) => z.object({
   name: z.string()
     .min(1, "Account name is required")
+    .max(32, "Account name must be at most 32 characters")
     .refine(
       (name) => !existingNames.some(existing => existing.toLowerCase() === name.toLowerCase()),
       "An account with this name already exists"

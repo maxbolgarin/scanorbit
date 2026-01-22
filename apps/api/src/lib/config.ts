@@ -41,6 +41,14 @@ export const config = {
       : '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' // 64 hex chars = 32 bytes
   ),
 
+  // OAuth Token Encryption - MUST be set in production (32 bytes hex for AES-256)
+  // This encrypts OAuth access tokens and refresh tokens stored in the database
+  oauthEncryptionKey: process.env.OAUTH_ENCRYPTION_KEY || (
+    process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('OAUTH_ENCRYPTION_KEY environment variable is required in production'); })()
+      : 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210' // 64 hex chars = 32 bytes
+  ),
+
   // Google OAuth
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
@@ -75,6 +83,11 @@ export const config = {
 
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
+
+  // Trusted Proxies (comma-separated list of IPs/CIDRs)
+  // Only trust x-forwarded-for header from these addresses
+  // Common values: "127.0.0.1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"
+  trustedProxies: (process.env.TRUSTED_PROXIES || '127.0.0.1,::1').split(',').map(s => s.trim()).filter(Boolean),
 
   // GDPR Compliance - Data Retention (days)
   retentionResourcesDays: parseInt(process.env.RETENTION_RESOURCES_DAYS || '90', 10),

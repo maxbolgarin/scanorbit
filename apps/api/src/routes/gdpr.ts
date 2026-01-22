@@ -128,23 +128,17 @@ gdpr.get('/export', async (c) => {
 // =============================================================================
 const deletionRequestSchema = z.object({
   reason: z.string().optional(),
-  confirmEmail: z.string().email(),
 });
 
 gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
   const userId = c.get('userId');
-  const { reason, confirmEmail } = c.req.valid('json');
+  const { reason } = c.req.valid('json');
 
-  // Get user to verify email confirmation
+  // Get user
   const [user] = await db.select().from(users).where(eq(users.id, userId));
 
   if (!user) {
     return c.json({ error: 'User not found' }, 404);
-  }
-
-  // Verify email matches
-  if (user.email.toLowerCase() !== confirmEmail.toLowerCase()) {
-    return c.json({ error: 'Email confirmation does not match' }, 400);
   }
 
   // Check for existing pending request

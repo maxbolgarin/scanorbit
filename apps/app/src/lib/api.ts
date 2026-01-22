@@ -78,12 +78,65 @@ const api = axios.create({
   },
 });
 
+// Track if we're currently handling a 401 to prevent redirect loops
+let isHandling401 = false;
+
+// Response interceptor to handle 401 (unauthorized) responses globally
+// This ensures users are redirected to login when their session expires
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error instanceof AxiosError && error.response?.status === 401) {
+      // Avoid handling 401 during login/logout/2fa flows to prevent loops
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/auth/login') ||
+                             url.includes('/auth/logout') ||
+                             url.includes('/auth/2fa') ||
+                             url.includes('/auth/signup') ||
+                             url.includes('/auth/me');
+
+      if (!isAuthEndpoint && !isHandling401) {
+        isHandling401 = true;
+
+        // Clear any stored auth state - import dynamically to avoid circular deps
+        import('@/stores/auth-store').then(({ useAuthStore }) => {
+          const state = useAuthStore.getState();
+          // Only redirect if we thought we were authenticated
+          if (state.isAuthenticated) {
+            // Clear the auth state without calling API logout (we're already unauthorized)
+            useAuthStore.setState({
+              user: null,
+              org: null,
+              orgs: [],
+              isAuthenticated: false,
+              hasOrg: false,
+              isLoading: false,
+              error: null,
+              requires2FA: false,
+              challengeToken: null,
+            });
+
+            // Redirect to login with session expired message
+            window.location.href = '/login?session_expired=true';
+          }
+        }).finally(() => {
+          isHandling401 = false;
+        });
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Error handler helper
 function handleApiError(error: unknown): never {
-  console.error("API Error:", error);
+  // Only log errors in development to avoid exposing sensitive details in production
+  if (import.meta.env.DEV) {
+    console.error("API Error:", error);
+  }
+
   if (error instanceof AxiosError) {
     const data = error.response?.data;
-    console.log("API Error response data:", data);
 
     // Handle validation errors with details array
     if (data?.details && Array.isArray(data.details)) {
@@ -97,7 +150,6 @@ function handleApiError(error: unknown): never {
       : typeof data?.error === 'string'
         ? data.error
         : error.message;
-    console.log("Throwing error with message:", message);
     throw new Error(message);
   }
   throw error;
@@ -448,13 +500,14 @@ export async function getResourceStats(filters?: { awsAccountId?: string }): Pro
   }
 }
 
-export async function getResourceHealth(filters?: { awsAccountId?: string }): Promise<{ total: number; healthy: number; warning: number; critical: number }> {
+export async function getResourceHealth(filters?: { awsAccountId?: string }): Promise<{ total: number; healthy: number; warning: number; critical: number; orphaned: number }> {
   try {
     const params = new URLSearchParams();
     if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
     const queryString = params.toString();
-    const { data } = await api.get<{ data: { total: number; healthy: number; warning: number; critical: number } }>(`/resources/health${queryString ? `?${queryString}` : ""}`);
-    return data.data;
+    const { data } = await api.get<{ data: { total: number; healthy: number; warning: number; critical: number; orphaned?: number } }>(`/resources/health${queryString ? `?${queryString}` : ""}`);
+    // Backend may not return orphaned, default to 0
+    return { ...data.data, orphaned: data.data.orphaned ?? 0 };
   } catch (error) {
     handleApiError(error);
   }
@@ -814,7 +867,6 @@ export async function getEnhancedDashboardSummary(filters?: {
   try {
     // Fetch all required data
     // Use Promise.allSettled for findings to handle tier restrictions gracefully
-    console.log("[getEnhancedDashboardSummary] Fetching data...");
     const [resourceStats, findingStats, resourceHealth, openFindingsSettled] = await Promise.all([
       getResourceStats(filters),
       getFindingStats(filters),
@@ -822,10 +874,9 @@ export async function getEnhancedDashboardSummary(filters?: {
       getResourceHealth(filters),
       // Wrap findings fetch to handle 403 errors for free tier users
       getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId })
-        .catch((error) => {
+        .catch(() => {
           // If findings list is blocked (403), return empty result
           // This allows dashboard to still load with stats-only data
-          console.log("[getEnhancedDashboardSummary] Findings list not available (likely tier restriction):", error?.message);
           return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
         }),
     ]);
@@ -838,17 +889,8 @@ export async function getEnhancedDashboardSummary(filters?: {
       f => !hiddenTypes.has(f.type as FindingType)
     );
 
-    console.log("[getEnhancedDashboardSummary] Data fetched:", {
-      resourceStats: !!resourceStats,
-      findingStats: !!findingStats,
-      resourceHealth: !!resourceHealth,
-      openFindingsCount: openFindings.length,
-      hiddenTypesCount: hiddenTypes.size
-    });
-
     // Safety checks
     if (!resourceStats || !findingStats || !resourceHealth) {
-      console.error("[getEnhancedDashboardSummary] Missing data:", { resourceStats, findingStats, resourceHealth });
       throw new Error("Failed to fetch dashboard data");
     }
 
@@ -1139,6 +1181,102 @@ export async function createPortalSession(
       { returnUrl }
     );
     return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// GDPR API
+// ============================================
+
+export interface GdprExportData {
+  exportedAt: string;
+  gdprInfo: {
+    dataController: string;
+    purpose: string;
+    retentionPeriod: string;
+  };
+  personalData: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    emailVerified: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  organizations: Array<{
+    name: string;
+    slug: string;
+    role: string;
+    title: string | null;
+    joinedAt: string;
+  }>;
+  consents: Array<{
+    type: string;
+    version: string;
+    given: boolean;
+    timestamp: string;
+  }>;
+  activityLog: Array<{
+    timestamp: string;
+    action: string;
+    method: string;
+    path: string;
+  }>;
+}
+
+export interface DeletionRequest {
+  id: string;
+  requestType: string;
+  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  reason: string | null;
+  requestedAt: string;
+  scheduledDeletionAt: string;
+  processedAt: string | null;
+}
+
+export interface DeletionResponse {
+  message: string;
+  requestId: string;
+  scheduledDeletionAt: string;
+  gracePeriodDays: number;
+  note: string;
+}
+
+export async function exportGdprData(): Promise<Blob> {
+  try {
+    const { data } = await api.get('/gdpr/export', {
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function requestAccountDeletion(reason?: string): Promise<DeletionResponse> {
+  try {
+    const { data } = await api.post<DeletionResponse>('/gdpr/delete', { reason });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function cancelDeletionRequest(requestId: string): Promise<{ message: string; requestId: string }> {
+  try {
+    const { data } = await api.delete<{ message: string; requestId: string }>(`/gdpr/delete/${requestId}`);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getDeletionStatus(): Promise<{ requests: DeletionRequest[] }> {
+  try {
+    const { data } = await api.get<{ requests: DeletionRequest[] }>('/gdpr/deletion-status');
+    return data;
   } catch (error) {
     handleApiError(error);
   }

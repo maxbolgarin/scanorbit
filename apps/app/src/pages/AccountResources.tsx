@@ -5,6 +5,8 @@ import { ResourcesTableAdvanced } from "@/components/resources/ResourcesTableAdv
 import { ResourceStatsCards } from "@/components/resources/ResourceStatsCards";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PaywallBlocker } from "@/components/shared/PaywallBlocker";
+import { ConnectionErrorState } from "@/components/shared/ConnectionErrorState";
+import { NoScanState } from "@/components/shared/NoScanState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,14 +17,13 @@ import {
   useResourceServices,
   useResourceStats,
 } from "@/hooks/use-resources";
-import { useAwsAccount, useScanHistory, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAwsAccount, useScanHistory, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import type { ResourceFilters as Filters, ServiceType, Resource } from "@/types";
 import { ACTIVE_SCAN_STATUSES, TIER_LIMITS } from "@/types";
-import { Server, RefreshCw, LayoutGrid, List, Scan, Play, ArrowRight, Cloud } from "lucide-react";
+import { Server, RefreshCw, LayoutGrid, List, Cloud } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 type ViewMode = "table" | "grid";
@@ -31,7 +32,6 @@ type SortDirection = "asc" | "desc";
 
 export default function AccountResources() {
   const { accountId } = useParams<{ accountId: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { org } = useAuthStore();
 
@@ -57,7 +57,6 @@ export default function AccountResources() {
 
   // Fetch scan data for empty state logic
   const { data: scanHistory } = useScanHistory(accountId!);
-  const triggerScan = useTriggerScan();
 
   // Auto-refresh data when scans complete
   const { activeScans } = useScanCompletionRefresh();
@@ -93,25 +92,6 @@ export default function AccountResources() {
       setSortOverride({ field: "cost", direction: "desc" });
     } else {
       setSortOverride(null);
-    }
-  };
-
-  const handleScan = async () => {
-    if (!accountId) return;
-
-    try {
-      await triggerScan.mutateAsync(accountId);
-      toast({
-        title: "Scan started",
-        description: "Your AWS account is being scanned.",
-        type: "success",
-      });
-    } catch {
-      toast({
-        title: "Scan failed",
-        description: "Failed to start scan. Please try again.",
-        type: "error",
-      });
     }
   };
 
@@ -184,58 +164,35 @@ export default function AccountResources() {
         />
       )}
 
+      {/* Account error state - blocks entire page content */}
+      {!accountLoading && account?.status === "error" && (
+        <ConnectionErrorState
+          accountId={accountId}
+          accountName={account.name}
+          errorMessage={account.lastError}
+        />
+      )}
+
       {/* Paywall for free tier */}
-      {hasCompletedScan && !canViewResourceList && (
+      {hasCompletedScan && !canViewResourceList && account?.status !== "error" && (
         <PaywallBlocker feature="resources" />
       )}
 
-      {/* Invitation to start first scan */}
+      {/* Invitation to start first scan - redirect to Scans page */}
       {!accountLoading && account?.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <Scan className="h-10 w-10 text-primary" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Discover resources in this account</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              Run a scan to discover all your infrastructure resources including EC2 instances,
-              S3 buckets, RDS databases, Lambda functions, and more.
-            </p>
-            <Button
-              size="lg"
-              className="mt-8"
-              onClick={handleScan}
-              disabled={triggerScan.isPending || hasScanInProgress}
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Start Scan
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          title="Discover resources in this account"
+          description="Go to the Scans page to start discovering all your infrastructure resources including EC2 instances, S3 buckets, RDS databases, Lambda functions, and more."
+        />
       )}
 
       {/* Scan in progress state */}
       {!accountLoading && account?.status === "ok" && !hasCompletedScan && hasScanInProgress && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Scanning your infrastructure...</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              This account is being scanned. Resources will appear here once the scan completes.
-            </p>
-            <Button
-              variant="outline"
-              size="lg"
-              className="mt-8"
-              onClick={() => navigate(`${baseUrl}/scans`)}
-            >
-              View Scan Progress
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          isScanning={true}
+        />
       )}
 
       {/* Main content - only show after first scan and with permission */}

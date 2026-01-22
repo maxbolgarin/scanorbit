@@ -18,7 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 
 const profileSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  name: z.string().min(2, "Name must be at least 2 characters").max(64, "Name must be at most 64 characters"),
   email: z.string().email("Please enter a valid email"),
 });
 

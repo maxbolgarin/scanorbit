@@ -244,18 +244,17 @@ export default function AccountScans() {
         </div>
       </div>
 
-      {/* Start Scan panel */}
-      {account?.status === "ok" && (
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Play className="h-5 w-5 text-primary" />
-              Start Scan
-            </CardTitle>
-            <CardDescription>
-              Scan this AWS account to discover resources and identify issues
-            </CardDescription>
-          </CardHeader>
+      {/* Start Scan panel - always show so users can retry after fixing errors */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Play className="h-5 w-5 text-primary" />
+            Start Scan
+          </CardTitle>
+          <CardDescription>
+            Scan this AWS account to discover resources and identify issues
+          </CardDescription>
+        </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
               <Button
@@ -298,7 +297,6 @@ export default function AccountScans() {
             </div>
           </CardContent>
         </Card>
-      )}
 
       {/* Account error state */}
       {account?.status === "error" && (
@@ -308,16 +306,9 @@ export default function AccountScans() {
             <div className="flex-1">
               <h4 className="font-medium text-destructive">Connection Error</h4>
               <p className="text-sm text-muted-foreground mt-1">
-                {account.lastError || "Unable to connect to this AWS account."}
+                {account.lastError || "Unable to connect to this AWS account."}{" "}
+                Fix your IAM role configuration and try scanning again.
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => navigate("/accounts")}
-              >
-                Manage Account
-              </Button>
             </div>
           </CardContent>
         </Card>

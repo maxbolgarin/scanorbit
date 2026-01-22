@@ -51,12 +51,12 @@ func main() {
 	// Initialize metrics
 	metrics.Init(metrics.Config{
 		ServiceName: serviceName,
-		Environment: cfg.LogLevel, // Use log level as environment indicator
+		Environment: cfg.Environment,
 		Version:     serviceVersion,
 	})
 
-	// Start metrics server
-	metricsServer := metrics.NewServer(metricsPort, serviceName, serviceVersion, cfg.LogLevel, logger)
+	// Start metrics server (binds to localhost by default for security)
+	metricsServer := metrics.NewServer(metricsPort, cfg.MetricsBindAddr, serviceName, serviceVersion, cfg.Environment, logger)
 	go func() {
 		if err := metricsServer.Start(); err != nil && err != http.ErrServerClosed {
 			logger.Error().Err(err).Msg("metrics server error")
@@ -100,7 +100,7 @@ func main() {
 	// Setup job recovery
 	recoveryPeriod := 5 * time.Minute
 	recoveryAge := 5 * time.Minute
-	recoveryRunner := recovery.NewRunner(st.JobRecovery, q, recoveryPeriod, recoveryAge, logger)
+	recoveryRunner := recovery.NewRunner(st.JobRecovery, st.DeadLetters, q, recoveryPeriod, recoveryAge, logger)
 
 	// Recover orphaned jobs on startup
 	recovered, err := recoveryRunner.RecoverOnce(ctx)
@@ -173,6 +173,11 @@ func main() {
 			done("error")
 			return err
 		}
+
+		// Apply overall scan timeout from config
+		scanCtx, scanCancel := context.WithTimeout(ctx, cfg.ScanTimeout)
+		defer scanCancel()
+		ctx = scanCtx
 
 		// Mark job as running
 		if scanJob.JobID != "" {

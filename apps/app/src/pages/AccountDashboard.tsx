@@ -1,16 +1,7 @@
-import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 // New dashboard components
 import { CriticalAlertBanner } from "@/components/dashboard/CriticalAlertBanner";
@@ -21,22 +12,18 @@ import { ResourceHealthCard } from "@/components/dashboard/ResourceHealthCard";
 import { CostOptimizationCard } from "@/components/dashboard/CostOptimizationCard";
 import { ComplianceStatusCard } from "@/components/dashboard/ComplianceStatusCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
+import { ConnectionErrorState } from "@/components/shared/ConnectionErrorState";
+import { NoScanState } from "@/components/shared/NoScanState";
 
 import { useEnhancedDashboardSummary } from "@/hooks/use-dashboard";
-import { useAwsAccount, useTriggerScan, useScanHistory, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
-import { useSubscriptionStatus } from "@/hooks/use-subscription";
-import { toast } from "@/hooks/use-toast";
+import { useAwsAccount, useScanHistory, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   RefreshCw,
-  Play,
   AlertTriangle,
-  Scan,
-  ArrowRight,
   Cloud,
-  ExternalLinkIcon,
-  Lock,
+  Scan,
 } from "lucide-react";
 
 export default function AccountDashboard() {
@@ -49,55 +36,14 @@ export default function AccountDashboard() {
   const { data: summary, isLoading: summaryLoading, isFetching } = useEnhancedDashboardSummary({ awsAccountId: accountId });
   const { data: scanHistory, isLoading: scansLoading } = useScanHistory(accountId!);
   const { data: activeScans } = useActiveScans();
-  const triggerScan = useTriggerScan();
 
   // Auto-refresh data when scans complete
   useScanCompletionRefresh();
-
-  // Get subscription status for scan permissions
-  const { canScan: subscriptionCanScan, scanReason, tier } = useSubscriptionStatus();
-
-  const [showScanDialog, setShowScanDialog] = useState(false);
-
-  const handleScan = async () => {
-    if (!accountId) return;
-
-    // Check subscription permissions first
-    if (!subscriptionCanScan) {
-      toast({
-        title: "Cannot start scan",
-        description: scanReason || "Scanning is not available on your current plan.",
-        type: "error",
-      });
-      return;
-    }
-
-    try {
-      await triggerScan.mutateAsync(accountId);
-      toast({
-        title: "Scan started",
-        description: "Your AWS account is being scanned. This may take a few minutes.",
-        type: "success",
-      });
-    } catch {
-      toast({
-        title: "Scan failed",
-        description: "Failed to start scan. Please try again.",
-        type: "error",
-      });
-    }
-  };
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["findings"] });
     queryClient.invalidateQueries({ queryKey: ["scan-history", accountId] });
-  };
-
-  const handleTriggerScan = (accId: string) => {
-    if (accId === accountId) {
-      handleScan();
-    }
   };
 
   const hasCompletedScan = scanHistory?.some(scan =>
@@ -108,9 +54,6 @@ export default function AccountDashboard() {
   const accountActiveScans = activeScans?.filter(scan => scan.awsAccountId === accountId);
   const hasScanInProgress = (accountActiveScans && accountActiveScans.length > 0) ||
     scanHistory?.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
-
-  // Base URL for navigation
-  const baseUrl = `/accounts/${accountId}`;
 
   if (accountLoading) {
     return (
@@ -167,127 +110,43 @@ export default function AccountDashboard() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {!hasCompletedScan && account.status === "ok" && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowScanDialog(true)}
-              disabled={triggerScan.isPending || hasScanInProgress || !subscriptionCanScan}
-            >
-              {!subscriptionCanScan ? (
-                <>
-                  <Lock className="mr-2 h-4 w-4" />
-                  {tier === "free" ? "Upgrade to Scan" : "Cooldown"}
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  Start Scan
-                </>
-              )}
-            </Button>
-          )}
-          {hasCompletedScan && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isFetching}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          )}
-        </div>
+        {hasCompletedScan && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isFetching}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        )}
       </div>
 
-      {/* Account error state */}
+      {/* Account error state - blocks entire page content */}
       {account.status === "error" && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="flex items-start gap-4 py-4">
-            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-medium text-destructive">Connection Error</h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                {account.lastError || "Unable to connect to this AWS account. Please check your IAM role configuration."}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => navigate("/accounts")}
-              >
-                <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                Manage Account
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ConnectionErrorState
+          accountId={accountId}
+          accountName={account.name}
+          errorMessage={account.lastError}
+        />
       )}
 
       {/* Scanning in progress state */}
       {account.status === "ok" && !hasCompletedScan && hasScanInProgress && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Scanning your infrastructure...</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              This account is being scanned. This may take a few minutes depending on
-              the size of your infrastructure. The dashboard will update once the scan completes.
-            </p>
-            <Button
-              variant="outline"
-              size="lg"
-              className="mt-8"
-              onClick={() => navigate(`${baseUrl}/scans`)}
-            >
-              View Scan Progress
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          isScanning={true}
+        />
       )}
 
-      {/* Invitation to start first scan */}
+      {/* No scan yet - direct to Scans page */}
       {account.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-primary/20 p-5">
-              <Scan className="h-10 w-10 text-primary" />
-            </div>
-            <h3 className="mt-6 text-xl font-semibold">Ready to scan this account</h3>
-            <p className="mt-3 max-w-lg text-muted-foreground">
-              Run a scan to discover resources, identify security vulnerabilities,
-              find cost optimization opportunities, and check compliance status for this account.
-            </p>
-            {!subscriptionCanScan && tier === "free" && hasCompletedScan === false && scanReason && (
-              <p className="mt-2 text-sm text-amber-600">
-                {scanReason}
-              </p>
-            )}
-            <Button
-              size="lg"
-              className="mt-8"
-              onClick={() => setShowScanDialog(true)}
-              disabled={triggerScan.isPending || hasScanInProgress || !subscriptionCanScan}
-            >
-              {!subscriptionCanScan ? (
-                <>
-                  <Lock className="mr-2 h-5 w-5" />
-                  {tier === "free" ? "Upgrade to Scan" : "Cooldown Active"}
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-5 w-5" />
-                  Start Scan
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+        <NoScanState
+          accountId={accountId!}
+          title="Ready to scan this account"
+          description="Go to the Scans page to start discovering resources, identify security vulnerabilities, find cost optimization opportunities, and check compliance status."
+        />
       )}
 
       {/* Dashboard content - only show after first scan is completed AND data is available */}
@@ -311,8 +170,8 @@ export default function AccountDashboard() {
               accounts={account ? [account] : []}
               activeScans={accountActiveScans}
               recentScans={scanHistory}
-              onTriggerScan={handleTriggerScan}
-              isTriggeringScan={triggerScan.isPending}
+              onTriggerScan={() => navigate(`/accounts/${accountId}/scans`)}
+              isTriggeringScan={false}
               isLoading={scansLoading}
               accountId={accountId}
             />
@@ -364,11 +223,11 @@ export default function AccountDashboard() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button
                 size="lg"
-                onClick={() => setShowScanDialog(true)}
-                disabled={triggerScan.isPending || hasScanInProgress}
+                onClick={() => navigate(`/accounts/${accountId}/scans`)}
+                disabled={hasScanInProgress}
               >
-                <Play className="mr-2 h-5 w-5" />
-                Run New Scan
+                <Scan className="mr-2 h-5 w-5" />
+                Go to Scans
               </Button>
               <Button
                 variant="outline"
@@ -384,36 +243,6 @@ export default function AccountDashboard() {
         </Card>
       )}
 
-      {/* Scan confirmation dialog */}
-      <Dialog open={showScanDialog} onOpenChange={setShowScanDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Start Scan</DialogTitle>
-            <DialogDescription>
-              This will start a scan for <span className="font-medium">{account.name}</span>.
-              Scanning may take several minutes depending on the size of your infrastructure.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowScanDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setShowScanDialog(false);
-                handleScan();
-              }}
-              disabled={triggerScan.isPending}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              Start Scan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

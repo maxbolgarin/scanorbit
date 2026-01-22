@@ -379,6 +379,7 @@ export const jobs = pgTable('jobs', {
   status: varchar('status', { length: 50 }).default('queued').notNull(), // 'queued', 'running', 'complete', 'error'
   result: jsonb('result'),
   error: text('error'),
+  recoveryCount: integer('recovery_count').default(0).notNull(), // Number of times this job has been recovered from stuck/orphaned state
   createdAt: timestamp('created_at').defaultNow().notNull(),
   startedAt: timestamp('started_at'),
   completedAt: timestamp('completed_at'),
@@ -386,6 +387,7 @@ export const jobs = pgTable('jobs', {
   index('jobs_status_idx').on(table.status),
   index('jobs_type_idx').on(table.type),
   index('jobs_scan_id_idx').on(table.scanId),
+  index('jobs_recovery_count_idx').on(table.recoveryCount),
 ]);
 
 // Dead Letter Jobs (jobs that failed after max retries)

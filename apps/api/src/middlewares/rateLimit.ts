@@ -2,6 +2,7 @@ import type { Context, Next } from 'hono';
 import { redis } from '../lib/redis.js';
 import { HTTP429Error, HTTP503Error } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import { getClientIPUnsafe } from '../lib/ip.js';
 import type { Variables } from '../types/index.js';
 
 interface RateLimitOptions {
@@ -60,21 +61,12 @@ function recordSuccess(): void {
 
 /**
  * Get client IP address from request
- * Handles proxied requests via x-forwarded-for header
+ * Uses the centralized IP utility for consistent handling
+ * Note: For rate limiting, we use the unsafe version since we need to
+ * rate limit even if the proxy isn't in the trusted list
  */
 function getClientIP(c: Context<{ Variables: Variables }>): string {
-  // In production, trust only specific headers from trusted proxies
-  const forwarded = c.req.header('x-forwarded-for');
-  if (forwarded) {
-    // Take the first IP (original client)
-    return forwarded.split(',')[0].trim();
-  }
-  const realIP = c.req.header('x-real-ip');
-  if (realIP) {
-    return realIP.trim();
-  }
-  // Fallback - may not work in all environments
-  return 'unknown';
+  return getClientIPUnsafe(c);
 }
 
 /**

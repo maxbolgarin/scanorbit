@@ -153,6 +153,9 @@ func NewStore(db *DB) *Store {
 
 // CompleteScanWithAccount atomically updates scan status and account metadata.
 func (s *Store) CompleteScanWithAccount(ctx context.Context, scanID, accountID, status string, resourceCount int, errMsg string, lastScanAt time.Time) error {
+	// Sanitize error message before storing
+	errMsg = SanitizeErrorMessage(errMsg)
+
 	return s.db.WithTx(ctx, func(tx Tx) error {
 		// Get previous scan's resource count for delta calculation
 		var prevResourceCount int
@@ -242,6 +245,9 @@ func (s *Store) CompleteScanWithAccount(ctx context.Context, scanID, accountID, 
 
 // FailScanWithAccount atomically marks scan and account as error.
 func (s *Store) FailScanWithAccount(ctx context.Context, scanID, accountID, errMsg string) error {
+	// Sanitize error message before storing
+	errMsg = SanitizeErrorMessage(errMsg)
+
 	return s.db.WithTx(ctx, func(tx Tx) error {
 		// Update scan status to error
 		scanQuery := `
@@ -269,6 +275,9 @@ func (s *Store) FailScanWithAccount(ctx context.Context, scanID, accountID, errM
 
 // FailJobWithScan atomically marks job and scan as error.
 func (s *Store) FailJobWithScan(ctx context.Context, jobID, scanID, errMsg string) error {
+	// Sanitize error message before storing
+	errMsg = SanitizeErrorMessage(errMsg)
+
 	return s.db.WithTx(ctx, func(tx Tx) error {
 		// Update job status to error
 		if jobID != "" {
@@ -376,6 +385,9 @@ func (s *Store) CompleteAnalyzerJob(ctx context.Context, jobID, scanID string) (
 // FailAnalyzerJob atomically marks an analyzer job as error and checks if scan should be marked complete.
 // Returns true if the scan was marked as complete.
 func (s *Store) FailAnalyzerJob(ctx context.Context, jobID, scanID, errMsg string) (bool, error) {
+	// Sanitize error message before storing
+	errMsg = SanitizeErrorMessage(errMsg)
+
 	scanCompleted := false
 
 	err := s.db.WithTx(ctx, func(tx Tx) error {

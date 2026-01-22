@@ -20,7 +20,7 @@ import * as api from "@/lib/api";
 import { Building2, Users } from "lucide-react";
 
 const orgSchema = z.object({
-  name: z.string().min(2, "Organization name must be at least 2 characters"),
+  name: z.string().min(2, "Organization name must be at least 2 characters").max(32, "Organization name must be at most 32 characters"),
 });
 
 type OrgFormData = z.infer<typeof orgSchema>;

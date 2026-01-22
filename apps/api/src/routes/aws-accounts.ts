@@ -19,7 +19,7 @@ const scannerTypeEnum = z.enum([
 
 // Validation schemas
 const createAccountSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255),
+  name: z.string().min(1, 'Name is required').max(32, 'Name must be at most 32 characters'),
   awsAccountId: z
     .string()
     .length(12, 'AWS account ID must be 12 digits')

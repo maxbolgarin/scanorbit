@@ -265,22 +265,69 @@ async function runMigrations() {
       });
       console.log('✅ Migrations check completed!\n');
     } catch (error) {
-      // If migrate fails, show the error but continue to check status
-      console.error('⚠️  Migration error:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        if (error.stack) {
-          console.error('Stack trace:', error.stack);
+      // Check if error is due to column/table already existing (migration already applied)
+      const err = error as Error & { cause?: { code?: string; message?: string } };
+      const isAlreadyExistsError = 
+        err.cause?.code === '42701' || // duplicate_column
+        err.cause?.code === '42P07' || // duplicate_table
+        err.message?.includes('already exists') ||
+        err.cause?.message?.includes('already exists');
+
+      if (isAlreadyExistsError) {
+        console.warn('⚠️  Migration failed because changes already exist in database.');
+        console.warn('   This usually means the migration was applied manually.');
+        console.warn('   Attempting to sync migration tracking...\n');
+        
+        // Try to sync remaining migrations
+        try {
+          await syncMigrationTracking(pool, migrationsFolder, journal);
+          console.log('✅ Migration tracking synced after error!\n');
+          
+          // Try running migrations again after sync
+          try {
+            await migrate(db, {
+              migrationsFolder,
+            });
+            console.log('✅ Migrations check completed after sync!\n');
+          } catch (retryError) {
+            console.warn('⚠️  Migrations still failing after sync. Some migrations may need manual review.');
+            console.error('Error:', retryError instanceof Error ? retryError.message : String(retryError));
+          }
+        } catch (syncError) {
+          console.error('⚠️  Could not sync migrations:', syncError instanceof Error ? syncError.message : String(syncError));
+        }
+      } else {
+        // Other errors - show full details
+        console.error('⚠️  Migration error:', error);
+        if (error instanceof Error) {
+          console.error('Error message:', error.message);
+          if (error.stack) {
+            console.error('Stack trace:', error.stack);
+          }
         }
       }
-      // Don't exit - let's check what's actually in the database
     }
 
-    // Verify final state
+    // Final sync: Ensure all migrations in journal are tracked
+    // This catches cases where migrations were modified or applied manually
     const finalAppliedMigrations = await getAppliedMigrations(pool);
+    const journalEntryCount = journal.entries.length;
+    
+    if (finalAppliedMigrations.length < journalEntryCount) {
+      console.log(`\n🔄 Final sync: ${finalAppliedMigrations.length} tracked, ${journalEntryCount} in journal`);
+      console.log('   Syncing any missing migrations...\n');
+      try {
+        await syncMigrationTracking(pool, migrationsFolder, journal);
+      } catch (syncError) {
+        console.warn('⚠️  Final sync warning:', syncError instanceof Error ? syncError.message : String(syncError));
+      }
+    }
+    
+    // Get final count after sync
+    const finalCount = (await getAppliedMigrations(pool)).length;
     
     // Debug: Show what's actually in the database
-    if (finalAppliedMigrations.length === 0) {
+    if (finalCount === 0) {
       // Check if migrations table exists and what's in it
       const tableCheck = await pool.query(`
         SELECT EXISTS (
@@ -324,12 +371,14 @@ async function runMigrations() {
       }
     }
     
-    console.log(`📊 Final state: ${finalAppliedMigrations.length} migration(s) applied\n`);
+    const finalMigrations = await getAppliedMigrations(pool);
+    console.log(`📊 Final state: ${finalMigrations.length} migration(s) applied\n`);
 
     // Show all applied migrations with details
-    if (finalAppliedMigrations.length > 0) {
+    const finalMigrationsList = await getAppliedMigrations(pool);
+    if (finalMigrationsList.length > 0) {
       console.log('All applied migrations:');
-      finalAppliedMigrations.forEach((applied, index) => {
+      finalMigrationsList.forEach((applied, index) => {
         const migration = journal.entries.find((e) => e.tag === applied.hash);
         const name = migration ? migration.tag : applied.hash;
         const date = applied.createdAt.toISOString();

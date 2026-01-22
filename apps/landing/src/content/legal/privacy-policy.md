@@ -138,21 +138,18 @@ This ensures compliance with:
 | Data Type | Retention Period | Reason |
 |-----------|------------------|--------|
 | **Account Information** | Until account deletion | Required to operate your account |
-| **Scan Results** | Based on plan (7-90 days) | Enables trend analysis and historical comparison |
-| **Findings** | Based on plan (7-90 days) | Allows you to track resolution progress |
-| **API Logs** | 30 days | Debugging and security monitoring |
-| **Authentication Logs** | 30 days | Security and fraud detection |
+| **Scan Results** | 365 days | Enables trend analysis and historical comparison |
+| **Security Findings** | 180 days | Allows you to track resolution progress |
+| **Audit Logs** | 730 days (2 years) | Security monitoring and compliance |
+| **Consent Records** | Indefinite | Required for GDPR compliance proof |
 | **Backups** | 30 days after deletion | Disaster recovery purposes |
 
-**Retention by Plan:**
-- **Free:** 7 days
-- **Pro:** 30 days
-- **Team:** 90 days
-
 **Deletion:**
-- When you delete your account, all personal data is removed within 7 days
-- Backups are kept for 30 days for disaster recovery
-- Scan data is permanently deleted after plan retention period expires
+- When you request account deletion, a 30-day grace period applies
+- During this period, you can cancel the deletion request
+- After 30 days, all personal data is permanently removed
+- Audit logs are anonymized (user identifiers removed) but retained for compliance
+- Consent records are preserved as proof of consent
 
 ---
 
@@ -163,20 +160,28 @@ This ensures compliance with:
 - **Founders:** Access to aggregated metrics (not personal data)
 - **Monitoring Systems:** Automated alerts for security issues
 
-### 5.2 Service Providers
+### 5.2 Service Providers (Sub-processors)
 
-We use the following third-party services (all EU-based or GDPR compliant):
+We use the following third-party services to operate ScanOrbit. All sub-processors are GDPR compliant and have appropriate data processing agreements in place.
 
-| Service | Purpose | Location |
-|---------|---------|----------|
-| **AWS** | Infrastructure hosting | EU (Frankfurt, Amsterdam) |
-| **SendGrid** | Email delivery (future) | EU-compliant |
-| **Stripe** | Payment processing (future) | GDPR-compliant |
+| Service | Purpose | Data Processed | Location | DPA |
+|---------|---------|----------------|----------|-----|
+| **Scaleway** | Infrastructure hosting (servers, databases) | All application data | EU (Paris, Amsterdam) | [Scaleway DPA](https://www.scaleway.com/en/contracts/) |
+| **AWS** | Cloud infrastructure for customer scans | AWS account metadata only | EU (Frankfurt) | [AWS DPA](https://d1.awsstatic.com/legal/aws-gdpr/AWS_GDPR_DPA.pdf) |
+| **Stripe** | Payment processing | Email, name, organization ID, user ID | USA (EU DPA) | [Stripe DPA](https://stripe.com/legal/dpa) |
+| **Google OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [Google DPA](https://cloud.google.com/terms/data-processing-terms) |
+| **GitHub OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [GitHub DPA](https://github.com/customer-terms/github-data-protection-agreement) |
+| **SendGrid** | Email delivery | Email addresses | USA (EU DPA) | [SendGrid DPA](https://www.twilio.com/legal/data-protection-addendum) |
+
+**Data Processing Notes:**
+- Stripe processes payment data under their EU Data Processing Addendum with Standard Contractual Clauses (SCCs) for international transfers
+- OAuth providers only receive authentication tokens; no scan data or AWS information is shared
+- All OAuth tokens are encrypted at rest using AES-256-GCM before storage
 
 **No third party has access to:**
 - Your AWS credentials (stored encrypted)
-- Your scan data
-- Your personal information
+- Your scan data or security findings
+- Your resource inventory or configuration details
 
 ### 5.3 Legal Requirements
 We may disclose information when required by law:
@@ -259,7 +264,30 @@ You can disable:
 - Automated backup testing
 - Incident response procedures
 
-### 7.3 Future Compliance
+### 7.3 Data Breach Notification (GDPR Article 33 & 34)
+
+In the event of a personal data breach, we will:
+
+**Notification to Supervisory Authority (Article 33):**
+- Notify the relevant data protection authority within **72 hours** of becoming aware of a breach
+- Provide details of the breach nature, affected data categories, approximate number of individuals affected
+- Describe likely consequences and measures taken or proposed to address the breach
+- Document all breaches internally regardless of notification requirement
+
+**Notification to Data Subjects (Article 34):**
+- Notify affected individuals **without undue delay** when a breach is likely to result in high risk to their rights and freedoms
+- Use direct communication (email) where possible
+- Describe in clear and plain language the nature of the breach
+- Provide contact information for our Data Protection Officer
+- Describe likely consequences and measures taken to mitigate harm
+
+**Breach Response:**
+- Immediate containment and investigation
+- Assessment of risk to individuals
+- Documentation of facts, effects, and remedial actions
+- Post-incident review and security improvements
+
+### 7.4 Future Compliance
 - **SOC2 Type II Audit:** Late 2026
 - **ISO 27001 Certification:** Late 2026
 - **Penetration Testing:** Mid 2026

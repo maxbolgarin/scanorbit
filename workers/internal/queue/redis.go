@@ -30,31 +30,39 @@ type jobEnvelope struct {
 
 // RedisQueue implements Queue using Redis.
 type RedisQueue struct {
-	client *redis.Client
-	logger zerolog.Logger
+	client    *redis.Client
+	logger    zerolog.Logger
+	stopCh    chan struct{} // Channel to signal metrics goroutine to stop
+	stoppedCh chan struct{} // Channel to signal metrics goroutine has stopped
 }
 
 // NewRedisQueue creates a new Redis-based job queue.
-// If caCertPath is provided and the URL uses rediss://, the CA certificate will be used for TLS verification.
+// If the URL uses rediss://, CA certificate is required for secure TLS verification.
 func NewRedisQueue(redisURL, caCertPath string, logger zerolog.Logger) (*RedisQueue, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis URL: %w", err)
 	}
 
-	// Configure TLS for rediss:// URLs
+	// Configure TLS for rediss:// URLs - require CA certificate for security
 	if strings.HasPrefix(redisURL, "rediss://") {
-		tlsConfig := &tls.Config{}
-		if caCertPath != "" {
-			caCert, err := os.ReadFile(caCertPath)
-			if err != nil {
-				return nil, fmt.Errorf("read CA cert: %w", err)
-			}
-			certPool := x509.NewCertPool()
-			if !certPool.AppendCertsFromPEM(caCert) {
-				return nil, fmt.Errorf("failed to parse CA certificate")
-			}
-			tlsConfig.RootCAs = certPool
+		if caCertPath == "" {
+			return nil, fmt.Errorf("CA certificate path is required for TLS connections (rediss://)")
+		}
+
+		caCert, err := os.ReadFile(caCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("read CA cert: %w", err)
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+
+		tlsConfig := &tls.Config{
+			RootCAs:            certPool,
+			InsecureSkipVerify: false, // Explicitly enforce certificate verification
+			MinVersion:         tls.VersionTLS12,
 		}
 		opts.TLSConfig = tlsConfig
 	}
@@ -70,8 +78,10 @@ func NewRedisQueue(redisURL, caCertPath string, logger zerolog.Logger) (*RedisQu
 	}
 
 	rq := &RedisQueue{
-		client: client,
-		logger: logger.With().Str("component", "redis_queue").Logger(),
+		client:    client,
+		logger:    logger.With().Str("component", "redis_queue").Logger(),
+		stopCh:    make(chan struct{}),
+		stoppedCh: make(chan struct{}),
 	}
 
 	// Start background goroutine to track queue length
@@ -203,13 +213,27 @@ func (q *RedisQueue) Ping(ctx context.Context) error {
 	return q.client.Ping(ctx).Err()
 }
 
-// Close closes the Redis connection.
+// Close closes the Redis connection and stops background goroutines.
 func (q *RedisQueue) Close() error {
+	// Signal metrics goroutine to stop
+	close(q.stopCh)
+
+	// Wait for metrics goroutine to stop (with timeout)
+	select {
+	case <-q.stoppedCh:
+		q.logger.Debug().Msg("metrics goroutine stopped cleanly")
+	case <-time.After(5 * time.Second):
+		q.logger.Warn().Msg("metrics goroutine did not stop within timeout")
+	}
+
 	return q.client.Close()
 }
 
 // trackQueueMetrics periodically tracks queue length metrics.
+// Gracefully stops when stopCh is closed.
 func (q *RedisQueue) trackQueueMetrics() {
+	defer close(q.stoppedCh)
+
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
@@ -218,21 +242,31 @@ func (q *RedisQueue) trackQueueMetrics() {
 		string(models.JobTypeAnalyzeOrphans),
 		string(models.JobTypeAnalyzeSSL),
 		string(models.JobTypeAnalyzeSecurity),
+		string(models.JobTypeAnalyzeResidency),
+		string(models.JobTypeAnalyzeCost),
+		string(models.JobTypeAnalyzeTagging),
+		string(models.JobTypeAnalyzeIAM),
 	}
 
-	for range ticker.C {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	for {
+		select {
+		case <-q.stopCh:
+			q.logger.Debug().Msg("queue metrics tracking stopped")
+			return
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-		for _, queueName := range queueNames {
-			key := jobKeyPrefix + queueName
-			length, err := q.client.LLen(ctx, key).Result()
-			if err != nil {
-				q.logger.Warn().Err(err).Str("queue", queueName).Msg("failed to get queue length")
-				continue
+			for _, queueName := range queueNames {
+				key := jobKeyPrefix + queueName
+				length, err := q.client.LLen(ctx, key).Result()
+				if err != nil {
+					q.logger.Warn().Err(err).Str("queue", queueName).Msg("failed to get queue length")
+					continue
+				}
+				metrics.QueueLength.WithLabelValues(queueName).Set(float64(length))
 			}
-			metrics.QueueLength.WithLabelValues(queueName).Set(float64(length))
-		}
 
-		cancel()
+			cancel()
+		}
 	}
 }

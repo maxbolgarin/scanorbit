@@ -290,6 +290,65 @@ export const twoFactorStore = {
 import crypto from 'crypto';
 
 // ============================================
+// Account Lockout Helpers (Protection against brute force)
+// ============================================
+
+const ACCOUNT_LOCKOUT_TTL = 60 * 60; // 1 hour lockout
+const ACCOUNT_LOCKOUT_THRESHOLD = 10; // Lock after 10 failed attempts
+
+function accountLockoutKey(email: string): string {
+  return `account:lockout:${email.toLowerCase()}`;
+}
+
+export const accountLockoutStore = {
+  /**
+   * Check if an account is locked
+   * Returns { locked: boolean, failedAttempts: number, remainingLockoutSeconds: number }
+   */
+  async checkLockout(email: string): Promise<{ locked: boolean; failedAttempts: number; remainingLockoutSeconds: number }> {
+    const key = accountLockoutKey(email);
+    const [attempts, ttl] = await Promise.all([
+      redis.get(key),
+      redis.ttl(key),
+    ]);
+    const count = attempts ? parseInt(attempts, 10) : 0;
+
+    return {
+      locked: count >= ACCOUNT_LOCKOUT_THRESHOLD,
+      failedAttempts: count,
+      remainingLockoutSeconds: ttl > 0 ? ttl : 0,
+    };
+  },
+
+  /**
+   * Record a failed login attempt
+   * Returns the new count of failed attempts
+   */
+  async recordFailedAttempt(email: string): Promise<number> {
+    const key = accountLockoutKey(email);
+    const count = await redis.incr(key);
+    // Reset TTL on each failure to extend lockout window
+    await redis.expire(key, ACCOUNT_LOCKOUT_TTL);
+    return count;
+  },
+
+  /**
+   * Clear lockout (after successful login or password reset)
+   */
+  async clearLockout(email: string): Promise<void> {
+    await redis.del(accountLockoutKey(email));
+  },
+
+  /**
+   * Get remaining lockout time in seconds
+   */
+  async getRemainingLockoutTime(email: string): Promise<number> {
+    const ttl = await redis.ttl(accountLockoutKey(email));
+    return ttl > 0 ? ttl : 0;
+  },
+};
+
+// ============================================
 // Password Reset Token Helpers
 // ============================================
 
