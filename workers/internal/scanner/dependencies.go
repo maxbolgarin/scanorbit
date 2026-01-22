@@ -33,6 +33,16 @@ func (e *DependencyExtractor) ExtractDependencies(resource *models.Resource) []*
 		return e.extractSecurityGroupDependencies(resource)
 	case models.ServiceALB:
 		return e.extractALBDependencies(resource)
+	case models.ServiceENI:
+		return e.extractENIDependencies(resource)
+	case models.ServiceNATGateway:
+		return e.extractNATGatewayDependencies(resource)
+	case models.ServiceS3:
+		return e.extractS3Dependencies(resource)
+	case models.ServiceSecret:
+		return e.extractSecretDependencies(resource)
+	case models.ServiceCloudWatchAlarm:
+		return e.extractCloudWatchAlarmDependencies(resource)
 	default:
 		return nil
 	}
@@ -411,6 +421,221 @@ func (e *DependencyExtractor) extractALBDependencies(resource *models.Resource) 
 					))
 				}
 			}
+		}
+	}
+
+	return deps
+}
+
+// extractENIDependencies extracts dependencies from ENI data.
+func (e *DependencyExtractor) extractENIDependencies(resource *models.Resource) []*models.ResourceDependency {
+	var deps []*models.ResourceDependency
+
+	var raw struct {
+		VpcId          string `json:"vpc_id"`
+		SubnetId       string `json:"subnet_id"`
+		Attachment     *struct {
+			InstanceId string `json:"instance_id"`
+		} `json:"attachment"`
+		SecurityGroups []struct {
+			GroupId   string `json:"group_id"`
+			GroupName string `json:"group_name"`
+		} `json:"security_groups"`
+	}
+
+	if err := json.Unmarshal(resource.Raw, &raw); err != nil {
+		return nil
+	}
+
+	// VPC relationship
+	if raw.VpcId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.VpcId,
+			models.ServiceVPC,
+			models.RelationshipInVPC,
+		))
+	}
+
+	// Subnet relationship
+	if raw.SubnetId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.SubnetId,
+			models.ServiceSubnet,
+			models.RelationshipInSubnet,
+		))
+	}
+
+	// EC2 attachment relationship
+	if raw.Attachment != nil && raw.Attachment.InstanceId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.Attachment.InstanceId,
+			models.ServiceEC2,
+			models.RelationshipAttachedTo,
+		))
+	}
+
+	// Security group relationships
+	for _, sg := range raw.SecurityGroups {
+		if sg.GroupId != "" {
+			deps = append(deps, models.NewResourceDependency(
+				resource.ID,
+				sg.GroupId,
+				models.ServiceSecurityGroup,
+				models.RelationshipUsesSG,
+			))
+		}
+	}
+
+	return deps
+}
+
+// extractNATGatewayDependencies extracts dependencies from NAT Gateway data.
+func (e *DependencyExtractor) extractNATGatewayDependencies(resource *models.Resource) []*models.ResourceDependency {
+	var deps []*models.ResourceDependency
+
+	var raw struct {
+		VpcId    string `json:"vpc_id"`
+		SubnetId string `json:"subnet_id"`
+		Addresses []struct {
+			AllocationId       string `json:"allocation_id"`
+			NetworkInterfaceId string `json:"network_interface_id"`
+		} `json:"addresses"`
+	}
+
+	if err := json.Unmarshal(resource.Raw, &raw); err != nil {
+		return nil
+	}
+
+	// VPC relationship
+	if raw.VpcId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.VpcId,
+			models.ServiceVPC,
+			models.RelationshipInVPC,
+		))
+	}
+
+	// Subnet relationship
+	if raw.SubnetId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.SubnetId,
+			models.ServiceSubnet,
+			models.RelationshipInSubnet,
+		))
+	}
+
+	// EIP and ENI relationships from addresses
+	for _, addr := range raw.Addresses {
+		if addr.AllocationId != "" {
+			deps = append(deps, models.NewResourceDependency(
+				resource.ID,
+				addr.AllocationId,
+				models.ServiceEIP,
+				models.RelationshipUsesEIP,
+			))
+		}
+		if addr.NetworkInterfaceId != "" {
+			deps = append(deps, models.NewResourceDependency(
+				resource.ID,
+				addr.NetworkInterfaceId,
+				models.ServiceENI,
+				models.RelationshipAttachedTo,
+			))
+		}
+	}
+
+	return deps
+}
+
+// extractS3Dependencies extracts dependencies from S3 bucket data.
+func (e *DependencyExtractor) extractS3Dependencies(resource *models.Resource) []*models.ResourceDependency {
+	var deps []*models.ResourceDependency
+
+	var raw struct {
+		KmsKeyId string `json:"kms_key_id"`
+	}
+
+	if err := json.Unmarshal(resource.Raw, &raw); err != nil {
+		return nil
+	}
+
+	// KMS encryption relationship
+	if raw.KmsKeyId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.KmsKeyId,
+			models.ServiceKMSKey,
+			models.RelationshipEncryptedBy,
+		))
+	}
+
+	return deps
+}
+
+// extractSecretDependencies extracts dependencies from Secrets Manager secret data.
+func (e *DependencyExtractor) extractSecretDependencies(resource *models.Resource) []*models.ResourceDependency {
+	var deps []*models.ResourceDependency
+
+	var raw struct {
+		KmsKeyId string `json:"kms_key_id"`
+	}
+
+	if err := json.Unmarshal(resource.Raw, &raw); err != nil {
+		return nil
+	}
+
+	// KMS encryption relationship
+	if raw.KmsKeyId != "" {
+		deps = append(deps, models.NewResourceDependency(
+			resource.ID,
+			raw.KmsKeyId,
+			models.ServiceKMSKey,
+			models.RelationshipEncryptedBy,
+		))
+	}
+
+	return deps
+}
+
+// extractCloudWatchAlarmDependencies extracts dependencies from CloudWatch Alarm data.
+func (e *DependencyExtractor) extractCloudWatchAlarmDependencies(resource *models.Resource) []*models.ResourceDependency {
+	var deps []*models.ResourceDependency
+
+	var raw struct {
+		Dimensions []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"dimensions"`
+	}
+
+	if err := json.Unmarshal(resource.Raw, &raw); err != nil {
+		return nil
+	}
+
+	// Map dimension names to service types
+	dimensionServiceMap := map[string]models.ServiceType{
+		"InstanceId":           models.ServiceEC2,
+		"DBInstanceIdentifier": models.ServiceRDS,
+		"FunctionName":         models.ServiceLambda,
+		"LoadBalancer":         models.ServiceALB,
+		"NatGatewayId":         models.ServiceNATGateway,
+		"BucketName":           models.ServiceS3,
+	}
+
+	// Extract target resource relationships from dimensions
+	for _, dim := range raw.Dimensions {
+		if targetService, ok := dimensionServiceMap[dim.Name]; ok && dim.Value != "" {
+			deps = append(deps, models.NewResourceDependency(
+				resource.ID,
+				dim.Value,
+				targetService,
+				models.RelationshipMonitors,
+			))
 		}
 	}
 

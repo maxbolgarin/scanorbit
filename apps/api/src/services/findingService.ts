@@ -1,4 +1,4 @@
-import { eq, and, desc, count, inArray } from 'drizzle-orm';
+import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { findings, resources, certificates, findingScans, scans } from '../db/schema.js';
@@ -389,5 +389,119 @@ export const findingService = {
     );
 
     return timeline;
+  },
+
+  /**
+   * Get resource health based on findings.
+   * This calculates how many resources are healthy, warning, or critical based on their findings.
+   * Available to all tiers (doesn't expose finding details).
+   */
+  async getResourceHealth(
+    orgId: string,
+    awsAccountId?: string
+  ): Promise<{ total: number; healthy: number; warning: number; critical: number; orphaned: number }> {
+    // Build conditions for resources
+    const resourceConditions = [eq(resources.orgId, orgId)];
+    if (awsAccountId) {
+      resourceConditions.push(eq(resources.awsAccountId, awsAccountId));
+    }
+
+    // Get total resource count
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(resources)
+      .where(and(...resourceConditions));
+    const total = totalResult?.count ?? 0;
+
+    // Build conditions for findings
+    const findingConditions = [
+      eq(findings.orgId, orgId),
+      eq(findings.status, 'open'),
+    ];
+    if (awsAccountId) {
+      findingConditions.push(eq(findings.awsAccountId, awsAccountId));
+    }
+
+    // Orphaned/unused/idle finding types (all from the orphans analyzer)
+    const orphanedTypes = [
+      'orphaned_volume',
+      'orphaned_eip',
+      'orphaned_snapshot',
+      'orphaned_eni',
+      'idle_load_balancer',
+      'unused_security_group',
+      'idle_nat_gateway',
+    ];
+
+    // Get unique resources with orphaned findings
+    const orphanedResources = await db
+      .select({ resourceId: findings.resourceId })
+      .from(findings)
+      .where(
+        and(
+          ...findingConditions,
+          sql`${findings.type} IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})`,
+          sql`${findings.resourceId} IS NOT NULL`
+        )
+      )
+      .groupBy(findings.resourceId);
+
+    const orphanedResourceIds = new Set(
+      orphanedResources.map(r => r.resourceId).filter(Boolean)
+    );
+
+    // Get unique resources with critical findings (excluding orphaned)
+    const criticalResources = await db
+      .select({ resourceId: findings.resourceId })
+      .from(findings)
+      .where(
+        and(
+          ...findingConditions,
+          eq(findings.severity, 'critical'),
+          sql`${findings.type} NOT IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})`,
+          sql`${findings.resourceId} IS NOT NULL`
+        )
+      )
+      .groupBy(findings.resourceId);
+
+    const criticalResourceIds = new Set(
+      criticalResources
+        .map(r => r.resourceId)
+        .filter(id => id && !orphanedResourceIds.has(id))
+    );
+
+    // Get unique resources with non-critical findings (high, medium, low, trivial), excluding orphaned
+    const warningResources = await db
+      .select({ resourceId: findings.resourceId })
+      .from(findings)
+      .where(
+        and(
+          ...findingConditions,
+          sql`${findings.severity} != 'critical'`,
+          sql`${findings.type} NOT IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})`,
+          sql`${findings.resourceId} IS NOT NULL`
+        )
+      )
+      .groupBy(findings.resourceId);
+
+    // Warning resources are those with findings but not critical and not orphaned
+    const warningResourceIds = new Set(
+      warningResources
+        .map(r => r.resourceId)
+        .filter(id => id && !criticalResourceIds.has(id) && !orphanedResourceIds.has(id))
+    );
+
+    const orphaned = orphanedResourceIds.size;
+    const critical = criticalResourceIds.size;
+    const warning = warningResourceIds.size;
+    const healthy = Math.max(0, total - critical - warning - orphaned);
+
+    return {
+      total,
+      healthy,
+      warning,
+      critical,
+      orphaned,
+    };
   },
 };

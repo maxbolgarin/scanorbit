@@ -21,7 +21,7 @@ const ITEMS_PER_PAGE = 5;
 interface ResourceStatsCardsProps {
   stats: ResourceStats | undefined;
   isLoading?: boolean;
-  onFilterSelect?: (filter: { service?: ServiceType; region?: string; sortBy?: string }) => void;
+  onFilterSelect?: (filter: { service?: ServiceType; region?: string; sortBy?: string; state?: string }) => void;
 }
 
 export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: ResourceStatsCardsProps) {
@@ -99,6 +99,10 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
     onFilterSelect?.({ region });
   };
 
+  const handleStateClick = (state: string) => {
+    onFilterSelect?.({ state });
+  };
+
   return (
     <div className="space-y-4">
       {/* Main stats row */}
@@ -162,12 +166,27 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Active / Inactive
+                  Running / Stopped
                 </p>
                 <p className="mt-1 text-3xl font-bold">
-                  <span className="text-green-600">{activeCount}</span>
+                  <span
+                    className="text-green-600 cursor-pointer hover:underline"
+                    onClick={() => handleStateClick("running")}
+                    title="Click to filter running resources"
+                  >
+                    {activeCount}
+                  </span>
                   <span className="mx-1 text-muted-foreground">/</span>
-                  <span className="text-muted-foreground">{inactiveCount}</span>
+                  <span
+                    className="text-muted-foreground cursor-pointer hover:underline"
+                    onClick={() => handleStateClick("stopped")}
+                    title="Click to filter stopped resources"
+                  >
+                    {inactiveCount}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  EC2, Lambda, EBS, EIP
                 </p>
               </div>
               <div className="rounded-full bg-orange-500/10 p-3">
@@ -215,9 +234,11 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
             </div>
             <div className="space-y-3">
               {paginatedServices.map(([service, data]) => {
-                const costPercentage = totalEstimatedCost > 0
-                  ? Math.round((data.totalCost / totalEstimatedCost) * 100)
+                // Calculate percentage with minimum 2% if there's any cost
+                const rawPercentage = totalEstimatedCost > 0
+                  ? (data.totalCost / totalEstimatedCost) * 100
                   : 0;
+                const costPercentage = data.count > 0 ? Math.max(2, Math.round(rawPercentage)) : 0;
                 return (
                   <div
                     key={service}

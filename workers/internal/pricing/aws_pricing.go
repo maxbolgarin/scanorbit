@@ -170,6 +170,9 @@ const RDSSnapshotCostPerGB = 0.095
 // ALB Monthly Base Cost (hourly + LCU)
 const ALBBaseCost = 16.43 // ~$0.0225/hour base
 
+// NLB Monthly Base Cost (hourly only)
+const NLBBaseCost = 6.57 // ~$0.009/hour base
+
 // NAT Gateway Monthly Base Cost (hourly only, data processing extra)
 const NATGatewayBaseCost = 32.40 // ~$0.045/hour base
 

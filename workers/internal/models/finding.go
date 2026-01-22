@@ -52,6 +52,7 @@ const (
 	FindingLogRetention     FindingType = "log_retention"
 	FindingUnusedKMSKey     FindingType = "unused_kms_key"
 	FindingRDSOptimization  FindingType = "rds_optimization"
+	FindingOldGenRDS        FindingType = "old_gen_rds"
 	// Tagging findings
 	FindingMissingTag FindingType = "missing_tag"
 	// IAM findings

@@ -37,7 +37,7 @@ export const UpgradeConfirmModal = memo(function UpgradeConfirmModal({
         <DialogHeader>
           <DialogTitle>Confirm Upgrade to {tierLabels[targetTier]}</DialogTitle>
           <DialogDescription className="pt-2">
-            This is a demo upgrade. In a production environment, this would redirect you to a payment flow.
+            This is a demo upgrade. After public beta-testing this would redirect you to a payment flow. Now it is free.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">

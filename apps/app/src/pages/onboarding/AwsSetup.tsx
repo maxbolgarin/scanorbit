@@ -13,7 +13,6 @@ import { PolicyGuide } from "@/components/onboarding/PolicyGuide";
 import { RoleGuide } from "@/components/onboarding/RoleGuide";
 import { TestConnection } from "@/components/onboarding/TestConnection";
 import { useAwsAccounts, useTriggerScan } from "@/hooks/use-aws-accounts";
-import * as api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Cloud, Orbit, X } from "lucide-react";
 import type { CreateAwsAccountInput, ScannerType } from "@/types";
@@ -59,8 +58,12 @@ function clearOnboardingState() {
 
 export default function AwsSetup() {
   const navigate = useNavigate();
-  const { createAccount, testConnection, deleteAccount, isCreating, isTesting } = useAwsAccounts();
+  const { accounts, createAccount, testConnection, deleteAccount, isCreating, isTesting } = useAwsAccounts();
   const triggerScan = useTriggerScan();
+
+  // Get existing account names and AWS Account IDs for validation
+  const existingNames = accounts.map(a => a.name);
+  const existingAwsAccountIds = accounts.map(a => a.awsAccountId);
 
   // Initialize state from localStorage
   const savedState = loadOnboardingState();
@@ -137,22 +140,13 @@ export default function AwsSetup() {
         } catch (createErr) {
           const errorMessage = createErr instanceof Error ? createErr.message : "";
 
-          // If account already exists, find it and use it
+          // Show clear error for duplicate accounts instead of silently using existing
           if (errorMessage.toLowerCase().includes("already connected") ||
               errorMessage.toLowerCase().includes("already exists")) {
-            // Get existing accounts and find the matching one
-            const accounts = await api.getAwsAccounts();
-            const existingAccount = accounts.find(
-              (acc) => acc.awsAccountId === accountDetails.awsAccountId
-            );
-
-            if (existingAccount) {
-              accountId = existingAccount.id;
-              setCreatedAccountId(accountId);
-              // Test the existing account
-              const result = await testConnection(accountId);
-              return result;
-            }
+            return {
+              success: false,
+              message: "This AWS account is already connected to your organization. Please go back and enter a different AWS Account ID.",
+            };
           }
           throw createErr;
         }
@@ -324,6 +318,8 @@ export default function AwsSetup() {
                 onSubmit={handleAccountDetails}
                 isLoading={false}
                 error={error}
+                existingNames={existingNames}
+                existingAwsAccountIds={existingAwsAccountIds}
               />
             )}
             {step === "scanners" && (

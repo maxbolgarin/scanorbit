@@ -211,6 +211,7 @@ export function SecuritySettings() {
               <Input
                 id="currentPassword"
                 type="password"
+                autoComplete="current-password"
                 {...passwordForm.register("currentPassword")}
                 disabled={isUpdatingPassword}
               />
@@ -226,6 +227,7 @@ export function SecuritySettings() {
                 <Input
                   id="newPassword"
                   type="password"
+                  autoComplete="new-password"
                   {...passwordForm.register("newPassword")}
                   disabled={isUpdatingPassword}
                 />
@@ -240,6 +242,7 @@ export function SecuritySettings() {
                 <Input
                   id="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
                   {...passwordForm.register("confirmPassword")}
                   disabled={isUpdatingPassword}
                 />

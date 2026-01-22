@@ -77,12 +77,7 @@ export function RDSSnapshotDetails({ resource }: RDSSnapshotDetailsProps) {
       <DetailSection title="Location">
         <DetailGrid>
           <DetailRow label="Availability Zone" value={data.availabilityZone} />
-          {data.vpcId && (
-            <div className="py-2 border-b">
-              <span className="text-sm text-muted-foreground block mb-1">VPC</span>
-              <ResourceRelationshipBadge resourceId={data.vpcId} />
-            </div>
-          )}
+          <DetailRow label="VPC" value={data.vpcId} mono copyable />
         </DetailGrid>
       </DetailSection>
 

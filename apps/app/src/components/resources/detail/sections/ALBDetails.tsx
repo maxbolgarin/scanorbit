@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { DetailSection } from '../DetailSection';
 import { DetailRow, DetailGrid } from '../DetailRow';
-import { ResourceRelationshipBadge, ResourceRelationshipList } from '../ResourceRelationshipBadge';
+import { SecurityGroupsPanel } from '../SecurityGroupsPanel';
 import { TagsSection } from '../TagsSection';
 import { ResourceRawViewer } from '../ResourceRawViewer';
 import { extractALBData } from '@/types/rawData';
@@ -60,14 +60,7 @@ export function ALBDetails({ resource }: ALBDetailsProps) {
         <TabsContent value="networking" className="mt-4 space-y-4">
           <DetailSection title="VPC Configuration">
             <DetailGrid>
-              <div className="py-2 border-b">
-                <span className="text-sm text-muted-foreground block mb-1">VPC</span>
-                {data.vpcId ? (
-                  <ResourceRelationshipBadge resourceId={data.vpcId} />
-                ) : (
-                  <span className="text-sm text-muted-foreground">-</span>
-                )}
-              </div>
+              <DetailRow label="VPC" value={data.vpcId} mono copyable />
             </DetailGrid>
           </DetailSection>
 
@@ -80,7 +73,7 @@ export function ALBDetails({ resource }: ALBDetailsProps) {
                     className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <span className="text-sm font-medium">{az.zoneName}</span>
-                    <ResourceRelationshipBadge resourceId={az.subnetId} />
+                    <span className="text-sm font-mono text-muted-foreground">{az.subnetId}</span>
                   </div>
                 ))}
               </div>
@@ -88,11 +81,12 @@ export function ALBDetails({ resource }: ALBDetailsProps) {
           )}
 
           {data.securityGroups.length > 0 && (
-            <DetailSection title="Security Groups">
-              <ResourceRelationshipList
-                items={data.securityGroups.map((sg) => ({ id: sg }))}
-              />
-            </DetailSection>
+            <SecurityGroupsPanel
+              securityGroups={data.securityGroups.map((sg) => ({
+                groupId: sg,
+                groupName: sg, // ALB only provides group IDs
+              }))}
+            />
           )}
         </TabsContent>
       )}

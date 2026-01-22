@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { DetailSection } from '../DetailSection';
 import { DetailRow, DetailGrid } from '../DetailRow';
-import { ResourceRelationshipBadge } from '../ResourceRelationshipBadge';
 import { SecurityRulesTable } from '../SecurityRulesTable';
 import { TagsSection } from '../TagsSection';
 import { ResourceRawViewer } from '../ResourceRawViewer';
@@ -49,12 +48,12 @@ export function SecurityGroupDetails({ resource }: SecurityGroupDetailsProps) {
           <DetailRow label="Owner ID" value={data.ownerId} mono />
         </DetailGrid>
         <div className="mt-4 pt-4 border-t">
-          <span className="text-sm text-muted-foreground block mb-2">VPC</span>
-          {data.vpcId ? (
-            <ResourceRelationshipBadge resourceId={data.vpcId} />
-          ) : (
-            <span className="text-sm text-muted-foreground">EC2-Classic (no VPC)</span>
-          )}
+          <DetailRow
+            label="VPC"
+            value={data.vpcId || 'EC2-Classic (no VPC)'}
+            mono={!!data.vpcId}
+            copyable={!!data.vpcId}
+          />
         </div>
       </DetailSection>
 

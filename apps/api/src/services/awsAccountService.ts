@@ -64,8 +64,8 @@ export const awsAccountService = {
     orgId: string,
     data: CreateAccountData
   ): Promise<AwsAccount> {
-    // Check if account already exists for this org
-    const existing = await db
+    // Check if account already exists for this org (by AWS account ID)
+    const existingById = await db
       .select({ id: awsAccounts.id })
       .from(awsAccounts)
       .where(
@@ -76,8 +76,24 @@ export const awsAccountService = {
       )
       .limit(1);
 
-    if (existing.length > 0) {
+    if (existingById.length > 0) {
       throw new HTTP400Error('AWS account already connected to this organization');
+    }
+
+    // Check if account name already exists for this org
+    const existingByName = await db
+      .select({ id: awsAccounts.id })
+      .from(awsAccounts)
+      .where(
+        and(
+          eq(awsAccounts.orgId, orgId),
+          eq(awsAccounts.name, data.name)
+        )
+      )
+      .limit(1);
+
+    if (existingByName.length > 0) {
+      throw new HTTP400Error('An account with this name already exists');
     }
 
     // Validate AWS account ID format

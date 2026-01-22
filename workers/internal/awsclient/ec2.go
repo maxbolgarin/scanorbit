@@ -240,11 +240,23 @@ func (s *EC2Scanner) ScanENIs(ctx context.Context, cfg aws.Config, region string
 			// Add attachment info if present
 			if eni.Attachment != nil {
 				rawData["attachment"] = map[string]any{
-					"instance_id":     aws.ToString(eni.Attachment.InstanceId),
-					"device_index":    eni.Attachment.DeviceIndex,
-					"status":          string(eni.Attachment.Status),
+					"instance_id":           aws.ToString(eni.Attachment.InstanceId),
+					"device_index":          eni.Attachment.DeviceIndex,
+					"status":                string(eni.Attachment.Status),
 					"delete_on_termination": eni.Attachment.DeleteOnTermination,
 				}
+			}
+
+			// Add security groups
+			if len(eni.Groups) > 0 {
+				sgs := make([]map[string]string, 0, len(eni.Groups))
+				for _, sg := range eni.Groups {
+					sgs = append(sgs, map[string]string{
+						"group_id":   aws.ToString(sg.GroupId),
+						"group_name": aws.ToString(sg.GroupName),
+					})
+				}
+				rawData["security_groups"] = sgs
 			}
 
 			raw, _ := json.Marshal(rawData)

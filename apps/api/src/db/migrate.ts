@@ -5,6 +5,7 @@ import { config } from '../lib/config.js';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 
 const { Pool } = pg;
 
@@ -107,6 +108,66 @@ async function getAppliedMigrations(pool: pg.Pool): Promise<AppliedMigration[]> 
   }
 }
 
+/**
+ * Calculate hash for a migration file (same algorithm Drizzle uses)
+ * Drizzle uses SHA-256 hash of the migration file content
+ */
+function calculateMigrationHash(filePath: string): string {
+  const content = readFileSync(filePath, 'utf-8');
+  // Drizzle uses SHA-256 hash
+  return createHash('sha256').update(content).digest('hex');
+}
+
+/**
+ * Sync migration tracking by reading migration files and inserting their hashes
+ * This is useful when migrations were applied manually or tracking got out of sync
+ */
+async function syncMigrationTracking(
+  pool: pg.Pool,
+  migrationsFolder: string,
+  journal: MigrationJournal
+): Promise<void> {
+  let syncedCount = 0;
+  const now = Date.now();
+
+  for (const entry of journal.entries) {
+    const fileName = `${entry.tag}.sql`;
+    const filePath = join(migrationsFolder, fileName);
+
+    if (!existsSync(filePath)) {
+      console.warn(`  ⚠️  Migration file not found: ${fileName}`);
+      continue;
+    }
+
+    // Calculate hash from file content
+    const hash = calculateMigrationHash(filePath);
+
+    // Check if this hash is already in the database
+    const existing = await pool.query(
+      'SELECT id FROM __drizzle_migrations WHERE hash = $1',
+      [hash]
+    );
+
+    if (existing.rows.length === 0) {
+      // Insert migration hash
+      await pool.query(
+        'INSERT INTO __drizzle_migrations (hash, created_at) VALUES ($1, $2)',
+        [hash, now]
+      );
+      syncedCount++;
+      console.log(`  ✅ Synced: ${entry.tag}`);
+    } else {
+      console.log(`  ⏭️  Already tracked: ${entry.tag}`);
+    }
+  }
+
+  if (syncedCount > 0) {
+    console.log(`\n✅ Synced ${syncedCount} migration(s) to tracking table`);
+  } else {
+    console.log(`\n✅ All migrations already tracked`);
+  }
+}
+
 async function runMigrations() {
   console.log('🚀 Starting database migrations...\n');
 
@@ -170,6 +231,31 @@ async function runMigrations() {
 
     // Ensure migrations table exists before running migrations
     await ensureMigrationsTable(pool);
+
+    // Check if we need to sync migrations (tables exist but tracking table is empty)
+    const appliedMigrationsBefore = await getAppliedMigrations(pool);
+    const appTablesCheck = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name NOT LIKE '__drizzle%'
+      AND table_name IN ('users', 'orgs', 'aws_accounts')
+    `);
+    const hasAppTables = parseInt(appTablesCheck.rows[0].count) > 0;
+
+    // If tables exist but no migrations are tracked, try to sync
+    if (hasAppTables && appliedMigrationsBefore.length === 0) {
+      console.log('⚠️  Detected existing tables but empty migrations table.');
+      console.log('   Attempting to sync migration tracking...\n');
+      
+      try {
+        await syncMigrationTracking(pool, migrationsFolder, journal);
+        console.log('✅ Migration tracking synced!\n');
+      } catch (syncError) {
+        console.warn('⚠️  Could not auto-sync migrations:', syncError instanceof Error ? syncError.message : String(syncError));
+        console.log('   Continuing with normal migration process...\n');
+      }
+    }
 
     // Run migrations with drizzle's migrator
     // Drizzle will determine which migrations need to be applied based on content hashes

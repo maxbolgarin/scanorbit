@@ -1,12 +1,15 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DetailSection } from '../DetailSection';
 import { DetailRow, DetailGrid } from '../DetailRow';
-import { ResourceRelationshipBadge, ResourceRelationshipList } from '../ResourceRelationshipBadge';
+import { ResourceRelationshipBadge } from '../ResourceRelationshipBadge';
+import { SecurityGroupsPanel } from '../SecurityGroupsPanel';
 import { TagsSection } from '../TagsSection';
 import { ResourceRawViewer } from '../ResourceRawViewer';
 import { extractEC2Data } from '@/types/rawData';
 import { formatDateTime } from '@/lib/utils';
 import type { Resource } from '@/types';
+
+// VPC and Subnet are infrastructure containers, not tracked as resources
 
 interface EC2DetailsProps {
   resource: Resource;
@@ -70,22 +73,8 @@ export function EC2Details({ resource }: EC2DetailsProps) {
         <TabsContent value="networking" className="mt-4 space-y-4">
           <DetailSection title="VPC & Subnet">
             <DetailGrid>
-              <div className="py-2 border-b">
-                <span className="text-sm text-muted-foreground block mb-1">VPC</span>
-                {data.vpcId ? (
-                  <ResourceRelationshipBadge resourceId={data.vpcId} />
-                ) : (
-                  <span className="text-sm text-muted-foreground">-</span>
-                )}
-              </div>
-              <div className="py-2 border-b">
-                <span className="text-sm text-muted-foreground block mb-1">Subnet</span>
-                {data.subnetId ? (
-                  <ResourceRelationshipBadge resourceId={data.subnetId} />
-                ) : (
-                  <span className="text-sm text-muted-foreground">-</span>
-                )}
-              </div>
+              <DetailRow label="VPC" value={data.vpcId} mono copyable />
+              <DetailRow label="Subnet" value={data.subnetId} mono copyable />
               <DetailRow label="Availability Zone" value={data.availabilityZone} />
             </DetailGrid>
           </DetailSection>
@@ -103,15 +92,7 @@ export function EC2Details({ resource }: EC2DetailsProps) {
 
       {hasSecurity && (
         <TabsContent value="security" className="mt-4 space-y-4">
-          <DetailSection title="Security Groups">
-            <ResourceRelationshipList
-              items={data.securityGroups.map((sg) => ({
-                id: sg.groupId,
-                label: sg.groupName || sg.groupId,
-              }))}
-              emptyText="No security groups attached"
-            />
-          </DetailSection>
+          <SecurityGroupsPanel securityGroups={data.securityGroups} />
 
           {data.iamInstanceProfile && (
             <DetailSection title="IAM Instance Profile">

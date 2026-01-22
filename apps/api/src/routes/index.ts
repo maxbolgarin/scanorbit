@@ -6,6 +6,7 @@ import awsScansRoute from './aws-scans.js';
 import resourcesRoute from './resources.js';
 import findingsRoute from './findings.js';
 import gdprRoute from './gdpr.js';
+import stripeRoute from './stripe.js';
 import type { Variables } from '../types/index.js';
 
 const routes = new Hono<{ Variables: Variables }>();
@@ -20,5 +21,8 @@ routes.route('/findings', findingsRoute);
 
 // GDPR compliance routes (data export, deletion requests, audit logs)
 routes.route('/gdpr', gdprRoute);
+
+// Stripe payment routes
+routes.route('/stripe', stripeRoute);
 
 export default routes;

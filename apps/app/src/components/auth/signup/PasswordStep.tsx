@@ -103,6 +103,18 @@ export function PasswordStep({ signupToken, email, consent, onNext, onTokenError
       )}
 
       <div className="space-y-4">
+        {/* Hidden email field for password manager autofill */}
+        <input
+          type="email"
+          name="email"
+          autoComplete="username email"
+          value={email}
+          readOnly
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">

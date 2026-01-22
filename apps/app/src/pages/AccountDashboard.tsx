@@ -24,6 +24,7 @@ import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 
 import { useEnhancedDashboardSummary } from "@/hooks/use-dashboard";
 import { useAwsAccount, useTriggerScan, useScanHistory, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useSubscriptionStatus } from "@/hooks/use-subscription";
 import { toast } from "@/hooks/use-toast";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ import {
   ArrowRight,
   Cloud,
   ExternalLinkIcon,
+  Lock,
 } from "lucide-react";
 
 export default function AccountDashboard() {
@@ -52,10 +54,23 @@ export default function AccountDashboard() {
   // Auto-refresh data when scans complete
   useScanCompletionRefresh();
 
+  // Get subscription status for scan permissions
+  const { canScan: subscriptionCanScan, scanReason, tier } = useSubscriptionStatus();
+
   const [showScanDialog, setShowScanDialog] = useState(false);
 
   const handleScan = async () => {
     if (!accountId) return;
+
+    // Check subscription permissions first
+    if (!subscriptionCanScan) {
+      toast({
+        title: "Cannot start scan",
+        description: scanReason || "Scanning is not available on your current plan.",
+        type: "error",
+      });
+      return;
+    }
 
     try {
       await triggerScan.mutateAsync(accountId);
@@ -158,33 +173,31 @@ export default function AccountDashboard() {
               variant="default"
               size="sm"
               onClick={() => setShowScanDialog(true)}
-              disabled={triggerScan.isPending || hasScanInProgress}
+              disabled={triggerScan.isPending || hasScanInProgress || !subscriptionCanScan}
             >
-              <Play className="mr-2 h-4 w-4" />
-              Start Scan
+              {!subscriptionCanScan ? (
+                <>
+                  <Lock className="mr-2 h-4 w-4" />
+                  {tier === "free" ? "Upgrade to Scan" : "Cooldown"}
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Start Scan
+                </>
+              )}
             </Button>
           )}
           {hasCompletedScan && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowScanDialog(true)}
-                disabled={triggerScan.isPending || hasScanInProgress}
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Rescan
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isFetching}
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
           )}
         </div>
       </div>
@@ -250,14 +263,28 @@ export default function AccountDashboard() {
               Run a scan to discover resources, identify security vulnerabilities,
               find cost optimization opportunities, and check compliance status for this account.
             </p>
+            {!subscriptionCanScan && tier === "free" && hasCompletedScan === false && scanReason && (
+              <p className="mt-2 text-sm text-amber-600">
+                {scanReason}
+              </p>
+            )}
             <Button
               size="lg"
               className="mt-8"
               onClick={() => setShowScanDialog(true)}
-              disabled={triggerScan.isPending || hasScanInProgress}
+              disabled={triggerScan.isPending || hasScanInProgress || !subscriptionCanScan}
             >
-              <Play className="mr-2 h-5 w-5" />
-              Start Scan
+              {!subscriptionCanScan ? (
+                <>
+                  <Lock className="mr-2 h-5 w-5" />
+                  {tier === "free" ? "Upgrade to Scan" : "Cooldown Active"}
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-5 w-5" />
+                  Start Scan
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>

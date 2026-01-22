@@ -8,16 +8,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/maxbolgarin/scanorbit/internal/store"
 	"github.com/rs/zerolog"
 )
 
 const (
-	orphanedEBSAgeDays      = 30 // Unattached EBS > 30 days
-	orphanedEIPAgeDays      = 7  // Unassociated EIP > 7 days
-	orphanedSnapshotAgeDays = 90 // Manual RDS snapshot > 90 days
-	orphanedENIAgeDays      = 7  // Unattached ENI > 7 days
-	idleNATGatewayAgeDays   = 30 // NAT Gateway considered idle if > 30 days old without clear usage
+	orphanedEBSAgeDays      = 7  // Unattached EBS > 7 days
+	orphanedEIPAgeDays      = 3  // Unassociated EIP > 3 days
+	orphanedSnapshotAgeDays = 30 // Manual RDS snapshot > 30 days
+	orphanedENIAgeDays      = 3  // Unattached ENI > 3 days
+	idleNATGatewayAgeDays   = 7  // NAT Gateway considered idle if > 7 days old without clear usage
 )
 
 // OrphanAnalyzer detects orphaned resources.
@@ -227,9 +228,9 @@ func (a *OrphanAnalyzer) checkOrphanedSnapshot(r *models.Resource, now time.Time
 	}
 }
 
-// checkIdleLoadBalancer checks if an ALB has no healthy targets.
+// checkIdleLoadBalancer checks if an ALB/NLB has no healthy targets.
 func (a *OrphanAnalyzer) checkIdleLoadBalancer(r *models.Resource, now time.Time) *models.Finding {
-	// Rule: ALB with no healthy targets in any target group
+	// Rule: ALB/NLB with no healthy targets in any target group
 	if r.State != "active" {
 		return nil
 	}
@@ -239,11 +240,17 @@ func (a *OrphanAnalyzer) checkIdleLoadBalancer(r *models.Resource, now time.Time
 		return nil
 	}
 
+	// Get load balancer type (application or network)
+	lbType, _ := raw["Type"].(string)
+	if lbType == "" {
+		lbType = "application" // default to ALB for backwards compatibility
+	}
+
 	// Check target groups
 	targetGroups, ok := raw["TargetGroups"].([]any)
 	if !ok {
 		// No target groups = idle load balancer
-		return a.createIdleALBFinding(r, 0, 0)
+		return a.createIdleLBFinding(r, 0, 0, lbType)
 	}
 
 	totalTargets := 0
@@ -273,32 +280,50 @@ func (a *OrphanAnalyzer) checkIdleLoadBalancer(r *models.Resource, now time.Time
 		}
 	}
 
-	// ALB is idle if it has no target groups or no healthy targets
+	// Load balancer is idle if it has no target groups or no healthy targets
 	if len(targetGroups) == 0 || totalTargets == 0 || healthyTargets == 0 {
-		return a.createIdleALBFinding(r, totalTargets, healthyTargets)
+		return a.createIdleLBFinding(r, totalTargets, healthyTargets, lbType)
 	}
 
 	return nil
 }
 
-// createIdleALBFinding creates a finding for an idle load balancer.
-func (a *OrphanAnalyzer) createIdleALBFinding(r *models.Resource, totalTargets, healthyTargets int) *models.Finding {
+// createIdleLBFinding creates a finding for an idle load balancer (ALB or NLB).
+func (a *OrphanAnalyzer) createIdleLBFinding(r *models.Resource, totalTargets, healthyTargets int, lbType string) *models.Finding {
 	resourceID := r.ID
+
+	// Determine cost and type label based on load balancer type
+	var estimatedCost float64
+	var lbTypeLabel string
+	var docURL string
+
+	switch lbType {
+	case "network":
+		estimatedCost = pricing.NLBBaseCost
+		lbTypeLabel = "NLB"
+		docURL = "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-troubleshooting.html"
+	default: // "application" or unknown defaults to ALB
+		estimatedCost = pricing.ALBBaseCost
+		lbTypeLabel = "ALB"
+		docURL = "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-troubleshooting.html"
+	}
+
 	return &models.Finding{
 		ID:         uuid.New().String(),
 		ResourceID: &resourceID,
 		Type:       models.FindingIdleLoadBalancer,
 		Severity:   models.SeverityMedium,
-		Summary:    fmt.Sprintf("Idle load balancer %s (no healthy targets)", r.Name),
+		Summary:    fmt.Sprintf("Idle %s %s (no healthy targets)", lbTypeLabel, r.Name),
 		Details: map[string]any{
 			"resource_id":            r.ResourceID,
 			"name":                   r.Name,
 			"region":                 r.Region,
+			"lb_type":                lbType,
 			"total_targets":          totalTargets,
 			"healthy_targets":        healthyTargets,
-			"estimated_monthly_cost": 16.20, // ~$16.20/month base cost for ALB
+			"estimated_monthly_cost": estimatedCost,
 			"recommendation":         "Delete this load balancer if no longer needed, or register healthy targets",
-			"doc_url":                "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-troubleshooting.html",
+			"doc_url":                docURL,
 		},
 		Status: models.FindingStatusOpen,
 	}

@@ -4,6 +4,7 @@ export { ResourceRelationshipBadge, ResourceRelationshipList } from './ResourceR
 export { ResourceRawViewer } from './ResourceRawViewer';
 export { ResourceScanHistory } from './ResourceScanHistory';
 export { SecurityRulesTable } from './SecurityRulesTable';
+export { SecurityGroupsPanel } from './SecurityGroupsPanel';
 export { TagsSection } from './TagsSection';
 
 // Service-specific detail components

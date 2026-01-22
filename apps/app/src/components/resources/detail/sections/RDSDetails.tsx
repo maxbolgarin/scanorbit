@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { DetailSection } from '../DetailSection';
 import { DetailRow, DetailGrid } from '../DetailRow';
-import { ResourceRelationshipList } from '../ResourceRelationshipBadge';
+import { SecurityGroupsPanel } from '../SecurityGroupsPanel';
 import { TagsSection } from '../TagsSection';
 import { ResourceRawViewer } from '../ResourceRawViewer';
 import { extractRDSData } from '@/types/rawData';
@@ -94,14 +94,12 @@ export function RDSDetails({ resource }: RDSDetailsProps) {
           </DetailSection>
 
           {data.vpcSecurityGroups.length > 0 && (
-            <DetailSection title="Security Groups">
-              <ResourceRelationshipList
-                items={data.vpcSecurityGroups.map((sg) => ({
-                  id: sg.id,
-                  label: `${sg.id} (${sg.status})`,
-                }))}
-              />
-            </DetailSection>
+            <SecurityGroupsPanel
+              securityGroups={data.vpcSecurityGroups.map((sg) => ({
+                groupId: sg.id,
+                groupName: sg.id, // RDS doesn't provide group names
+              }))}
+            />
           )}
         </TabsContent>
       )}

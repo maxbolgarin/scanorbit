@@ -78,11 +78,12 @@ export default function Resources() {
     queryClient.invalidateQueries({ queryKey: ["resource-services"] });
   };
 
-  const handleStatsFilterSelect = (filter: { service?: ServiceType; region?: string; sortBy?: string }) => {
+  const handleStatsFilterSelect = (filter: { service?: ServiceType; region?: string; sortBy?: string; state?: string }) => {
     // Update filters - clear other filters and set the selected one
     setFilters({
       service: filter.service,
       region: filter.region,
+      state: filter.state,
     });
 
     // Update sort if sorting by cost

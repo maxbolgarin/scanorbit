@@ -83,4 +83,14 @@ export const config = {
   retentionAuditLogsDays: parseInt(process.env.RETENTION_AUDIT_LOGS_DAYS || '180', 10), // 6 months
 } as const;
 
+
+// Stripe configuration
+export const stripeConfig = {
+  secretKey: process.env.STRIPE_SECRET_KEY || '',
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  proPriceId: process.env.STRIPE_PRO_PRICE_ID || '',
+  teamPriceId: process.env.STRIPE_TEAM_PRICE_ID || '',
+  trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '14', 10),
+} as const;
+
 export type Config = typeof config;

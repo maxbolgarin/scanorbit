@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Server, ExternalLink, AlertCircle, CheckCircle2, AlertTriangle, DollarSign } from "lucide-react";
+import { Server, ExternalLink, AlertCircle, CheckCircle2, AlertTriangle, Unplug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import type { EnhancedDashboardSummary } from "@/types";
@@ -8,13 +8,6 @@ interface ResourceHealthCardProps {
   summary: EnhancedDashboardSummary | undefined;
   isLoading?: boolean;
   accountId?: string;
-}
-
-function formatSavings(amount: number): string {
-  if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(1)}k`;
-  }
-  return `$${amount.toFixed(0)}`;
 }
 
 export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHealthCardProps) {
@@ -33,7 +26,8 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className="h-4 w-20 bg-muted rounded" />
             </div>
             <div className="h-2.5 w-full bg-muted rounded" />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
+              <div className="h-16 bg-muted rounded" />
               <div className="h-16 bg-muted rounded" />
               <div className="h-16 bg-muted rounded" />
               <div className="h-16 bg-muted rounded" />
@@ -44,20 +38,14 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
     );
   }
 
-  const { totalResources, resourceHealth, costInsights } = summary;
-  const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
+  const { totalResources, resourceHealth } = summary;
   const baseResourcesUrl = accountId ? `/accounts/${accountId}/resources` : "/overview/resources";
 
   // Calculate percentages
   const healthyPercent = totalResources > 0 ? (resourceHealth.healthy / totalResources) * 100 : 100;
   const warningPercent = totalResources > 0 ? (resourceHealth.warning / totalResources) * 100 : 0;
   const criticalPercent = totalResources > 0 ? (resourceHealth.critical / totalResources) * 100 : 0;
-
-  // Get top issues for the list (if any)
-  const topIssues = [...costInsights.byCategory]
-    .filter(item => item.count > 0)
-    .sort((a, b) => b.savings - a.savings)
-    .slice(0, 3);
+  const orphanedPercent = totalResources > 0 ? ((resourceHealth.orphaned ?? 0) / totalResources) * 100 : 0;
 
   const resourcesWithIssues = resourceHealth.warning + resourceHealth.critical;
 
@@ -118,10 +106,17 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
                   title={`${resourceHealth.critical} Critical`}
                 />
               )}
+              {orphanedPercent > 0 && (
+                <div
+                  className="h-full bg-slate-500 transition-all"
+                  style={{ width: `${orphanedPercent}%` }}
+                  title={`${resourceHealth.orphaned} Orphaned`}
+                />
+              )}
             </div>
 
             {/* Health breakdown grid */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.healthy > 0
@@ -175,34 +170,25 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
                 </div>
                 <div className="text-xs text-muted-foreground">Critical</div>
               </div>
-            </div>
 
-            {/* Top issues list (if any with cost savings) */}
-            {topIssues.length > 0 && (
-              <div className="space-y-1.5 pt-2 border-t border-border">
-                {topIssues.map((issue) => (
-                  <Link
-                    key={issue.type}
-                    to={`${baseFindingsUrl}?type=${issue.type}&status=open`}
-                    className="flex items-center justify-between py-1 text-xs hover:underline group"
-                  >
-                    <span className="text-muted-foreground group-hover:text-foreground">
-                      {issue.count} {issue.label}
-                    </span>
-                    <span className="text-orange-500 flex items-center gap-0.5">
-                      {issue.savings > 0 ? (
-                        <>
-                          <DollarSign className="h-3 w-3" />
-                          {formatSavings(issue.savings)}/mo
-                        </>
-                      ) : (
-                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                      )}
-                    </span>
-                  </Link>
-                ))}
+              <div className={cn(
+                "text-center p-2 rounded-lg border",
+                (resourceHealth.orphaned ?? 0) > 0
+                  ? "bg-slate-500/10 border-slate-500/20"
+                  : "bg-muted/50 border-border"
+              )}>
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Unplug className="h-3.5 w-3.5 text-slate-500" />
+                </div>
+                <div className={cn(
+                  "text-lg font-semibold",
+                  (resourceHealth.orphaned ?? 0) > 0 ? "text-slate-500" : "text-muted-foreground"
+                )}>
+                  {resourceHealth.orphaned ?? 0}
+                </div>
+                <div className="text-xs text-muted-foreground">Orphaned</div>
               </div>
-            )}
+            </div>
           </>
         ) : (
           <div className="text-center py-6 text-sm text-muted-foreground">

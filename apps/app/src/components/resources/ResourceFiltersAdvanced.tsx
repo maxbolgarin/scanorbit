@@ -143,7 +143,7 @@ export function ResourceFiltersAdvanced({
               <SelectValue placeholder="All Resources" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Resources</SelectItem>
+              <SelectItem value="all">Free & Paid</SelectItem>
               <SelectItem value="paid">Paid Only</SelectItem>
               <SelectItem value="free">Free Only</SelectItem>
             </SelectContent>

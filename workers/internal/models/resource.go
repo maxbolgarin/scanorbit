@@ -77,6 +77,8 @@ const (
 	RelationshipOwns        RelationshipType = "owns"         // ALB → Target Group
 	RelationshipUsesLayer   RelationshipType = "uses_layer"   // Lambda → Lambda Layer
 	RelationshipEncryptedBy RelationshipType = "encrypted_by" // EBS/RDS/S3 → KMS Key
+	RelationshipUsesEIP     RelationshipType = "uses_eip"     // NAT Gateway → EIP
+	RelationshipMonitors    RelationshipType = "monitors"     // CloudWatch Alarm → target resource
 )
 
 // ResourceDependency represents a relationship between two resources.

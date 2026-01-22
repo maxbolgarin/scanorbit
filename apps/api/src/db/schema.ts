@@ -57,11 +57,19 @@ export const orgs = pgTable('orgs', {
   // Subscription tier
   tier: varchar('tier', { length: 20 }).default('free').notNull(), // 'free', 'pro', 'team'
   tierUpgradedAt: timestamp('tier_upgraded_at'),
+  // Stripe integration
+  stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
+  subscriptionStatus: varchar('subscription_status', { length: 50 }).default('none'), // 'none', 'trialing', 'active', 'canceled', 'past_due', 'unpaid'
+  trialEndsAt: timestamp('trial_ends_at'),
+  subscriptionEndsAt: timestamp('subscription_ends_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
   index('orgs_tier_idx').on(table.tier),
-]);
+  index('orgs_stripe_customer_id_idx').on(table.stripeCustomerId),
+  index('orgs_subscription_status_idx').on(table.subscriptionStatus),
+]);;
 
 export const orgsRelations = relations(orgs, ({ many }) => ({
   members: many(userOrgMembers),

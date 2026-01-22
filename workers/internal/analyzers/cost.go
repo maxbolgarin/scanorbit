@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxbolgarin/scanorbit/internal/models"
+	"github.com/maxbolgarin/scanorbit/internal/pricing"
 	"github.com/maxbolgarin/scanorbit/internal/store"
 	"github.com/rs/zerolog"
 )
@@ -74,6 +75,7 @@ func (a *CostAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([]*
 			newFindings = a.checkGP2toGP3Migration(r, now)
 		case models.ServiceRDS:
 			newFindings = a.checkRDSOptimization(r, now)
+			newFindings = append(newFindings, a.checkOldGenRDS(r, now)...)
 		case models.ServiceKMSKey:
 			newFindings = a.checkUnusedKMSKey(ctx, r, now)
 		}
@@ -408,6 +410,81 @@ var oldGenUpgradePath = map[string]string{
 	"d2": "d3",
 }
 
+// RDS downsize path map - recommends one size smaller for right-sizing
+var rdsDownsizePath = map[string]string{
+	// R5 Series
+	"db.r5.24xlarge": "db.r5.16xlarge",
+	"db.r5.16xlarge": "db.r5.12xlarge",
+	"db.r5.12xlarge": "db.r5.8xlarge",
+	"db.r5.8xlarge":  "db.r5.4xlarge",
+	"db.r5.4xlarge":  "db.r5.2xlarge",
+	// R6i Series
+	"db.r6i.24xlarge": "db.r6i.16xlarge",
+	"db.r6i.16xlarge": "db.r6i.12xlarge",
+	"db.r6i.12xlarge": "db.r6i.8xlarge",
+	"db.r6i.8xlarge":  "db.r6i.4xlarge",
+	"db.r6i.4xlarge":  "db.r6i.2xlarge",
+	// R6g Series (Graviton)
+	"db.r6g.16xlarge": "db.r6g.12xlarge",
+	"db.r6g.12xlarge": "db.r6g.8xlarge",
+	"db.r6g.8xlarge":  "db.r6g.4xlarge",
+	"db.r6g.4xlarge":  "db.r6g.2xlarge",
+	// M5 Series
+	"db.m5.24xlarge": "db.m5.16xlarge",
+	"db.m5.16xlarge": "db.m5.12xlarge",
+	"db.m5.12xlarge": "db.m5.8xlarge",
+	"db.m5.8xlarge":  "db.m5.4xlarge",
+	"db.m5.4xlarge":  "db.m5.2xlarge",
+	// M6i Series
+	"db.m6i.24xlarge": "db.m6i.16xlarge",
+	"db.m6i.16xlarge": "db.m6i.12xlarge",
+	"db.m6i.12xlarge": "db.m6i.8xlarge",
+	"db.m6i.8xlarge":  "db.m6i.4xlarge",
+	"db.m6i.4xlarge":  "db.m6i.2xlarge",
+	// M6g Series (Graviton)
+	"db.m6g.16xlarge": "db.m6g.12xlarge",
+	"db.m6g.12xlarge": "db.m6g.8xlarge",
+	"db.m6g.8xlarge":  "db.m6g.4xlarge",
+	"db.m6g.4xlarge":  "db.m6g.2xlarge",
+}
+
+// RDS old generation upgrade path
+var rdsOldGenUpgrade = map[string]string{
+	// M4 -> M6i
+	"db.m4.large":    "db.m6i.large",
+	"db.m4.xlarge":   "db.m6i.xlarge",
+	"db.m4.2xlarge":  "db.m6i.2xlarge",
+	"db.m4.4xlarge":  "db.m6i.4xlarge",
+	"db.m4.10xlarge": "db.m6i.12xlarge",
+	"db.m4.16xlarge": "db.m6i.16xlarge",
+	// R4 -> R6i
+	"db.r4.large":    "db.r6i.large",
+	"db.r4.xlarge":   "db.r6i.xlarge",
+	"db.r4.2xlarge":  "db.r6i.2xlarge",
+	"db.r4.4xlarge":  "db.r6i.4xlarge",
+	"db.r4.8xlarge":  "db.r6i.8xlarge",
+	"db.r4.16xlarge": "db.r6i.16xlarge",
+	// T2 -> T4g (Graviton)
+	"db.t2.micro":  "db.t4g.micro",
+	"db.t2.small":  "db.t4g.small",
+	"db.t2.medium": "db.t4g.medium",
+	"db.t2.large":  "db.t4g.large",
+	// M3 -> M6i
+	"db.m3.medium":  "db.m6i.large",
+	"db.m3.large":   "db.m6i.large",
+	"db.m3.xlarge":  "db.m6i.xlarge",
+	"db.m3.2xlarge": "db.m6i.2xlarge",
+	// R3 -> R6i
+	"db.r3.large":   "db.r6i.large",
+	"db.r3.xlarge":  "db.r6i.xlarge",
+	"db.r3.2xlarge": "db.r6i.2xlarge",
+	"db.r3.4xlarge": "db.r6i.4xlarge",
+	"db.r3.8xlarge": "db.r6i.8xlarge",
+}
+
+// Old generation RDS instance prefixes
+var rdsOldGenPrefixes = []string{"db.m4.", "db.r4.", "db.t2.", "db.m3.", "db.r3."}
+
 // checkOldGenInstance checks if an EC2 instance uses an old generation instance type.
 func (a *CostAnalyzer) checkOldGenInstance(r *models.Resource, now time.Time) []*models.Finding {
 	if r.State != "running" {
@@ -636,27 +713,25 @@ func (a *CostAnalyzer) checkRDSOptimization(r *models.Resource, now time.Time) [
 		return nil
 	}
 
-	// Check for very large instances that might be over-provisioned
-	largeInstancePrefixes := []string{"db.r5.4xlarge", "db.r5.8xlarge", "db.r5.12xlarge", "db.r5.16xlarge", "db.r5.24xlarge",
-		"db.r6g.4xlarge", "db.r6g.8xlarge", "db.r6g.12xlarge", "db.r6g.16xlarge",
-		"db.m5.4xlarge", "db.m5.8xlarge", "db.m5.12xlarge", "db.m5.16xlarge", "db.m5.24xlarge",
-		"db.m6g.4xlarge", "db.m6g.8xlarge", "db.m6g.12xlarge", "db.m6g.16xlarge"}
+	// Extract MultiAZ setting
+	multiAZ, _ := raw["MultiAZ"].(bool)
 
-	var isLargeInstance bool
-	for _, prefix := range largeInstancePrefixes {
-		if strings.HasPrefix(instanceClass, prefix) {
-			isLargeInstance = true
-			break
-		}
-	}
+	// Check if this is a large instance that can be downsized
+	recommendedClass, hasDownsizePath := rdsDownsizePath[instanceClass]
 
-	if !isLargeInstance {
+	if !hasDownsizePath {
 		return nil
 	}
 
-	// Estimate potential savings from right-sizing (typically 20-40% for large instances)
-	// Large RDS instances can cost $1000-5000+/month
-	estimatedSavings := 200.0 // Conservative estimate
+	// Calculate actual savings based on pricing
+	currentCost := pricing.GetRDSCost(instanceClass, multiAZ)
+	recommendedCost := pricing.GetRDSCost(recommendedClass, multiAZ)
+	estimatedSavings := currentCost - recommendedCost
+
+	// Only flag if savings are significant (at least $50/month)
+	if estimatedSavings < 50 {
+		return nil
+	}
 
 	resourceID := r.ID
 	return []*models.Finding{{
@@ -664,16 +739,91 @@ func (a *CostAnalyzer) checkRDSOptimization(r *models.Resource, now time.Time) [
 		ResourceID: &resourceID,
 		Type:       models.FindingRDSOptimization,
 		Severity:   models.SeverityLow,
-		Summary:    fmt.Sprintf("Large RDS instance '%s' (%s) - review for right-sizing", r.Name, instanceClass),
+		Summary:    fmt.Sprintf("Large RDS instance '%s' (%s) - consider downsizing to %s", r.Name, instanceClass, recommendedClass),
 		Details: map[string]any{
 			"resource_id":            r.ResourceID,
 			"db_name":                r.Name,
 			"service":                "rds",
 			"region":                 r.Region,
 			"instance_class":         instanceClass,
+			"recommended_class":      recommendedClass,
+			"multi_az":               multiAZ,
+			"current_monthly_cost":   currentCost,
+			"recommended_cost":       recommendedCost,
 			"estimated_monthly_cost": estimatedSavings,
-			"recommendation":         "Review CloudWatch metrics to verify CPU and memory utilization. Large instances may be over-provisioned.",
+			"recommendation":         fmt.Sprintf("Review CloudWatch metrics. If CPU/memory utilization is consistently below 40%%, consider downsizing from %s to %s to save ~$%.0f/month.", instanceClass, recommendedClass, estimatedSavings),
 			"doc_url":                "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PerfInsights.html",
+		},
+		Status: models.FindingStatusOpen,
+	}}
+}
+
+// checkOldGenRDS checks if an RDS instance uses an old generation instance type.
+func (a *CostAnalyzer) checkOldGenRDS(r *models.Resource, now time.Time) []*models.Finding {
+	var raw map[string]any
+	if err := json.Unmarshal(r.Raw, &raw); err != nil {
+		return nil
+	}
+
+	instanceClass, _ := raw["DBInstanceClass"].(string)
+	if instanceClass == "" {
+		return nil
+	}
+
+	// Check if this is an old generation instance
+	var isOldGen bool
+	for _, prefix := range rdsOldGenPrefixes {
+		if strings.HasPrefix(instanceClass, prefix) {
+			isOldGen = true
+			break
+		}
+	}
+
+	if !isOldGen {
+		return nil
+	}
+
+	// Look up recommended upgrade path
+	recommendedClass, ok := rdsOldGenUpgrade[instanceClass]
+	if !ok {
+		// No exact match, try to infer recommendation based on family
+		recommendedClass = "current generation equivalent"
+	}
+
+	// Extract MultiAZ setting for cost calculation
+	multiAZ, _ := raw["MultiAZ"].(bool)
+
+	// Get current cost (old gen pricing may not be in our map, estimate based on similar new gen)
+	currentCost := pricing.GetRDSCost(instanceClass, multiAZ)
+
+	// New generation instances are typically same price or cheaper with better performance
+	// Estimate 10-15% effective savings from better price-performance
+	estimatedSavings := currentCost * 0.10 // 10% of current cost as conservative estimate
+
+	// Only flag if the instance has meaningful cost
+	if currentCost < 50 {
+		estimatedSavings = 5.0 // Minimum savings estimate for small instances
+	}
+
+	resourceID := r.ID
+	return []*models.Finding{{
+		ID:         uuid.New().String(),
+		ResourceID: &resourceID,
+		Type:       models.FindingOldGenRDS,
+		Severity:   models.SeverityLow,
+		Summary:    fmt.Sprintf("RDS instance '%s' uses old generation %s - consider upgrading to %s", r.Name, instanceClass, recommendedClass),
+		Details: map[string]any{
+			"resource_id":            r.ResourceID,
+			"db_name":                r.Name,
+			"service":                "rds",
+			"region":                 r.Region,
+			"instance_class":         instanceClass,
+			"recommended_class":      recommendedClass,
+			"multi_az":               multiAZ,
+			"current_monthly_cost":   currentCost,
+			"estimated_monthly_cost": estimatedSavings,
+			"recommendation":         fmt.Sprintf("Upgrade from %s to %s for better price-performance. New generation instances offer improved performance at similar or lower cost (typically 10-15%% better value).", instanceClass, recommendedClass),
+			"doc_url":                "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html",
 		},
 		Status: models.FindingStatusOpen,
 	}}

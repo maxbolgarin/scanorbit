@@ -30,6 +30,8 @@ import type {
   FindingTimelineEntry,
   SubscriptionTier,
   SubscriptionStatus,
+  CheckoutSession,
+  PortalSession,
 } from "@/types";
 
 function normalizeApiUrl(value: unknown): string | undefined {
@@ -446,6 +448,18 @@ export async function getResourceStats(filters?: { awsAccountId?: string }): Pro
   }
 }
 
+export async function getResourceHealth(filters?: { awsAccountId?: string }): Promise<{ total: number; healthy: number; warning: number; critical: number }> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    const queryString = params.toString();
+    const { data } = await api.get<{ data: { total: number; healthy: number; warning: number; critical: number } }>(`/resources/health${queryString ? `?${queryString}` : ""}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 export async function getDistinctRegions(): Promise<string[]> {
   try {
     const { data } = await api.get<{ data: string[] }>("/resources/regions");
@@ -792,55 +806,6 @@ function aggregateCostInsights(
   return { totalPotentialSavings, byCategory };
 }
 
-// Helper: Calculate resource health based on findings
-function calculateResourceHealth(
-  resourceStats: ResourceStats,
-  openFindings: Finding[]
-): { total: number; healthy: number; warning: number; critical: number } {
-  const total = resourceStats.totalCount;
-
-  // Group findings by resourceId and find highest severity per resource
-  const resourceSeverities = new Map<string, string>();
-  const severityRank: Record<string, number> = {
-    critical: 5, high: 4, medium: 3, low: 2, trivial: 1
-  };
-
-  openFindings.forEach(finding => {
-    if (!finding.resourceId) return;
-    const current = resourceSeverities.get(finding.resourceId);
-    const severity = finding.severity;
-
-    // Keep highest severity for each resource
-    if (!current || (severityRank[severity] || 0) > (severityRank[current] || 0)) {
-      resourceSeverities.set(finding.resourceId, severity);
-    }
-  });
-
-  // Count resources by their highest severity finding
-  // Only actual "critical" severity maps to Critical category
-  // "high" and below map to Warning category
-  let critical = 0;
-  let warning = 0;
-
-  resourceSeverities.forEach(severity => {
-    if (severity === 'critical') {
-      critical++;
-    } else {
-      warning++;
-    }
-  });
-
-  // Resources without any findings are healthy
-  const healthy = Math.max(0, total - critical - warning);
-
-  return {
-    total,
-    healthy,
-    warning,
-    critical,
-  };
-}
-
 // Enhanced Dashboard Summary with all computed metrics
 export async function getEnhancedDashboardSummary(filters?: {
   awsAccountId?: string;
@@ -850,9 +815,11 @@ export async function getEnhancedDashboardSummary(filters?: {
     // Fetch all required data
     // Use Promise.allSettled for findings to handle tier restrictions gracefully
     console.log("[getEnhancedDashboardSummary] Fetching data...");
-    const [resourceStats, findingStats, openFindingsSettled] = await Promise.all([
+    const [resourceStats, findingStats, resourceHealth, openFindingsSettled] = await Promise.all([
       getResourceStats(filters),
       getFindingStats(filters),
+      // Resource health is calculated on the backend (accessible to all tiers)
+      getResourceHealth(filters),
       // Wrap findings fetch to handle 403 errors for free tier users
       getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId })
         .catch((error) => {
@@ -874,13 +841,14 @@ export async function getEnhancedDashboardSummary(filters?: {
     console.log("[getEnhancedDashboardSummary] Data fetched:", {
       resourceStats: !!resourceStats,
       findingStats: !!findingStats,
+      resourceHealth: !!resourceHealth,
       openFindingsCount: openFindings.length,
       hiddenTypesCount: hiddenTypes.size
     });
 
     // Safety checks
-    if (!resourceStats || !findingStats) {
-      console.error("[getEnhancedDashboardSummary] Missing data:", { resourceStats, findingStats });
+    if (!resourceStats || !findingStats || !resourceHealth) {
+      console.error("[getEnhancedDashboardSummary] Missing data:", { resourceStats, findingStats, resourceHealth });
       throw new Error("Failed to fetch dashboard data");
     }
 
@@ -977,8 +945,8 @@ export async function getEnhancedDashboardSummary(filters?: {
       nearestExpiryDays,
     };
 
-    // Resource health based on findings
-    const resourceHealth = calculateResourceHealth(resourceStats, openFindings);
+    // Resource health is fetched from backend (not calculated locally)
+    // This ensures Free tier users get accurate resource health data
 
     // Compliance details
     // Security issues should count security-related finding types (matching the filter link in ComplianceStatusCard)
@@ -1134,6 +1102,41 @@ export async function upgradeSubscription(
     const { data } = await api.post<{ data: { tier: SubscriptionTier } }>(
       `/orgs/${orgId}/subscription/upgrade`,
       { targetTier }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+
+// Stripe: Create checkout session for starting a trial subscription
+export async function createCheckoutSession(
+  _orgId: string,
+  targetTier: SubscriptionTier,
+  successUrl?: string,
+  cancelUrl?: string
+): Promise<CheckoutSession> {
+  try {
+    const { data } = await api.post<{ data: CheckoutSession }>(
+      `/stripe/checkout`,
+      { targetTier, successUrl, cancelUrl }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// Stripe: Create customer portal session for managing subscription
+export async function createPortalSession(
+  _orgId: string,
+  returnUrl?: string
+): Promise<PortalSession> {
+  try {
+    const { data } = await api.post<{ data: PortalSession }>(
+      `/stripe/portal`,
+      { returnUrl }
     );
     return data.data;
   } catch (error) {

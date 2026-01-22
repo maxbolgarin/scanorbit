@@ -177,6 +177,7 @@ export default function ResetPassword() {
                       id="password"
                       type="password"
                       placeholder="Enter new password"
+                      autoComplete="new-password"
                       {...register("password")}
                       disabled={isLoading}
                     />
@@ -191,6 +192,7 @@ export default function ResetPassword() {
                       id="confirmPassword"
                       type="password"
                       placeholder="Confirm new password"
+                      autoComplete="new-password"
                       {...register("confirmPassword")}
                       disabled={isLoading}
                     />

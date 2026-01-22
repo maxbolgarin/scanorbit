@@ -67,16 +67,16 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
   }
 
   const { findingCounts } = summary;
-  const total = findingCounts.total;
+  // Exclude trivial from total - only count actionable findings
+  const total = findingCounts.critical + findingCounts.high + findingCounts.medium + findingCounts.low;
   const baseFindingsUrl = accountId ? `/accounts/${accountId}/findings` : "/overview/findings";
 
-  // Calculate percentages for the bar
+  // Calculate percentages for the bar (excluding trivial)
   const percentages = {
     critical: total > 0 ? (findingCounts.critical / total) * 100 : 0,
     high: total > 0 ? (findingCounts.high / total) * 100 : 0,
     medium: total > 0 ? (findingCounts.medium / total) * 100 : 0,
     low: total > 0 ? (findingCounts.low / total) * 100 : 0,
-    trivial: total > 0 ? (findingCounts.trivial / total) * 100 : 0,
   };
 
   // Determine overall status
@@ -124,10 +124,10 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
           </span>
         </div>
 
-        {/* Severity distribution bar */}
+        {/* Severity distribution bar (excluding trivial) */}
         {total > 0 && (
           <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
-            {(["critical", "high", "medium", "low", "trivial"] as const).map((severity) => {
+            {(["critical", "high", "medium", "low"] as const).map((severity) => {
               const percentage = percentages[severity];
               if (percentage === 0) return null;
               return (

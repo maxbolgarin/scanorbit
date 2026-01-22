@@ -63,6 +63,20 @@ resourcesRoute.get('/stats', async (c) => {
   return c.json({ data: stats });
 });
 
+// GET /resources/health - Get resource health based on findings
+// Available to all tiers (doesn't expose finding details)
+resourcesRoute.get('/health', async (c) => {
+  const orgId = c.get('orgId');
+  const awsAccountId = c.req.query('awsAccountId');
+
+  if (!orgId) {
+    throw new HTTP400Error('No organization selected');
+  }
+
+  const health = await findingService.getResourceHealth(orgId, awsAccountId);
+  return c.json({ data: health });
+});
+
 // GET /resources/regions - Get distinct regions
 resourcesRoute.get('/regions', async (c) => {
   const orgId = c.get('orgId');

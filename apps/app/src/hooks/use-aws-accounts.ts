@@ -89,6 +89,14 @@ export function useScanHistory(accountId: string) {
     queryKey: ["scan-history", accountId],
     queryFn: () => api.getScanHistory(accountId),
     enabled: !!accountId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Poll every 3 seconds if there's an active scan
+      const hasActiveScan = data?.some(scan =>
+        ['queued', 'processing', 'running', 'analyzing'].includes(scan.status)
+      );
+      return hasActiveScan ? 3000 : false;
+    },
   });
 }
 
@@ -104,6 +112,8 @@ export function useTriggerScan() {
       queryClient.invalidateQueries({ queryKey: ["active-scans"] });
       // Refresh recent scans list (used by Scans page)
       queryClient.invalidateQueries({ queryKey: ["recent-scans"] });
+      // Refresh subscription status to update canScan/cooldown
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
     },
   });
 }
@@ -177,8 +187,11 @@ export function useScanCompletionRefresh() {
     queryClient.invalidateQueries({ queryKey: ["resource-services"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["recent-scans"] });
+    queryClient.invalidateQueries({ queryKey: ["scan-history"] });
     queryClient.invalidateQueries({ queryKey: ["aws-accounts"] });
     queryClient.invalidateQueries({ queryKey: ["recommended-actions"] });
+    // Refresh subscription status to update canScan/cooldown after scan completes
+    queryClient.invalidateQueries({ queryKey: ["subscription"] });
   }, [queryClient]);
 
   useEffect(() => {

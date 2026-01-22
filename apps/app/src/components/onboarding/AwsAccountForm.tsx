@@ -7,20 +7,31 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { AlertCircle } from "lucide-react";
 
-const accountSchema = z.object({
-  name: z.string().min(1, "Account name is required"),
+const createAccountSchema = (existingNames: string[], existingAwsAccountIds: string[]) => z.object({
+  name: z.string()
+    .min(1, "Account name is required")
+    .refine(
+      (name) => !existingNames.some(existing => existing.toLowerCase() === name.toLowerCase()),
+      "An account with this name already exists"
+    ),
   awsAccountId: z
     .string()
-    .regex(/^\d{12}$/, "AWS Account ID must be a 12-digit number"),
+    .regex(/^\d{12}$/, "AWS Account ID must be a 12-digit number")
+    .refine(
+      (id) => !existingAwsAccountIds.includes(id),
+      "This AWS account is already connected to your organization"
+    ),
 });
 
-type AccountFormData = z.infer<typeof accountSchema>;
+type AccountFormData = z.infer<ReturnType<typeof createAccountSchema>>;
 
 interface AwsAccountFormProps {
   onSubmit: (data: AccountFormData) => Promise<void>;
   onBack?: () => void;
   isLoading?: boolean;
   error?: string | null;
+  existingNames?: string[];
+  existingAwsAccountIds?: string[];
 }
 
 export function AwsAccountForm({
@@ -28,7 +39,11 @@ export function AwsAccountForm({
   onBack,
   isLoading,
   error,
+  existingNames = [],
+  existingAwsAccountIds = [],
 }: AwsAccountFormProps) {
+  const accountSchema = createAccountSchema(existingNames, existingAwsAccountIds);
+
   const {
     register,
     handleSubmit,
@@ -36,7 +51,7 @@ export function AwsAccountForm({
   } = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
-      name: "Production",
+      name: "",
     },
   });
 

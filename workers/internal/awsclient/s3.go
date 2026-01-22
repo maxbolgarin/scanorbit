@@ -40,7 +40,29 @@ func (s *S3Scanner) ScanBuckets(ctx context.Context, cfg aws.Config) ([]*models.
 		// Get bucket location (region)
 		region := s.getBucketRegion(ctx, svc, bucketName)
 
-		raw, _ := json.Marshal(bucket)
+		// Build raw data with additional metadata
+		rawData := map[string]any{
+			"name":          bucketName,
+			"creation_date": bucket.CreationDate,
+		}
+
+		// Get bucket encryption configuration
+		encOutput, err := svc.GetBucketEncryption(ctx, &s3.GetBucketEncryptionInput{
+			Bucket: aws.String(bucketName),
+		})
+		if err == nil && encOutput.ServerSideEncryptionConfiguration != nil {
+			for _, rule := range encOutput.ServerSideEncryptionConfiguration.Rules {
+				if rule.ApplyServerSideEncryptionByDefault != nil {
+					rawData["sse_algorithm"] = string(rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm)
+					if rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID != nil {
+						rawData["kms_key_id"] = aws.ToString(rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
+					}
+					break // Only need the first rule
+				}
+			}
+		}
+
+		raw, _ := json.Marshal(rawData)
 
 		resource := &models.Resource{
 			ResourceID:          bucketName,

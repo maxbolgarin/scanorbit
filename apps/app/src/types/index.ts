@@ -75,6 +75,23 @@ export interface SubscriptionStatus {
     reason?: string;
     cooldownEndsAt?: string;
   };
+  // Stripe subscription fields
+  subscriptionStatus: 'none' | 'trialing' | 'active' | 'canceled' | 'past_due' | 'unpaid';
+  trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
+  hasPaymentMethod: boolean;
+  // Whether Stripe is configured and enabled
+  stripeEnabled: boolean;
+}
+
+
+export interface CheckoutSession {
+  sessionId: string;
+  url: string;
+}
+
+export interface PortalSession {
+  url: string;
 }
 
 // Organization viewing settings (global filters)
@@ -449,6 +466,7 @@ export type FindingType =
   | "log_retention"
   | "unused_kms_key"
   | "rds_optimization"
+  | "old_gen_rds"
   // Tagging findings
   | "missing_tag"
   // IAM findings
@@ -662,6 +680,7 @@ export interface EnhancedDashboardSummary extends DashboardSummary {
     healthy: number;
     warning: number;
     critical: number;
+    orphaned: number;
   };
 
   // Compliance details

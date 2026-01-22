@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import {
@@ -37,6 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAwsAccount, useScanHistory, useTriggerScan, useScanCompletionRefresh, useActiveScans } from "@/hooks/use-aws-accounts";
+import { useSubscriptionStatus } from "@/hooks/use-subscription";
 import { toast } from "@/hooks/use-toast";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import type { Scan, ScanStatus } from "@/types";
@@ -59,7 +60,42 @@ import {
   Scan as ScanIcon,
   Play,
   Cloud,
+  Lock,
+  Timer,
 } from "lucide-react";
+
+// Hook to manage countdown timer
+function useCooldownTimer(cooldownEndsAt: string | undefined) {
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cooldownEndsAt) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const endTime = new Date(cooldownEndsAt).getTime();
+      const diff = endTime - now;
+
+      if (diff <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownEndsAt]);
+
+  return timeLeft;
+}
 
 const statusConfig: Record<
   ScanStatus,
@@ -123,6 +159,10 @@ export default function AccountScans() {
   // Auto-refresh data when scans complete
   const { activeScans } = useScanCompletionRefresh();
 
+  // Get subscription status for scan permissions
+  const { canScan: subscriptionCanScan, scanReason, cooldownEndsAt, tier } = useSubscriptionStatus();
+  const cooldownTimeLeft = useCooldownTimer(cooldownEndsAt);
+
   const getActiveScanForAccount = () =>
     activeScansData?.find((scan) => scan.awsAccountId === accountId);
 
@@ -143,6 +183,16 @@ export default function AccountScans() {
 
   const handleStartScan = async () => {
     if (!accountId) return;
+
+    // Check subscription permissions first
+    if (!subscriptionCanScan) {
+      toast({
+        title: "Cannot start scan",
+        description: scanReason || "Scanning is not available on your current plan.",
+        type: "error",
+      });
+      return;
+    }
 
     try {
       await triggerScan.mutateAsync(accountId);
@@ -210,12 +260,22 @@ export default function AccountScans() {
             <div className="flex items-center gap-4">
               <Button
                 onClick={() => setShowStartScanDialog(true)}
-                disabled={triggerScan.isPending || !!getActiveScanForAccount()}
+                disabled={triggerScan.isPending || !!getActiveScanForAccount() || !subscriptionCanScan}
               >
                 {triggerScan.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Starting...
+                  </>
+                ) : !subscriptionCanScan && cooldownTimeLeft ? (
+                  <>
+                    <Timer className="h-4 w-4 mr-2" />
+                    {cooldownTimeLeft}
+                  </>
+                ) : !subscriptionCanScan ? (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    {tier === "free" ? "Upgrade to Scan" : "Scan Limit Reached"}
                   </>
                 ) : (
                   <>
@@ -228,6 +288,11 @@ export default function AccountScans() {
                 <p className="text-sm text-muted-foreground">
                   <Loader2 className="h-3 w-3 inline mr-1 animate-spin" />
                   Scan in progress ({getActiveScanForAccount()?.status})
+                </p>
+              )}
+              {!subscriptionCanScan && scanReason && !getActiveScanForAccount() && (
+                <p className="text-sm text-amber-600">
+                  {scanReason}
                 </p>
               )}
             </div>
@@ -312,14 +377,35 @@ export default function AccountScans() {
                 Start a scan to discover resources and identify issues in this account.
               </p>
               {account?.status === "ok" && (
-                <Button
-                  className="mt-6"
-                  onClick={() => setShowStartScanDialog(true)}
-                  disabled={triggerScan.isPending || hasScanInProgress}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Start First Scan
-                </Button>
+                <>
+                  {!subscriptionCanScan && scanReason && (
+                    <p className="mt-4 text-sm text-amber-600">
+                      {scanReason}
+                    </p>
+                  )}
+                  <Button
+                    className="mt-6"
+                    onClick={() => setShowStartScanDialog(true)}
+                    disabled={triggerScan.isPending || hasScanInProgress || !subscriptionCanScan}
+                  >
+                    {!subscriptionCanScan && cooldownTimeLeft ? (
+                      <>
+                        <Timer className="mr-2 h-4 w-4" />
+                        {cooldownTimeLeft}
+                      </>
+                    ) : !subscriptionCanScan ? (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        {tier === "free" ? "Upgrade to Scan" : "Scan Limit Reached"}
+                      </>
+                    ) : (
+                      <>
+                        <Play className="mr-2 h-4 w-4" />
+                        Start First Scan
+                      </>
+                    )}
+                  </Button>
+                </>
               )}
             </div>
           ) : filteredScans.length === 0 ? (
@@ -337,9 +423,8 @@ export default function AccountScans() {
                     <TableHead>Started</TableHead>
                     <TableHead>Completed</TableHead>
                     <TableHead>Duration</TableHead>
-                    <TableHead className="text-right">Resources</TableHead>
-                    <TableHead className="text-right">Changes</TableHead>
-                    <TableHead className="text-right">Findings</TableHead>
+                    <TableHead className="text-center">Resources</TableHead>
+                    <TableHead className="text-center">Findings</TableHead>
                     <TableHead>Error</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -384,18 +469,12 @@ export default function AccountScans() {
                         <TableCell className="text-sm">
                           {duration || "-"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {(scan.status === "complete" || scan.status === "partial") ? (
-                            <span className="font-medium">{scan.resourcesDiscovered}</span>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-center">
                           {(scan.status === "complete" || scan.status === "partial") && scan.resourcesDelta !== 0 ? (
                             <Badge
                               variant="outline"
-                              className={`text-xs ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                              className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                              onClick={() => navigate(`/accounts/${accountId}/resources`)}
                             >
                               {scan.resourcesDelta > 0 ? (
                                 <TrendingUp className="h-3 w-3 mr-1" />
@@ -405,19 +484,27 @@ export default function AccountScans() {
                               {scan.resourcesDelta > 0 ? "+" : ""}{scan.resourcesDelta}
                             </Badge>
                           ) : (
-                            "-"
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
                             {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew > 0 && (
-                              <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                              <Badge
+                                variant="outline"
+                                className="text-xs text-yellow-600 border-yellow-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => navigate(`/accounts/${accountId}/findings`)}
+                              >
                                 <AlertCircle className="h-3 w-3 mr-1" />
                                 +{scan.findingsNew}
                               </Badge>
                             )}
                             {(scan.status === "complete" || scan.status === "partial") && scan.findingsResolved > 0 && (
-                              <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                              <Badge
+                                variant="outline"
+                                className="text-xs text-green-600 border-green-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => navigate(`/accounts/${accountId}/findings`)}
+                              >
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 -{scan.findingsResolved}
                               </Badge>

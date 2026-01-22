@@ -60,6 +60,13 @@ export interface SubscriptionStatus {
     reason?: string;
     cooldownEndsAt?: string;
   };
+  // Stripe subscription fields
+  subscriptionStatus: 'none' | 'trialing' | 'active' | 'canceled' | 'past_due' | 'unpaid';
+  trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
+  hasPaymentMethod: boolean;
+  // Whether Stripe is configured and enabled
+  stripeEnabled: boolean;
 }
 
 // JWT Payload type

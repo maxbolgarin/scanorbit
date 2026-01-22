@@ -7,6 +7,7 @@ import type { Org } from '../db/schema.js';
 import { jwt } from '../lib/jwt.js';
 import { TIER_LIMITS, ScanStatus, type SubscriptionTier, type SubscriptionStatus } from '../types/index.js';
 import { logger } from '../lib/logger.js';
+import { stripeService } from './stripeService.js';
 
 // Generate URL-safe slug from org name
 function generateSlug(name: string): string {
@@ -53,6 +54,32 @@ export async function getOrgTier(orgId: string): Promise<SubscriptionTier> {
     }
     // Re-throw other database errors
     throw error;
+  }
+}
+
+
+/**
+ * Verify that a user is an admin of an organization
+ * Throws HTTP403Error if not authorized
+ */
+export async function verifyOrgAdmin(orgId: string, userId: string): Promise<void> {
+  const [membership] = await db
+    .select({ role: userOrgMembers.role })
+    .from(userOrgMembers)
+    .where(
+      and(
+        eq(userOrgMembers.userId, userId),
+        eq(userOrgMembers.orgId, orgId)
+      )
+    )
+    .limit(1);
+
+  if (!membership) {
+    throw new HTTP403Error('You do not have access to this organization');
+  }
+
+  if (membership.role !== 'admin') {
+    throw new HTTP403Error('Only admins can perform this action');
   }
 }
 
@@ -257,11 +284,15 @@ export const orgService = {
       throw new HTTP403Error('You do not have access to this organization');
     }
 
-    // Get org with tier
+    // Get org with tier and subscription fields
     const [org] = await db
       .select({
         tier: orgs.tier,
         tierUpgradedAt: orgs.tierUpgradedAt,
+        subscriptionStatus: orgs.subscriptionStatus,
+        trialEndsAt: orgs.trialEndsAt,
+        subscriptionEndsAt: orgs.subscriptionEndsAt,
+        stripeCustomerId: orgs.stripeCustomerId,
       })
       .from(orgs)
       .where(eq(orgs.id, orgId))
@@ -333,6 +364,12 @@ export const orgService = {
         reason,
         cooldownEndsAt,
       },
+      // Stripe subscription fields
+      subscriptionStatus: (org.subscriptionStatus || 'none') as SubscriptionStatus['subscriptionStatus'],
+      trialEndsAt: org.trialEndsAt?.toISOString() || null,
+      subscriptionEndsAt: org.subscriptionEndsAt?.toISOString() || null,
+      hasPaymentMethod: !!org.stripeCustomerId,
+      stripeEnabled: stripeService.isConfigured(),
     };
   },
 

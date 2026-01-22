@@ -116,6 +116,15 @@ func (s *CloudWatchScanner) ScanAlarms(ctx context.Context, cfg aws.Config, regi
 				r.Tags = tags
 			}
 
+			// Build dimensions array for dependency extraction
+			dims := make([]map[string]string, 0, len(alarm.Dimensions))
+			for _, dim := range alarm.Dimensions {
+				dims = append(dims, map[string]string{
+					"name":  aws.ToString(dim.Name),
+					"value": aws.ToString(dim.Value),
+				})
+			}
+
 			// Store alarm details in raw
 			raw, _ := json.Marshal(map[string]any{
 				"alarm_name":          aws.ToString(alarm.AlarmName),
@@ -131,6 +140,7 @@ func (s *CloudWatchScanner) ScanAlarms(ctx context.Context, cfg aws.Config, regi
 				"threshold":           aws.ToFloat64(alarm.Threshold),
 				"comparison_operator": string(alarm.ComparisonOperator),
 				"actions_enabled":     aws.ToBool(alarm.ActionsEnabled),
+				"dimensions":          dims,
 			})
 			r.Raw = raw
 

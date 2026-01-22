@@ -418,13 +418,14 @@ export const authService = {
       throw new HTTP401Error('User not found');
     }
 
-    // Get user's orgs with role
+    // Get user's orgs with role and tier
     const userOrgs = await db
       .select({
         id: orgs.id,
         name: orgs.name,
         slug: orgs.slug,
         logoUrl: orgs.logoUrl,
+        tier: orgs.tier,
         role: userOrgMembers.role,
       })
       .from(orgs)
