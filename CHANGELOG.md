@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.0](https://github.com/maxbolgarin/scanorbit/compare/v1.9.0...v1.10.0) (2026-01-22)
+
+### Features
+
+* **api,app,workers:** add job recovery, rate limiting with trusted proxies, and oauth token encryption ([386e44d](https://github.com/maxbolgarin/scanorbit/commit/386e44d1765933fcd366947e85a0bd62ada6b0d7))
+
 ## [1.9.0](https://github.com/maxbolgarin/scanorbit/compare/v1.8.1...v1.9.0) (2026-01-22)
 
 ### Features
