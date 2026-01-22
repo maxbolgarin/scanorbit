@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0](https://github.com/maxbolgarin/scanorbit/compare/v1.8.1...v1.9.0) (2026-01-22)
+
+### Features
+
+* **api,app,db,workers:** add stripe integration with subscription tier management and enhanced resource analytics ([27777eb](https://github.com/maxbolgarin/scanorbit/commit/27777ebefae2bbd816d55a5511c7ad75d75c66d1))
+
 ## [1.8.1](https://github.com/maxbolgarin/scanorbit/compare/v1.8.0...v1.8.1) (2026-01-21)
 
 ### Code Refactoring
