@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.4](https://github.com/maxbolgarin/scanorbit/compare/v1.13.3...v1.13.4) (2026-01-23)
+
+### Bug Fixes
+
+* **auth:** update refresh token sameSite policy to 'None' for cross-origin requests ([da8255c](https://github.com/maxbolgarin/scanorbit/commit/da8255c4c1880a6cc5e35a34d38090386c38d2fc))
+
 ## [1.13.3](https://github.com/maxbolgarin/scanorbit/compare/v1.13.2...v1.13.3) (2026-01-23)
 
 ### Code Refactoring
