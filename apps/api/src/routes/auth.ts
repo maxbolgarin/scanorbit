@@ -107,9 +107,11 @@ const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken:
   setCookie(c, 'refresh_token', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    // Use 'Lax' to allow cookie to be sent after OAuth redirects from external providers
-    // 'Strict' would block the cookie on cross-site navigation (OAuth callback redirect)
-    sameSite: 'Lax',
+    // Use 'None' for cross-origin requests (frontend and API on different subdomains)
+    // This is required because the frontend makes POST requests to /auth/refresh
+    // which would not include cookies with 'Lax' (only allows GET requests cross-origin)
+    // Note: 'None' requires 'Secure' which is set in production
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
   });
