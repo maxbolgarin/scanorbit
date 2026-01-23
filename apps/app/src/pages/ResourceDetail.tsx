@@ -275,40 +275,40 @@ export default function ResourceDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1 min-w-0">
           <Button
             variant="ghost"
             size="sm"
-            className="mb-2"
+            className="mb-2 -ml-2"
             onClick={handleBack}
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
             {backLabel}
           </Button>
           <div className="flex items-center gap-3">
-            <ServiceIcon service={resource.service} className="h-8 w-8" />
-            <div>
-              <h1 className="text-2xl font-bold">{resource.name || resource.resourceId}</h1>
+            <ServiceIcon service={resource.service} className="h-8 w-8 shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{resource.name || resource.resourceId}</h1>
               <p className="text-sm text-muted-foreground">
                 {getServiceLabel(resource.service)} • {resource.region || 'Global'}
               </p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Badge variant="secondary" className="text-sm">
             {resource.state || 'Unknown'}
           </Badge>
           {buildAwsConsoleUrl(resource) && (
-            <Button variant="outline" asChild>
+            <Button variant="outline" size="sm" asChild>
               <a
                 href={buildAwsConsoleUrl(resource)!}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open in AWS
+                <ExternalLink className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Open in AWS</span>
               </a>
             </Button>
           )}
@@ -316,7 +316,7 @@ export default function ResourceDetail() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 sm:gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm font-medium text-muted-foreground">Resource ID</div>

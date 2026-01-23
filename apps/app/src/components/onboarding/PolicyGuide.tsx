@@ -88,7 +88,7 @@ export function PolicyGuide({ selectedCategories, onNext, onBack }: PolicyGuideP
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Show enabled categories if custom selection */}
       {hasCustomSelection && (
         <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-sm">
@@ -110,35 +110,35 @@ export function PolicyGuide({ selectedCategories, onNext, onBack }: PolicyGuideP
       )}
 
       {/* Step 1 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             1
           </div>
           <div className="flex-1 space-y-2">
-            <p className="font-medium">Open IAM Policies</p>
+            <p className="font-medium text-sm sm:text-base">Open IAM Policies</p>
             <a
               href="https://console.aws.amazon.com/iam/home#/policies/create"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-primary hover:underline"
             >
               Click here to create a new policy
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </a>
           </div>
         </div>
       </div>
 
       {/* Step 2 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             2
           </div>
-          <div className="flex-1 space-y-3">
-            <p className="font-medium">Paste the policy JSON</p>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex-1 space-y-2 sm:space-y-3">
+            <p className="font-medium text-sm sm:text-base">Paste the policy JSON</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Click <span className="font-medium text-foreground">"JSON"</span> tab, delete default content, and paste:
             </p>
 
@@ -151,7 +151,7 @@ export function PolicyGuide({ selectedCategories, onNext, onBack }: PolicyGuideP
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-3">
                 <Card>
-                  <CardContent className="p-3">
+                  <CardContent className="p-2 sm:p-3">
                     <div className="mb-2 flex justify-end">
                       <Button
                         variant="ghost"
@@ -171,7 +171,7 @@ export function PolicyGuide({ selectedCategories, onNext, onBack }: PolicyGuideP
                         )}
                       </Button>
                     </div>
-                    <pre className="overflow-x-auto text-xs text-muted-foreground">
+                    <pre className="overflow-x-auto text-[10px] sm:text-xs text-muted-foreground max-h-[200px] sm:max-h-none">
                       {permissionPolicy}
                     </pre>
                   </CardContent>
@@ -183,17 +183,17 @@ export function PolicyGuide({ selectedCategories, onNext, onBack }: PolicyGuideP
       </div>
 
       {/* Step 3 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             3
           </div>
           <div className="flex-1 space-y-2">
-            <p className="font-medium">Name the policy</p>
-            <p className="text-sm text-muted-foreground">
-              Click "Next". Enter name: <span className="font-mono font-medium text-foreground">ScanOrbitReadOnlyPolicy</span>
+            <p className="font-medium text-sm sm:text-base">Name the policy</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Click "Next". Enter name: <span className="font-mono font-medium text-foreground text-[10px] sm:text-sm">ScanOrbitReadOnlyPolicy</span>
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Click <span className="font-medium text-foreground">"Create policy"</span>
             </p>
           </div>

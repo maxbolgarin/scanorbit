@@ -352,36 +352,36 @@ function ResourcesGridView({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {resources.map((resource) => (
         <Card
           key={resource.id}
-          className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+          className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 overflow-hidden"
           onClick={() => navigate(`/overview/resources/${resource.id}`)}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-start gap-3">
-              <div className="rounded-lg bg-muted p-2">
+              <div className="rounded-lg bg-muted p-2 shrink-0">
                 <ServiceIcon
                   service={resource.service}
-                  className="h-6 w-6"
+                  className="h-5 w-5 sm:h-6 sm:w-6"
                 />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <p className="font-medium truncate text-sm sm:text-base">
                   {resource.name || resource.resourceId}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {getServiceLabel(resource.service)}
                 </p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground font-mono truncate">
+            <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-muted-foreground font-mono truncate">
               {resource.resourceId}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2">
               {resource.region && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
                   {resource.region}
                 </Badge>
               )}
@@ -392,13 +392,13 @@ function ResourcesGridView({
                       ? "success"
                       : "secondary"
                   }
-                  className="text-xs capitalize"
+                  className="text-[10px] sm:text-xs px-1.5 sm:px-2 capitalize"
                 >
                   {resource.state}
                 </Badge>
               )}
               {resource.costEstimateMonthly && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
                   {formatCurrency(parseFloat(resource.costEstimateMonthly))}/mo
                 </Badge>
               )}

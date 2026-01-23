@@ -40,7 +40,7 @@ export function RoleGuide({ externalId, onNext, onBack }: RoleGuideProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {isMissingConfig && (
         <Alert className="border-yellow-500/40 bg-yellow-500/5">
           <AlertCircle className="h-4 w-4 text-yellow-600" />
@@ -54,35 +54,35 @@ export function RoleGuide({ externalId, onNext, onBack }: RoleGuideProps) {
       )}
 
       {/* Step 1 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             1
           </div>
           <div className="flex-1 space-y-2">
-            <p className="font-medium">Open IAM Roles</p>
+            <p className="font-medium text-sm sm:text-base">Open IAM Roles</p>
             <a
               href="https://console.aws.amazon.com/iam/home#/roles/create?step=selectEntities"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-primary hover:underline"
             >
               Click here to create a new role
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </a>
           </div>
         </div>
       </div>
 
       {/* Step 2 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             2
           </div>
           <div className="flex-1 space-y-2">
-            <p className="font-medium">Select trusted entity</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="font-medium text-sm sm:text-base">Select trusted entity</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Choose <span className="font-medium text-foreground">"AWS account"</span> → <span className="font-medium text-foreground">"Another AWS account"</span>
             </p>
           </div>
@@ -90,26 +90,26 @@ export function RoleGuide({ externalId, onNext, onBack }: RoleGuideProps) {
       </div>
 
       {/* Step 3 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             3
           </div>
-          <div className="flex-1 space-y-3">
-            <p className="font-medium">Enter Account ID</p>
-            <p className="text-sm text-muted-foreground">Paste ScanOrbit's Account ID:</p>
+          <div className="flex-1 space-y-2 sm:space-y-3">
+            <p className="font-medium text-sm sm:text-base">Enter Account ID</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Paste ScanOrbit's Account ID:</p>
             <div className="flex gap-2">
               <Input
                 readOnly
                 value={SCANORBIT_AWS_ACCOUNT_ID || "Not configured"}
-                className="font-mono text-sm"
+                className="font-mono text-xs sm:text-sm"
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handleCopy(SCANORBIT_AWS_ACCOUNT_ID, "accountId")}
                 disabled={!SCANORBIT_AWS_ACCOUNT_ID}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-9 w-9"
               >
                 {copiedAccountId ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
@@ -119,32 +119,32 @@ export function RoleGuide({ externalId, onNext, onBack }: RoleGuideProps) {
       </div>
 
       {/* Step 4 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             4
           </div>
-          <div className="flex-1 space-y-3">
-            <p className="font-medium">Enable External ID</p>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex-1 space-y-2 sm:space-y-3">
+            <p className="font-medium text-sm sm:text-base">Enable External ID</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Check <span className="font-medium text-foreground">"Require external ID"</span> and paste:
             </p>
             <div className="flex gap-2">
               <Input
                 readOnly
                 value={externalId}
-                className="font-mono text-sm"
+                className="font-mono text-xs sm:text-sm"
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handleCopy(externalId, "externalId")}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-9 w-9"
               >
                 {copiedExternalId ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Click <span className="font-medium text-foreground">"Next"</span>
             </p>
           </div>
@@ -152,45 +152,45 @@ export function RoleGuide({ externalId, onNext, onBack }: RoleGuideProps) {
       </div>
 
       {/* Step 5 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             5
           </div>
           <div className="flex-1 space-y-2">
-            <p className="font-medium">Attach the policy</p>
-            <p className="text-sm text-muted-foreground">
-              Search for <span className="font-mono font-medium text-foreground">ScanOrbitReadOnlyPolicy</span>, check the box, click <span className="font-medium text-foreground">"Next"</span>
+            <p className="font-medium text-sm sm:text-base">Attach the policy</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Search for <span className="font-mono font-medium text-foreground text-[10px] sm:text-sm">ScanOrbitReadOnlyPolicy</span>, check the box, click <span className="font-medium text-foreground">"Next"</span>
             </p>
           </div>
         </div>
       </div>
 
       {/* Step 6 */}
-      <div className="rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <div className="rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] sm:text-xs font-medium text-primary-foreground">
             6
           </div>
-          <div className="flex-1 space-y-3">
-            <p className="font-medium">Name and create the role</p>
-            <p className="text-sm text-muted-foreground">Enter role name:</p>
+          <div className="flex-1 space-y-2 sm:space-y-3">
+            <p className="font-medium text-sm sm:text-base">Name and create the role</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Enter role name:</p>
             <div className="flex gap-2">
               <Input
                 readOnly
                 value="ScanOrbitReadOnly"
-                className="font-mono text-sm"
+                className="font-mono text-xs sm:text-sm"
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handleCopy("ScanOrbitReadOnly", "roleName")}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-9 w-9"
               >
                 {copiedRoleName ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Skip tags, scroll down and click <span className="font-medium text-foreground">"Create role"</span>
             </p>
           </div>

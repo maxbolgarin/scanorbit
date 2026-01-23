@@ -340,7 +340,10 @@ export default function InfrastructureMap() {
     });
   }, [networkSettings, setNetworkSettings]);
 
-  const [legendCollapsed, setLegendCollapsed] = useState(false);
+  // Default legend to collapsed on mobile (screen width < 640px)
+  const [legendCollapsed, setLegendCollapsed] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640
+  );
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -525,7 +528,7 @@ export default function InfrastructureMap() {
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] relative">
+    <div className="h-[calc(100vh-180px)] sm:h-[calc(100vh-120px)] relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -546,120 +549,138 @@ export default function InfrastructureMap() {
         {/* Keyboard navigation handler */}
         <KeyboardControls />
         {/* Top Left Panel - Title and Filters */}
-        <Panel position="top-left" className="flex items-center gap-2">
-          <div className="bg-card/95 backdrop-blur-sm border rounded-lg px-4 py-2">
-            <h1 className="text-lg font-semibold">Infrastructure Map</h1>
-            <p className="text-xs text-muted-foreground">
-              {stats.totalNodes} resources • {stats.totalEdges} connections
-            </p>
-          </div>
-          <MapFiltersComponent
-            filters={filters}
-            onFiltersChange={setFilters}
-            availableServices={availableServices}
-            availableRegions={availableRegions}
-          />
+        <Panel position="top-left" className="flex flex-col gap-2 max-w-[calc(100vw-80px)] sm:max-w-none">
+          {/* Title row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="bg-card/95 backdrop-blur-sm border rounded-lg px-3 py-1.5 sm:px-4 sm:py-2">
+              <h1 className="text-base sm:text-lg font-semibold">Infrastructure Map</h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
+                {stats.totalNodes} resources • {stats.totalEdges} connections
+              </p>
+            </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-card/95 backdrop-blur-sm border rounded-lg p-0.5">
-            <Button
-              variant={viewMode === 'graph' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('graph')}
-              className="gap-1.5 h-7"
-              title="Graph View - shows resources with connections"
-            >
-              <GitBranch className="h-3.5 w-3.5" />
-              Graph
-            </Button>
-            <Button
-              variant={viewMode === 'network' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('network')}
-              className="gap-1.5 h-7"
-              title="Network View - shows VPC/Subnet hierarchy"
-            >
-              <Waypoints className="h-3.5 w-3.5" />
-              Network
-            </Button>
+            {/* Legend toggle - mobile only, moved from top-right */}
+            <div className="sm:hidden">
+              <MapLegend
+                stats={stats}
+                isCollapsed={legendCollapsed}
+                onToggle={() => setLegendCollapsed(!legendCollapsed)}
+              />
+            </div>
           </div>
 
-          {/* Global Resources Toggle - only show in network view */}
-          {viewMode === 'network' && (
-            <Button
-              variant={networkSettings.showGlobalResources ? 'outline' : 'secondary'}
-              size="sm"
-              onClick={toggleGlobalResources}
-              className="gap-1.5"
-              title={networkSettings.showGlobalResources ? 'Hide global resources (IAM, S3, etc.)' : 'Show global resources'}
-            >
-              {networkSettings.showGlobalResources ? (
-                <>
+          {/* Controls row */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <MapFiltersComponent
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableServices={availableServices}
+              availableRegions={availableRegions}
+            />
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-card/95 backdrop-blur-sm border rounded-lg p-0.5">
+              <Button
+                variant={viewMode === 'graph' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('graph')}
+                className="gap-1 h-7 px-2 sm:px-3"
+                title="Graph View - shows resources with connections"
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Graph</span>
+              </Button>
+              <Button
+                variant={viewMode === 'network' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('network')}
+                className="gap-1 h-7 px-2 sm:px-3"
+                title="Network View - shows VPC/Subnet hierarchy"
+              >
+                <Waypoints className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Network</span>
+              </Button>
+            </div>
+
+            {/* Global Resources Toggle - only show in network view */}
+            {viewMode === 'network' && (
+              <Button
+                variant={networkSettings.showGlobalResources ? 'outline' : 'secondary'}
+                size="sm"
+                onClick={toggleGlobalResources}
+                className="gap-1 h-7 px-2 sm:px-3"
+                title={networkSettings.showGlobalResources ? 'Hide global resources (IAM, S3, etc.)' : 'Show global resources'}
+              >
+                {networkSettings.showGlobalResources ? (
                   <EyeOff className="h-3.5 w-3.5" />
-                  Hide Global
-                </>
-              ) : (
-                <>
+                ) : (
                   <Globe className="h-3.5 w-3.5" />
-                  Show Global
-                </>
-              )}
-            </Button>
-          )}
+                )}
+                <span className="hidden sm:inline">
+                  {networkSettings.showGlobalResources ? 'Hide Global' : 'Show Global'}
+                </span>
+              </Button>
+            )}
 
-          {/* Layout Dropdown - only show in graph view */}
-          {viewMode === 'graph' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Layout className="h-4 w-4" />
-                  {LAYOUT_PRESETS.find((p) => p.id === layoutPreset)?.name || 'Layout'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {LAYOUT_PRESETS.map((preset) => (
-                  <DropdownMenuItem
-                    key={preset.id}
-                    onClick={() => {
-                      setLayoutPreset(preset.id);
-                      handleResetPositions();
-                    }}
-                    className={layoutPreset === preset.id ? 'bg-accent' : ''}
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{preset.name}</span>
-                      <span className="text-xs text-muted-foreground">{preset.description}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-          {viewMode === 'graph' && (
+            {/* Layout Dropdown - only show in graph view */}
+            {viewMode === 'graph' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 h-7 px-2 sm:px-3">
+                    <Layout className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {LAYOUT_PRESETS.find((p) => p.id === layoutPreset)?.name || 'Layout'}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {LAYOUT_PRESETS.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset.id}
+                      onClick={() => {
+                        setLayoutPreset(preset.id);
+                        handleResetPositions();
+                      }}
+                      className={layoutPreset === preset.id ? 'bg-accent' : ''}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">{preset.name}</span>
+                        <span className="text-xs text-muted-foreground">{preset.description}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <Button
               variant="outline"
               size="sm"
-              onClick={handleResetPositions}
-              className="gap-2"
-              title="Reset all node positions to default layout"
+              onClick={() => refetch()}
+              className="gap-1 h-7 px-2 sm:px-3"
+              title="Refresh data"
             >
-              <RotateCcw className="h-4 w-4" />
-              Reset Layout
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-          )}
+
+            {viewMode === 'graph' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetPositions}
+                className="gap-1 h-7 px-2 sm:px-3"
+                title="Reset all node positions to default layout"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span className="hidden sm:inline">Reset</span>
+              </Button>
+            )}
+          </div>
         </Panel>
 
-        {/* Top Right Panel - Legend */}
-        <Panel position="top-right">
+        {/* Top Right Panel - Legend (desktop only) */}
+        <Panel position="top-right" className="hidden sm:block">
           <MapLegend
             stats={stats}
             isCollapsed={legendCollapsed}
@@ -670,12 +691,13 @@ export default function InfrastructureMap() {
         {/* Controls */}
         <Controls showInteractive={false} />
 
-        {/* MiniMap */}
+        {/* MiniMap - hidden on mobile */}
         <MiniMap
           nodeColor={getMinimapNodeColor}
           maskColor="hsl(var(--background) / 0.7)"
           nodeStrokeColor="hsl(var(--border))"
           nodeBorderRadius={4}
+          className="hidden sm:block"
         />
 
         {/* Background */}

@@ -136,15 +136,19 @@ export default function Overview() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-primary/10 p-2">
+          <div className="hidden rounded-lg bg-primary/10 p-2 sm:flex">
             <Building2 className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Organization Overview</h1>
-            <p className="text-muted-foreground">
-              Aggregated view across all {accounts?.length || 0} AWS account{accounts?.length !== 1 ? "s" : ""}
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+              <span className="sm:hidden">Overview</span>
+              <span className="hidden sm:inline">Organization Overview</span>
+            </h1>
+            <p className="text-sm text-muted-foreground sm:text-base">
+              <span className="sm:hidden">{accounts?.length || 0} account{accounts?.length !== 1 ? "s" : ""}</span>
+              <span className="hidden sm:inline">Aggregated view across all {accounts?.length || 0} AWS account{accounts?.length !== 1 ? "s" : ""}</span>
             </p>
           </div>
         </div>
@@ -167,8 +171,8 @@ export default function Overview() {
               onClick={handleRefresh}
               disabled={isFetching}
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-              Refresh
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""} sm:mr-2`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           )}
         </div>
@@ -261,7 +265,7 @@ export default function Overview() {
           <CriticalAlertBanner summary={summary} />
 
           {/* TIER 1: Status Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 md:gap-4 md:grid-cols-3">
             <HealthScoreCard
               summary={summary}
               isLoading={summaryLoading}
@@ -281,7 +285,7 @@ export default function Overview() {
           </div>
 
           {/* TIER 2: Resource & Compliance */}
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
             <ResourceHealthCard
               summary={summary}
               isLoading={summaryLoading}
@@ -293,7 +297,7 @@ export default function Overview() {
           </div>
 
           {/* TIER 3: Cost & Activity */}
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
             <CostOptimizationCard
               summary={summary}
               isLoading={summaryLoading}

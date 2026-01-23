@@ -44,10 +44,10 @@ const statusConfig = {
   },
 };
 
-const categoryLabels: Record<string, string> = {
-  security: "Security",
-  compliance: "Compliance",
-  costEfficiency: "Cost Efficiency",
+const categoryLabels: Record<string, { full: string; short: string }> = {
+  security: { full: "Security", short: "Security" },
+  compliance: { full: "Compliance", short: "Compliance" },
+  costEfficiency: { full: "Cost Efficiency", short: "Cost" },
 };
 
 export function HealthScoreCard({ summary, isLoading, previousScore }: HealthScoreCardProps) {
@@ -91,15 +91,16 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <Shield className="h-4 w-4" />
-          Infrastructure Health
+          <span className="sm:hidden">Health</span>
+          <span className="hidden sm:inline">Infrastructure Health</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 sm:space-y-4">
         {/* Score and Status */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* Circular Score */}
-          <div className={cn("relative h-16 w-16 rounded-full flex items-center justify-center", config.bgColor)}>
-            <StatusIcon className={cn("h-6 w-6", config.color)} />
+          <div className={cn("relative h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center", config.bgColor)}>
+            <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6", config.color)} />
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background px-1.5 rounded text-xs font-bold">
               {healthScores.overall}
             </div>
@@ -107,7 +108,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
 
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className={cn("text-lg font-semibold", config.color)}>
+              <span className={cn("text-base sm:text-lg font-semibold", config.color)}>
                 {config.label}
               </span>
               {trend !== 0 && (
@@ -139,7 +140,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
         </div>
 
         {/* Category Breakdown */}
-        <div className="space-y-2">
+        <div className="space-y-1.5 sm:space-y-2">
           {(["security", "compliance", "costEfficiency"] as const).map((category) => {
             const score = healthScores[category];
             const progressColor = score >= 90 ? "bg-green-500" : score >= 70 ? "bg-blue-500" : score >= 50 ? "bg-yellow-500" : "bg-red-500";
@@ -147,7 +148,10 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
             return (
               <div key={category} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{categoryLabels[category]}</span>
+                  <span className="text-muted-foreground">
+                    <span className="sm:hidden">{categoryLabels[category].short}</span>
+                    <span className="hidden sm:inline">{categoryLabels[category].full}</span>
+                  </span>
                   <span className="font-medium">{score}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">

@@ -21,7 +21,7 @@ export function TagsSection({ tags }: TagsSectionProps) {
       {entries.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {entries.map(([key, value]) => (
-            <Badge key={key} variant="outline">
+            <Badge key={key} variant="outline" className="max-w-full break-all">
               {key}: {value}
             </Badge>
           ))}

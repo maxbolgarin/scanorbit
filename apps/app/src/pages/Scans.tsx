@@ -352,28 +352,34 @@ export default function Scans() {
       {hasAccounts && (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <History className="h-5 w-5 text-muted-foreground" />
-                Scan History
-              </CardTitle>
-              <CardDescription>
-                {scans.length === 0
-                  ? "No scans have been run yet"
-                  : `${filteredScans.length} scan${filteredScans.length !== 1 ? "s" : ""} found`}
-              </CardDescription>
-            </div>
-            {scans.length > 0 && (
-              <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-4">
+            {/* Title row */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <History className="h-5 w-5 text-muted-foreground" />
+                  Scan History
+                </CardTitle>
+                <CardDescription>
+                  {scans.length === 0
+                    ? "No scans have been run yet"
+                    : `${filteredScans.length} scan${filteredScans.length !== 1 ? "s" : ""} found`}
+                </CardDescription>
+              </div>
+              {scans.length > 0 && (
                 <Checkbox
                   id="show-archived"
                   checked={showArchived}
                   onChange={(e) => setShowArchived(e.target.checked)}
-                  label="Show archived"
+                  label="Archived"
                 />
+              )}
+            </div>
+            {/* Filters row */}
+            {scans.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-full sm:w-[140px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -389,7 +395,7 @@ export default function Scans() {
                   </SelectContent>
                 </Select>
                 <Select value={accountFilter} onValueChange={setAccountFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Account" />
                   </SelectTrigger>
                   <SelectContent>
@@ -431,133 +437,223 @@ export default function Scans() {
               description="Try adjusting your filters to see more results"
             />
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead>AWS Account ID</TableHead>
-                    <TableHead>Started</TableHead>
-                    <TableHead>Completed</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead className="text-right">Resources</TableHead>
-                    <TableHead className="text-right">Changes</TableHead>
-                    <TableHead className="text-right">Findings</TableHead>
-                    <TableHead>Error</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredScans.map((scan) => {
-                    const config = statusConfig[scan.status] || {
-                      icon: <Clock className="h-4 w-4" />,
-                      label: scan.status || "Unknown",
-                      variant: "secondary" as const,
-                    };
-                    const duration = getDuration(scan);
+            <>
+              {/* Mobile card view */}
+              <div className="space-y-3 sm:hidden">
+                {filteredScans.map((scan) => {
+                  const config = statusConfig[scan.status] || {
+                    icon: <Clock className="h-4 w-4" />,
+                    label: scan.status || "Unknown",
+                    variant: "secondary" as const,
+                  };
+                  const duration = getDuration(scan);
 
-                    return (
-                      <TableRow key={scan.id}>
-                        <TableCell>
-                          <Badge
-                            variant={config.variant}
-                            className={`flex items-center gap-1.5 w-fit ${!scan.hasKey ? "opacity-60" : ""}`}
-                          >
-                            <span className={
-                              scan.status === "error" ? "text-destructive" :
-                              scan.status === "complete" ? "text-green-500" :
-                              scan.status === "partial" ? "text-orange-500" :
-                              scan.status === "running" || scan.status === "analyzing" ? "text-primary" :
-                              scan.status === "canceled" ? "text-muted-foreground" :
-                              "text-yellow-500"
-                            }>
-                              {config.icon}
-                            </span>
-                            {config.label}
-                          </Badge>
-                          {!scan.hasKey && (
-                            <span className="ml-1 text-xs text-muted-foreground">(archived)</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">
+                  return (
+                    <div key={scan.id} className="rounded-lg border p-3 space-y-2">
+                      {/* Top row: Status + Account */}
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge
+                          variant={config.variant}
+                          className={`flex items-center gap-1.5 ${!scan.hasKey ? "opacity-60" : ""}`}
+                        >
+                          <span className={
+                            scan.status === "error" ? "text-destructive" :
+                            scan.status === "complete" ? "text-green-500" :
+                            scan.status === "partial" ? "text-orange-500" :
+                            scan.status === "running" || scan.status === "analyzing" ? "text-primary" :
+                            scan.status === "canceled" ? "text-muted-foreground" :
+                            "text-yellow-500"
+                          }>
+                            {config.icon}
+                          </span>
+                          {config.label}
+                        </Badge>
+                        <span className="text-sm font-medium truncate">
                           {getAccountName(scan.awsAccountId)}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {getAccountAwsId(scan.awsAccountId)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {scan.startedAt ? formatDateTime(scan.startedAt) : "-"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {scan.completedAt ? formatDateTime(scan.completedAt) : "-"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {duration || "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {(scan.status === "complete" || scan.status === "partial") ? (
-                            <span className="font-medium">{scan.resourcesDiscovered}</span>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {(scan.status === "complete" || scan.status === "partial") && scan.resourcesDelta !== 0 ? (
+                        </span>
+                      </div>
+
+                      {/* Time info */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{scan.startedAt ? formatDateTime(scan.startedAt) : "-"}</span>
+                        {duration && <span>{duration}</span>}
+                      </div>
+
+                      {/* Stats row */}
+                      {(scan.status === "complete" || scan.status === "partial") && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs">
+                            <span className="font-medium">{scan.resourcesDiscovered}</span> resources
+                          </span>
+                          {scan.resourcesDelta !== 0 && (
                             <Badge
                               variant="outline"
                               className={`text-xs ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
                             >
-                              {scan.resourcesDelta > 0 ? (
-                                <TrendingUp className="h-3 w-3 mr-1" />
-                              ) : (
-                                <TrendingDown className="h-3 w-3 mr-1" />
-                              )}
+                              {scan.resourcesDelta > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                               {scan.resourcesDelta > 0 ? "+" : ""}{scan.resourcesDelta}
                             </Badge>
-                          ) : (
-                            "-"
                           )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew > 0 && (
-                              <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                +{scan.findingsNew}
-                              </Badge>
-                            )}
-                            {(scan.status === "complete" || scan.status === "partial") && scan.findingsResolved > 0 && (
-                              <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                -{scan.findingsResolved}
-                              </Badge>
-                            )}
-                            {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew === 0 && scan.findingsResolved === 0 && (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                            {scan.status !== "complete" && scan.status !== "partial" && (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[200px]">
-                          {scan.errorMessage ? (
-                            <div className="flex items-start gap-1.5 text-xs text-destructive">
-                              <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                              <span className="truncate" title={scan.errorMessage}>
-                                {scan.errorMessage}
+                          {scan.findingsNew > 0 && (
+                            <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              +{scan.findingsNew}
+                            </Badge>
+                          )}
+                          {scan.findingsResolved > 0 && (
+                            <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              -{scan.findingsResolved}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Error message */}
+                      {scan.errorMessage && (
+                        <div className="flex items-start gap-1.5 text-xs text-destructive">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-2">{scan.errorMessage}</span>
+                        </div>
+                      )}
+
+                      {!scan.hasKey && (
+                        <span className="text-xs text-muted-foreground">(archived)</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop table view */}
+              <div className="rounded-md border hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead className="hidden lg:table-cell">AWS Account ID</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead className="hidden md:table-cell">Completed</TableHead>
+                      <TableHead className="hidden md:table-cell">Duration</TableHead>
+                      <TableHead className="text-right">Resources</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">Changes</TableHead>
+                      <TableHead className="text-right">Findings</TableHead>
+                      <TableHead className="hidden xl:table-cell">Error</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredScans.map((scan) => {
+                      const config = statusConfig[scan.status] || {
+                        icon: <Clock className="h-4 w-4" />,
+                        label: scan.status || "Unknown",
+                        variant: "secondary" as const,
+                      };
+                      const duration = getDuration(scan);
+
+                      return (
+                        <TableRow key={scan.id}>
+                          <TableCell>
+                            <Badge
+                              variant={config.variant}
+                              className={`flex items-center gap-1.5 w-fit ${!scan.hasKey ? "opacity-60" : ""}`}
+                            >
+                              <span className={
+                                scan.status === "error" ? "text-destructive" :
+                                scan.status === "complete" ? "text-green-500" :
+                                scan.status === "partial" ? "text-orange-500" :
+                                scan.status === "running" || scan.status === "analyzing" ? "text-primary" :
+                                scan.status === "canceled" ? "text-muted-foreground" :
+                                "text-yellow-500"
+                              }>
+                                {config.icon}
                               </span>
+                              {config.label}
+                            </Badge>
+                            {!scan.hasKey && (
+                              <span className="ml-1 text-xs text-muted-foreground">(archived)</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {getAccountName(scan.awsAccountId)}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground hidden lg:table-cell">
+                            {getAccountAwsId(scan.awsAccountId)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {scan.startedAt ? formatDateTime(scan.startedAt) : "-"}
+                          </TableCell>
+                          <TableCell className="text-sm hidden md:table-cell">
+                            {scan.completedAt ? formatDateTime(scan.completedAt) : "-"}
+                          </TableCell>
+                          <TableCell className="text-sm hidden md:table-cell">
+                            {duration || "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {(scan.status === "complete" || scan.status === "partial") ? (
+                              <span className="font-medium">{scan.resourcesDiscovered}</span>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right hidden lg:table-cell">
+                            {(scan.status === "complete" || scan.status === "partial") && scan.resourcesDelta !== 0 ? (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                              >
+                                {scan.resourcesDelta > 0 ? (
+                                  <TrendingUp className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <TrendingDown className="h-3 w-3 mr-1" />
+                                )}
+                                {scan.resourcesDelta > 0 ? "+" : ""}{scan.resourcesDelta}
+                              </Badge>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew > 0 && (
+                                <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  +{scan.findingsNew}
+                                </Badge>
+                              )}
+                              {(scan.status === "complete" || scan.status === "partial") && scan.findingsResolved > 0 && (
+                                <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  -{scan.findingsResolved}
+                                </Badge>
+                              )}
+                              {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew === 0 && scan.findingsResolved === 0 && (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                              {scan.status !== "complete" && scan.status !== "partial" && (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </div>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[200px] hidden xl:table-cell">
+                            {scan.errorMessage ? (
+                              <div className="flex items-start gap-1.5 text-xs text-destructive">
+                                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                <span className="truncate" title={scan.errorMessage}>
+                                  {scan.errorMessage}
+                                </span>
+                              </div>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

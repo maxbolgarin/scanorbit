@@ -13,26 +13,31 @@ interface OpenIssuesCardProps {
 const severityConfig = {
   critical: {
     label: "Critical",
+    shortLabel: "Crit",
     color: "bg-red-500",
     textColor: "text-red-500",
   },
   high: {
     label: "High",
+    shortLabel: "High",
     color: "bg-orange-500",
     textColor: "text-orange-500",
   },
   medium: {
     label: "Med",
+    shortLabel: "Med",
     color: "bg-yellow-500",
     textColor: "text-yellow-500",
   },
   low: {
     label: "Low",
+    shortLabel: "Low",
     color: "bg-blue-500",
     textColor: "text-blue-500",
   },
   trivial: {
     label: "Trivial",
+    shortLabel: "Triv",
     color: "bg-slate-400",
     textColor: "text-slate-400",
   },
@@ -144,93 +149,96 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
 
         {/* Severity breakdown grid - visual boxes like ResourceHealth */}
         {total > 0 ? (
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             {/* Critical */}
             <Link
               to={`${baseFindingsUrl}?severity=critical&status=open`}
               className={cn(
-                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.critical > 0
                   ? "bg-red-500/10 border-red-500/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <AlertOctagon className="h-3.5 w-3.5 text-red-500" />
+                <AlertOctagon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-500" />
               </div>
               <div className={cn(
-                "text-lg font-semibold",
+                "text-base sm:text-lg font-semibold",
                 findingCounts.critical > 0 ? "text-red-500" : "text-muted-foreground"
               )}>
                 {findingCounts.critical}
               </div>
-              <div className="text-xs text-muted-foreground">Critical</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                <span className="sm:hidden">Crit</span>
+                <span className="hidden sm:inline">Critical</span>
+              </div>
             </Link>
 
             {/* High */}
             <Link
               to={`${baseFindingsUrl}?severity=high&status=open`}
               className={cn(
-                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.high > 0
                   ? "bg-orange-500/10 border-orange-500/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
+                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-500" />
               </div>
               <div className={cn(
-                "text-lg font-semibold",
+                "text-base sm:text-lg font-semibold",
                 findingCounts.high > 0 ? "text-orange-500" : "text-muted-foreground"
               )}>
                 {findingCounts.high}
               </div>
-              <div className="text-xs text-muted-foreground">High</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground">High</div>
             </Link>
 
             {/* Medium */}
             <Link
               to={`${baseFindingsUrl}?severity=medium&status=open`}
               className={cn(
-                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.medium > 0
                   ? "bg-yellow-500/10 border-yellow-500/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-yellow-500" />
               </div>
               <div className={cn(
-                "text-lg font-semibold",
+                "text-base sm:text-lg font-semibold",
                 findingCounts.medium > 0 ? "text-yellow-500" : "text-muted-foreground"
               )}>
                 {findingCounts.medium}
               </div>
-              <div className="text-xs text-muted-foreground">Medium</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground">Med</div>
             </Link>
 
             {/* Low */}
             <Link
               to={`${baseFindingsUrl}?severity=low&status=open`}
               className={cn(
-                "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50",
+                "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.low > 0
                   ? "bg-blue-500/10 border-blue-500/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Info className="h-3.5 w-3.5 text-blue-500" />
+                <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500" />
               </div>
               <div className={cn(
-                "text-lg font-semibold",
+                "text-base sm:text-lg font-semibold",
                 findingCounts.low > 0 ? "text-blue-500" : "text-muted-foreground"
               )}>
                 {findingCounts.low}
               </div>
-              <div className="text-xs text-muted-foreground">Low</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground">Low</div>
             </Link>
           </div>
         ) : (

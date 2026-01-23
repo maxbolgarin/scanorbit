@@ -363,6 +363,8 @@ services:
     environment:
       # Required: Docker 27+ requires API version 1.44+
       - DOCKER_API_VERSION=1.47
+      # Tell Watchtower where to find Docker credentials
+      - DOCKER_CONFIG=/config
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_INCLUDE_LABELS=true

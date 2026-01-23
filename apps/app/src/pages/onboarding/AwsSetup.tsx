@@ -238,24 +238,24 @@ export default function AwsSetup() {
     step === "role" ? 4 : 5;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-3 sm:p-4">
       <div className="w-full max-w-lg">
         {/* Logo */}
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <Orbit className="h-10 w-10 text-cyber-cyan" />
-          <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+        <div className="mb-6 sm:mb-8 flex items-center justify-center gap-2">
+          <Orbit className="h-8 w-8 sm:h-10 sm:w-10 text-cyber-cyan" />
+          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
             ScanOrbit
           </span>
         </div>
 
         {/* Progress indicator */}
-        <div className="mb-6 flex items-center justify-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
+        <div className="mb-6 flex items-center justify-center gap-1 sm:gap-2">
+          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary text-xs sm:text-sm font-medium text-primary-foreground">
             1
           </div>
-          <div className="h-0.5 w-6 bg-primary" />
+          <div className="h-0.5 w-4 sm:w-6 bg-primary" />
           <div
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+            className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-medium ${
               stepNumber >= 2
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground"
@@ -263,9 +263,9 @@ export default function AwsSetup() {
           >
             2
           </div>
-          <div className={`h-0.5 w-6 ${stepNumber >= 2 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-0.5 w-4 sm:w-6 ${stepNumber >= 2 ? "bg-primary" : "bg-muted"}`} />
           <div
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+            className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-medium ${
               stepNumber >= 3
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground"
@@ -273,9 +273,9 @@ export default function AwsSetup() {
           >
             3
           </div>
-          <div className={`h-0.5 w-6 ${stepNumber >= 3 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-0.5 w-4 sm:w-6 ${stepNumber >= 3 ? "bg-primary" : "bg-muted"}`} />
           <div
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+            className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-medium ${
               stepNumber >= 4
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground"
@@ -283,9 +283,9 @@ export default function AwsSetup() {
           >
             4
           </div>
-          <div className={`h-0.5 w-6 ${stepNumber >= 4 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-0.5 w-4 sm:w-6 ${stepNumber >= 4 ? "bg-primary" : "bg-muted"}`} />
           <div
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+            className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-medium ${
               stepNumber >= 5
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground"

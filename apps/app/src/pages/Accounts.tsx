@@ -89,15 +89,15 @@ export default function Accounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">AWS Accounts</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold">AWS Accounts</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage your connected AWS accounts
           </p>
         </div>
         {isTeamTier && (
-          <Button onClick={() => navigate("/onboarding/aws")}>
+          <Button onClick={() => navigate("/onboarding/aws")} size="sm" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add Account
           </Button>
@@ -107,17 +107,17 @@ export default function Accounts() {
       {/* Info banner for non-team users */}
       {!isTeamTier && (
         <Card className="border-dashed bg-muted/30">
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-3">
-              <Info className="h-5 w-5 text-muted-foreground" />
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start sm:items-center gap-3">
+              <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5 sm:mt-0" />
               <div>
                 <p className="text-sm font-medium">Want to manage multiple AWS accounts?</p>
                 <p className="text-xs text-muted-foreground">
-                  Upgrade to Team to connect unlimited AWS accounts and view organization-wide insights
+                  Upgrade to Team to connect unlimited AWS accounts
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate("/settings?tab=subscription")}>
+            <Button variant="outline" size="sm" onClick={() => navigate("/settings?tab=subscription")} className="w-full sm:w-auto">
               Upgrade to Team
             </Button>
           </CardContent>

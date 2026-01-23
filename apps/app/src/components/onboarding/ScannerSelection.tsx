@@ -93,7 +93,7 @@ export function ScannerSelection({
       </div>
 
       {/* Category cards */}
-      <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-1">
+      <div className="grid gap-2 sm:gap-3 max-h-[300px] sm:max-h-[400px] overflow-y-auto pr-1">
         {PERMISSION_CATEGORIES.map((category) => {
           const Icon = CATEGORY_ICONS[category.id] || Server;
           const isSelected = selected.includes(category.id);
@@ -108,19 +108,19 @@ export function ScannerSelection({
               }`}
               onClick={() => toggleCategory(category.id)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-start gap-2 sm:gap-3">
                   <Checkbox
                     checked={isSelected}
                     onChange={() => toggleCategory(category.id)}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{category.label}</span>
+                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="font-medium text-sm sm:text-base">{category.label}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                       {category.description}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-2">
@@ -128,7 +128,7 @@ export function ScannerSelection({
                         <Badge
                           key={scanner}
                           variant="secondary"
-                          className="text-xs"
+                          className="text-[10px] sm:text-xs"
                         >
                           {scanner}
                         </Badge>
