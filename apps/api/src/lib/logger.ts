@@ -40,6 +40,8 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 export interface LogContext {
   requestId?: string;
+  traceId?: string;
+  spanId?: string;
   userId?: string;
   orgId?: string;
   method?: string;

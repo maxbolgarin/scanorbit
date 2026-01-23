@@ -724,7 +724,7 @@ export interface SignupCredentials {
 export interface LoginResponseSuccess {
   user: User;
   orgs: Org[];
-  token: string;
+  accessToken: string;
   requires2FA?: false;
 }
 
@@ -739,7 +739,7 @@ export type LoginResponse = LoginResponseSuccess | LoginResponse2FA;
 export interface SignupResponse {
   user: User;
   org: Org | null;
-  token: string;
+  accessToken: string;
 }
 
 export interface MeResponse {

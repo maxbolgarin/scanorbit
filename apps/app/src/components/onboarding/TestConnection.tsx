@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import type { TestConnectionResult } from "@/types";
+import { Alert } from "../ui/alert";
 
 const TEST_COOLDOWN_SECONDS = 10;
 
@@ -131,7 +132,7 @@ export function TestConnection({
 
       {/* Info about role propagation - only show before connection is verified */}
       {!testResult?.success && (
-        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+        <Alert className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <div>
             <p>
@@ -139,7 +140,7 @@ export function TestConnection({
               If the test fails, wait a moment and try again.
             </p>
           </div>
-        </div>
+        </Alert>
       )}
 
       <Button
@@ -176,12 +177,22 @@ export function TestConnection({
           ) : (
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           )}
-          <div>
+          <div className="flex-1">
             <p className="font-medium">
               {testResult.success
                 ? testResult.message || "Connection successful! ScanOrbit can access your AWS account."
-                : testResult.message || "Connection failed. Please check your role configuration."}
+                : "Connection failed"}
             </p>
+            {!testResult.success && testResult.message && (
+              <div className="mt-2 whitespace-pre-line text-xs">
+                {testResult.message}
+              </div>
+            )}
+            {!testResult.success && !testResult.message && (
+              <p className="mt-1 text-xs">
+                Please verify your IAM role configuration and try again.
+              </p>
+            )}
             {testResult.regions && testResult.regions.length > 0 && (
               <p className="mt-1 text-xs">
                 Regions available: {testResult.regions.join(", ")}

@@ -53,6 +53,10 @@ Frontend polls findings endpoint
 | `analyze_orphans` | `{accountId, orgId}` | Analyzer | 1–2 min |
 | `analyze_ssl` | `{accountId, orgId}` | Analyzer | 30–60 sec |
 | `analyze_residency` | `{accountId, orgId, policy}` | Analyzer | 30–60 sec |
+| `analyze_security` | `{accountId, orgId}` | Analyzer | 1–2 min |
+| `analyze_cost` | `{accountId, orgId}` | Analyzer | 1–2 min |
+| `analyze_tagging` | `{accountId, orgId}` | Analyzer | 30–60 sec |
+| `analyze_iam` | `{accountId, orgId}` | Analyzer | 1–2 min |
 
 ---
 
@@ -193,7 +197,11 @@ workers/
 │   │   ├── orchestrator.go  # Analysis orchestration
 │   │   ├── orphans.go       # Orphaned resources detection
 │   │   ├── residency.go     # Data residency checks
-│   │   └── ssl.go           # SSL certificate analysis
+│   │   ├── ssl.go           # SSL certificate analysis
+│   │   ├── security.go      # Security group & network analysis
+│   │   ├── cost.go          # Cost optimization analysis
+│   │   ├── tagging.go       # Tagging compliance checks
+│   │   └── iam_analyzer.go  # IAM security analysis
 │   ├── awsclient/
 │   │   ├── client.go        # AWS SDK client + AssumeRole
 │   │   ├── regions.go       # Region listing
@@ -201,7 +209,13 @@ workers/
 │   │   ├── rds.go           # RDS discovery
 │   │   ├── s3.go            # S3 discovery
 │   │   ├── alb.go           # ALB discovery
-│   │   └── acm.go           # ACM certificate discovery
+│   │   ├── acm.go           # ACM certificate discovery
+│   │   ├── iam.go           # IAM users, roles, policies discovery
+│   │   ├── lambda.go        # Lambda functions discovery
+│   │   ├── kms.go           # KMS keys discovery
+│   │   ├── secretsmanager.go # Secrets Manager discovery
+│   │   ├── securitygroups.go # Security groups discovery
+│   │   └── cloudwatch.go    # CloudWatch metrics & logs discovery
 │   ├── config/
 │   │   └── config.go        # Environment config + logging
 │   ├── models/
@@ -669,6 +683,100 @@ func (a *Analyzer) AnalyzeSSL(ctx context.Context, accountID, orgID string) erro
 
     return nil
 }
+```
+
+### 5.4 Security Analyzer
+
+The security analyzer detects security misconfigurations in AWS resources:
+
+**Findings Detected:**
+- `permissive_security_group` — Security group allows access to sensitive ports from 0.0.0.0/0
+- `open_all_ports` — Security group allows all traffic from the internet
+- `public_access` — S3 bucket has Block Public Access disabled
+- `unencrypted_resource` — EBS volume or RDS instance without encryption
+- `publicly_accessible_rds` — RDS instance is publicly accessible
+- `public_snapshot` — EBS or RDS snapshot shared publicly
+
+**Algorithm:**
+```
+1. Fetch all security groups, S3 buckets, EBS volumes, RDS instances
+2. For security groups:
+   - Check for 0.0.0.0/0 or ::/0 in ingress rules
+   - Flag sensitive ports: 22, 3389, 3306, 5432, 1433, 27017, 6379, etc.
+3. For S3 buckets:
+   - Check Block Public Access settings
+4. For EBS/RDS:
+   - Check encryption status
+5. Create findings with severity based on risk level
+```
+
+### 5.5 Cost Analyzer
+
+The cost analyzer identifies resources that may be wasting money:
+
+**Findings Detected:**
+- `stopped_instance` — EC2 instance stopped for 7+ days
+- `oversized_instance` — Instance with low CPU/memory utilization
+- `idle_nat_gateway` — NAT Gateway with minimal traffic
+- `unused_log_group` — CloudWatch log group with no retention policy
+
+**Algorithm:**
+```
+1. Fetch stopped EC2 instances, NAT Gateways, CloudWatch log groups
+2. For EC2 instances:
+   - Check stop time, flag if > 7 days
+   - Query CloudWatch for CPU utilization (if available)
+3. For log groups:
+   - Check storage size and retention policy
+4. Calculate estimated monthly cost for each finding
+```
+
+### 5.6 Tagging Analyzer
+
+The tagging analyzer ensures resources have required organizational tags:
+
+**Findings Detected:**
+- `missing_tag` — Resource missing one or more required tags
+
+**Configuration:**
+```bash
+REQUIRED_TAGS=Environment,Project,Owner,CostCenter
+```
+
+**Algorithm:**
+```
+1. Load required tags from configuration
+2. For each resource:
+   - Check if all required tags are present
+   - Calculate missing tags list
+3. Create findings with severity=trivial
+```
+
+### 5.7 IAM Analyzer
+
+The IAM analyzer detects security issues in IAM configuration:
+
+**Findings Detected:**
+- `user_without_mfa` — IAM user without MFA enabled
+- `old_access_key` — Access key older than 90 days
+- `unused_access_key` — Access key never used or unused for 90+ days
+- `unused_iam_role` — IAM role not assumed in 90+ days
+- `overly_permissive_policy` — Policy with `*:*` permissions
+- `cross_account_trust` — Role trusts external accounts without conditions
+- `root_account_usage` — Root account activity detected
+
+**Algorithm:**
+```
+1. List all IAM users, roles, access keys
+2. For each user:
+   - Check MFA devices (should have at least one)
+   - Check access key age and last used date
+3. For each role:
+   - Check last used date
+   - Analyze trust policy for external principals
+4. For attached policies:
+   - Check for overly broad actions/resources
+5. Create findings with appropriate severity
 ```
 
 ---

@@ -80,22 +80,143 @@ const api = axios.create({
 
 // Track if we're currently handling a 401 to prevent redirect loops
 let isHandling401 = false;
+// Track if we're currently refreshing the token to prevent concurrent refreshes
+let isRefreshing = false;
+// Queue of requests waiting for token refresh
+let refreshSubscribers: ((success: boolean) => void)[] = [];
+
+// Store access token in memory (not localStorage for security)
+let accessToken: string | null = null;
+
+/**
+ * Set the access token for API requests
+ */
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+/**
+ * Get the current access token
+ */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+/**
+ * Subscribe to token refresh result
+ */
+function subscribeToRefresh(callback: (success: boolean) => void) {
+  refreshSubscribers.push(callback);
+}
+
+/**
+ * Notify all subscribers of refresh result
+ */
+function notifyRefreshSubscribers(success: boolean) {
+  refreshSubscribers.forEach(callback => callback(success));
+  refreshSubscribers = [];
+}
+
+/**
+ * Try to refresh the access token using the refresh token cookie
+ * Returns true if refresh succeeded, false otherwise
+ */
+async function tryRefreshToken(): Promise<boolean> {
+  try {
+    const { data } = await api.post<{ accessToken: string }>('/auth/refresh');
+    setAccessToken(data.accessToken);
+    return true;
+  } catch {
+    setAccessToken(null);
+    return false;
+  }
+}
+
+/**
+ * Public function to refresh the access token if needed
+ * Call this before making authenticated requests if the token might be missing (e.g., after page refresh)
+ * Returns true if a valid token exists after the call
+ */
+export async function ensureAccessToken(): Promise<boolean> {
+  // If we already have a token, we're good
+  if (accessToken) {
+    return true;
+  }
+  // Try to refresh using the refresh token cookie
+  return tryRefreshToken();
+}
+
+// Request interceptor to add access token to all requests
+api.interceptors.request.use((config) => {
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
 
 // Response interceptor to handle 401 (unauthorized) responses globally
-// This ensures users are redirected to login when their session expires
+// First tries to refresh the token, then redirects to login if refresh fails
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error instanceof AxiosError && error.response?.status === 401) {
-      // Avoid handling 401 during login/logout/2fa flows to prevent loops
-      const url = error.config?.url || '';
+      const originalRequest = error.config;
+
+      // Avoid handling 401 during login/logout/2fa/refresh flows to prevent loops
+      const url = originalRequest?.url || '';
       const isAuthEndpoint = url.includes('/auth/login') ||
                              url.includes('/auth/logout') ||
                              url.includes('/auth/2fa') ||
                              url.includes('/auth/signup') ||
-                             url.includes('/auth/me');
+                             url.includes('/auth/me') ||
+                             url.includes('/auth/refresh');
 
-      if (!isAuthEndpoint && !isHandling401) {
+      // If this is an auth endpoint or already retrying, don't try to refresh
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (isAuthEndpoint || (originalRequest as any)?._retry) {
+        return Promise.reject(error);
+      }
+
+      // Mark this request as being retried
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (originalRequest as any)._retry = true;
+
+      // If we're already refreshing, wait for the refresh to complete
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          subscribeToRefresh((success) => {
+            if (success && originalRequest) {
+              resolve(api(originalRequest));
+            } else {
+              reject(error);
+            }
+          });
+        });
+      }
+
+      // Start refreshing
+      isRefreshing = true;
+
+      try {
+        const refreshSuccess = await tryRefreshToken();
+
+        if (refreshSuccess) {
+          notifyRefreshSubscribers(true);
+          isRefreshing = false;
+          // Retry the original request
+          if (originalRequest) {
+            return api(originalRequest);
+          }
+        }
+      } catch {
+        // Refresh failed
+      }
+
+      // Refresh failed - notify subscribers and redirect to login
+      notifyRefreshSubscribers(false);
+      isRefreshing = false;
+
+      if (!isHandling401) {
         isHandling401 = true;
 
         // Clear any stored auth state - import dynamically to avoid circular deps
@@ -130,13 +251,18 @@ api.interceptors.response.use(
 
 // Error handler helper
 function handleApiError(error: unknown): never {
-  // Only log errors in development to avoid exposing sensitive details in production
-  if (import.meta.env.DEV) {
-    console.error("API Error:", error);
-  }
-
   if (error instanceof AxiosError) {
     const data = error.response?.data;
+    const url = error.config?.url || '';
+
+    // Don't log 401 errors for auth check endpoints - these are expected when not logged in
+    const isAuthCheckEndpoint = url.includes('/auth/me') || url.includes('/auth/refresh');
+    const is401 = error.response?.status === 401;
+
+    // Only log errors in development, skip expected auth check failures
+    if (import.meta.env.DEV && !(is401 && isAuthCheckEndpoint)) {
+      console.error("API Error:", error);
+    }
 
     // Handle validation errors with details array
     if (data?.details && Array.isArray(data.details)) {
@@ -194,9 +320,9 @@ export async function getMe(): Promise<MeResponse> {
   }
 }
 
-export async function switchOrg(orgId: string): Promise<{ token: string }> {
+export async function switchOrg(orgId: string): Promise<{ accessToken: string }> {
   try {
-    const { data } = await api.post<{ token: string }>("/auth/switch-org", { orgId });
+    const { data } = await api.post<{ accessToken: string }>("/auth/switch-org", { orgId });
     return data;
   } catch (error) {
     handleApiError(error);
@@ -247,9 +373,9 @@ export async function verifyCode(email: string, code: string): Promise<{ success
   }
 }
 
-export async function completeSignup(signupToken: string, password: string, consent: boolean): Promise<{ user: User; token: string }> {
+export async function completeSignup(signupToken: string, password: string, consent: boolean): Promise<{ user: User; accessToken: string }> {
   try {
-    const { data } = await api.post<{ user: User; token: string }>("/auth/complete-signup", { signupToken, password, consent });
+    const { data } = await api.post<{ user: User; accessToken: string }>("/auth/complete-signup", { signupToken, password, consent });
     return data;
   } catch (error) {
     handleApiError(error);
@@ -271,10 +397,10 @@ export async function createOrg(input: {
   orgName: string;
   fullName?: string;
   title?: JobTitle;
-}): Promise<{ org: Org; token: string }> {
+}): Promise<{ org: Org; accessToken: string }> {
   try {
-    const { data } = await api.post<{ data: Org; token: string }>("/orgs", input);
-    return { org: data.data, token: data.token };
+    const { data } = await api.post<{ data: Org; accessToken: string }>("/orgs", input);
+    return { org: data.data, accessToken: data.accessToken };
   } catch (error) {
     handleApiError(error);
   }

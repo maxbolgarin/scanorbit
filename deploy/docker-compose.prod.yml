@@ -53,14 +53,31 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - DATABASE_URL=${DATABASE_URL}
       - DB_CA_CERT=/certs/postgres-ca.crt
       - REDIS_URL=${REDIS_URL}
       - REDIS_CA_CERT=/certs/redis-ca.crt
+      # JWT Configuration (access tokens: 5min, refresh tokens: 7d - hardcoded)
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - CORS_ORIGIN=${CORS_ORIGIN}
+      # Encryption Keys (required for 2FA and OAuth)
+      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}
+      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
+      # Google OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-}
+      # GitHub OAuth
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL:-}
+      # Frontend & CORS
       - FRONTEND_URL=${FRONTEND_URL}
+      # AWS
+      - AWS_REGION=${AWS_REGION:-eu-central-1}
+      # Network/Security
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1}
       # SMTP Configuration
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       - SMTP_HOST=${SMTP_HOST:-}
@@ -69,6 +86,12 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      # Stripe Configuration (optional)
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRO_PRICE_ID=${STRIPE_PRO_PRICE_ID:-}
+      - STRIPE_TEAM_PRICE_ID=${STRIPE_TEAM_PRICE_ID:-}
+      - STRIPE_TRIAL_DAYS=${STRIPE_TRIAL_DAYS:-14}
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -113,6 +136,12 @@ services:
       - REDIS_CA_CERT=/certs/redis-ca.crt
       - AWS_REGION=${AWS_REGION:-eu-central-1}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SCAN_CONCURRENCY=${SCAN_CONCURRENCY:-10}
+      - SCAN_TIMEOUT_MINUTES=${SCAN_TIMEOUT_MINUTES:-60}
+      - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
+      - REQUIRED_TAGS=${REQUIRED_TAGS:-}
+      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -138,6 +167,9 @@ services:
       - REDIS_URL=${REDIS_URL}
       - REDIS_CA_CERT=/certs/redis-ca.crt
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
+      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -323,6 +355,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -331,6 +364,8 @@ services:
       - '--web.enable-lifecycle'
     ports:
       - "9092:9090"  # Prometheus UI (9090 is used by scanner, so using 9092)
+    depends_on:
+      - alertmanager
     networks:
       - scanorbit
     profiles:
@@ -388,6 +423,65 @@ services:
     profiles:
       - monitoring
 
+  # PostgreSQL Exporter - Database metrics
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-scanorbit}?sslmode=require&sslrootcert=/certs/ca.crt
+    volumes:
+      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
+  # Redis Exporter - Cache/Queue metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.58.0-alpine
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=rediss://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_EXPORTER_SKIP_TLS_VERIFICATION=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
+  # Alertmanager - Alert routing and notifications
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
+    volumes:
+      - ./deploy/alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
+      - alertmanager_data:/alertmanager
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        # Install envsubst (gettext) and process config template
+        apk add --no-cache gettext
+        envsubst < /etc/alertmanager/alertmanager.yml.tmpl > /etc/alertmanager/alertmanager.yml
+        # Start alertmanager
+        exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - scanorbit
+    profiles:
+      - monitoring
+
 volumes:
   postgres_data:
   redis_data:
@@ -397,6 +491,7 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  alertmanager_data:
 
 networks:
   scanorbit:

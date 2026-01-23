@@ -31,14 +31,27 @@ apps/app/src/
 │   └── shared/          (MetricCard, SeverityBadge, StatusBadge, EmptyState)
 ├── pages/
 │   ├── Dashboard.tsx
+│   ├── Overview.tsx       (Organization overview with metrics)
 │   ├── Login.tsx
 │   ├── Signup.tsx
+│   ├── ForgotPassword.tsx
+│   ├── ResetPassword.tsx
+│   ├── Profile.tsx        (User profile management)
 │   ├── Resources.tsx
 │   ├── ResourceDetail.tsx
 │   ├── Findings.tsx
+│   ├── Scans.tsx          (Scan history and management)
 │   ├── Accounts.tsx
 │   ├── Settings.tsx
-│   └── onboarding/      (CreateOrg, AwsSetup, Scanning)
+│   ├── InfrastructureMap.tsx     (Visual resource graph)
+│   ├── Docs.tsx           (In-app documentation)
+│   ├── accounts/          (Account-scoped pages)
+│   │   ├── AccountDashboard.tsx
+│   │   ├── AccountResources.tsx
+│   │   ├── AccountFindings.tsx
+│   │   ├── AccountScans.tsx
+│   │   └── AccountInfrastructureMap.tsx
+│   └── onboarding/        (CreateOrg, AwsSetup, Scanning)
 ├── hooks/
 │   ├── use-auth.ts
 │   ├── use-aws-accounts.ts
@@ -123,7 +136,44 @@ apps/app/src/
    - CTA: "Sign In"
    - Post-login: redirect to `/dashboard` or last visited page
 
-2. **Optional**: 2FA / MFA setup during signup (later MVP iteration)
+### 2.2.1 Two-Factor Authentication (2FA)
+
+**Path**: `/settings/security` → "Enable 2FA"
+
+**Setup Flow:**
+1. User clicks "Enable 2FA" button
+2. API returns QR code and secret via `POST /auth/2fa/setup/init`
+3. Display QR code for authenticator app (Google Authenticator, Authy)
+4. User enters 6-digit code to verify
+5. Show recovery codes (one-time use backup codes)
+6. User confirms they've saved recovery codes
+7. 2FA is enabled
+
+**Login with 2FA:**
+1. User enters email/password → `POST /auth/login`
+2. If 2FA enabled, response includes `requiresTwoFactor: true`
+3. Redirect to 2FA challenge page
+4. User enters 6-digit code → `POST /auth/2fa/verify`
+5. On success, receive JWT tokens
+
+**Recovery Flow:**
+1. If user can't access authenticator, click "Use recovery code"
+2. Enter recovery code → `POST /auth/2fa/verify-recovery`
+3. Recovery code is consumed (one-time use)
+
+### 2.2.2 OAuth Login (Google/GitHub)
+
+**Components:**
+- `OAuthButtons` - Google/GitHub sign-in buttons
+- `OAuthCallback` - Handles OAuth callback redirects
+
+**Flow:**
+1. User clicks "Sign in with Google" or "Sign in with GitHub"
+2. Redirect to OAuth provider → `GET /auth/google` or `GET /auth/github`
+3. User authenticates with provider
+4. Callback to `/auth/google/callback` or `/auth/github/callback`
+5. API links account and returns JWT tokens
+6. Redirect to dashboard
 
 ### 2.3 Main Dashboard Flow
 
@@ -281,7 +331,8 @@ apps/app/src/
 2. **Organization**:
    - Org name, logo
    - Members (future: invite teammates)
-   - Audit logs (future)
+   - Subscription tier and billing
+   - Audit logs
 
 3. **Integrations** (future):
    - Slack notifications
@@ -289,9 +340,53 @@ apps/app/src/
    - Webhooks for findings
 
 4. **Security**:
-   - 2FA setup
-   - Connected accounts (AWS roles)
+   - 2FA setup (enable/disable, regenerate recovery codes)
+   - OAuth connections (Google, GitHub)
+   - Connected AWS accounts
    - Session management
+
+### 2.9 Infrastructure Map (`/infrastructure-map`)
+
+**Purpose**: Visual representation of AWS resources and their relationships
+
+**Tech Stack**: Uses `@xyflow/react` for graph visualization
+
+**Features**:
+
+1. **Node Types**:
+   - EC2 instances
+   - EBS volumes (connected to EC2)
+   - Security groups
+   - ALBs and target groups
+   - RDS instances
+   - S3 buckets
+
+2. **Relationships Visualized**:
+   - EC2 → EBS (attached volumes)
+   - EC2 → Security Groups (network rules)
+   - ALB → EC2 (target groups)
+   - EC2 → RDS (database connections)
+
+3. **Interactivity**:
+   - Click node to view resource details
+   - Filter by resource type
+   - Filter by account
+   - Highlight findings (color-coded by severity)
+   - Zoom/pan controls
+
+4. **Account-Scoped View**:
+   - `/accounts/:accountId/infrastructure-map` - single account view
+   - `/infrastructure-map` - organization-wide view
+
+### 2.10 Profile Page (`/profile`)
+
+**Purpose**: User profile management
+
+**Features**:
+- View/edit name and email
+- Change password
+- View connected OAuth accounts
+- GDPR data export/deletion options
 
 ---
 
@@ -345,7 +440,7 @@ export const useAuthStore = create<AuthState>()(
 ```
 
 - Uses Zustand with `persist` middleware for localStorage persistence
-- JWT also stored in httpOnly cookie (handled by backend)
+- Access tokens (5 min) stored in memory, refresh tokens (7 days) in httpOnly cookie
 - `useAuthStore` hook provides direct access to state
 
 ### 3.2 AWS Account Store (Zustand)

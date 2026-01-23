@@ -8,7 +8,7 @@ import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../db/schema.js';
 import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
-import { signupCodes, redis, twoFactorStore, passwordResetStore, accountLockoutStore } from '../lib/redis.js';
+import { signupCodes, redis, twoFactorStore, passwordResetStore, accountLockoutStore, refreshTokenStore } from '../lib/redis.js';
 import { consentService } from './consentService.js';
 import { authOperationsTotal } from '../lib/metrics.js';
 import { config } from '../lib/config.js';
@@ -64,7 +64,6 @@ function generateSlug(name: string): string {
 interface SignupResult {
   user: Pick<User, 'id' | 'email' | 'fullName'>;
   org: Pick<Org, 'id' | 'name' | 'slug'> | null;
-  token: string;
   message: string;
 }
 
@@ -72,7 +71,6 @@ interface LoginResult {
   requires2FA?: false;
   user: Pick<User, 'id' | 'email' | 'fullName'> & { emailVerified: boolean; twoFactorEnabled: boolean };
   orgs: Pick<Org, 'id' | 'name' | 'slug'>[];
-  token: string;
 }
 
 interface LoginResultWith2FA {
@@ -163,18 +161,11 @@ export const authService = {
     // Send verification email (outside transaction - external operation)
     await emailService.sendVerificationEmail(email, verificationCode, fullName);
 
-    // Sign JWT
-    const token = await jwt.sign({
-      userId: user.id,
-      orgId: org?.id ?? null,
-    });
-
     authOperationsTotal.inc({ operation: 'signup', status: 'success' });
 
     return {
       user,
       org,
-      token,
       message: 'Account created. Please check your email for the verification code.',
     };
   },
@@ -342,12 +333,6 @@ export const authService = {
       .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
       .where(eq(userOrgMembers.userId, user.id));
 
-    // Sign JWT with first org as default
-    const token = await jwt.sign({
-      userId: user.id,
-      orgId: userOrgs[0]?.id ?? null,
-    });
-
     authOperationsTotal.inc({ operation: 'login', status: 'success' });
 
     return {
@@ -359,7 +344,6 @@ export const authService = {
         twoFactorEnabled: user.twoFactorEnabled,
       },
       orgs: userOrgs,
-      token,
     };
   },
 
@@ -396,12 +380,6 @@ export const authService = {
       .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
       .where(eq(userOrgMembers.userId, userId));
 
-    // Sign JWT
-    const token = await jwt.sign({
-      userId,
-      orgId: userOrgs[0]?.id ?? null,
-    });
-
     authOperationsTotal.inc({ operation: 'login_2fa', status: 'success' });
 
     return {
@@ -413,7 +391,6 @@ export const authService = {
         twoFactorEnabled: user.twoFactorEnabled,
       },
       orgs: userOrgs,
-      token,
     };
   },
 
@@ -453,7 +430,7 @@ export const authService = {
     return { user, orgs: userOrgs };
   },
 
-  async switchOrg(userId: string, orgId: string): Promise<string> {
+  async switchOrg(userId: string, orgId: string): Promise<void> {
     // Verify user has access to the SPECIFIC org being switched to
     const [membership] = await db
       .select({ id: userOrgMembers.id })
@@ -468,8 +445,7 @@ export const authService = {
       throw new HTTP401Error('You do not have access to this organization');
     }
 
-    // Sign new JWT with selected org
-    return jwt.sign({ userId, orgId });
+    // Access verified - token generation is handled by the route
   },
 
   // ============================================
@@ -492,12 +468,11 @@ export const authService = {
     if (existing.length > 0) {
       if (existing[0].emailVerified) {
         // Email exists and is verified - user should login instead
-        // Use generic message to prevent user enumeration
         logger.warn('Attempted to send verification code to verified email', {
           email: normalizedEmail,
           reason: 'email_already_verified',
         });
-        throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+        throw new HTTP400Error('An account with this email already exists. Please sign in instead.');
       }
       // Email exists but isn't verified - allow them to proceed (completing signup)
       logger.info('Sending verification code to unverified existing email', {
@@ -583,7 +558,7 @@ export const authService = {
     signupToken: string,
     password: string,
     consentInfo?: { ipAddress?: string; userAgent?: string }
-  ): Promise<{ user: Pick<User, 'id' | 'email' | 'fullName'>; token: string }> {
+  ): Promise<{ user: Pick<User, 'id' | 'email' | 'fullName'> }> {
     // Verify signup token
     let tokenPayload;
     try {
@@ -635,13 +610,7 @@ export const authService = {
     // Cleanup any remaining Redis data
     await signupCodes.cleanup(email);
 
-    // Sign auth JWT
-    const token = await jwt.sign({
-      userId: user.id,
-      orgId: null,
-    });
-
-    return { user, token };
+    return { user };
   },
 
   /**
@@ -688,6 +657,10 @@ export const authService = {
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+
+    // Revoke all refresh tokens for this user (logout from all devices)
+    // This is a security measure - password change should invalidate all sessions
+    await refreshTokenStore.revokeAllForUser(userId);
 
     return { success: true, message: 'Password changed successfully' };
   },
@@ -742,12 +715,11 @@ export const authService = {
     if (existing.length > 0) {
       if (existing[0].emailVerified) {
         // Email exists and is verified - user should login instead
-        // Use generic message to prevent user enumeration
         logger.warn('Attempted to resend verification code to verified email', {
           email: normalizedEmail,
           reason: 'email_already_verified',
         });
-        throw new HTTP400Error('Unable to send verification code. Please try again or contact support.');
+        throw new HTTP400Error('An account with this email already exists. Please sign in instead.');
       }
       // Email exists but isn't verified - allow them to proceed (completing signup)
       logger.info('Resending verification code to unverified existing email', {
@@ -1033,12 +1005,6 @@ export const authService = {
       .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
       .where(eq(userOrgMembers.userId, userId));
 
-    // Sign JWT
-    const token = await jwt.sign({
-      userId,
-      orgId: userOrgs[0]?.id ?? null,
-    });
-
     return {
       user: {
         id: user.id,
@@ -1046,7 +1012,6 @@ export const authService = {
         fullName: user.fullName,
       },
       orgs: userOrgs,
-      token,
       isNewUser,
       hasOrg: userOrgs.length > 0,
     };
@@ -1322,12 +1287,6 @@ export const authService = {
       .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
       .where(eq(userOrgMembers.userId, userId));
 
-    // Sign JWT
-    const token = await jwt.sign({
-      userId,
-      orgId: userOrgs[0]?.id ?? null,
-    });
-
     return {
       user: {
         id: user.id,
@@ -1335,7 +1294,6 @@ export const authService = {
         fullName: user.fullName,
       },
       orgs: userOrgs,
-      token,
       isNewUser,
       hasOrg: userOrgs.length > 0,
     };
@@ -1449,6 +1407,10 @@ export const authService = {
 
     // Delete token from Redis (single-use)
     await passwordResetStore.deleteToken(token);
+
+    // Revoke all refresh tokens for this user (logout from all devices)
+    // This is a security measure - password reset should invalidate all sessions
+    await refreshTokenStore.revokeAllForUser(user.id);
 
     logger.info('Password reset successful', { userId: user.id });
     authOperationsTotal.inc({ operation: 'password_reset', status: 'success' });

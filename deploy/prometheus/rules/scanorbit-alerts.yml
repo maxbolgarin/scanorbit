@@ -1,0 +1,395 @@
+# ScanOrbit Prometheus Alert Rules
+# Comprehensive alerting for service health, job processing, infrastructure, and business metrics
+
+groups:
+  # ============================================================================
+  # Service Availability Alerts
+  # ============================================================================
+  - name: service_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "The {{ $labels.job }} service has been down for more than 1 minute."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/service-down"
+
+      - alert: APIHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="scanorbit-api", status=~"5.."}[5m])) /
+            sum(rate(http_requests_total{job="scanorbit-api"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API high error rate"
+          description: "API error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/api-errors"
+
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="scanorbit-api"}[5m])) by (le))
+          > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API request latency is high"
+          description: "95th percentile request latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/high-latency"
+
+      - alert: APIHighRequestLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="scanorbit-api"}[5m])) by (le))
+          > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API P99 latency is critically high"
+          description: "99th percentile request latency is {{ $value | humanizeDuration }} (threshold: 2s)"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/high-latency"
+
+  # ============================================================================
+  # Job Processing Alerts
+  # ============================================================================
+  - name: job_processing
+    interval: 30s
+    rules:
+      - alert: JobQueueBacklog
+        expr: sum(queue_length) by (queue_name) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job queue {{ $labels.queue_name }} has a backlog"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} pending jobs for more than 10 minutes."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/queue-backlog"
+
+      - alert: JobQueueCriticalBacklog
+        expr: sum(queue_length) by (queue_name) > 500
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Job queue {{ $labels.queue_name }} has critical backlog"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} pending jobs (critical threshold: 500)."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/queue-backlog"
+
+      - alert: HighJobFailureRate
+        expr: |
+          (
+            sum(rate(jobs_processed_total{status="error"}[15m])) by (job_type) /
+            sum(rate(jobs_processed_total[15m])) by (job_type)
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High failure rate for {{ $labels.job_type }} jobs"
+          description: "Job type {{ $labels.job_type }} has {{ $value | humanizePercentage }} failure rate (threshold: 10%)"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/job-failures"
+
+      - alert: NoJobsProcessed
+        expr: |
+          sum(increase(jobs_processed_total[1h])) == 0
+          and
+          sum(queue_length) > 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No jobs processed despite pending queue"
+          description: "No jobs have been processed in the last hour but there are {{ $value }} jobs in queues."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/stuck-workers"
+
+      - alert: DeadLetterQueueGrowing
+        expr: increase(dead_letter_jobs_total[1h]) > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dead letter queue is growing"
+          description: "{{ $value }} jobs moved to dead letter queue in the last hour."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/dead-letters"
+
+      - alert: JobProcessingSlowdown
+        expr: |
+          histogram_quantile(0.95, sum(rate(job_processing_duration_seconds_bucket[15m])) by (le, job_type))
+          > 300
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job {{ $labels.job_type }} processing is slow"
+          description: "95th percentile processing time for {{ $labels.job_type }} is {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/slow-jobs"
+
+  # ============================================================================
+  # Database Alerts (PostgreSQL)
+  # ============================================================================
+  - name: database
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/postgres-down"
+
+      - alert: PostgresHighConnections
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool near capacity"
+          description: "PostgreSQL is using {{ $value | humanizePercentage }} of available connections."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/postgres-connections"
+
+      - alert: PostgresConnectionsCritical
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL connections critical"
+          description: "PostgreSQL is using {{ $value | humanizePercentage }} of available connections."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/postgres-connections"
+
+      - alert: PostgresSlowQueries
+        expr: |
+          rate(pg_stat_user_tables_seq_scan[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of sequential scans in PostgreSQL"
+          description: "{{ $value }} sequential scans per second may indicate missing indexes."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/postgres-slow-queries"
+
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "Replication lag is {{ $value | humanizeDuration }}."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/postgres-replication"
+
+      - alert: PostgresDeadlocks
+        expr: increase(pg_stat_database_deadlocks[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL deadlock detected"
+          description: "{{ $value }} deadlocks occurred in the last 5 minutes."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/postgres-deadlocks"
+
+  # ============================================================================
+  # Redis Alerts
+  # ============================================================================
+  - name: redis
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache/queue is not responding."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-down"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using {{ $value | humanizePercentage }} of available memory."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-memory"
+
+      - alert: RedisMemoryCritical
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis memory critical"
+          description: "Redis is using {{ $value | humanizePercentage }} of available memory."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-memory"
+
+      - alert: RedisHighClientConnections
+        expr: redis_connected_clients > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis has many connected clients"
+          description: "Redis has {{ $value }} connected clients."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-connections"
+
+      - alert: RedisLowHitRate
+        expr: |
+          (
+            rate(redis_keyspace_hits_total[5m]) /
+            (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
+          ) < 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis cache hit rate is low"
+          description: "Redis cache hit rate is {{ $value | humanizePercentage }} (threshold: 80%)"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-hit-rate"
+
+      - alert: RedisEvictions
+        expr: increase(redis_evicted_keys_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis is evicting keys"
+          description: "{{ $value }} keys evicted in the last 5 minutes."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-evictions"
+
+  # ============================================================================
+  # AWS API Alerts
+  # ============================================================================
+  - name: aws_api
+    interval: 30s
+    rules:
+      - alert: AWSAPIHighErrorRate
+        expr: |
+          (
+            sum(rate(aws_api_calls_total{status="error"}[10m])) by (service) /
+            sum(rate(aws_api_calls_total[10m])) by (service)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High AWS API error rate for {{ $labels.service }}"
+          description: "AWS {{ $labels.service }} API error rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/aws-errors"
+
+      - alert: AWSAPIThrottling
+        expr: |
+          increase(aws_api_calls_total{status="throttled"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AWS API throttling detected"
+          description: "{{ $value }} throttled API calls in the last 5 minutes."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/aws-throttling"
+
+      - alert: AWSAPIThrottlingCritical
+        expr: |
+          increase(aws_api_calls_total{status="throttled"}[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical AWS API throttling"
+          description: "{{ $value }} throttled API calls in the last 5 minutes."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/aws-throttling"
+
+  # ============================================================================
+  # Business Metrics Alerts
+  # ============================================================================
+  - name: business_metrics
+    interval: 60s
+    rules:
+      - alert: HighSeverityFindingsSpike
+        expr: |
+          increase(findings_created_total{severity=~"critical|high"}[1h]) > 100
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spike in critical/high severity findings"
+          description: "{{ $value }} critical/high severity findings created in the last hour."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/findings-spike"
+
+      - alert: NoScansCompleted
+        expr: |
+          increase(jobs_processed_total{job_type="scan_account", status="success"}[6h]) == 0
+          unless on() absent(jobs_processed_total{job_type="scan_account"})
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No scans completed in 6 hours"
+          description: "No AWS account scans have completed successfully in the last 6 hours."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/no-scans"
+
+      - alert: ScanSuccessRateLow
+        expr: |
+          (
+            sum(rate(jobs_processed_total{job_type="scan_account", status="success"}[1h])) /
+            sum(rate(jobs_processed_total{job_type="scan_account"}[1h]))
+          ) < 0.9
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scan success rate is low"
+          description: "Scan success rate is {{ $value | humanizePercentage }} (threshold: 90%)"
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/scan-failures"
+
+  # ============================================================================
+  # Resource Utilization Alerts
+  # ============================================================================
+  - name: resource_utilization
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: |
+          (process_resident_memory_bytes{job=~"scanorbit-.*"} / 1024 / 1024 / 1024) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in {{ $labels.job }}"
+          description: "{{ $labels.job }} is using {{ $value | humanize }}GB of memory."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/high-memory"
+
+      - alert: GoroutineLeak
+        expr: |
+          go_goroutines{job=~"scanorbit-.*"} > 1000
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Possible goroutine leak in {{ $labels.job }}"
+          description: "{{ $labels.job }} has {{ $value }} goroutines running."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/goroutine-leak"
+
+      - alert: HighGCDuration
+        expr: |
+          rate(go_gc_duration_seconds_sum{job=~"scanorbit-.*"}[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GC overhead in {{ $labels.job }}"
+          description: "{{ $labels.job }} is spending {{ $value | humanizePercentage }} of time in GC."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/high-gc"

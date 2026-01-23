@@ -407,6 +407,42 @@ const costFindings: FindingInfo[] = [
     ],
   },
   {
+    type: "orphaned_eni",
+    severity: "Low",
+    description: "Elastic Network Interface (ENI) is not attached to any instance.",
+    triggers: [
+      "ENI with status 'available' (not in-use)",
+      "Not attached to any EC2 instance or Lambda function",
+    ],
+    remediation: [
+      "Delete the ENI if no longer needed. Orphaned ENIs may indicate incomplete resource cleanup",
+    ],
+  },
+  {
+    type: "idle_load_balancer",
+    severity: "Low",
+    description: "Application Load Balancer has no healthy targets registered.",
+    triggers: [
+      "ALB with no registered targets",
+      "ALB with all targets in unhealthy state",
+    ],
+    remediation: [
+      "If not needed: Delete the load balancer to reduce costs",
+      "If needed: Register healthy targets or fix target health issues",
+    ],
+  },
+  {
+    type: "unused_security_group",
+    severity: "Trivial",
+    description: "Security group is not associated with any resources.",
+    triggers: [
+      "Security group not attached to any EC2 instance, RDS, Lambda, or other resources",
+    ],
+    remediation: [
+      "Delete unused security groups to reduce clutter and potential attack surface",
+    ],
+  },
+  {
     type: "unused_resource",
     severity: "Low",
     description:
@@ -466,6 +502,97 @@ const costFindings: FindingInfo[] = [
     ],
     remediation: [
       "Rightsize the instance to a smaller instance type that matches actual usage",
+    ],
+  },
+  {
+    type: "ebs_optimization",
+    severity: "Low",
+    description:
+      "EBS volume could benefit from optimization (type change or GP2 to GP3 migration).",
+    triggers: [
+      "GP2 volume that could be migrated to GP3 for cost savings",
+      "Volume provisioned IOPS higher than necessary based on usage",
+    ],
+    remediation: [
+      "Migrate GP2 volumes to GP3 for better price-performance",
+      "Review provisioned IOPS requirements",
+    ],
+  },
+  {
+    type: "old_gen_instance",
+    severity: "Low",
+    description: "EC2 instance is using an older generation instance type.",
+    triggers: [
+      "Instance using older generation types (e.g., m4, c4, r4 instead of m6i, c6i, r6i)",
+    ],
+    remediation: [
+      "Migrate to current generation instance types for better performance and cost efficiency",
+    ],
+  },
+  {
+    type: "oversized_lambda",
+    severity: "Low",
+    description: "Lambda function is configured with more memory than it uses.",
+    triggers: [
+      "Lambda function consistently using less than 50% of allocated memory",
+      "Function configured with significantly more memory than needed",
+    ],
+    remediation: [
+      "Reduce the memory allocation to match actual usage",
+      "Use AWS Lambda Power Tuning for optimization",
+    ],
+  },
+  {
+    type: "log_retention",
+    severity: "Trivial",
+    description:
+      "CloudWatch Log Group has no retention policy, leading to unbounded log storage.",
+    triggers: [
+      "Log group with retention set to 'Never expire'",
+      "Log group with significant stored data and no retention",
+    ],
+    remediation: [
+      "Set an appropriate retention policy (e.g., 30, 90, or 365 days) based on compliance and debugging needs",
+    ],
+  },
+  {
+    type: "unused_kms_key",
+    severity: "Low",
+    description:
+      "KMS customer managed key has not been used for an extended period.",
+    triggers: [
+      "Customer managed KMS key not used in 90+ days",
+      "Key created 90+ days ago and never used",
+    ],
+    remediation: [
+      "Schedule key deletion if no longer needed (30-day waiting period required by AWS)",
+    ],
+  },
+  {
+    type: "rds_optimization",
+    severity: "Low",
+    description:
+      "RDS instance could benefit from optimization based on usage patterns.",
+    triggers: [
+      "Multi-AZ enabled for non-production workloads",
+      "Provisioned IOPS significantly higher than usage",
+      "Storage autoscaling not enabled with high storage utilization",
+    ],
+    remediation: [
+      "Review Multi-AZ requirements",
+      "Rightsize provisioned IOPS",
+      "Enable storage autoscaling",
+    ],
+  },
+  {
+    type: "old_gen_rds",
+    severity: "Low",
+    description: "RDS instance is using an older generation instance class.",
+    triggers: [
+      "RDS instance using older generation classes (e.g., db.m4, db.r4 instead of db.m6i, db.r6i)",
+    ],
+    remediation: [
+      "Migrate to current generation RDS instance classes for better performance and cost efficiency",
     ],
   },
 ];
@@ -657,14 +784,24 @@ export function FindingsArticle() {
                   { type: "backup_not_configured", category: "Compliance", severity: "Medium" },
                   { type: "orphaned_eip", category: "Cost", severity: "Low" },
                   { type: "orphaned_snapshot", category: "Cost", severity: "Low" },
+                  { type: "orphaned_eni", category: "Cost", severity: "Low" },
+                  { type: "idle_load_balancer", category: "Cost", severity: "Low" },
                   { type: "unused_access_key", category: "IAM", severity: "Low" },
                   { type: "unused_iam_role", category: "IAM", severity: "Low" },
                   { type: "unused_resource", category: "Cost", severity: "Low" },
                   { type: "stopped_instance", category: "Cost", severity: "Low" },
                   { type: "idle_nat_gateway", category: "Cost", severity: "Low" },
                   { type: "oversized_instance", category: "Cost", severity: "Low" },
+                  { type: "ebs_optimization", category: "Cost", severity: "Low" },
+                  { type: "old_gen_instance", category: "Cost", severity: "Low" },
+                  { type: "oversized_lambda", category: "Cost", severity: "Low" },
+                  { type: "unused_kms_key", category: "Cost", severity: "Low" },
+                  { type: "rds_optimization", category: "Cost", severity: "Low" },
+                  { type: "old_gen_rds", category: "Cost", severity: "Low" },
                   { type: "missing_tag", category: "Tagging", severity: "Trivial" },
                   { type: "unused_log_group", category: "Cost", severity: "Trivial" },
+                  { type: "log_retention", category: "Cost", severity: "Trivial" },
+                  { type: "unused_security_group", category: "Cost", severity: "Trivial" },
                 ].map((item) => (
                   <tr key={item.type} className="border-b last:border-0">
                     <td className="py-2 px-4">

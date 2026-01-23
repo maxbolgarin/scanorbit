@@ -48,9 +48,13 @@ Agentless AWS Infrastructure Scanner SaaS — discover resources, detect securit
 
 ScanOrbit is a cloud security platform that scans your AWS infrastructure to:
 
-- **Cloud Inventory** — Discover EC2, EBS, RDS, S3, ALB, ACM resources across all regions
+- **Cloud Inventory** — Discover EC2, EBS, RDS, S3, ALB, ACM, Lambda, IAM, KMS, and Secrets Manager resources across all regions
 - **Orphaned Resources** — Find unattached EBS volumes, unused Elastic IPs, old snapshots
 - **SSL Monitoring** — Track certificate expiration with severity-based alerts
+- **Security Analysis** — Detect permissive security groups, public access, unencrypted resources
+- **IAM Security** — Identify users without MFA, old access keys, overly permissive policies
+- **Cost Optimization** — Find stopped instances, unused resources, and rightsizing opportunities
+- **Tagging Compliance** — Ensure resources have required organizational tags
 - **Data Residency** — Ensure GDPR compliance by detecting resources outside EU regions
 
 ## Architecture
@@ -75,11 +79,13 @@ ScanOrbit is a cloud security platform that scans your AWS infrastructure to:
 │  │                    Background Workers (Go)                    │  │
 │  │  ┌─────────────┐              ┌──────────────┐               │  │
 │  │  │   Scanner   │              │   Analyzer   │               │  │
-│  │  │  • EC2      │              │  • Orphans   │               │  │
-│  │  │  • EBS      │              │  • SSL       │               │  │
-│  │  │  • RDS      │              │  • Residency │               │  │
-│  │  │  • S3       │              │              │               │  │
-│  │  │  • ALB/ACM  │              │              │               │  │
+│  │  │  • EC2/EBS  │              │  • Orphans   │               │  │
+│  │  │  • RDS/S3   │              │  • SSL       │               │  │
+│  │  │  • ALB/ACM  │              │  • Residency │               │  │
+│  │  │  • IAM      │              │  • Security  │               │  │
+│  │  │  • Lambda   │              │  • Cost      │               │  │
+│  │  │  • KMS      │              │  • Tagging   │               │  │
+│  │  │  • Secrets  │              │  • IAM       │               │  │
 │  │  └──────┬──────┘              └──────┬───────┘               │  │
 │  └─────────┼───────────────────────────┼────────────────────────┘  │
 │            │                           │                            │
@@ -100,8 +106,8 @@ ScanOrbit is a cloud security platform that scans your AWS infrastructure to:
 |-----------|------------|
 | Landing Page | Astro 5, Tailwind CSS 4 |
 | Web App | React 19, React Router 7, TanStack Query, Zustand |
-| Backend API | Node.js 22, Hono, Drizzle ORM, TypeScript |
-| Workers | Go 1.23, AWS SDK v2 |
+| Backend API | Node.js 24, Hono, Drizzle ORM, TypeScript |
+| Workers | Go 1.24, AWS SDK v2 |
 | Database | PostgreSQL 17 |
 | Cache/Queue | Redis 7 |
 | Proxy | Caddy 2 (production) |
@@ -262,9 +268,9 @@ docker compose -f docker-compose.prod.yml ps
 
 ### Prerequisites
 
-- **Node.js** >= 25.0.0
+- **Node.js** >= 24.0.0
 - **pnpm** >= 9.0.0
-- **Go** >= 1.25
+- **Go** >= 1.24
 - **Docker** & Docker Compose
 - **AWS Account** (for testing)
 
@@ -447,7 +453,10 @@ scanorbit/
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://scanorbit:scanorbit@localhost:5432/scanorbit` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
-| `JWT_SECRET` | Secret for JWT signing | (required in production) |
+| `JWT_SECRET` | Secret for access token signing (5 min expiry) | (required in production) |
+| `JWT_REFRESH_SECRET` | Secret for refresh token signing (7 day expiry) | (required in production) |
+| `TOTP_ENCRYPTION_KEY` | 2FA TOTP encryption key (`openssl rand -hex 32`) | (required in production) |
+| `OAUTH_ENCRYPTION_KEY` | OAuth token encryption key (`openssl rand -hex 32`) | (required in production) |
 
 ### API Configuration
 
@@ -455,7 +464,6 @@ scanorbit/
 |----------|-------------|---------|
 | `PORT` | API server port | `4000` |
 | `NODE_ENV` | Environment mode | `development` |
-| `JWT_EXPIRY` | JWT token expiration | `7d` |
 | `FRONTEND_URL` | Frontend URL for CORS | `http://localhost:3000` |
 | `LOG_LEVEL` | Logging level | `info` |
 
@@ -482,6 +490,48 @@ scanorbit/
 | `POSTGRES_USER` | PostgreSQL username | `scanorbit` |
 | `POSTGRES_PASSWORD` | PostgreSQL password | `scanorbit` |
 | `POSTGRES_DB` | PostgreSQL database name | `scanorbit` |
+
+### OAuth Configuration (Optional)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | - |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | - |
+| `GOOGLE_CALLBACK_URL` | Google OAuth callback URL | `https://api.yourdomain.com/auth/google/callback` |
+| `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | - |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | - |
+| `GITHUB_CALLBACK_URL` | GitHub OAuth callback URL | `https://api.yourdomain.com/auth/github/callback` |
+
+### Stripe Configuration (Optional)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `STRIPE_SECRET_KEY` | Stripe API secret key | - |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | - |
+| `STRIPE_PRO_PRICE_ID` | Price ID for Pro tier | - |
+| `STRIPE_TEAM_PRICE_ID` | Price ID for Team tier | - |
+| `STRIPE_TRIAL_DAYS` | Trial period in days | `14` |
+
+### Email Configuration (Optional)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SMTP_ENABLED` | Enable SMTP email sending | `false` |
+| `SMTP_HOST` | SMTP server host | - |
+| `SMTP_PORT` | SMTP server port | `465` |
+| `SMTP_SECURE` | Use SSL/TLS | `true` |
+| `SMTP_USER` | SMTP username | - |
+| `SMTP_PASS` | SMTP password | - |
+| `SMTP_FROM` | From address for emails | - |
+
+### Alerting Configuration (Optional)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SLACK_WEBHOOK_URL` | Slack webhook for Alertmanager | - |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token for alerts | - |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID for alerts | - |
+| `WATCHTOWER_NOTIFICATION_URL` | Watchtower notification URL | - |
 
 ### GDPR Compliance (Production)
 
@@ -553,36 +603,82 @@ scanorbit/
 - `POST /auth/signup` — Create account
 - `POST /auth/login` — Login
 - `POST /auth/logout` — Logout
+- `POST /auth/refresh` — Refresh access token
 - `GET /auth/me` — Current user
+- `PATCH /auth/profile` — Update user profile
+- `POST /auth/change-password` — Change password
+- `POST /auth/forgot-password` — Request password reset
+- `POST /auth/reset-password` — Reset password with token
+- `POST /auth/verify-email` — Verify email address
+- `POST /auth/resend-verification` — Resend verification email
+- `POST /auth/switch-org` — Switch organization context
+
+### Two-Factor Authentication (2FA)
+- `POST /auth/2fa/setup/init` — Initialize 2FA setup (returns QR code)
+- `POST /auth/2fa/setup/verify` — Complete 2FA setup
+- `POST /auth/2fa/verify` — Verify 2FA code during login
+- `POST /auth/2fa/verify-recovery` — Verify with recovery code
+- `POST /auth/2fa/disable` — Disable 2FA
+- `GET /auth/2fa/status` — Get 2FA status
+- `POST /auth/2fa/recovery-codes/regenerate` — Regenerate recovery codes
+
+### OAuth Authentication
+- `GET /auth/google` — Initiate Google OAuth
+- `GET /auth/google/callback` — Google OAuth callback
+- `POST /auth/google/token` — Exchange Google token
+- `GET /auth/github` — Initiate GitHub OAuth
+- `GET /auth/github/callback` — GitHub OAuth callback
 
 ### Organizations
 - `GET /orgs` — List organizations
+- `POST /orgs` — Create organization
 - `GET /orgs/:id` — Get organization
 - `PATCH /orgs/:id` — Update organization
 - `GET /orgs/:id/members` — List members
+- `GET /orgs/:id/settings` — Get organization settings
+- `PATCH /orgs/:id/settings` — Update organization settings
+- `GET /orgs/:id/subscription` — Get subscription details
+- `POST /orgs/:id/subscription/upgrade` — Upgrade subscription
 
 ### AWS Accounts
 - `GET /aws/accounts` — List AWS accounts
 - `POST /aws/accounts` — Add AWS account
 - `GET /aws/accounts/:id` — Get AWS account
+- `PATCH /aws/accounts/:id` — Update AWS account
 - `DELETE /aws/accounts/:id` — Remove AWS account
 - `POST /aws/accounts/:id/test` — Test connection
 - `POST /aws/accounts/:id/scan` — Trigger scan
+- `POST /aws/accounts/:id/analyze` — Trigger analysis
 - `GET /aws/accounts/:id/scans` — Scan history
+- `PATCH /aws/accounts/:id/scanners` — Update enabled scanners
 
 ### Resources
 - `GET /resources` — List resources (paginated)
 - `GET /resources/:id` — Get resource details
+- `PATCH /resources/:id` — Update resource (tags)
 - `GET /resources/stats` — Resource statistics
 - `GET /resources/regions` — List regions
 - `GET /resources/services` — List services
+- `GET /resources/health` — Get resource health metrics
+- `GET /resources/:id/dependencies` — Get resource dependencies
+- `GET /resources/:id/dependents` — Get dependent resources
+- `GET /resources/:id/finding-timeline` — Get finding history for resource
+- `GET /resources/:id/scan-history` — Get scan history for resource
+- `GET /resources/dependencies/all` — Get all dependencies
+- `GET /resources/dependencies/stats` — Get dependency statistics
 
 ### Findings
 - `GET /findings` — List findings (paginated)
 - `GET /findings/:id` — Get finding details
+- `GET /findings/:id/history` — Get finding status history
 - `GET /findings/stats` — Finding statistics
 - `PATCH /findings/:id` — Update finding status
 - `POST /findings/bulk-update` — Bulk update status
+
+### Stripe Billing
+- `POST /stripe/checkout` — Create checkout session
+- `POST /stripe/portal` — Create customer portal session
+- `POST /stripe/webhook` — Stripe webhook handler
 
 ### GDPR Compliance
 - `GET /gdpr/export` — Export user's personal data (Article 20)
@@ -590,6 +686,11 @@ scanorbit/
 - `DELETE /gdpr/delete/:id` — Cancel deletion request
 - `GET /gdpr/deletion-status` — Check deletion request status
 - `GET /gdpr/audit-logs` — View user's audit logs
+
+### Health & Metrics
+- `GET /health` — Health check
+- `GET /status` — Detailed service status
+- `GET /metrics` — Prometheus metrics
 
 ## Testing
 
@@ -623,10 +724,31 @@ For local testing, you need AWS credentials that ScanOrbit workers can use.
            "s3:ListAllMyBuckets",
            "s3:GetBucketLocation",
            "s3:GetBucketTagging",
+           "s3:GetBucketPublicAccessBlock",
            "elasticloadbalancing:DescribeLoadBalancers",
            "elasticloadbalancing:DescribeTags",
            "acm:ListCertificates",
-           "acm:DescribeCertificate"
+           "acm:DescribeCertificate",
+           "iam:ListUsers",
+           "iam:GetUser",
+           "iam:ListAccessKeys",
+           "iam:GetAccessKeyLastUsed",
+           "iam:ListMFADevices",
+           "iam:ListRoles",
+           "iam:GetRole",
+           "iam:ListRolePolicies",
+           "iam:ListAttachedRolePolicies",
+           "iam:GetPolicy",
+           "iam:GetPolicyVersion",
+           "lambda:ListFunctions",
+           "lambda:GetFunction",
+           "kms:ListKeys",
+           "kms:DescribeKey",
+           "kms:GetKeyRotationStatus",
+           "secretsmanager:ListSecrets",
+           "secretsmanager:DescribeSecret",
+           "cloudwatch:GetMetricData",
+           "logs:DescribeLogGroups"
          ],
          "Resource": "*"
        }
@@ -688,10 +810,31 @@ For local testing, you need AWS credentials that ScanOrbit workers can use.
            "s3:ListAllMyBuckets",
            "s3:GetBucketLocation",
            "s3:GetBucketTagging",
+           "s3:GetBucketPublicAccessBlock",
            "elasticloadbalancing:DescribeLoadBalancers",
            "elasticloadbalancing:DescribeTags",
            "acm:ListCertificates",
-           "acm:DescribeCertificate"
+           "acm:DescribeCertificate",
+           "iam:ListUsers",
+           "iam:GetUser",
+           "iam:ListAccessKeys",
+           "iam:GetAccessKeyLastUsed",
+           "iam:ListMFADevices",
+           "iam:ListRoles",
+           "iam:GetRole",
+           "iam:ListRolePolicies",
+           "iam:ListAttachedRolePolicies",
+           "iam:GetPolicy",
+           "iam:GetPolicyVersion",
+           "lambda:ListFunctions",
+           "lambda:GetFunction",
+           "kms:ListKeys",
+           "kms:DescribeKey",
+           "kms:GetKeyRotationStatus",
+           "secretsmanager:ListSecrets",
+           "secretsmanager:DescribeSecret",
+           "cloudwatch:GetMetricData",
+           "logs:DescribeLogGroups"
          ],
          "Resource": "*"
        }
@@ -828,13 +971,15 @@ After scanning the Terraform-created infrastructure, you should see findings lik
 | Finding Type | Severity | Resource |
 |--------------|----------|----------|
 | `orphaned_volume` | Medium | EBS volume not attached to any instance |
-| `unused_eip` | Low | Elastic IP not associated (costs $3.65/month) |
-| `untagged_resource` | Low | EC2 instance missing required tags |
-| `untagged_resource` | Low | S3 bucket missing tags |
-| `open_security_group` | High | Security group allows 0.0.0.0/0 |
-| `non_eu_resource` | Medium | S3 bucket in us-east-1 (GDPR violation) |
+| `orphaned_eip` | Low | Elastic IP not associated (costs $3.65/month) |
+| `missing_tag` | Trivial | EC2 instance missing required tags |
+| `missing_tag` | Trivial | S3 bucket missing tags |
+| `permissive_security_group` | High | Security group allows 0.0.0.0/0 |
+| `data_residency_violation` | High | S3 bucket in us-east-1 (GDPR violation) |
+| `user_without_mfa` | High | IAM user without MFA enabled |
+| `old_access_key` | Medium | IAM access key older than 90 days |
 
-See `terraform/README.md` for more details on test resources.
+See `deploy/test/README.md` for more details on test resources.
 
 ## Security Considerations
 

@@ -19,6 +19,7 @@ type Config struct {
 	ScanTimeout      time.Duration // Overall timeout for scan operations
 	ShutdownTimeout  time.Duration
 	MetricsBindAddr  string // Bind address for metrics server (default: 127.0.0.1 for security)
+	EncryptionKey    string // 64-char hex string (32 bytes) for AES-256-GCM decryption of external IDs
 }
 
 // Load reads configuration from environment variables.
@@ -34,6 +35,7 @@ func Load() (*Config, error) {
 		ScanTimeout:     time.Duration(getEnvInt("SCAN_TIMEOUT_MINUTES", 60)) * time.Minute,
 		ShutdownTimeout: time.Duration(getEnvInt("SHUTDOWN_TIMEOUT_SECONDS", 30)) * time.Second,
 		MetricsBindAddr: getEnv("METRICS_BIND_ADDR", "127.0.0.1"), // Default to localhost for security
+		EncryptionKey:   getEnv("OAUTH_ENCRYPTION_KEY", ""),       // Same key as API for decrypting external IDs
 	}
 
 	if err := cfg.Validate(); err != nil {

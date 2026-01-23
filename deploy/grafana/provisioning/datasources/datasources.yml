@@ -23,7 +23,27 @@ datasources:
     jsonData:
       maxLines: 1000
       derivedFields:
+        # Link to trace_id in Loki logs
         - name: TraceID
           matcherRegex: '"trace_id":"([^"]+)"'
-          url: ''
+          url: '/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Btrace_id%3D%5C%22$${__value.raw}%5C%22%7D%22%7D%5D'
           datasourceUid: ''
+          urlDisplayLabel: 'View Trace'
+        # Link to request_id in Loki logs
+        - name: RequestID
+          matcherRegex: '"request_id":"([^"]+)"'
+          url: '/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Brequest_id%3D%5C%22$${__value.raw}%5C%22%7D%20%7C%20json%22%7D%5D'
+          datasourceUid: ''
+          urlDisplayLabel: 'View Request'
+        # Link to scan_id in Loki logs
+        - name: ScanID
+          matcherRegex: '"scan_id":"([^"]+)"'
+          url: '/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Bapp%3D%5C%22scanorbit%5C%22%7D%20%7C%20json%20%7C%20scan_id%3D%5C%22$${__value.raw}%5C%22%22%7D%5D'
+          datasourceUid: ''
+          urlDisplayLabel: 'View Scan Logs'
+        # Link to job_id in Loki logs
+        - name: JobID
+          matcherRegex: '"job_id":"([^"]+)"'
+          url: '/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Bapp%3D%5C%22scanorbit%5C%22%7D%20%7C%20json%20%7C%20job_id%3D%5C%22$${__value.raw}%5C%22%22%7D%5D'
+          datasourceUid: ''
+          urlDisplayLabel: 'View Job Logs'

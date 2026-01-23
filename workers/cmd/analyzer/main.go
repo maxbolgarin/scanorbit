@@ -10,6 +10,7 @@ import (
 
 	"github.com/maxbolgarin/scanorbit/internal/analyzers"
 	"github.com/maxbolgarin/scanorbit/internal/config"
+	"github.com/maxbolgarin/scanorbit/internal/crypto"
 	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/queue"
@@ -72,8 +73,18 @@ func main() {
 	}
 	defer db.Close()
 
+	// Setup decryptor for encrypted fields (external_id)
+	// Analyzer doesn't need it, but store requires it for consistency
+	var decryptor *crypto.Decryptor
+	if cfg.EncryptionKey != "" {
+		decryptor, err = crypto.NewDecryptor(cfg.EncryptionKey)
+		if err != nil {
+			logger.Warn().Err(err).Msg("failed to create decryptor, encrypted fields won't be decrypted")
+		}
+	}
+
 	// Setup store
-	st := store.NewStore(db)
+	st := store.NewStore(db, decryptor)
 
 	// Setup Redis queue
 	q, err := queue.NewRedisQueue(cfg.RedisURL, cfg.RedisCACert, logger)

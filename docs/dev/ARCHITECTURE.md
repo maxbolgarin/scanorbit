@@ -4,10 +4,14 @@
 
 **Goal:** Agentless AWS scanner that, via read‑only APIs, provides:
 
-1. Cloud inventory (EC2, EBS, RDS, S3, ALB, ACM).
+1. Cloud inventory (EC2, EBS, RDS, S3, ALB, ACM, IAM, Lambda, KMS, Secrets Manager).
 2. Orphaned resources report (EBS, EIP, snapshots).
 3. SSL certificates discovery + expiry alerts.
-4. Basic data residency check (EU vs non‑EU regions for data‑holding services).
+4. Security analysis (permissive security groups, public access, encryption).
+5. IAM security analysis (MFA, access keys, overly permissive policies).
+6. Cost optimization (stopped instances, unused resources).
+7. Tagging compliance (required tags enforcement).
+8. Data residency check (EU vs non‑EU regions for GDPR compliance).
 
 **Tech Stack:**
 
@@ -15,11 +19,13 @@
 |-----------|------------|---------|
 | Landing | Astro + Tailwind CSS | 5.x, 4.x |
 | Web App | React + React Router + TanStack Query + Zustand | 19.x, 7.x |
-| Backend API | Node.js + TypeScript + Hono + Drizzle ORM | 22.x |
+| Backend API | Node.js + TypeScript + Hono + Drizzle ORM | 24.x |
 | Database | PostgreSQL | 17.x |
 | Cache/Queue | Redis | 7.x |
 | Workers | Go + AWS SDK v2 + pgx + zerolog | 1.24.x |
-| Deployment | Docker Compose, EU VPS | - |
+| Authentication | JWT + OAuth (Google/GitHub) + 2FA (TOTP) | - |
+| Payments | Stripe | - |
+| Deployment | Docker Compose, Scaleway | - |
 
 ***
 
@@ -34,8 +40,8 @@
   - AWS account onboarding.
   - Serving resources & findings.
 - `workers` – Go services:
-  - `scanner` – AWS inventory scans.
-  - `analyzer` – orphaned resources, SSL, data residency.
+  - `scanner` – AWS inventory scans (EC2, EBS, RDS, S3, ALB, ACM, IAM, Lambda, KMS, Secrets Manager).
+  - `analyzer` – orphaned resources, SSL, data residency, security, cost, tagging, IAM analysis.
 - `db` – Postgres.
 - `cache` – Redis (job queue, caching session tokens if needed).
 - `proxy` – Nginx or Caddy for TLS termination and routing.
@@ -47,9 +53,11 @@
 3. Scanner worker pulls jobs from Redis:
    - `ScanAwsAccount(account_id)`.
 4. Scanner uses AWS SDK to list resources, writes into Postgres.
-5. Analyzer worker runs:
-   - `AnalyzeOrphans`, `AnalyzeSsl`, `AnalyzeDataResidency`.
+5. Analyzer worker runs multiple analysis jobs:
+   - `AnalyzeOrphans`, `AnalyzeSsl`, `AnalyzeDataResidency`
+   - `AnalyzeSecurity`, `AnalyzeCost`, `AnalyzeTagging`, `AnalyzeIAM`
 6. React app calls API to display resources & findings.
+7. Optional: User configures 2FA, OAuth login, Stripe subscription.
 
 ***
 
@@ -58,9 +66,13 @@
 ### 3.1 Core Tables
 
 - `users`
-  - `id`, `email`, `password_hash` (or OAuth provider), `created_at`.
+  - `id`, `email`, `password_hash` (or OAuth provider), `created_at`
+  - `totp_secret` (encrypted), `totp_enabled`, `recovery_codes` (2FA)
+  - `google_id`, `github_id` (OAuth)
+  - `stripe_customer_id` (billing)
 - `orgs`
-  - `id`, `name`, `created_at`.
+  - `id`, `name`, `slug`, `created_at`
+  - `tier` (free, pro, team), `stripe_subscription_id`
 - `user_org_members`
   - `user_id`, `org_id`, `role`.
 
@@ -131,21 +143,30 @@ apps/api/
     index.ts           # Hono app entry
     routes/
       index.ts         # Route aggregation
-      auth.ts
-      orgs.ts
-      aws-accounts.ts
-      resources.ts
-      findings.ts
+      auth.ts          # Authentication, 2FA, OAuth, password reset
+      orgs.ts          # Organizations, members, settings
+      aws-accounts.ts  # AWS accounts CRUD
+      aws-scans.ts     # Scan management
+      resources.ts     # Resources, dependencies
+      findings.ts      # Findings, bulk actions
+      gdpr.ts          # GDPR compliance endpoints
+      stripe.ts        # Stripe billing webhooks
     services/
       authService.ts
       awsAccountService.ts
       orgService.ts
       resourceService.ts
       findingService.ts
+      twoFactorService.ts
+      emailService.ts
+      stripeService.ts
+      consentService.ts
+      retentionService.ts
     lib/
       db.ts            # Drizzle client
       redis.ts         # ioredis client
       jwt.ts           # jose JWT helpers
+      crypto.ts        # Encryption helpers
       config.ts        # Environment config
       errors.ts        # Error classes
     db/
@@ -153,6 +174,9 @@ apps/api/
     middlewares/
       auth.ts
       errorHandler.ts
+      rateLimit.ts
+      requestId.ts
+      structuredLogger.ts
     types/
       index.ts
   package.json
@@ -160,20 +184,36 @@ apps/api/
   drizzle.config.cjs
 ```
 
-### 4.2 Key Endpoints (MVP)
+### 4.2 Key Endpoints
 
-- `POST /auth/signup` – create user & org.
-- `POST /auth/login` – issue JWT session.
-- `GET /me` – current user/org.
+**Authentication:**
+- `POST /auth/signup` – create user & org
+- `POST /auth/login` – issue JWT session
+- `GET /auth/me` – current user/org
+- `POST /auth/2fa/*` – 2FA setup, verify, disable
+- `GET /auth/google`, `GET /auth/github` – OAuth flows
+- `POST /auth/forgot-password`, `POST /auth/reset-password` – password reset
 
-- `POST /aws/accounts` – add AWS account (role ARN).
-- `GET /aws/accounts` – list accounts.
-- `POST /aws/accounts/:id/test` – STS AssumeRole + `DescribeRegions`.
+**AWS Management:**
+- `POST /aws/accounts` – add AWS account (role ARN)
+- `GET /aws/accounts` – list accounts
+- `POST /aws/accounts/:id/test` – STS AssumeRole test
+- `POST /aws/accounts/:id/scan` – trigger scan
+- `POST /aws/accounts/:id/analyze` – trigger analysis
 
-- `GET /resources` – list resources, filter by account/region/service.
-- `GET /findings` – list findings, filter by type/severity/account.
+**Resources & Findings:**
+- `GET /resources` – list resources, filter by account/region/service
+- `GET /resources/:id/dependencies` – resource dependencies
+- `GET /findings` – list findings, filter by type/severity/account
+- `PATCH /findings/:id` – update finding status
 
-Optionally a `POST /aws/accounts/:id/scan` to enqueue manual scan.
+**Billing:**
+- `POST /stripe/checkout` – create checkout session
+- `POST /stripe/webhook` – handle Stripe events
+
+**GDPR:**
+- `GET /gdpr/export` – data export (Article 20)
+- `POST /gdpr/delete` – deletion request (Article 17)
 
 ***
 

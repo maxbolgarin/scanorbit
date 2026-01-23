@@ -11,6 +11,7 @@ import (
 
 	"github.com/maxbolgarin/scanorbit/internal/awsclient"
 	"github.com/maxbolgarin/scanorbit/internal/config"
+	"github.com/maxbolgarin/scanorbit/internal/crypto"
 	"github.com/maxbolgarin/scanorbit/internal/metrics"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 	"github.com/maxbolgarin/scanorbit/internal/queue"
@@ -74,8 +75,20 @@ func main() {
 	}
 	defer db.Close()
 
+	// Setup decryptor for encrypted fields (external_id)
+	var decryptor *crypto.Decryptor
+	if cfg.EncryptionKey != "" {
+		decryptor, err = crypto.NewDecryptor(cfg.EncryptionKey)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create decryptor")
+		}
+		logger.Info().Msg("encryption key configured, external IDs will be decrypted")
+	} else {
+		logger.Warn().Msg("OAUTH_ENCRYPTION_KEY not set, encrypted external IDs will not work")
+	}
+
 	// Setup store
-	st := store.NewStore(db)
+	st := store.NewStore(db, decryptor)
 
 	// Setup Redis queue
 	q, err := queue.NewRedisQueue(cfg.RedisURL, cfg.RedisCACert, logger)
@@ -186,11 +199,18 @@ func main() {
 			}
 		}
 
+		// Use scan_id as trace_id for log correlation across services
+		traceID := scanJob.ScanID
+		if traceID == "" {
+			traceID = scanJob.JobID
+		}
+
 		logger.Info().
 			Str("account_id", scanJob.AccountID).
 			Str("org_id", scanJob.OrgID).
 			Str("job_id", scanJob.JobID).
 			Str("scan_id", scanJob.ScanID).
+			Str("trace_id", traceID).
 			Msg("processing scan job")
 
 		if err := scnr.ScanAccount(ctx, &scanJob); err != nil {
@@ -294,6 +314,7 @@ func main() {
 		logger.Info().
 			Str("account_id", scanJob.AccountID).
 			Str("scan_id", scanJob.ScanID).
+			Str("trace_id", traceID).
 			Int("analyzers_enqueued", enqueuedCount).
 			Msg("created and enqueued analyzer jobs after scan")
 

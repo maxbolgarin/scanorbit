@@ -62,10 +62,14 @@ scrape_configs:
                   org_id: org_id
                   analyzer: analyzer
                   duration_seconds: duration_seconds
+                  trace_id: trace_id
+                  scan_id: scan_id
+                  job_id: job_id
             - labels:
                 level:
                 component:
                 job_type:
+                trace_id:
             - timestamp:
                 source: time
                 format: RFC3339
@@ -80,15 +84,20 @@ scrape_configs:
                 expressions:
                   level: level
                   msg: msg
+                  message: message
                   method: method
                   path: path
                   status: status
                   latency: latency
                   error: error
+                  request_id: request_id
+                  trace_id: trace_id
+                  span_id: span_id
             - labels:
                 level:
                 method:
                 status:
+                trace_id:
             - output:
                 source: msg
 

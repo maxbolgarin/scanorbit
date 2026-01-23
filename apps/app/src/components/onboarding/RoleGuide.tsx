@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Copy, ExternalLink, AlertCircle } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Check, Copy, ExternalLink, AlertCircle, Info, ChevronDown } from "lucide-react";
 
 // ScanOrbit's AWS Account ID - should be set in environment variables for production
 const SCANORBIT_AWS_ACCOUNT_ID = import.meta.env.VITE_SCANORBIT_AWS_ACCOUNT_ID || "";
@@ -36,15 +42,15 @@ export function RoleGuide({ externalId, onNext, onBack }: RoleGuideProps) {
   return (
     <div className="space-y-4">
       {isMissingConfig && (
-        <div className="flex items-start gap-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-500" />
-          <div>
-            <p className="font-medium text-yellow-500">Configuration Required</p>
-            <p className="text-muted-foreground">
-              ScanOrbit AWS Account ID is not configured. Contact your administrator.
-            </p>
-          </div>
-        </div>
+        <Alert className="border-yellow-500/40 bg-yellow-500/5">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle className="text-sm font-medium text-yellow-700">
+            Configuration required
+          </AlertTitle>
+          <AlertDescription className="text-xs text-muted-foreground">
+            ScanOrbit AWS Account ID is not configured. Contact your administrator before continuing.
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Step 1 */}

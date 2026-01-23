@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User, Org, LoginResponseSuccess } from "@/types";
 import * as api from "@/lib/api";
+import { setAccessToken, ensureAccessToken } from "@/lib/api";
+
+// Deduplicate concurrent checkAuth calls - only one request at a time
+let checkAuthPromise: Promise<void> | null = null;
 
 interface AuthState {
   user: User | null;
@@ -68,6 +72,8 @@ export const useAuthStore = create<AuthState>()(
 
           // Normal login (no 2FA)
           const successResponse = response as LoginResponseSuccess;
+          // Store access token for API requests
+          setAccessToken(successResponse.accessToken);
           const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
           set({
             user: successResponse.user,
@@ -95,6 +101,8 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await api.signup({ email, password, fullName });
+          // Store access token for API requests
+          setAccessToken(response.accessToken);
           // Signup returns single org (or null if not created)
           const orgs = response.org ? [response.org] : [];
           set({
@@ -119,6 +127,8 @@ export const useAuthStore = create<AuthState>()(
         try {
           await api.logout();
         } finally {
+          // Clear access token
+          setAccessToken(null);
           set({
             user: null,
             org: null,
@@ -134,31 +144,48 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        set({ isLoading: true });
-        try {
-          const response = await api.getMe();
-          const currentOrg = get().org;
-          // Keep current org if still in orgs list, otherwise pick first
-          const activeOrg = response.orgs.find(o => o.id === currentOrg?.id)
-            || (response.orgs.length > 0 ? response.orgs[0] : null);
-          set({
-            user: response.user,
-            org: activeOrg,
-            orgs: response.orgs,
-            isAuthenticated: true,
-            hasOrg: !!activeOrg,
-            isLoading: false,
-          });
-        } catch {
-          set({
-            user: null,
-            org: null,
-            orgs: [],
-            isAuthenticated: false,
-            hasOrg: false,
-            isLoading: false,
-          });
+        // Deduplicate concurrent calls - return existing promise if one is in progress
+        if (checkAuthPromise) {
+          return checkAuthPromise;
         }
+
+        set({ isLoading: true });
+
+        checkAuthPromise = (async () => {
+          try {
+            // Ensure we have a valid access token (refresh if needed after page reload)
+            const hasToken = await ensureAccessToken();
+            if (!hasToken) {
+              throw new Error('No valid session');
+            }
+            const response = await api.getMe();
+            const currentOrg = get().org;
+            // Keep current org if still in orgs list, otherwise pick first
+            const activeOrg = response.orgs.find(o => o.id === currentOrg?.id)
+              || (response.orgs.length > 0 ? response.orgs[0] : null);
+            set({
+              user: response.user,
+              org: activeOrg,
+              orgs: response.orgs,
+              isAuthenticated: true,
+              hasOrg: !!activeOrg,
+              isLoading: false,
+            });
+          } catch {
+            set({
+              user: null,
+              org: null,
+              orgs: [],
+              isAuthenticated: false,
+              hasOrg: false,
+              isLoading: false,
+            });
+          } finally {
+            checkAuthPromise = null;
+          }
+        })();
+
+        return checkAuthPromise;
       },
 
       refreshAuth: async () => {
@@ -248,6 +275,8 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const successResponse = response as LoginResponseSuccess;
+          // Store access token for API requests
+          setAccessToken(successResponse.accessToken);
           const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
           set({
             user: successResponse.user,
@@ -285,6 +314,8 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const successResponse = response as LoginResponseSuccess;
+          // Store access token for API requests
+          setAccessToken(successResponse.accessToken);
           const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
           set({
             user: successResponse.user,

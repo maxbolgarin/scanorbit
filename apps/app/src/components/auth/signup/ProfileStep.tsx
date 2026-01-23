@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { AlertCircle, Building2 } from "lucide-react";
-import { createOrg, type JobTitle } from "@/lib/api";
+import { createOrg, setAccessToken, type JobTitle } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 
 const JOB_TITLES: { value: JobTitle; label: string }[] = [
@@ -59,12 +59,14 @@ export function ProfileStep({ onComplete }: ProfileStepProps) {
     setError(null);
     setIsLoading(true);
     try {
-      const { org } = await createOrg({
+      const { org, accessToken } = await createOrg({
         orgName: data.orgName,
         fullName: data.fullName,
         title: data.title,
       });
-      // Update auth store with the new org (cookie is set by backend)
+      // Store the new access token that contains the org ID
+      setAccessToken(accessToken);
+      // Update auth store with the new org
       setOrg(org);
       onComplete();
     } catch (err) {

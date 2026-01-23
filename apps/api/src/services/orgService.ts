@@ -4,7 +4,6 @@ import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP403Error, HTTP404Error } from '../lib/errors.js';
 import { orgs, userOrgMembers, users, scans } from '../db/schema.js';
 import type { Org } from '../db/schema.js';
-import { jwt } from '../lib/jwt.js';
 import { TIER_LIMITS, ScanStatus, type SubscriptionTier, type SubscriptionStatus } from '../types/index.js';
 import { logger } from '../lib/logger.js';
 import { stripeService } from './stripeService.js';
@@ -86,14 +85,14 @@ export async function verifyOrgAdmin(orgId: string, userId: string): Promise<voi
 export const orgService = {
   /**
    * Create an org and add user as admin (with optional title and fullName update)
-   * Returns the org and a new JWT token with the orgId set
+   * Returns the created org
    */
   async createOrg(
     userId: string,
     orgName: string,
     fullName?: string,
     title?: string
-  ): Promise<{ org: Pick<Org, 'id' | 'name' | 'slug'>; token: string }> {
+  ): Promise<{ org: Pick<Org, 'id' | 'name' | 'slug'> }> {
     const slug = generateSlug(orgName.trim());
 
     // Use transaction to ensure data consistency
@@ -133,13 +132,7 @@ export const orgService = {
       return createdOrg;
     });
 
-    // Generate new JWT with orgId (outside transaction - doesn't need to be rolled back)
-    const token = await jwt.sign({
-      userId,
-      orgId: org.id,
-    });
-
-    return { org, token };
+    return { org };
   },
 
   async getOrg(orgId: string, userId: string): Promise<Org> {

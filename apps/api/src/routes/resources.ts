@@ -28,8 +28,25 @@ const querySchema = z.object({
   costFilter: z.enum(['all', 'paid', 'free']).optional(),
 });
 
+// Tag validation limits
+const MAX_TAGS = 50;
+const MAX_TAG_KEY_LENGTH = 128;
+const MAX_TAG_VALUE_LENGTH = 256;
+
 const updateTagsSchema = z.object({
-  tags: z.record(z.string()),
+  tags: z
+    .record(
+      z.string().min(1, 'Tag key cannot be empty').max(MAX_TAG_KEY_LENGTH, `Tag key must be at most ${MAX_TAG_KEY_LENGTH} characters`),
+      z.string().max(MAX_TAG_VALUE_LENGTH, `Tag value must be at most ${MAX_TAG_VALUE_LENGTH} characters`)
+    )
+    .refine(
+      (obj) => Object.keys(obj).length <= MAX_TAGS,
+      `Maximum ${MAX_TAGS} tags allowed`
+    )
+    .refine(
+      (obj) => Object.keys(obj).every(key => /^[a-zA-Z0-9_:-]+$/.test(key)),
+      'Tag keys must be alphanumeric with underscores, hyphens, and colons only'
+    ),
 });
 
 // GET /resources - List resources with filters

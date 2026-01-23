@@ -188,6 +188,134 @@ export function rateLimit(options: RateLimitOptions) {
   };
 }
 
+interface DualRateLimitOptions {
+  /** Key prefix for Redis (e.g., 'verifycode') */
+  keyPrefix: string;
+  /** Maximum requests per IP in the window */
+  maxIPRequests: number;
+  /** Maximum requests per email in the window */
+  maxEmailRequests: number;
+  /** Time window in seconds */
+  windowSeconds: number;
+  /** Function to extract email from request body */
+  emailExtractor: (c: Context<{ Variables: Variables }>) => string;
+  /** Custom error message for IP limit */
+  ipMessage?: string;
+  /** Custom error message for email limit */
+  emailMessage?: string;
+}
+
+/**
+ * Rate limiting middleware that checks BOTH email and IP limits
+ * Email limit is stricter to prevent targeted brute force attacks on specific accounts
+ * IP limit remains as a fallback to prevent distributed attacks
+ *
+ * @example
+ * app.post('/verify-code', rateLimitByEmailAndIP({
+ *   keyPrefix: 'verifycode',
+ *   maxIPRequests: 10,
+ *   maxEmailRequests: 5,
+ *   windowSeconds: 15 * 60,
+ *   emailExtractor: (c) => c.req.valid('json').email
+ * }), handler)
+ */
+export function rateLimitByEmailAndIP(options: DualRateLimitOptions) {
+  const {
+    keyPrefix,
+    maxIPRequests,
+    maxEmailRequests,
+    windowSeconds,
+    emailExtractor,
+    ipMessage = 'Too many requests from this IP address.',
+    emailMessage = 'Too many attempts for this email address.',
+  } = options;
+
+  return async (c: Context<{ Variables: Variables }>, next: Next) => {
+    // Check circuit breaker first
+    if (isCircuitOpen()) {
+      logger.error('Circuit breaker open - Redis unavailable, failing closed', undefined, {
+        keyPrefix,
+        failures: circuitBreaker.failures,
+      });
+      throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
+    }
+
+    try {
+      const ip = getClientIP(c);
+      const email = emailExtractor(c).toLowerCase();
+
+      const ipKey = `ratelimit:${keyPrefix}:ip:${ip}`;
+      const emailKey = `ratelimit:${keyPrefix}:email:${email}`;
+
+      // Check both limits in parallel
+      const [ipCount, emailCount] = await Promise.all([
+        redis.incr(ipKey),
+        redis.incr(emailKey),
+      ]);
+
+      // Set expiry on first request for each key
+      const expiryPromises: Promise<number>[] = [];
+      if (ipCount === 1) {
+        expiryPromises.push(redis.expire(ipKey, windowSeconds));
+      }
+      if (emailCount === 1) {
+        expiryPromises.push(redis.expire(emailKey, windowSeconds));
+      }
+      if (expiryPromises.length > 0) {
+        await Promise.all(expiryPromises);
+      }
+
+      // Get TTLs for headers
+      const [ipTTL, emailTTL] = await Promise.all([
+        redis.ttl(ipKey),
+        redis.ttl(emailKey),
+      ]);
+
+      recordSuccess();
+
+      // Check email limit first (stricter)
+      if (emailCount > maxEmailRequests) {
+        c.header('Retry-After', emailTTL.toString());
+        const waitTime = formatWaitTime(emailTTL);
+        const errorMessage = waitTime ? `${emailMessage} Please try again in ${waitTime}.` : emailMessage;
+        throw new HTTP429Error(errorMessage);
+      }
+
+      // Then check IP limit
+      if (ipCount > maxIPRequests) {
+        c.header('Retry-After', ipTTL.toString());
+        const waitTime = formatWaitTime(ipTTL);
+        const errorMessage = waitTime ? `${ipMessage} Please try again in ${waitTime}.` : ipMessage;
+        throw new HTTP429Error(errorMessage);
+      }
+
+      // Set rate limit headers (use the stricter email limits for display)
+      c.header('X-RateLimit-Limit', maxEmailRequests.toString());
+      c.header('X-RateLimit-Remaining', Math.max(0, maxEmailRequests - emailCount).toString());
+      c.header('X-RateLimit-Reset', (Math.floor(Date.now() / 1000) + emailTTL).toString());
+
+      await next();
+    } catch (err) {
+      if (err instanceof HTTP429Error || err instanceof HTTP503Error) {
+        throw err;
+      }
+
+      recordFailure();
+      logger.error('Redis rate limit error (dual)', err as Error, {
+        keyPrefix,
+        failures: circuitBreaker.failures,
+        threshold: circuitBreaker.threshold,
+      });
+
+      if (isCircuitOpen()) {
+        throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
+      }
+
+      await next();
+    }
+  };
+}
+
 /**
  * Predefined rate limiters for common use cases
  */
@@ -231,4 +359,52 @@ export const rateLimiters = {
     windowSeconds: 60 * 60,
     message: 'Too many password reset requests. Please try again later.',
   }),
+
+  /**
+   * Verify code with combined email + IP limiting
+   * Email limit: 5 per 15 minutes (stricter to prevent targeted brute force)
+   * IP limit: 15 per 15 minutes (allows multiple emails from same IP)
+   */
+  verifyCodeStrict: (emailExtractor: (c: Context<{ Variables: Variables }>) => string) =>
+    rateLimitByEmailAndIP({
+      keyPrefix: 'verifycode_strict',
+      maxEmailRequests: 5,
+      maxIPRequests: 15,
+      windowSeconds: 15 * 60,
+      emailExtractor,
+      emailMessage: 'Too many verification attempts for this email address.',
+      ipMessage: 'Too many verification attempts from this IP address.',
+    }),
+
+  /**
+   * Send code with combined email + IP limiting
+   * Email limit: 3 per 5 minutes (prevent spamming one email)
+   * IP limit: 10 per 5 minutes (allows multiple emails from same IP)
+   */
+  sendCodeStrict: (emailExtractor: (c: Context<{ Variables: Variables }>) => string) =>
+    rateLimitByEmailAndIP({
+      keyPrefix: 'sendcode_strict',
+      maxEmailRequests: 3,
+      maxIPRequests: 10,
+      windowSeconds: 5 * 60,
+      emailExtractor,
+      emailMessage: 'Too many code requests for this email address.',
+      ipMessage: 'Too many code requests from this IP address.',
+    }),
+
+  /**
+   * Login with combined email + IP limiting
+   * Email limit: 5 per 15 minutes (prevent brute force on specific account)
+   * IP limit: 20 per 15 minutes (allows multiple accounts from same IP)
+   */
+  loginStrict: (emailExtractor: (c: Context<{ Variables: Variables }>) => string) =>
+    rateLimitByEmailAndIP({
+      keyPrefix: 'login_strict',
+      maxEmailRequests: 5,
+      maxIPRequests: 20,
+      windowSeconds: 15 * 60,
+      emailExtractor,
+      emailMessage: 'Too many login attempts for this account.',
+      ipMessage: 'Too many login attempts from this IP address.',
+    }),
 };

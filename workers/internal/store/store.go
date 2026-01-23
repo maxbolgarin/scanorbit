@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/maxbolgarin/scanorbit/internal/crypto"
 	"github.com/maxbolgarin/scanorbit/internal/models"
 )
 
@@ -134,10 +135,11 @@ type Store struct {
 }
 
 // NewStore creates a new Store with all repositories.
-func NewStore(db *DB) *Store {
+// The decryptor is used to decrypt encrypted fields (like external_id) from the database.
+func NewStore(db *DB, decryptor *crypto.Decryptor) *Store {
 	return &Store{
 		db:            db,
-		Accounts:      newAccountStore(db),
+		Accounts:      newAccountStore(db, decryptor),
 		Scans:         newScanStore(db),
 		Resources:     newResourceStore(db),
 		ResourceScans: newResourceScanStore(db),

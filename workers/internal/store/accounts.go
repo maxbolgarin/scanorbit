@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/maxbolgarin/scanorbit/internal/crypto"
 	"github.com/maxbolgarin/scanorbit/internal/metrics"
 )
 
 type accountStore struct {
-	db *DB
+	db        *DB
+	decryptor *crypto.Decryptor
 }
 
-func newAccountStore(db *DB) *accountStore {
-	return &accountStore{db: db}
+func newAccountStore(db *DB, decryptor *crypto.Decryptor) *accountStore {
+	return &accountStore{db: db, decryptor: decryptor}
 }
 
 // GetByID retrieves an AWS account by ID.
@@ -44,6 +46,15 @@ func (s *accountStore) GetByID(ctx context.Context, id string) (*AWSAccount, err
 	if err != nil {
 		finish("error")
 		return nil, fmt.Errorf("query account: %w", err)
+	}
+
+	// Decrypt external_id if decryptor is available
+	if s.decryptor != nil && account.ExternalID != "" {
+		decrypted, err := s.decryptor.DecryptExternalID(account.ExternalID)
+		if err == nil {
+			account.ExternalID = decrypted
+		}
+		// If decryption fails, keep the original value (backward compatibility)
 	}
 
 	finish("success")

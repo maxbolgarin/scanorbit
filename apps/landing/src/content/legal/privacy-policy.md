@@ -1,7 +1,7 @@
 ---
 title: Privacy Policy
 description: ScanOrbit privacy policy. Learn how we handle and protect your data.
-lastUpdated: January 21, 2026
+lastUpdated: January 23, 2026
 ---
 
 ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
@@ -168,6 +168,7 @@ We use the following third-party services to operate ScanOrbit. All sub-processo
 |---------|---------|----------------|----------|-----|
 | **Scaleway** | Infrastructure hosting (servers, databases) | All application data | EU (Paris, Amsterdam) | [Scaleway DPA](https://www.scaleway.com/en/contracts/) |
 | **AWS** | Cloud infrastructure for customer scans | AWS account metadata only | EU (Frankfurt) | [AWS DPA](https://d1.awsstatic.com/legal/aws-gdpr/AWS_GDPR_DPA.pdf) |
+| **Plausible Analytics** | Privacy-first website analytics | No personal data (aggregated page views only) | EU (Germany) | [Plausible DPA](https://plausible.io/dpa) |
 | **Stripe** | Payment processing | Email, name, organization ID, user ID | USA (EU DPA) | [Stripe DPA](https://stripe.com/legal/dpa) |
 | **Google OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [Google DPA](https://cloud.google.com/terms/data-processing-terms) |
 | **GitHub OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [GitHub DPA](https://github.com/customer-terms/github-data-protection-agreement) |
@@ -338,19 +339,51 @@ We use **essential cookies only:**
 
 **No tracking cookies used.**
 
-### 9.2 Third-Party Analytics
-- **No Google Analytics** - We do not use any third-party analytics
-- **No tracking pixels** on website
-- **No behavioral tracking**
-- **No advertising cookies**
+### 9.2 Privacy-First Analytics (Plausible)
+
+We use **Plausible Analytics** for understanding how our website and application are used. Plausible is a privacy-first, cookie-free analytics tool that is fully GDPR compliant by design.
+
+**Why Plausible:**
+- **No cookies** - Plausible does not use cookies or store any data on your device
+- **No personal data** - No IP addresses, device fingerprints, or personally identifiable information collected
+- **No cross-site tracking** - Cannot track you across different websites
+- **No cross-device tracking** - Cannot link your activity across devices
+- **EU-hosted** - All analytics data is processed and stored in the European Union
+- **Open source** - Plausible's code is publicly auditable
+
+**What we collect:**
+- Page URL and referrer
+- Browser type (general, e.g., "Chrome")
+- Operating system (general, e.g., "macOS")
+- Device type (desktop/mobile/tablet)
+- Country (derived from IP, IP is then discarded)
+
+**What we do NOT collect:**
+- IP addresses (discarded immediately after country lookup)
+- User identifiers or cookies
+- Personal information
+- Cross-session tracking data
+- Behavioral profiles
+
+**Legal basis (GDPR):** Legitimate interest (Article 6(1)(f)). Since Plausible collects no personal data and uses no cookies, no consent is required under GDPR or the ePrivacy Directive.
+
+**Opt-out:** While Plausible doesn't track individuals, you can still block it using browser extensions like uBlock Origin or by enabling "Do Not Track" in your browser settings.
+
+Learn more: [Plausible Data Policy](https://plausible.io/data-policy)
+
+### 9.3 What We Do NOT Use
+- **No Google Analytics** - No invasive tracking
+- **No tracking pixels** - No Facebook, LinkedIn, or advertising pixels
+- **No behavioral tracking** - No session recordings or heatmaps
+- **No advertising cookies** - No retargeting or ad networks
 
 See our [Cookie Policy](/cookies) for complete details.
 
-### 9.3 Managing Cookies
+### 9.4 Managing Cookies
 You can:
 - Disable cookies in your browser settings
 - Clear cookies at any time
-- Opt-out of analytics in account settings
+- Block analytics with browser extensions
 
 ---
 
@@ -415,7 +448,7 @@ We process your data based on:
 | **Account information** | Contract (necessary to provide service) |
 | **Scan data** | Contract (necessary to perform AWS scans) |
 | **API logs** | Legitimate interest (security & fraud prevention) |
-| **Usage analytics** | Legitimate interest (service improvement) |
+| **Website analytics (Plausible)** | Legitimate interest (no personal data collected) |
 | **Communication data** | Consent & contract (responding to requests) |
 
 ---

@@ -403,6 +403,145 @@ Rightsize the instance to a smaller instance type that matches actual usage.
 
 ---
 
+#### `orphaned_eni`
+**Severity:** LOW
+
+**Description:** Elastic Network Interface (ENI) is not attached to any instance.
+
+**Trigger Conditions:**
+- ENI with status `available` (not in-use)
+- Not attached to any EC2 instance or Lambda function
+
+**Remediation:**
+Delete the ENI if no longer needed. Orphaned ENIs may indicate incomplete resource cleanup.
+
+---
+
+#### `idle_load_balancer`
+**Severity:** LOW
+
+**Description:** Application Load Balancer has no healthy targets registered.
+
+**Trigger Conditions:**
+- ALB with no registered targets
+- ALB with all targets in unhealthy state
+
+**Remediation:**
+- If not needed: Delete the load balancer to reduce costs
+- If needed: Register healthy targets or fix target health issues
+
+---
+
+#### `unused_security_group`
+**Severity:** TRIVIAL
+
+**Description:** Security group is not associated with any resources.
+
+**Trigger Conditions:**
+- Security group not attached to any EC2 instance, RDS, Lambda, or other resources
+
+**Remediation:**
+Delete unused security groups to reduce clutter and potential attack surface.
+
+---
+
+#### `ebs_optimization`
+**Severity:** LOW
+
+**Description:** EBS volume could benefit from optimization (type change or GP2 to GP3 migration).
+
+**Trigger Conditions:**
+- GP2 volume that could be migrated to GP3 for cost savings
+- Volume provisioned IOPS higher than necessary based on usage
+
+**Remediation:**
+Migrate GP2 volumes to GP3 for better price-performance. Review provisioned IOPS requirements.
+
+---
+
+#### `old_gen_instance`
+**Severity:** LOW
+
+**Description:** EC2 instance is using an older generation instance type.
+
+**Trigger Conditions:**
+- Instance using older generation types (e.g., m4, c4, r4 instead of m6i, c6i, r6i)
+
+**Remediation:**
+Migrate to current generation instance types for better performance and cost efficiency.
+
+---
+
+#### `oversized_lambda`
+**Severity:** LOW
+
+**Description:** Lambda function is configured with more memory than it uses.
+
+**Trigger Conditions:**
+- Lambda function consistently using less than 50% of allocated memory
+- Function configured with significantly more memory than needed
+
+**Remediation:**
+Reduce the memory allocation to match actual usage. Use AWS Lambda Power Tuning for optimization.
+
+---
+
+#### `log_retention`
+**Severity:** TRIVIAL
+
+**Description:** CloudWatch Log Group has no retention policy, leading to unbounded log storage.
+
+**Trigger Conditions:**
+- Log group with retention set to "Never expire"
+- Log group with significant stored data and no retention
+
+**Remediation:**
+Set an appropriate retention policy (e.g., 30, 90, or 365 days) based on compliance and debugging needs.
+
+---
+
+#### `unused_kms_key`
+**Severity:** LOW
+
+**Description:** KMS customer managed key has not been used for an extended period.
+
+**Trigger Conditions:**
+- Customer managed KMS key not used in 90+ days
+- Key created 90+ days ago and never used
+
+**Remediation:**
+Schedule key deletion if no longer needed (30-day waiting period required by AWS).
+
+---
+
+#### `rds_optimization`
+**Severity:** LOW
+
+**Description:** RDS instance could benefit from optimization based on usage patterns.
+
+**Trigger Conditions:**
+- Multi-AZ enabled for non-production workloads
+- Provisioned IOPS significantly higher than usage
+- Storage autoscaling not enabled with high storage utilization
+
+**Remediation:**
+Review Multi-AZ requirements, rightsize provisioned IOPS, and enable storage autoscaling.
+
+---
+
+#### `old_gen_rds`
+**Severity:** LOW
+
+**Description:** RDS instance is using an older generation instance class.
+
+**Trigger Conditions:**
+- RDS instance using older generation classes (e.g., db.m4, db.r4 instead of db.m6i, db.r6i)
+
+**Remediation:**
+Migrate to current generation RDS instance classes for better performance and cost efficiency.
+
+---
+
 ### Tagging Findings
 
 #### `missing_tag`
@@ -443,11 +582,21 @@ Add the missing tags to the resource. Proper tagging enables cost allocation, se
 | `backup_not_configured` | Compliance | MEDIUM |
 | `orphaned_eip` | Cost | LOW |
 | `orphaned_snapshot` | Cost | LOW |
+| `orphaned_eni` | Cost | LOW |
+| `idle_load_balancer` | Cost | LOW |
 | `unused_access_key` | IAM | LOW |
 | `unused_iam_role` | IAM | LOW |
 | `unused_resource` | Cost | LOW |
 | `stopped_instance` | Cost | LOW |
 | `idle_nat_gateway` | Cost | LOW |
 | `oversized_instance` | Cost | LOW |
+| `ebs_optimization` | Cost | LOW |
+| `old_gen_instance` | Cost | LOW |
+| `oversized_lambda` | Cost | LOW |
+| `unused_kms_key` | Cost | LOW |
+| `rds_optimization` | Cost | LOW |
+| `old_gen_rds` | Cost | LOW |
 | `missing_tag` | Tagging | TRIVIAL |
 | `unused_log_group` | Cost | TRIVIAL |
+| `log_retention` | Cost | TRIVIAL |
+| `unused_security_group` | Cost | TRIVIAL |

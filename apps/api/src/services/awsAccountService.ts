@@ -8,6 +8,7 @@ import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
 import { getOrgTier } from './orgService.js';
+import { encryptExternalIdOptional, decryptExternalIdOptional } from '../lib/crypto.js';
 import {
   ScanStatus,
   ACTIVE_SCAN_STATUSES,
@@ -17,6 +18,24 @@ import {
   TIER_LIMITS,
   type ScannerType,
 } from '../types/index.js';
+
+/**
+ * Decrypt the external ID in an AWS account object
+ * Returns a new object with the decrypted external ID (for API responses)
+ */
+function decryptAccountExternalId(account: AwsAccount): AwsAccount {
+  return {
+    ...account,
+    externalId: decryptExternalIdOptional(account.externalId),
+  };
+}
+
+/**
+ * Decrypt external IDs in an array of AWS account objects
+ */
+function decryptAccountsExternalIds(accounts: AwsAccount[]): AwsAccount[] {
+  return accounts.map(decryptAccountExternalId);
+}
 
 interface CreateAccountData {
   name: string;
@@ -29,16 +48,20 @@ interface CreateAccountData {
 interface TestConnectionResult {
   success: boolean;
   awsAccountId?: string;
-  error?: string;
+  message?: string;
+  regions?: string[];
 }
 
 export const awsAccountService = {
   async getAccounts(orgId: string): Promise<AwsAccount[]> {
-    return db
+    const accounts = await db
       .select()
       .from(awsAccounts)
       .where(eq(awsAccounts.orgId, orgId))
       .orderBy(desc(awsAccounts.createdAt));
+
+    // Decrypt external IDs for API response
+    return decryptAccountsExternalIds(accounts);
   },
 
   async getAccount(orgId: string, accountId: string): Promise<AwsAccount> {
@@ -57,7 +80,8 @@ export const awsAccountService = {
       throw new HTTP404Error('AWS account not found');
     }
 
-    return account;
+    // Decrypt external ID for API response
+    return decryptAccountExternalId(account);
   },
 
   async createAccount(
@@ -106,6 +130,9 @@ export const awsAccountService = {
       throw new HTTP400Error('Invalid role ARN format');
     }
 
+    // Encrypt external ID before storing
+    const encryptedExternalId = encryptExternalIdOptional(data.externalId);
+
     const [account] = await db
       .insert(awsAccounts)
       .values({
@@ -113,7 +140,7 @@ export const awsAccountService = {
         name: data.name,
         awsAccountId: data.awsAccountId,
         roleArn: data.roleArn,
-        externalId: data.externalId,
+        externalId: encryptedExternalId,
         status: 'pending',
         enabledScanners: data.enabledScanners ?? ALL_SCANNER_TYPES,
       } satisfies NewAwsAccount)
@@ -122,7 +149,8 @@ export const awsAccountService = {
     // Track AWS account connection
     awsAccountsConnected.inc();
 
-    return account;
+    // Return account with decrypted external ID for API response
+    return decryptAccountExternalId(account);
   },
 
   async deleteAccount(orgId: string, accountId: string): Promise<void> {
@@ -203,7 +231,8 @@ export const awsAccountService = {
       throw new HTTP404Error('AWS account not found');
     }
 
-    return account;
+    // Decrypt external ID for API response
+    return decryptAccountExternalId(account);
   },
 
   async testConnection(
@@ -256,9 +285,27 @@ export const awsAccountService = {
       return {
         success: true,
         awsAccountId: identityResponse.Account ?? 'unknown',
+        message: 'Connection successful! ScanOrbit can access your AWS account.',
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let userFriendlyMessage = errorMessage;
+
+      // Provide user-friendly error messages for common IAM issues
+      if (errorMessage.includes('AccessDenied') || errorMessage.includes('is not authorized to perform: sts:AssumeRole')) {
+        userFriendlyMessage = 
+          'Unable to assume the IAM role. Please verify:\n' +
+          '1. The role\'s trust policy allows ScanOrbit\'s AWS account to assume it\n' +
+          '2. The Principal in the trust policy is set to: arn:aws:iam::ACCOUNT_ID:root (where ACCOUNT_ID is ScanOrbit\'s account)\n' +
+          '3. The External ID in the trust policy matches the one shown in the setup guide\n' +
+          '4. The role exists and the ARN is correct';
+      } else if (errorMessage.includes('InvalidUserID.NotFound') || errorMessage.includes('does not exist')) {
+        userFriendlyMessage = 'The IAM role does not exist. Please verify the role ARN is correct and the role has been created.';
+      } else if (errorMessage.includes('InvalidParameter') && errorMessage.includes('ExternalId')) {
+        userFriendlyMessage = 'The External ID does not match. Please verify the External ID in the role\'s trust policy matches the one shown in the setup guide.';
+      } else if (errorMessage.includes('MalformedPolicyDocument')) {
+        userFriendlyMessage = 'The role\'s trust policy is malformed. Please check the trust policy configuration in the IAM console.';
+      }
 
       // Update account status to error
       await db
@@ -272,79 +319,96 @@ export const awsAccountService = {
 
       return {
         success: false,
-        error: errorMessage,
+        message: userFriendlyMessage,
       };
     }
   },
 
   async enqueueScan(orgId: string, accountId: string): Promise<Scan> {
-    // Verify account exists and belongs to org
-    const account = await this.getAccount(orgId, accountId);
-
-    // Get org tier (safely handles missing column)
+    // Get org tier outside transaction (this is read-only and doesn't need locking)
     const tier = await getOrgTier(orgId);
 
-    // Tier-based scan checks
-    if (tier === 'free') {
-      // Free tier: Only one successful scan ever allowed (unlimited retries until success)
-      const [successfulScan] = await db
-        .select({ id: scans.id })
-        .from(scans)
-        .where(
-          and(
-            eq(scans.orgId, orgId),
-            eq(scans.status, ScanStatus.COMPLETE)
-          )
-        )
-        .limit(1);
-
-      if (successfulScan) {
-        throw new HTTP403Error('Free tier allows only one successful scan. Upgrade to Pro for more.');
-      }
-    } else if (tier === 'pro') {
-      // Pro tier: 1 hour cooldown after successful scan
-      const cooldownMinutes = TIER_LIMITS.pro.scanCooldownMinutes!;
-      const cooldownTime = new Date(Date.now() - cooldownMinutes * 60 * 1000);
-
-      const [recentScan] = await db
-        .select({ id: scans.id, completedAt: scans.completedAt })
-        .from(scans)
-        .where(
-          and(
-            eq(scans.orgId, orgId),
-            eq(scans.status, ScanStatus.COMPLETE),
-            gte(scans.completedAt, cooldownTime)
-          )
-        )
-        .orderBy(desc(scans.completedAt))
-        .limit(1);
-
-      if (recentScan && recentScan.completedAt) {
-        const cooldownEndsAt = new Date(recentScan.completedAt.getTime() + cooldownMinutes * 60 * 1000);
-        const waitMinutes = Math.ceil((cooldownEndsAt.getTime() - Date.now()) / 60000);
-        throw new HTTP429Error(`Please wait ${waitMinutes} minutes before scanning again. Upgrade to Team for unlimited scans.`);
-      }
-    }
-    // Team tier: No additional checks (existing concurrency check remains)
-
-    // Check if there's already an active scan for this account
-    const [activeScan] = await db
-      .select({ id: scans.id, status: scans.status })
-      .from(scans)
-      .where(
-        and(
-          eq(scans.awsAccountId, accountId),
-          inArray(scans.status, ACTIVE_SCAN_STATUSES)
-        )
-      )
-      .limit(1);
-
-    if (activeScan) {
-      throw new HTTP400Error(`Scan already in progress (status: ${activeScan.status}). Please wait for it to complete.`);
-    }
-
-    // Use transaction to ensure scan and job are created together
+    // Use transaction with pessimistic locking to prevent race conditions
+    // This ensures only one scan can be created at a time for an account
     const result = await db.transaction(async (tx) => {
+      // Lock the account row with FOR UPDATE to prevent concurrent scan creation
+      // This blocks other transactions trying to scan the same account
+      const lockedAccounts = await tx
+        .select()
+        .from(awsAccounts)
+        .where(
+          and(
+            eq(awsAccounts.id, accountId),
+            eq(awsAccounts.orgId, orgId)
+          )
+        )
+        .for('update')
+        .limit(1);
+
+      const account = lockedAccounts[0];
+      if (!account) {
+        throw new HTTP404Error('AWS account not found');
+      }
+
+      // Tier-based scan checks (inside transaction to ensure consistency)
+      if (tier === 'free') {
+        // Free tier: Only one successful scan ever allowed (unlimited retries until success)
+        const [successfulScan] = await tx
+          .select({ id: scans.id })
+          .from(scans)
+          .where(
+            and(
+              eq(scans.orgId, orgId),
+              eq(scans.status, ScanStatus.COMPLETE)
+            )
+          )
+          .limit(1);
+
+        if (successfulScan) {
+          throw new HTTP403Error('Free tier allows only one successful scan. Upgrade to Pro for more.');
+        }
+      } else if (tier === 'pro') {
+        // Pro tier: 1 hour cooldown after successful scan
+        const cooldownMinutes = TIER_LIMITS.pro.scanCooldownMinutes!;
+        const cooldownTime = new Date(Date.now() - cooldownMinutes * 60 * 1000);
+
+        const [recentScan] = await tx
+          .select({ id: scans.id, completedAt: scans.completedAt })
+          .from(scans)
+          .where(
+            and(
+              eq(scans.orgId, orgId),
+              eq(scans.status, ScanStatus.COMPLETE),
+              gte(scans.completedAt, cooldownTime)
+            )
+          )
+          .orderBy(desc(scans.completedAt))
+          .limit(1);
+
+        if (recentScan && recentScan.completedAt) {
+          const cooldownEndsAt = new Date(recentScan.completedAt.getTime() + cooldownMinutes * 60 * 1000);
+          const waitMinutes = Math.ceil((cooldownEndsAt.getTime() - Date.now()) / 60000);
+          throw new HTTP429Error(`Please wait ${waitMinutes} minutes before scanning again. Upgrade to Team for unlimited scans.`);
+        }
+      }
+      // Team tier: No additional tier checks (existing concurrency check remains)
+
+      // Check if there's already an active scan for this account (with lock held)
+      const [activeScan] = await tx
+        .select({ id: scans.id, status: scans.status })
+        .from(scans)
+        .where(
+          and(
+            eq(scans.awsAccountId, accountId),
+            inArray(scans.status, ACTIVE_SCAN_STATUSES)
+          )
+        )
+        .limit(1);
+
+      if (activeScan) {
+        throw new HTTP400Error(`Scan already in progress (status: ${activeScan.status}). Please wait for it to complete.`);
+      }
+
       // Create scan record with 'queued' status
       const [scan] = await tx
         .insert(scans)
@@ -370,10 +434,10 @@ export const awsAccountService = {
         })
         .returning();
 
-      return { scan, job };
+      return { scan, job, account };
     });
 
-    const { scan, job } = result;
+    const { scan, job, account } = result;
 
     // Push to Redis queue for workers to pick up
     // Go workers expect snake_case: job_id, scan_id, account_id, org_id, enabled_scanners

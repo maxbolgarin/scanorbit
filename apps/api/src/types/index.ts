@@ -494,7 +494,6 @@ export interface GoogleAuthResultSuccess {
     name: string;
     slug: string;
   }>;
-  token: string;
   isNewUser: boolean;
   hasOrg: boolean;
   requires2FA?: false;
@@ -534,7 +533,6 @@ export interface GitHubAuthResultSuccess {
     name: string;
     slug: string;
   }>;
-  token: string;
   isNewUser: boolean;
   hasOrg: boolean;
   requires2FA?: false;

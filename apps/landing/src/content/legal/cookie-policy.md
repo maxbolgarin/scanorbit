@@ -1,7 +1,7 @@
 ---
 title: Cookie Policy
 description: ScanOrbit cookie policy. Learn how we use cookies on our website and service.
-lastUpdated: January 21, 2026
+lastUpdated: January 23, 2026
 ---
 
 This Cookie Policy explains how ScanOrbit uses cookies and similar technologies on our website and service. By using ScanOrbit, you consent to our use of cookies as described in this policy.
@@ -60,23 +60,79 @@ ScanOrbit uses **only essential cookies** necessary for the service to function.
 
 ---
 
-## 3. Cookies We Do NOT Use
+## 3. Privacy-First Analytics (Plausible)
 
-ScanOrbit **does not use:**
+We use **Plausible Analytics** to understand how our website and application are used. Plausible is fundamentally different from traditional analytics tools because it is designed to be privacy-first and **completely cookie-free**.
 
-- **Google Analytics** - No tracking of pageviews or user behavior
-- **Marketing Cookies** - No ads or behavioral tracking
-- **Advertising Pixels** - No third-party advertising networks
-- **Heatmaps** - No session recording or user activity tracking
-- **A/B Testing Cookies** - No experiment tracking
-- **Social Media Trackers** - No Facebook, LinkedIn, or Twitter pixels
-- **Data Brokers** - No data sharing with third parties
+### 3.1 Why Plausible is Different
 
-**Our principle:** We only use cookies to serve you the service, not to profile you.
+| Feature | Google Analytics | Plausible (We Use) |
+|---------|------------------|-------------------|
+| **Cookies** | Uses multiple tracking cookies | ❌ No cookies at all |
+| **Personal Data** | Collects IP, device fingerprint, user ID | ❌ No personal data |
+| **Cross-Site Tracking** | Tracks across websites | ❌ No cross-site tracking |
+| **Data Location** | USA (Google servers) | ✅ EU only |
+| **Consent Required** | Yes (GDPR) | ❌ No consent needed |
+| **Data Retention** | Indefinite | Aggregated only |
+
+### 3.2 What Plausible Collects
+
+Plausible collects **aggregated, anonymous data only:**
+- Page URLs visited
+- Referrer source (where you came from)
+- Browser type (e.g., "Firefox" - not version or fingerprint)
+- Operating system (e.g., "Windows" - not version)
+- Device type (desktop, mobile, tablet)
+- Country (derived from IP, then IP is immediately discarded)
+
+### 3.3 What Plausible Does NOT Collect
+
+- ❌ IP addresses (discarded after country lookup)
+- ❌ Cookies or local storage
+- ❌ User identifiers
+- ❌ Session identifiers
+- ❌ Cross-session tracking
+- ❌ Device fingerprints
+- ❌ Personal information of any kind
+
+### 3.4 GDPR Compliance
+
+Plausible is **GDPR compliant by design** and does not require cookie consent because:
+- No cookies are used
+- No personal data is processed
+- No tracking across sites or sessions
+- Data is processed in the EU only
+- Legal basis: Legitimate interest (Article 6(1)(f)) - since no personal data is involved
+
+Learn more: [Plausible Data Policy](https://plausible.io/data-policy)
+
+### 3.5 Opting Out
+
+Even though Plausible doesn't track you personally, you can still block it:
+- Use browser extensions like uBlock Origin or Privacy Badger
+- Enable "Do Not Track" in your browser
+- Use a browser with built-in tracking protection (Firefox, Brave)
 
 ---
 
-## 4. How We Protect Your Cookies
+## 4. Cookies We Do NOT Use
+
+ScanOrbit **does not use:**
+
+- **Google Analytics** - No invasive tracking of pageviews or user behavior
+- **Marketing Cookies** - No ads or behavioral tracking
+- **Advertising Pixels** - No third-party advertising networks (Facebook, LinkedIn, etc.)
+- **Heatmaps** - No session recording or user activity tracking
+- **A/B Testing Cookies** - No experiment tracking cookies
+- **Social Media Trackers** - No Facebook, LinkedIn, or Twitter pixels
+- **Data Brokers** - No data sharing with third parties
+- **Retargeting** - No advertising retargeting cookies
+
+**Our principle:** We only use essential cookies for authentication. Analytics are handled by Plausible without any cookies.
+
+---
+
+## 5. How We Protect Your Cookies
 
 ### 4.1 Security Measures
 
@@ -104,7 +160,7 @@ ScanOrbit **does not use:**
 
 ---
 
-## 5. Your Cookie Consent
+## 6. Your Cookie Consent
 
 ### 5.1 Essential Cookies (Auto-Consent)
 
@@ -126,7 +182,7 @@ The theme and language preference cookies are optional and improve your experien
 
 ---
 
-## 6. Managing Your Cookies
+## 7. Managing Your Cookies
 
 ### 6.1 Browser Settings
 
@@ -169,24 +225,27 @@ We plan to add a **Cookie Preferences Center** where you can:
 
 ---
 
-## 7. Third-Party Services (Future)
+## 8. Third-Party Services
 
-Currently, ScanOrbit does not use any third-party services that set cookies.
+ScanOrbit uses third-party services that respect your privacy:
 
-When we add services in the future (such as email providers or payment processors), we will:
-- Update this policy
-- Only use essential third-party cookies
-- Ensure they comply with GDPR
-- Provide you with control over them
+| Service | Purpose | Sets Cookies? | Privacy |
+|---------|---------|---------------|---------|
+| **Plausible Analytics** | Website analytics | ❌ No cookies | EU-hosted, no personal data |
+| **Scaleway** | Infrastructure | ❌ No cookies | EU-hosted |
+| **AWS** | Cloud infrastructure | ❌ No cookies | - |
+| **Stripe** | Payment processing | Essential only | PCI compliant |
+| **Let's Encrypt** | SSL certificates | ❌ No cookies | - |
 
-**Currently trusted third parties:**
-- AWS (infrastructure) - No cookies
-- Let's Encrypt (certificates) - No cookies
-- GitHub (code repository) - No cookies
+**We will never add:**
+- Advertising networks
+- Social media tracking pixels
+- Behavioral analytics tools
+- Data brokers or third-party data sharing
 
 ---
 
-## 8. Cookie Duration Summary
+## 9. Cookie Duration Summary
 
 | Cookie Type | Duration | Expires | When Cleared |
 |------------|----------|---------|--------------|
@@ -201,7 +260,7 @@ When we add services in the future (such as email providers or payment processor
 
 ---
 
-## 9. Cookies & Privacy
+## 10. Cookies & Privacy
 
 ### 9.1 What Cookies Don't Store
 
@@ -227,7 +286,7 @@ For details on how we handle all your data, see our [Privacy Policy](/privacy).
 
 ---
 
-## 10. Legal Basis (GDPR)
+## 11. Legal Basis (GDPR)
 
 ### 10.1 Cookie Consent
 
@@ -256,7 +315,7 @@ See our [Privacy Policy](/privacy) for full GDPR rights information.
 
 ---
 
-## 11. Changes to This Policy
+## 12. Changes to This Policy
 
 We may update this Cookie Policy to:
 - Reflect changes in our cookie use
@@ -271,7 +330,7 @@ We may update this Cookie Policy to:
 
 ---
 
-## 12. Questions About Cookies?
+## 13. Questions About Cookies?
 
 **Cookie-related questions:**
 Email: support@scanorbit.cloud
@@ -281,17 +340,18 @@ Email: dpa@scanorbit.cloud
 
 ---
 
-## 13. Quick Reference
+## 14. Quick Reference
 
 **Remember:**
 - We use only essential authentication cookies
-- No tracking or analytics cookies
+- Analytics handled by Plausible (no cookies, no personal data)
 - No marketing or advertising cookies
 - All cookies encrypted and secure
 - You can manage or delete cookies anytime
 - Preference cookies are optional
 - Session cookies expire automatically
 - No personal data stored in cookies
+- No consent banner needed (we don't track you)
 
 ---
 

@@ -7,11 +7,17 @@ import { logger } from '../lib/logger.js';
  */
 export async function structuredLoggerMiddleware(c: Context, next: Next) {
   const start = Date.now();
-  const requestId = crypto.randomUUID().slice(0, 8);
 
-  // Create request-scoped logger
+  // Get trace IDs from context (set by requestIdMiddleware)
+  const requestId = c.get('requestId') || crypto.randomUUID().slice(0, 8);
+  const traceId = c.get('traceId');
+  const spanId = c.get('spanId');
+
+  // Create request-scoped logger with trace context
   const reqLogger = logger.with({
     request_id: requestId,
+    ...(traceId && { trace_id: traceId }),
+    ...(spanId && { span_id: spanId }),
   });
 
   // Log incoming request
@@ -100,9 +106,13 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
   }
 
   // Use appropriate message and log level based on status
+  // Skip logging 401 for auth check endpoints - these are expected when not logged in
+  const isAuthCheckEndpoint = c.req.path === '/auth/me' || c.req.path === '/auth/refresh';
+  const isExpected401 = status === 401 && isAuthCheckEndpoint;
+
   if (status >= 500) {
     reqLogger.error('server error', undefined, logData);
-  } else if (status >= 400) {
+  } else if (status >= 400 && !isExpected401) {
     reqLogger.warn('request failed', logData);
   } else {
     reqLogger.debug('request completed', logData);

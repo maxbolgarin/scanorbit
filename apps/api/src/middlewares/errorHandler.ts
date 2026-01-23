@@ -14,33 +14,39 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
   // Handle custom HTTP errors
   if (err instanceof HTTPError) {
     errorsTotal.inc({ type: err.name, route });
-    
+
     // Store error info in context for structured logger
     (c as unknown as { [key: string]: unknown })[errorInfoKey] = {
       error: err.name,
       message: err.message,
       statusCode: err.statusCode,
     };
-    
-    // Log all errors for debugging - use warn for 4xx, error for 5xx
-    const logContext = {
-      statusCode: err.statusCode,
-      method: c.req.method,
-      path: c.req.path,
-      error: err.name,
-      message: err.message,
-      query: c.req.query(),
-    };
-    
-    if (err.statusCode >= 500) {
-      logger.error('HTTP error', err, logContext);
-    } else {
-      logger.warn('HTTP error', {
-        ...logContext,
-        error: err.message,
-      });
+
+    // Skip logging 401 for auth check endpoints - these are expected when not logged in
+    const isAuthCheckEndpoint = route === '/auth/me' || route === '/auth/refresh';
+    const isExpected401 = err.statusCode === 401 && isAuthCheckEndpoint;
+
+    // Log errors for debugging - skip expected 401s, use warn for 4xx, error for 5xx
+    if (!isExpected401) {
+      const logContext = {
+        statusCode: err.statusCode,
+        method: c.req.method,
+        path: c.req.path,
+        error: err.name,
+        message: err.message,
+        query: c.req.query(),
+      };
+
+      if (err.statusCode >= 500) {
+        logger.error('HTTP error', err, logContext);
+      } else {
+        logger.warn('HTTP error', {
+          ...logContext,
+          error: err.message,
+        });
+      }
     }
-    
+
     return c.json(
       {
         error: err.name,

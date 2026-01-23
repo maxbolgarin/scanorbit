@@ -68,6 +68,86 @@
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 5,
+      "panels": [],
+      "title": "Trace Correlation",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "description": "Enter a trace ID to view all correlated logs across services",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "id": 6,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"scanorbit\"} | json | trace_id=~\"${trace_id:pipe}\" | line_format \"[{{.service}}] {{.level | upper}}: {{.message}}{{.msg}} {{if .error}}error={{.error}}{{end}}\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs by Trace ID",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "description": "Enter a scan ID to view all logs related to a specific scan operation",
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 20 },
+      "id": 7,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"scanorbit\"} | json | scan_id=~\"${scan_id:pipe}\" | line_format \"[{{.service}}] {{.level | upper}}: {{.message}}{{.msg}} job_id={{.job_id}}\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs by Scan ID",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "description": "Enter a job ID to view all logs related to a specific job",
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 20 },
+      "id": 8,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"scanorbit\"} | json | job_id=~\"${job_id:pipe}\" | line_format \"[{{.service}}] {{.level | upper}}: {{.message}}{{.msg}} scan_id={{.scan_id}}\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs by Job ID",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "description": "Enter a request ID to view all API logs for a specific HTTP request",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 32 },
+      "id": 9,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"scanorbit\", service=\"api\"} | json | request_id=~\"${request_id:pipe}\" | line_format \"{{.method}} {{.path}} [{{.status}}] {{.msg}} latency={{.latency}}\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs by Request ID",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
       "id": 10,
       "panels": [],
       "title": "Log Rate",
@@ -85,17 +165,17 @@
           { "matcher": { "id": "byName", "options": "fatal" }, "properties": [{ "id": "color", "value": { "fixedColor": "dark-red", "mode": "fixed" } }] }
         ]
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 43 },
       "id": 11,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
       "pluginVersion": "10.4.0",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (level) (count_over_time({app=\"scanorbit\"} [$__interval]))", "legendFormat": "{{level}}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (level) (count_over_time({app=\"scanorbit\", service=~\"${service:pipe}\", level=~\"${level:pipe}\"} [$__interval]))", "legendFormat": "{{level}}", "refId": "A" }],
       "title": "Log Rate by Level",
       "type": "timeseries"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
       "id": 20,
       "panels": [],
       "title": "Error Analysis",
@@ -107,7 +187,7 @@
         "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 30, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "logs" },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
       "id": 21,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
       "pluginVersion": "10.4.0",
@@ -121,7 +201,7 @@
         "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 10 }] } },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
       "id": 22,
       "options": { "displayMode": "lcd", "minVizHeight": 10, "minVizWidth": 0, "namePlacement": "auto", "orientation": "horizontal", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "showUnfilled": true, "text": {}, "valueMode": "color" },
       "pluginVersion": "10.4.0",
@@ -131,7 +211,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
       "id": 30,
       "panels": [],
       "title": "All Logs",
@@ -139,22 +219,22 @@
     },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 15, "w": 24, "x": 0, "y": 26 },
+      "gridPos": { "h": 15, "w": 24, "x": 0, "y": 61 },
       "id": 31,
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "pluginVersion": "10.4.0",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{app=\"scanorbit\"} | json", "legendFormat": "", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{app=\"scanorbit\", service=~\"${service:pipe}\", level=~\"${level:pipe}\"} | json", "legendFormat": "", "refId": "A" }],
       "title": "Live Logs",
       "type": "logs"
     },
     {
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 76 },
       "id": 40,
       "panels": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 42 },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 77 },
           "id": 41,
           "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
           "pluginVersion": "10.4.0",
@@ -168,12 +248,12 @@
     },
     {
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 77 },
       "id": 50,
       "panels": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 43 },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 78 },
           "id": 51,
           "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
           "pluginVersion": "10.4.0",
@@ -187,12 +267,12 @@
     },
     {
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 78 },
       "id": 60,
       "panels": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 44 },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 79 },
           "id": 61,
           "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
           "pluginVersion": "10.4.0",
@@ -206,12 +286,12 @@
     },
     {
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 44 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 79 },
       "id": 70,
       "panels": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 45 },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 80 },
           "id": 71,
           "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
           "pluginVersion": "10.4.0",
@@ -226,7 +306,7 @@
   ],
   "refresh": "10s",
   "schemaVersion": 39,
-  "tags": ["scanorbit", "logs", "loki"],
+  "tags": ["scanorbit", "logs", "loki", "tracing"],
   "templating": {
     "list": [
       {
@@ -262,6 +342,50 @@
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "description": "Enter a trace ID to correlate logs across services (32-char hex string)",
+        "hide": 0,
+        "label": "Trace ID",
+        "name": "trace_id",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "description": "Enter a request ID to find logs for a specific API request",
+        "hide": 0,
+        "label": "Request ID",
+        "name": "request_id",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "description": "Enter a scan ID to find all logs related to a scan operation",
+        "hide": 0,
+        "label": "Scan ID",
+        "name": "scan_id",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "description": "Enter a job ID to find all logs related to a specific job",
+        "hide": 0,
+        "label": "Job ID",
+        "name": "job_id",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
       }
     ]
   },
@@ -270,6 +394,6 @@
   "timezone": "",
   "title": "ScanOrbit Logs",
   "uid": "scanorbit-logs",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

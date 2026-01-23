@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { AlertCircle, Lock, Check, X, Eye, EyeOff } from "lucide-react";
-import { completeSignup } from "@/lib/api";
+import { completeSignup, setAccessToken } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +39,7 @@ export function PasswordStep({ signupToken, email, consent, onNext, onTokenError
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { setUser, setToken } = useAuthStore();
+  const { setUser } = useAuthStore();
 
   const {
     register,
@@ -64,9 +64,10 @@ export function PasswordStep({ signupToken, email, consent, onNext, onTokenError
     setIsLoading(true);
     try {
       const result = await completeSignup(signupToken, data.password, consent);
-      // Store user and token in auth store
+      // Store access token for API requests
+      setAccessToken(result.accessToken);
+      // Store user in auth store
       setUser({ ...result.user, emailVerified: true });
-      setToken(result.token);
       onNext();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create account";

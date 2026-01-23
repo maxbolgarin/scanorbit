@@ -382,3 +382,103 @@ export const passwordResetStore = {
     await redis.del(passwordResetTokenKey(token));
   },
 };
+
+// ============================================
+// Refresh Token Storage Helpers
+// ============================================
+
+const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days (matches JWT expiry)
+
+function refreshTokenKey(tokenId: string): string {
+  return `refresh:${tokenId}`;
+}
+
+function userRefreshTokensKey(userId: string): string {
+  return `refresh:user:${userId}`;
+}
+
+export const refreshTokenStore = {
+  /**
+   * Store a refresh token ID for a user
+   * The tokenId maps to userId for validation
+   * Also tracks user's active tokens in a set for bulk revocation
+   */
+  async store(tokenId: string, userId: string): Promise<void> {
+    const pipeline = redis.pipeline();
+
+    // Store tokenId -> userId mapping with TTL
+    pipeline.setex(refreshTokenKey(tokenId), REFRESH_TOKEN_TTL, userId);
+
+    // Add tokenId to user's set of active tokens
+    pipeline.sadd(userRefreshTokensKey(userId), tokenId);
+
+    // Set TTL on the user's token set (refreshed on each new token)
+    pipeline.expire(userRefreshTokensKey(userId), REFRESH_TOKEN_TTL);
+
+    await pipeline.exec();
+  },
+
+  /**
+   * Check if a refresh token ID is valid (not revoked)
+   * Returns the userId if valid, null otherwise
+   */
+  async validate(tokenId: string): Promise<string | null> {
+    return redis.get(refreshTokenKey(tokenId));
+  },
+
+  /**
+   * Check if a refresh token ID exists
+   */
+  async isValid(tokenId: string): Promise<boolean> {
+    const exists = await redis.exists(refreshTokenKey(tokenId));
+    return exists === 1;
+  },
+
+  /**
+   * Revoke a specific refresh token
+   * Called on logout or token rotation
+   */
+  async revoke(tokenId: string): Promise<void> {
+    // Get the userId first so we can remove from user's set
+    const userId = await redis.get(refreshTokenKey(tokenId));
+
+    const pipeline = redis.pipeline();
+    pipeline.del(refreshTokenKey(tokenId));
+
+    if (userId) {
+      pipeline.srem(userRefreshTokensKey(userId), tokenId);
+    }
+
+    await pipeline.exec();
+  },
+
+  /**
+   * Revoke all refresh tokens for a user
+   * Called on password change, account compromise, or "logout all devices"
+   */
+  async revokeAllForUser(userId: string): Promise<void> {
+    const userKey = userRefreshTokensKey(userId);
+
+    // Get all token IDs for this user
+    const tokenIds = await redis.smembers(userKey);
+
+    if (tokenIds.length === 0) {
+      return;
+    }
+
+    // Build keys to delete
+    const keysToDelete = tokenIds.map(refreshTokenKey);
+    keysToDelete.push(userKey); // Also delete the user's set
+
+    // Delete all in one operation
+    await redis.del(...keysToDelete);
+  },
+
+  /**
+   * Get count of active refresh tokens for a user
+   * Useful for showing "active sessions" count
+   */
+  async getActiveCount(userId: string): Promise<number> {
+    return redis.scard(userRefreshTokensKey(userId));
+  },
+};

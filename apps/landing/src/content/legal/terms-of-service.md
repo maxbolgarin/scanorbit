@@ -1,7 +1,7 @@
 ---
 title: Terms of Service
 description: ScanOrbit Terms of Service. Legal agreement for using ScanOrbit AWS scanner.
-lastUpdated: January 21, 2026
+lastUpdated: January 23, 2026
 ---
 
 These Terms of Service ("Terms," "Agreement") govern your use of the ScanOrbit website, application, and services (collectively, the "Service"). By accessing or using ScanOrbit, you agree to be bound by these Terms. If you do not agree with any part of these Terms, please do not use the Service.
@@ -340,13 +340,25 @@ ScanOrbit integrates with Amazon Web Services (AWS):
 - You are responsible for AWS costs
 - AWS may change their APIs or policies
 
-### 8.2 Third-Party Tools (Future)
+### 8.2 Third-Party Services
 
-ScanOrbit may integrate with:
-- Email services (SendGrid)
-- Payment processors (Stripe)
-- Analytics tools
-- Monitoring services
+ScanOrbit integrates with the following third-party services:
+
+| Service | Purpose | Privacy |
+|---------|---------|---------|
+| **Plausible Analytics** | Privacy-first website analytics | No cookies, no personal data, EU-hosted |
+| **Stripe** | Payment processing | PCI compliant, [Privacy Policy](https://stripe.com/privacy) |
+| **SendGrid** | Email delivery | [Privacy Policy](https://www.twilio.com/legal/privacy) |
+
+**About Plausible Analytics:**
+We use Plausible for website and application analytics. Unlike Google Analytics, Plausible:
+- Does not use cookies
+- Does not collect personal data
+- Does not track users across sites
+- Is fully GDPR compliant by design
+- Hosts all data in the EU
+
+Learn more: [Plausible Data Policy](https://plausible.io/data-policy)
 
 These third parties have their own terms and privacy policies. We recommend reviewing them.
 

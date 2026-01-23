@@ -26,13 +26,21 @@ export const config = {
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 
-  // JWT - MUST be set in production
+  // JWT Access Token Secret - MUST be set in production
+  // Used for signing short-lived access tokens (5 min expiry, hardcoded in jwt.ts)
   jwtSecret: process.env.JWT_SECRET || (
     process.env.NODE_ENV === 'production'
       ? (() => { throw new Error('JWT_SECRET environment variable is required in production'); })()
       : 'dev-only-jwt-secret-do-not-use-in-production'
   ),
-  jwtExpiry: process.env.JWT_EXPIRY || '7d',
+
+  // JWT Refresh Token Secret - MUST be set in production (separate secret for refresh tokens)
+  // Used for signing long-lived refresh tokens (7 day expiry, stored in httpOnly cookie)
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || (
+    process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('JWT_REFRESH_SECRET environment variable is required in production'); })()
+      : 'dev-only-jwt-refresh-secret-do-not-use-in-production'
+  ),
 
   // Two-Factor Authentication - MUST be set in production (32 bytes hex for AES-256)
   totpEncryptionKey: process.env.TOTP_ENCRYPTION_KEY || (
@@ -93,7 +101,7 @@ export const config = {
   retentionResourcesDays: parseInt(process.env.RETENTION_RESOURCES_DAYS || '90', 10),
   retentionFindingsResolvedDays: parseInt(process.env.RETENTION_FINDINGS_RESOLVED_DAYS || '180', 10),
   retentionScansDays: parseInt(process.env.RETENTION_SCANS_DAYS || '365', 10),
-  retentionAuditLogsDays: parseInt(process.env.RETENTION_AUDIT_LOGS_DAYS || '180', 10), // 6 months
+  retentionAuditLogsDays: parseInt(process.env.RETENTION_AUDIT_LOGS_DAYS || '730', 10), // 2 years (GDPR compliance)
 } as const;
 
 

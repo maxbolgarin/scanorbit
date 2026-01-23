@@ -7,6 +7,7 @@ import { errorHandler } from './middlewares/errorHandler.js';
 import { auditLog } from './middlewares/auditLog.js';
 import { metricsMiddleware } from './middlewares/metrics.js';
 import { structuredLoggerMiddleware } from './middlewares/structuredLogger.js';
+import { requestIdMiddleware } from './middlewares/requestId.js';
 import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { getMetrics, getContentType, dbPoolConnections, queueLength } from './lib/metrics.js';
@@ -53,11 +54,14 @@ app.use(
     origin: config.frontendUrl,
     credentials: true,
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
-    exposeHeaders: ['Set-Cookie'],
+    allowHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-trace-id', 'x-span-id'],
+    exposeHeaders: ['Set-Cookie', 'x-request-id', 'x-trace-id'],
     maxAge: 86400,
   })
 );
+
+// Request ID and trace ID middleware (must be before structuredLogger)
+app.use(requestIdMiddleware);
 
 app.use(structuredLoggerMiddleware);
 app.use(metricsMiddleware);

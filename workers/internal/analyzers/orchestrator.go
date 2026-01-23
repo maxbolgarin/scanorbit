@@ -72,10 +72,17 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		}
 	}
 
+	// Use scan_id as trace_id for log correlation across services
+	traceID := job.ScanID
+	if traceID == "" {
+		traceID = job.JobID
+	}
+
 	o.logger.Info().
 		Str("analyzer", analyzer.Name()).
 		Str("job_id", job.JobID).
 		Str("scan_id", job.ScanID).
+		Str("trace_id", traceID).
 		Str("account_id", job.AccountID).
 		Str("org_id", job.OrgID).
 		Msg("starting analysis")
@@ -92,6 +99,9 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 
 		o.logger.Error().Err(err).
 			Str("analyzer", analyzer.Name()).
+			Str("job_id", job.JobID).
+			Str("scan_id", job.ScanID).
+			Str("trace_id", traceID).
 			Str("account_id", job.AccountID).
 			Msg("analysis failed")
 		metrics.JobsProcessedTotal.WithLabelValues("analyzer", analyzerType, "error").Inc()
@@ -164,6 +174,8 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 	o.logger.Info().
 		Str("analyzer", analyzer.Name()).
 		Str("job_id", job.JobID).
+		Str("scan_id", job.ScanID).
+		Str("trace_id", traceID).
 		Str("account_id", job.AccountID).
 		Int("findings_detected", len(findings)).
 		Int("findings_persisted", persistedCount).

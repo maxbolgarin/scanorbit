@@ -5,17 +5,36 @@ import { setCookie } from 'hono/cookie';
 import { requireAuth } from '../middlewares/auth.js';
 import { orgService } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
+import { jwt } from '../lib/jwt.js';
+import { refreshTokenStore } from '../lib/redis.js';
 import type { Variables, SubscriptionTier } from '../types/index.js';
 
-// Helper to set JWT cookie (same as in auth routes)
-const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
-  setCookie(c, 'jwt', token, {
+/**
+ * Set refresh token in httpOnly secure cookie
+ */
+const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken: string) => {
+  setCookie(c, 'refresh_token', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
   });
+};
+
+/**
+ * Issue new access and refresh tokens for a user
+ */
+const setAuthTokens = async (
+  c: Parameters<typeof setCookie>[0],
+  userId: string,
+  orgId: string | null
+): Promise<{ accessToken: string }> => {
+  const accessToken = await jwt.signAccessToken({ userId, orgId });
+  const { token: refreshToken, tokenId } = await jwt.signRefreshToken(userId);
+  await refreshTokenStore.store(tokenId, userId);
+  setRefreshTokenCookie(c, refreshToken);
+  return { accessToken };
 };
 
 const orgsRoute = new Hono<{ Variables: Variables }>();
@@ -48,10 +67,10 @@ orgsRoute.post('/', zValidator('json', createOrgSchema), async (c) => {
 
   const result = await orgService.createOrg(userId, orgName, fullName, title);
 
-  // Set the new JWT cookie with orgId
-  setAuthCookie(c, result.token);
+  // Issue new tokens with the new orgId
+  const { accessToken } = await setAuthTokens(c, userId, result.org.id);
 
-  return c.json({ data: result.org, token: result.token }, 201);
+  return c.json({ data: result.org, accessToken }, 201);
 });
 
 // GET /orgs - List user's organizations

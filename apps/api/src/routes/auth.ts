@@ -1,13 +1,15 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { setCookie, deleteCookie } from 'hono/cookie';
+import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import { authService } from '../services/authService.js';
 import { twoFactorService } from '../services/twoFactorService.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
 import { config } from '../lib/config.js';
-import { twoFactorStore } from '../lib/redis.js';
+import { twoFactorStore, refreshTokenStore } from '../lib/redis.js';
+import { jwt } from '../lib/jwt.js';
+import { HTTP401Error } from '../lib/errors.js';
 import type { Variables } from '../types/index.js';
 
 const authRoute = new Hono<{ Variables: Variables }>();
@@ -94,9 +96,15 @@ const twoFactorRegenerateCodesSchema = z.object({
   code: z.string().length(6, 'Verification code must be 6 digits'),
 });
 
-// Helper to set JWT cookie
-const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
-  setCookie(c, 'jwt', token, {
+// ============================================
+// Auth Cookie Helpers
+// ============================================
+
+/**
+ * Set refresh token in httpOnly secure cookie
+ */
+const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken: string) => {
+  setCookie(c, 'refresh_token', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
@@ -105,77 +113,186 @@ const setAuthCookie = (c: Parameters<typeof setCookie>[0], token: string) => {
   });
 };
 
-// POST /auth/signup - Rate limited to prevent spam
-authRoute.post('/signup', rateLimiters.sendCode, zValidator('json', signupSchema), async (c) => {
-  const { email, password, fullName, orgName } = c.req.valid('json');
+/**
+ * Clear auth cookies (for logout)
+ */
+const clearAuthCookies = (c: Parameters<typeof deleteCookie>[0]) => {
+  deleteCookie(c, 'refresh_token', { path: '/' });
+};
 
-  const { user, org, token, message } = await authService.signup(
-    email,
-    password,
-    fullName ?? '',
-    orgName
-  );
+/**
+ * Issue new access and refresh tokens for a user
+ * - Access token (5 min): returned in response body, stored in frontend memory
+ * - Refresh token (7 days): stored in httpOnly secure cookie
+ */
+const setAuthTokens = async (
+  c: Parameters<typeof setCookie>[0],
+  userId: string,
+  orgId: string | null
+): Promise<{ accessToken: string }> => {
+  // Generate access token (short-lived, 5 min)
+  const accessToken = await jwt.signAccessToken({ userId, orgId });
 
-  setAuthCookie(c, token);
+  // Generate refresh token (long-lived, 7 days)
+  const { token: refreshToken, tokenId } = await jwt.signRefreshToken(userId);
 
-  return c.json(
-    {
-      user,
-      org,
-      token,
-      message,
-    },
-    201
-  );
-});
+  // Store refresh token ID in Redis for revocation tracking
+  await refreshTokenStore.store(tokenId, userId);
 
-// POST /auth/verify-email - Rate limited to prevent brute force
-authRoute.post('/verify-email', rateLimiters.verifyCode, zValidator('json', verifyEmailSchema), async (c) => {
-  const { email, code } = c.req.valid('json');
+  // Set refresh token in httpOnly cookie
+  setRefreshTokenCookie(c, refreshToken);
 
-  const result = await authService.verifyEmail(email, code);
+  return { accessToken };
+};
 
-  return c.json(result);
-});
+// POST /auth/signup - Rate limited by both email and IP to prevent spam
+authRoute.post(
+  '/signup',
+  zValidator('json', signupSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.sendCodeStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email, password, fullName, orgName } = c.req.valid('json');
 
-// POST /auth/resend-verification - Rate limited to prevent spam
-authRoute.post('/resend-verification', rateLimiters.sendCode, zValidator('json', resendVerificationSchema), async (c) => {
-  const { email } = c.req.valid('json');
+    const { user, org, message } = await authService.signup(
+      email,
+      password,
+      fullName ?? '',
+      orgName
+    );
 
-  const result = await authService.resendVerificationCode(email);
+    // Issue new access and refresh tokens
+    const { accessToken } = await setAuthTokens(c, user.id, org?.id ?? null);
 
-  return c.json(result);
-});
+    return c.json(
+      {
+        user,
+        org,
+        accessToken,
+        message,
+      },
+      201
+    );
+  }
+);
 
-// POST /auth/login - Rate limited to prevent brute force
-authRoute.post('/login', rateLimiters.login, zValidator('json', loginSchema), async (c) => {
-  const { email, password } = c.req.valid('json');
+// POST /auth/verify-email - Rate limited by both email and IP to prevent brute force
+authRoute.post(
+  '/verify-email',
+  zValidator('json', verifyEmailSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.verifyCodeStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email, code } = c.req.valid('json');
 
-  const result = await authService.login(email, password);
+    const result = await authService.verifyEmail(email, code);
 
-  // Check if 2FA is required
-  if ('requires2FA' in result && result.requires2FA) {
+    return c.json(result);
+  }
+);
+
+// POST /auth/resend-verification - Rate limited by both email and IP to prevent spam
+authRoute.post(
+  '/resend-verification',
+  zValidator('json', resendVerificationSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.sendCodeStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email } = c.req.valid('json');
+
+    const result = await authService.resendVerificationCode(email);
+
+    return c.json(result);
+  }
+);
+
+// POST /auth/login - Rate limited by both email and IP to prevent brute force
+authRoute.post(
+  '/login',
+  zValidator('json', loginSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.loginStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email, password } = c.req.valid('json');
+
+    const result = await authService.login(email, password);
+
+    // Check if 2FA is required
+    if ('requires2FA' in result && result.requires2FA) {
+      return c.json({
+        requires2FA: true,
+        challengeToken: result.challengeToken,
+      });
+    }
+
+    // Normal login (no 2FA)
+    const { user, orgs } = result;
+
+    // Issue new access and refresh tokens
+    const { accessToken } = await setAuthTokens(c, user.id, orgs[0]?.id ?? null);
+
     return c.json({
-      requires2FA: true,
-      challengeToken: result.challengeToken,
+      user,
+      orgs,
+      accessToken,
     });
   }
+);
 
-  // Normal login (no 2FA)
-  const { user, orgs, token } = result;
-  setAuthCookie(c, token);
+// POST /auth/logout - Revoke refresh token and clear cookies
+authRoute.post('/logout', async (c) => {
+  // Try to revoke the refresh token if present
+  const refreshToken = getCookie(c, 'refresh_token');
+  if (refreshToken) {
+    try {
+      const payload = await jwt.verifyRefreshToken(refreshToken);
+      await refreshTokenStore.revoke(payload.tokenId);
+    } catch {
+      // Ignore errors - token may already be invalid
+    }
+  }
 
-  return c.json({
-    user,
-    orgs,
-    token,
-  });
+  // Clear all auth cookies
+  clearAuthCookies(c);
+
+  return c.json({ message: 'Logged out successfully' });
 });
 
-// POST /auth/logout
-authRoute.post('/logout', (c) => {
-  deleteCookie(c, 'jwt', { path: '/' });
-  return c.json({ message: 'Logged out successfully' });
+// POST /auth/refresh - Get new access token using refresh token
+authRoute.post('/refresh', async (c) => {
+  const refreshToken = getCookie(c, 'refresh_token');
+
+  if (!refreshToken) {
+    throw new HTTP401Error('No refresh token');
+  }
+
+  try {
+    // Verify the refresh token
+    const payload = await jwt.verifyRefreshToken(refreshToken);
+
+    // Check if token has been revoked
+    const isValid = await refreshTokenStore.isValid(payload.tokenId);
+    if (!isValid) {
+      clearAuthCookies(c);
+      throw new HTTP401Error('Token revoked');
+    }
+
+    // Get user's current org membership
+    const { orgs } = await authService.getMe(payload.userId);
+    const orgId = orgs[0]?.id ?? null;
+
+    // Issue new access token only (refresh token stays the same until it expires)
+    const accessToken = await jwt.signAccessToken({ userId: payload.userId, orgId });
+
+    return c.json({ accessToken });
+  } catch (error) {
+    if (error instanceof HTTP401Error) {
+      throw error;
+    }
+    // Clear invalid refresh cookie
+    clearAuthCookies(c);
+    throw new HTTP401Error('Invalid refresh token');
+  }
 });
 
 // GET /auth/me - Get current user
@@ -194,11 +311,13 @@ authRoute.post(
     const userId = c.get('userId');
     const { orgId } = c.req.valid('json');
 
-    const token = await authService.switchOrg(userId, orgId);
+    // Verify user has access to the org (switchOrg will throw if not)
+    await authService.switchOrg(userId, orgId);
 
-    setAuthCookie(c, token);
+    // Issue new access token with the new orgId
+    const accessToken = await jwt.signAccessToken({ userId, orgId });
 
-    return c.json({ token });
+    return c.json({ accessToken });
   }
 );
 
@@ -206,23 +325,35 @@ authRoute.post(
 // New Signup Flow Endpoints
 // ============================================
 
-// POST /auth/send-code - Send verification code to email (Step 1) - Rate limited
-authRoute.post('/send-code', rateLimiters.sendCode, zValidator('json', sendCodeSchema), async (c) => {
-  const { email } = c.req.valid('json');
+// POST /auth/send-code - Send verification code to email (Step 1) - Rate limited by both email and IP
+authRoute.post(
+  '/send-code',
+  zValidator('json', sendCodeSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.sendCodeStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email } = c.req.valid('json');
 
-  const result = await authService.sendVerificationCode(email);
+    const result = await authService.sendVerificationCode(email);
 
-  return c.json(result);
-});
+    return c.json(result);
+  }
+);
 
-// POST /auth/verify-code - Verify code and get signup token (Step 2) - Rate limited
-authRoute.post('/verify-code', rateLimiters.verifyCode, zValidator('json', verifyCodeSchema), async (c) => {
-  const { email, code } = c.req.valid('json');
+// POST /auth/verify-code - Verify code and get signup token (Step 2) - Rate limited by both email and IP
+authRoute.post(
+  '/verify-code',
+  zValidator('json', verifyCodeSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.verifyCodeStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email, code } = c.req.valid('json');
 
-  const result = await authService.verifySignupCode(email, code);
+    const result = await authService.verifySignupCode(email, code);
 
-  return c.json(result);
-});
+    return c.json(result);
+  }
+);
 
 // POST /auth/complete-signup - Complete signup with password (Step 3) - Rate limited
 authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', completeSignupSchema), async (c) => {
@@ -235,24 +366,34 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
     || 'unknown';
   const userAgent = c.req.header('user-agent') || 'unknown';
 
-  const { user, token } = await authService.completeSignup(signupToken, password, {
+  const { user } = await authService.completeSignup(signupToken, password, {
     ipAddress,
     userAgent,
   });
 
-  setAuthCookie(c, token);
+  // Issue new access and refresh tokens
+  const { accessToken } = await setAuthTokens(c, user.id, null);
 
-  return c.json({ user, token }, 201);
+  return c.json({
+    user,
+    accessToken,
+  }, 201);
 });
 
-// POST /auth/resend-code - Resend verification code - Rate limited
-authRoute.post('/resend-code', rateLimiters.sendCode, zValidator('json', resendCodeSchema), async (c) => {
-  const { email } = c.req.valid('json');
+// POST /auth/resend-code - Resend verification code - Rate limited by both email and IP
+authRoute.post(
+  '/resend-code',
+  zValidator('json', resendCodeSchema),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rateLimiters.sendCodeStrict((c: any) => c.req.valid('json').email),
+  async (c) => {
+    const { email } = c.req.valid('json');
 
-  const result = await authService.resendSignupCode(email);
+    const result = await authService.resendSignupCode(email);
 
-  return c.json(result);
-});
+    return c.json(result);
+  }
+);
 
 // ============================================
 // Password Reset Endpoints (Public)
@@ -412,15 +553,16 @@ authRoute.post(
     await twoFactorStore.deleteChallenge(challengeToken);
     await twoFactorStore.resetVerifyAttempts(`login:${challenge.userId}`);
 
-    // Complete login - get user data and issue JWT
+    // Complete login - get user data
     const result = await authService.completeLoginAfter2FA(challenge.userId);
 
-    setAuthCookie(c, result.token);
+    // Issue new access and refresh tokens
+    const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     return c.json({
       user: result.user,
       orgs: result.orgs,
-      token: result.token,
+      accessToken,
     });
   }
 );
@@ -461,15 +603,16 @@ authRoute.post(
     await twoFactorStore.deleteChallenge(challengeToken);
     await twoFactorStore.resetVerifyAttempts(`recovery:${challenge.userId}`);
 
-    // Complete login
+    // Complete login - get user data
     const result = await authService.completeLoginAfter2FA(challenge.userId);
 
-    setAuthCookie(c, result.token);
+    // Issue new access and refresh tokens
+    const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     return c.json({
       user: result.user,
       orgs: result.orgs,
-      token: result.token,
+      accessToken,
     });
   }
 );
@@ -531,7 +674,9 @@ authRoute.get('/google/callback', async (c) => {
       return c.redirect(`${config.frontendUrl}/login?2fa_challenge=${result.challengeToken}`);
     }
 
-    setAuthCookie(c, result.token);
+    // Set auth tokens (refresh cookie)
+    // Frontend will call /auth/refresh after redirect to get access token
+    await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     // Redirect based on whether user has an org
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/create-org';
@@ -556,13 +701,14 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
     });
   }
 
-  setAuthCookie(c, result.token);
+  // Issue new access and refresh tokens
+  const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
   return c.json({
     user: result.user,
     orgs: result.orgs,
     isNewUser: result.isNewUser,
-    token: result.token,
+    accessToken,
   });
 });
 
@@ -604,7 +750,9 @@ authRoute.get('/github/callback', async (c) => {
       return c.redirect(`${config.frontendUrl}/login?2fa_challenge=${result.challengeToken}`);
     }
 
-    setAuthCookie(c, result.token);
+    // Set auth tokens (refresh cookie)
+    // Frontend will call /auth/refresh after redirect to get access token
+    await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     // Redirect based on whether user has an org
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/create-org';

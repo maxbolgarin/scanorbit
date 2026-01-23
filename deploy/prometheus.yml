@@ -6,16 +6,16 @@ global:
   external_labels:
     monitor: 'scanorbit'
 
-# Alerting configuration (optional - can be configured later)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets:
-#           - alertmanager:9093
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
 
-# Rule files (optional - can be added later)
-# rule_files:
-#   - /etc/prometheus/rules/*.yml
+# Rule files for alerting
+rule_files:
+  - /etc/prometheus/rules/*.yml
 
 # Scrape configurations
 scrape_configs:
@@ -46,12 +46,12 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 10s
 
-  # Redis (if redis-exporter is added later)
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
 
-  # PostgreSQL (if postgres-exporter is added later)
-  # - job_name: 'postgres'
-  #   static_configs:
-  #     - targets: ['postgres-exporter:9187']
+  # PostgreSQL Exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
