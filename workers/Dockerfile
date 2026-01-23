@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /analyzer ./cmd/analyz
 
 # Scanner production image
 FROM alpine:3.23 AS scanner
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget
 WORKDIR /app
 COPY --from=build-scanner /scanner .
 USER nobody:nobody
@@ -25,7 +25,7 @@ ENTRYPOINT ["./scanner"]
 
 # Analyzer production image
 FROM alpine:3.23 AS analyzer
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget
 WORKDIR /app
 COPY --from=build-analyzer /analyzer .
 USER nobody:nobody

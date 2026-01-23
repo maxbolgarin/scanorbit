@@ -46,20 +46,32 @@ openssl req -new \
     -out "${POSTGRES_DIR}/server.csr" \
     -subj "/CN=postgres/O=ScanOrbit/C=NL"
 
-# Sign server certificate with CA
+# Create SAN extension config for PostgreSQL
+cat > "${POSTGRES_DIR}/san.cnf" << EOF
+[v3_req]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = postgres
+DNS.2 = localhost
+IP.1 = 127.0.0.1
+EOF
+
+# Sign server certificate with CA (with SANs)
 openssl x509 -req -days ${VALIDITY_DAYS} \
     -in "${POSTGRES_DIR}/server.csr" \
     -CA "${POSTGRES_DIR}/ca.crt" \
     -CAkey "${POSTGRES_DIR}/ca.key" \
     -CAcreateserial \
-    -out "${POSTGRES_DIR}/server.crt"
+    -out "${POSTGRES_DIR}/server.crt" \
+    -extfile "${POSTGRES_DIR}/san.cnf" \
+    -extensions v3_req
 
 # Set permissions (PostgreSQL requires key to be readable only by owner)
 chmod 600 "${POSTGRES_DIR}/server.key"
 chmod 644 "${POSTGRES_DIR}/server.crt" "${POSTGRES_DIR}/ca.crt"
 
-# Clean up CSR
-rm -f "${POSTGRES_DIR}/server.csr"
+# Clean up CSR and temp config
+rm -f "${POSTGRES_DIR}/server.csr" "${POSTGRES_DIR}/san.cnf"
 
 log_info "PostgreSQL certificates generated in ${POSTGRES_DIR}"
 
@@ -84,13 +96,25 @@ openssl req -new \
     -out "${REDIS_DIR}/redis.csr" \
     -subj "/CN=redis/O=ScanOrbit/C=NL"
 
-# Sign server certificate with CA
+# Create SAN extension config for Redis
+cat > "${REDIS_DIR}/san.cnf" << EOF
+[v3_req]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = redis
+DNS.2 = localhost
+IP.1 = 127.0.0.1
+EOF
+
+# Sign server certificate with CA (with SANs)
 openssl x509 -req -days ${VALIDITY_DAYS} \
     -in "${REDIS_DIR}/redis.csr" \
     -CA "${REDIS_DIR}/ca.crt" \
     -CAkey "${REDIS_DIR}/ca.key" \
     -CAcreateserial \
-    -out "${REDIS_DIR}/redis.crt"
+    -out "${REDIS_DIR}/redis.crt" \
+    -extfile "${REDIS_DIR}/san.cnf" \
+    -extensions v3_req
 
 # Generate DH parameters for Redis (optional but recommended)
 openssl dhparam -out "${REDIS_DIR}/redis.dh" 2048
@@ -99,8 +123,8 @@ openssl dhparam -out "${REDIS_DIR}/redis.dh" 2048
 chmod 600 "${REDIS_DIR}/redis.key"
 chmod 644 "${REDIS_DIR}/redis.crt" "${REDIS_DIR}/ca.crt" "${REDIS_DIR}/redis.dh"
 
-# Clean up CSR
-rm -f "${REDIS_DIR}/redis.csr"
+# Clean up CSR and temp config
+rm -f "${REDIS_DIR}/redis.csr" "${REDIS_DIR}/san.cnf"
 
 log_info "Redis certificates generated in ${REDIS_DIR}"
 

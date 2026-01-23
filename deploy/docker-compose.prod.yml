@@ -13,10 +13,19 @@ services:
       - caddy_config:/config
     environment:
       - DOMAIN=${DOMAIN}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     depends_on:
-      - api
-      - app
-      - landing
+      api:
+        condition: service_healthy
+      app:
+        condition: service_started
+      landing:
+        condition: service_started
     networks:
       - scanorbit
 
@@ -97,6 +106,12 @@ services:
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -144,12 +159,21 @@ services:
       - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
       - REQUIRED_TAGS=${REQUIRED_TAGS:-}
       - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
+      - METRICS_BIND_ADDR=0.0.0.0  # Bind to all interfaces for Docker network access
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
     ports:
-      - "9090:9090"  # Metrics endpoint
+      - "127.0.0.1:9090:9090"  # Metrics endpoint (localhost only)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -172,12 +196,21 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
       - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
+      - METRICS_BIND_ADDR=0.0.0.0  # Bind to all interfaces for Docker network access
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
     ports:
-      - "9091:9091"  # Metrics endpoint
+      - "127.0.0.1:9091:9091"  # Metrics endpoint (localhost only)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9091/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -334,9 +367,6 @@ services:
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_INCLUDE_LABELS=true
       - WATCHTOWER_SCOPE=scanorbit
-      # Ensures registry credentials are passed when pulling (important for private GHCR images
-      # and for avoiding "unauthorized" pulls when the daemon doesn't have cached auth).
-      - WATCHTOWER_REGISTRY_AUTH=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
       # Rolling restarts disabled - incompatible with containers that have dependencies
       # - WATCHTOWER_ROLLING_RESTART=true
@@ -345,8 +375,9 @@ services:
       - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # Use deploy user's docker config (created via: docker login ghcr.io)
-      - /home/.docker/config.json:/config.json:ro
+      # Mount Docker config directory for GHCR authentication
+      # Set DOCKER_CONFIG_PATH in .env (e.g., /root/.docker or /home/deploy/.docker)
+      - ${DOCKER_CONFIG_PATH:-/root/.docker}:/config:ro
     command: --interval 300
     networks:
       - scanorbit
@@ -366,8 +397,15 @@ services:
       - '--web.enable-lifecycle'
     ports:
       - "9092:9090"  # Prometheus UI (9090 is used by scanner, so using 9092)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
-      - alertmanager
+      alertmanager:
+        condition: service_healthy
     networks:
       - scanorbit
 
@@ -384,9 +422,17 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
       - "3001:3000"  # Grafana UI (3000 is used by frontend, so using 3001)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
-      - prometheus
-      - loki
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
     networks:
       - scanorbit
 
@@ -400,6 +446,12 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"  # Loki API
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - scanorbit
 
@@ -412,8 +464,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     depends_on:
-      - loki
+      loki:
+        condition: service_healthy
     networks:
       - scanorbit
 
@@ -425,6 +484,12 @@ services:
       - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-scanorbit}?sslmode=require&sslrootcert=/certs/ca.crt
     volumes:
       - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -439,6 +504,12 @@ services:
       - REDIS_ADDR=rediss://redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_EXPORTER_SKIP_TLS_VERIFICATION=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9121/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     depends_on:
       redis:
         condition: service_healthy
@@ -446,6 +517,7 @@ services:
       - scanorbit
 
   # Alertmanager - Alert routing and notifications
+  # Set SLACK_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID in .env
   alertmanager:
     image: prom/alertmanager:v0.27.0
     restart: unless-stopped
@@ -455,18 +527,17 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
+      - ./scripts/alertmanager-entrypoint.sh:/entrypoint.sh:ro
       - alertmanager_data:/alertmanager
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        # Install envsubst (gettext) and process config template
-        apk add --no-cache gettext
-        envsubst < /etc/alertmanager/alertmanager.yml.tmpl > /etc/alertmanager/alertmanager.yml
-        # Start alertmanager
-        exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
       - "9093:9093"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     networks:
       - scanorbit
 

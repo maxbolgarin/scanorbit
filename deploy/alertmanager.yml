@@ -1,15 +1,15 @@
 # ScanOrbit Alertmanager Configuration
 # Routes alerts to appropriate channels based on severity
 #
-# NOTE: This file uses environment variable placeholders (${VAR_NAME}).
-# The docker-compose.prod.yml uses envsubst to substitute these at runtime.
+# NOTE: Set these environment variables in your .env file:
+#   SLACK_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 global:
   # ResolveTimeout is the time after which an alert is declared resolved
   # if it has not been updated
   resolve_timeout: 5m
 
-  # Slack webhook URL for notifications (configure in .env)
+  # Slack webhook URL for notifications (from env)
   slack_api_url: '${SLACK_WEBHOOK_URL}'
 
   # Telegram Bot API URL

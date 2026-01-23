@@ -20,8 +20,8 @@ function getOAuthUrl(): string {
     return "/api/auth/github";
   }
 
-  // Normalize the URL
-  const normalized = apiUrl.trim();
+  // Normalize the URL - remove trailing slashes to prevent double-slash issues
+  const normalized = apiUrl.trim().replace(/\/+$/, '');
   if (normalized.startsWith("/")) {
     return `${normalized}/auth/github`;
   }

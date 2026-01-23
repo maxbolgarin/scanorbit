@@ -74,8 +74,8 @@ export const config = {
   // AWS
   awsRegion: process.env.AWS_REGION || 'eu-central-1',
 
-  // Frontend
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  // Frontend - remove trailing slashes to prevent double-slash redirects
+  frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, ''),
 
   // Email (SMTP)
   smtp: {

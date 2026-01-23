@@ -250,3 +250,12 @@ send-ssh-key:
 	scp deploy/.ssh/id_ed25519_github.pub deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github.pub
 	scp deploy/.ssh/id_ed25519_github deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github
 	scp deploy/.ssh/config deploy@scanorbit.cloud:/home/deploy/.ssh/config
+
+
+# SSH tunnels for production monitoring
+tunnel-grafana:
+	@echo "$(YELLOW)Opening SSH tunnel to production Grafana...$(RESET)"
+	@echo "  Grafana will be available at: http://localhost:3001"
+	@echo "  Press Ctrl+C to close the tunnel"
+	@echo ""
+	ssh -N -L 3001:localhost:3001 deploy@scanorbit.cloud

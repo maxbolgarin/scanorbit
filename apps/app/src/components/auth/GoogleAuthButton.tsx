@@ -35,8 +35,8 @@ function getOAuthUrl(): string {
     return "/api/auth/google";
   }
 
-  // Normalize the URL
-  const normalized = apiUrl.trim();
+  // Normalize the URL - remove trailing slashes to prevent double-slash issues
+  const normalized = apiUrl.trim().replace(/\/+$/, '');
   if (normalized.startsWith("/")) {
     return `${normalized}/auth/google`;
   }
