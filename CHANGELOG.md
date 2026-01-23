@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.12.0](https://github.com/maxbolgarin/scanorbit/compare/v1.11.0...v1.12.0) (2026-01-23)
+
+### Features
+
+* add metrics to app ([026a5f3](https://github.com/maxbolgarin/scanorbit/commit/026a5f3f9e585bfee4a4656a04b255b03afc783d))
+
 ## [1.11.0](https://github.com/maxbolgarin/scanorbit/compare/v1.10.0...v1.11.0) (2026-01-23)
 
 ### Features
