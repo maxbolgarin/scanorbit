@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.1](https://github.com/maxbolgarin/scanorbit/compare/v1.13.0...v1.13.1) (2026-01-23)
+
+### Code Refactoring
+
+* **deploy:** update Makefile for deployment, remove Docker commands, and enhance Terraform commands for production and test infrastructure ([1554355](https://github.com/maxbolgarin/scanorbit/commit/1554355a9ad0756c828d7861ba0b5fab35081efc))
+
 ## [1.13.0](https://github.com/maxbolgarin/scanorbit/compare/v1.12.0...v1.13.0) (2026-01-23)
 
 ### Features
