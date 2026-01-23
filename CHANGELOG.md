@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.0](https://github.com/maxbolgarin/scanorbit/compare/v1.12.0...v1.13.0) (2026-01-23)
+
+### Features
+
+* **api,db,auth,workers:** consolidate migrations, add encryption and rate limiting with trusted proxies support ([9cf67aa](https://github.com/maxbolgarin/scanorbit/commit/9cf67aa2debc2e671a5a1c185e7e1dc3a5d9c806))
+
 ## [1.12.0](https://github.com/maxbolgarin/scanorbit/compare/v1.11.0...v1.12.0) (2026-01-23)
 
 ### Features
