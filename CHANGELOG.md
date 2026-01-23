@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.11.0](https://github.com/maxbolgarin/scanorbit/compare/v1.10.0...v1.11.0) (2026-01-23)
+
+### Features
+
+* add plausible script to landing ([2a36ea4](https://github.com/maxbolgarin/scanorbit/commit/2a36ea4ab8f02c5266d9745fc1ffdfef794d4451))
+
+### Continuous Integration
+
+* add changes molnitor ([5c29f04](https://github.com/maxbolgarin/scanorbit/commit/5c29f04e786fbfb9fc6a0940626a3b9ee8f82811))
+
 ## [1.10.0](https://github.com/maxbolgarin/scanorbit/compare/v1.9.0...v1.10.0) (2026-01-22)
 
 ### Features
