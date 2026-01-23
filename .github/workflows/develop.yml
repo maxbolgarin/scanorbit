@@ -10,9 +10,39 @@ env:
   IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      app: ${{ steps.filter.outputs.app }}
+      landing: ${{ steps.filter.outputs.landing }}
+      workers: ${{ steps.filter.outputs.workers }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+            app:
+              - 'apps/app/**'
+            landing:
+              - 'apps/landing/**'
+            workers:
+              - 'workers/**'
+
   # Build and push Docker images with develop tag
   build-api:
     name: Build API
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -53,6 +83,8 @@ jobs:
 
   build-app:
     name: Build App
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -96,6 +128,8 @@ jobs:
 
   build-landing:
     name: Build Landing
+    needs: changes
+    if: needs.changes.outputs.landing == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -136,6 +170,8 @@ jobs:
 
   build-workers:
     name: Build Workers
+    needs: changes
+    if: needs.changes.outputs.workers == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
