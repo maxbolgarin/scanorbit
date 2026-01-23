@@ -32,6 +32,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - REDIS_URL=${REDIS_URL}
+      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}
+      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
     working_dir: /app/apps/api
@@ -344,7 +346,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Use deploy user's docker config (created via: docker login ghcr.io)
-      - /home/deploy/.docker/config.json:/config.json:ro
+      - /home/.docker/config.json:/config.json:ro
     command: --interval 300
     networks:
       - scanorbit
@@ -354,8 +356,8 @@ services:
     image: prom/prometheus:v2.51.0
     restart: unless-stopped
     volumes:
-      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./deploy/prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -368,8 +370,6 @@ services:
       - alertmanager
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
   # Grafana - Metrics visualization
   grafana:
@@ -381,7 +381,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
       - "3001:3000"  # Grafana UI (3000 is used by frontend, so using 3001)
     depends_on:
@@ -389,30 +389,26 @@ services:
       - loki
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
   # Loki - Log aggregation
   loki:
     image: grafana/loki:2.9.6
     restart: unless-stopped
     volumes:
-      - ./deploy/loki.yml:/etc/loki/local-config.yaml:ro
+      - ./loki.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"  # Loki API
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
   # Promtail - Log collector
   promtail:
     image: grafana/promtail:2.9.6
     restart: unless-stopped
     volumes:
-      - ./deploy/promtail.yml:/etc/promtail/config.yml:ro
+      - ./promtail.yml:/etc/promtail/config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
@@ -420,8 +416,6 @@ services:
       - loki
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
   # PostgreSQL Exporter - Database metrics
   postgres-exporter:
@@ -436,8 +430,6 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
   # Redis Exporter - Cache/Queue metrics
   redis-exporter:
@@ -452,8 +444,6 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
   # Alertmanager - Alert routing and notifications
   alertmanager:
@@ -464,7 +454,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
     volumes:
-      - ./deploy/alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
       - alertmanager_data:/alertmanager
     entrypoint:
       - /bin/sh
@@ -479,8 +469,6 @@ services:
       - "9093:9093"
     networks:
       - scanorbit
-    profiles:
-      - monitoring
 
 volumes:
   postgres_data:

@@ -40,16 +40,6 @@ help:
 	@echo "  $(BLUE)lint$(RESET)            Run linters"
 	@echo "  $(BLUE)typecheck$(RESET)       TypeScript type checking"
 	@echo ""
-	@echo "$(YELLOW)Docker:$(RESET)"
-	@echo "  $(BLUE)docker-up$(RESET)       Start all containers"
-	@echo "  $(BLUE)docker-down$(RESET)     Stop all containers"
-	@echo "  $(BLUE)docker-build$(RESET)    Build Docker images"
-	@echo "  $(BLUE)docker-prod$(RESET)     Start production deployment"
-	@echo "  $(BLUE)docker-logs$(RESET)     Follow container logs"
-	@echo "  $(BLUE)docker-ps$(RESET)       Show running containers"
-	@echo "  $(BLUE)docker-clean$(RESET)    Remove containers and volumes"
-	@echo "  $(BLUE)docker-update-watchtower$(RESET)  Update Watchtower to latest version"
-	@echo ""
 	@echo "$(YELLOW)Database:$(RESET)"
 	@echo "  $(BLUE)db-migrate$(RESET)      Run database migrations"
 	@echo "  $(BLUE)db-generate$(RESET)     Generate migrations from schema"
@@ -57,10 +47,16 @@ help:
 	@echo "  $(BLUE)db-shell$(RESET)        Connect to PostgreSQL shell"
 	@echo ""
 	@echo "$(YELLOW)Terraform (Test Infrastructure):$(RESET)"
-	@echo "  $(BLUE)tf-init$(RESET)         Initialize Terraform"
-	@echo "  $(BLUE)tf-plan$(RESET)         Plan Terraform changes"
-	@echo "  $(BLUE)tf-apply$(RESET)        Apply Terraform configuration"
-	@echo "  $(BLUE)tf-destroy$(RESET)      Destroy test infrastructure"
+	@echo "  $(BLUE)tf-test-init$(RESET)         Initialize Terraform"
+	@echo "  $(BLUE)tf-test-plan$(RESET)         Plan Terraform changes"
+	@echo "  $(BLUE)tf-test-apply$(RESET)        Apply Terraform configuration"
+	@echo "  $(BLUE)tf-test-destroy$(RESET)      Destroy test infrastructure"
+	@echo ""
+	@echo "$(YELLOW)Terraform (Production Infrastructure):$(RESET)"
+	@echo "  $(BLUE)tf-prod-init$(RESET)         Initialize Terraform"
+	@echo "  $(BLUE)tf-prod-plan$(RESET)         Plan Terraform changes"
+	@echo "  $(BLUE)tf-prod-apply$(RESET)        Apply Terraform configuration"
+	@echo "  $(BLUE)tf-prod-destroy$(RESET)      Destroy production infrastructure"
 	@echo ""
 	@echo "$(YELLOW)Monitoring & Metrics:$(RESET)"
 	@echo "  $(BLUE)status$(RESET)          Show detailed status of all services"
@@ -182,49 +178,6 @@ clean:
 	cd workers && make clean
 
 # =============================================================================
-# Docker
-# =============================================================================
-docker-up:
-	docker compose up -d
-
-docker-down:
-	docker compose down
-
-docker-build:
-	docker compose build
-
-docker-prod:
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-
-docker-prod-down:
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
-
-docker-logs:
-	docker compose logs -f
-
-docker-logs-api:
-	docker compose logs -f api
-
-docker-logs-scanner:
-	docker compose logs -f scanner
-
-docker-logs-analyzer:
-	docker compose logs -f analyzer
-
-docker-ps:
-	docker compose ps
-
-docker-clean:
-	docker compose down -v --remove-orphans
-	docker system prune -f
-
-docker-update-watchtower:
-	@echo "$(YELLOW)Updating Watchtower to latest version...$(RESET)"
-	docker pull nickfedor/watchtower:latest
-	docker compose -f deploy/docker-compose.prod.yml up -d --force-recreate --no-deps watchtower
-	@echo "$(GREEN)Watchtower updated!$(RESET)"
-
-# =============================================================================
 # Database
 # =============================================================================
 db-migrate:
@@ -245,223 +198,44 @@ db-shell:
 # =============================================================================
 # Terraform (Test Infrastructure)
 # =============================================================================
-tf-init:
-	cd terraform && terraform init
+tf-test-init:
+	cd terraform/test-aws && terraform init
 
-tf-plan:
-	cd terraform && terraform plan
+tf-test-plan:
+	cd terraform/test-aws && terraform plan
 
-tf-apply:
-	cd terraform && terraform apply
+tf-test-apply:
+	cd terraform/test-aws && terraform apply
 
-tf-destroy:
-	cd terraform && terraform destroy
+tf-test-destroy:
+	cd terraform/test-aws && terraform destroy
 
-tf-output:
-	cd terraform && terraform output
-
-# =============================================================================
-# Utilities
-# =============================================================================
-health:
-	@echo "$(YELLOW)Checking service health...$(RESET)"
-	@echo ""
-	@echo "$(BLUE)API:$(RESET)"
-	@curl -s http://localhost:4000/health | jq . 2>/dev/null || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Scanner Worker:$(RESET)"
-	@curl -s http://localhost:9090/health | jq . 2>/dev/null || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Analyzer Worker:$(RESET)"
-	@curl -s http://localhost:9091/health | jq . 2>/dev/null || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)PostgreSQL:$(RESET)"
-	@docker exec scanorbit-db pg_isready -U scanorbit 2>/dev/null || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Redis:$(RESET)"
-	@docker exec scanorbit-redis redis-cli ping 2>/dev/null || echo "  Not running"
-
-redis-cli:
-	docker exec -it scanorbit-redis redis-cli
-
-redis-queue-status:
-	@echo "$(YELLOW)Redis Queue Status:$(RESET)"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:scan_account 2>/dev/null | xargs -I {} echo "  scan_account: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_orphans 2>/dev/null | xargs -I {} echo "  analyze_orphans: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_ssl 2>/dev/null | xargs -I {} echo "  analyze_ssl: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_residency 2>/dev/null | xargs -I {} echo "  analyze_residency: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_security 2>/dev/null | xargs -I {} echo "  analyze_security: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_cost 2>/dev/null | xargs -I {} echo "  analyze_cost: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_tagging 2>/dev/null | xargs -I {} echo "  analyze_tagging: {} jobs"
-	@docker exec scanorbit-redis redis-cli LLEN jobs:analyze_iam 2>/dev/null | xargs -I {} echo "  analyze_iam: {} jobs"
+tf-test-output:
+	cd terraform/test-aws && terraform output
 
 # =============================================================================
-# Monitoring & Metrics
+# Terraform (Production Infrastructure)
 # =============================================================================
-status:
-	@echo "$(YELLOW)ScanOrbit Service Status$(RESET)"
-	@echo "========================="
-	@echo ""
-	@echo "$(BLUE)API Service:$(RESET)"
-	@curl -s http://localhost:4000/status 2>/dev/null | jq . || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Scanner Worker:$(RESET)"
-	@curl -s http://localhost:9090/status 2>/dev/null | jq . || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Analyzer Worker:$(RESET)"
-	@curl -s http://localhost:9091/status 2>/dev/null | jq . || echo "  Not running"
 
-status-api:
-	@curl -s http://localhost:4000/status | jq .
+tf-prod-init:
+	cd terraform/scaleway && terraform init
 
-status-scanner:
-	@curl -s http://localhost:9090/status | jq .
+tf-prod-plan:
+	cd terraform/scaleway && terraform plan
 
-status-analyzer:
-	@curl -s http://localhost:9091/status | jq .
+tf-prod-apply:
+	cd terraform/scaleway && terraform apply
 
-metrics:
-	@echo "$(YELLOW)Fetching metrics from all services...$(RESET)"
-	@echo ""
-	@echo "$(BLUE)API Metrics (http://localhost:4000/metrics):$(RESET)"
-	@curl -s http://localhost:4000/metrics 2>/dev/null | head -50 || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Scanner Metrics (http://localhost:9090/metrics):$(RESET)"
-	@curl -s http://localhost:9090/metrics 2>/dev/null | head -50 || echo "  Not running"
-	@echo ""
-	@echo "$(BLUE)Analyzer Metrics (http://localhost:9091/metrics):$(RESET)"
-	@curl -s http://localhost:9091/metrics 2>/dev/null | head -50 || echo "  Not running"
-
-metrics-api:
-	@curl -s http://localhost:4000/metrics
-
-metrics-scanner:
-	@curl -s http://localhost:9090/metrics
-
-metrics-analyzer:
-	@curl -s http://localhost:9091/metrics
-
-# Production status (using production ports/hosts)
-status-prod:
-	@echo "$(YELLOW)Production Service Status$(RESET)"
-	@echo "=========================="
-	@echo ""
-	@echo "$(BLUE)API Service:$(RESET)"
-	@curl -s http://api:4000/status 2>/dev/null | jq . || curl -s http://localhost:4000/status 2>/dev/null | jq . || echo "  Not available"
-	@echo ""
-	@echo "$(BLUE)Scanner Worker:$(RESET)"
-	@curl -s http://scanner:9090/status 2>/dev/null | jq . || curl -s http://localhost:9090/status 2>/dev/null | jq . || echo "  Not available"
-	@echo ""
-	@echo "$(BLUE)Analyzer Worker:$(RESET)"
-	@curl -s http://analyzer:9091/status 2>/dev/null | jq . || curl -s http://localhost:9091/status 2>/dev/null | jq . || echo "  Not available"
-
-# Show all running parameters and config
-config-show:
-	@echo "$(YELLOW)Service Configuration$(RESET)"
-	@echo "====================="
-	@echo ""
-	@echo "$(BLUE)Environment Variables (from .env):$(RESET)"
-	@test -f .env && grep -v '^#' .env | grep -v '^$$' | sed 's/=.*/=***/' || echo "  No .env file found"
-	@echo ""
-	@echo "$(BLUE)Docker Compose Services:$(RESET)"
-	@docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "  Docker not running"
+tf-prod-destroy:
+	cd terraform/scaleway && terraform destroy
 
 # =============================================================================
-# Logs (Loki)
+# Deployment
 # =============================================================================
-logs:
-	@echo "$(YELLOW)Recent logs from all services (last 100 lines):$(RESET)"
-	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running. Start with: make monitoring-up"
-
-logs-api:
-	@echo "$(YELLOW)API Service Logs:$(RESET)"
-	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",service="api"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
-
-logs-scanner:
-	@echo "$(YELLOW)Scanner Worker Logs:$(RESET)"
-	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",service="scanner"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
-
-logs-analyzer:
-	@echo "$(YELLOW)Analyzer Worker Logs:$(RESET)"
-	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",service="analyzer"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
-
-logs-errors:
-	@echo "$(YELLOW)Error Logs (all services):$(RESET)"
-	@curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit",level=~"error|fatal"}&limit=100' 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null | head -100 || echo "  Loki not running"
-
-logs-tail:
-	@echo "$(YELLOW)Tailing logs (Ctrl+C to stop)...$(RESET)"
-	@while true; do \
-		curl -s 'http://localhost:3100/loki/api/v1/query_range?query={app="scanorbit"}&limit=10&start='$$(date -d '10 seconds ago' +%s)000000000 2>/dev/null | jq -r '.data.result[].values[][1]' 2>/dev/null; \
-		sleep 2; \
-	done
-
-# Start monitoring stack (Prometheus + Grafana + Loki)
-monitoring-up:
-	docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring up -d prometheus grafana loki promtail
-	@echo ""
-	@echo "$(GREEN)Monitoring stack started!$(RESET)"
-	@echo "  Prometheus: http://localhost:9092"
-	@echo "  Grafana:    http://localhost:3001 (admin/admin)"
-	@echo "  Loki:       http://localhost:3100"
-
-monitoring-down:
-	docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring down
-
-# SSH tunnels for production monitoring
-tunnel-grafana:
-	@echo "$(YELLOW)Opening SSH tunnel to production Grafana...$(RESET)"
-	@echo "  Grafana will be available at: http://localhost:3001"
-	@echo "  Press Ctrl+C to close the tunnel"
-	@echo ""
-	ssh -N -L 3001:localhost:3001 root@scanorbit.cloud
-
-tunnel-prometheus:
-	@echo "$(YELLOW)Opening SSH tunnel to production Prometheus...$(RESET)"
-	@echo "  Prometheus will be available at: http://localhost:9092"
-	@echo "  Press Ctrl+C to close the tunnel"
-	@echo ""
-	ssh -N -L 9092:localhost:9092 root@scanorbit.cloud
-
-tunnel-loki:
-	@echo "$(YELLOW)Opening SSH tunnel to production Loki...$(RESET)"
-	@echo "  Loki will be available at: http://localhost:3100"
-	@echo "  Press Ctrl+C to close the tunnel"
-	@echo ""
-	ssh -N -L 3100:localhost:3100 root@scanorbit.cloud
-
-tunnel-monitoring:
-	@echo "$(YELLOW)Opening SSH tunnels to all production monitoring services...$(RESET)"
-	@echo "  Grafana:    http://localhost:3001"
-	@echo "  Prometheus: http://localhost:9092"
-	@echo "  Loki:       http://localhost:3100"
-	@echo ""
-	@echo "  Press Ctrl+C to close all tunnels"
-	@echo ""
-	ssh -N -L 3001:localhost:3001 -L 9092:localhost:9092 -L 3100:localhost:3100 root@scanorbit.cloud
-
-tunnel-all:
-	@echo "$(YELLOW)Opening SSH tunnels to all production services...$(RESET)"
-	@echo "  API:        http://localhost:4000"
-	@echo "  Grafana:    http://localhost:3001"
-	@echo "  Prometheus: http://localhost:9092"
-	@echo "  Loki:       http://localhost:3100"
-	@echo "  Scanner:    http://localhost:9090/metrics"
-	@echo "  Analyzer:   http://localhost:9091/metrics"
-	@echo ""
-	@echo "  Press Ctrl+C to close all tunnels"
-	@echo ""
-	ssh -N -L 4000:localhost:4000 -L 3001:localhost:3001 -L 9092:localhost:9092 -L 3100:localhost:3100 -L 9090:localhost:9090 -L 9091:localhost:9091 root@scanorbit.cloud
-
-# Generate JWT secret
-gen-secret:
-	@openssl rand -base64 32
-
-# =============================================================================
-# Development
-# =============================================================================
-ssh:
-	ssh root@scanorbit.cloud
+send-deploy-files:
+	scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
+	scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
+	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
 
 send-docker-compose:
 	scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml 

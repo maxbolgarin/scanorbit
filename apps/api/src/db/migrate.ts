@@ -12,6 +12,46 @@ const { Pool } = pg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Ensure the target database exists.
+ * Connects to the default 'postgres' database and creates the target database if it doesn't exist.
+ */
+async function ensureDatabaseExists(): Promise<void> {
+  const dbUrl = new URL(config.databaseUrl);
+  const targetDb = dbUrl.pathname.slice(1); // Remove leading '/'
+
+  if (!targetDb) {
+    console.log('⚠️  No database name found in DATABASE_URL, skipping database creation check');
+    return;
+  }
+
+  // Connect to the default 'postgres' database
+  dbUrl.pathname = '/postgres';
+  const adminPool = new Pool({
+    connectionString: dbUrl.toString(),
+    max: 1,
+  });
+
+  try {
+    // Check if database exists
+    const result = await adminPool.query(
+      `SELECT 1 FROM pg_database WHERE datname = $1`,
+      [targetDb]
+    );
+
+    if (result.rows.length === 0) {
+      console.log(`📦 Database "${targetDb}" does not exist, creating...`);
+      // Use double quotes for the database name to handle special characters
+      await adminPool.query(`CREATE DATABASE "${targetDb}"`);
+      console.log(`✅ Database "${targetDb}" created successfully\n`);
+    } else {
+      console.log(`✅ Database "${targetDb}" exists\n`);
+    }
+  } finally {
+    await adminPool.end();
+  }
+}
+
 // Resolve migrations folder - always use source directory, not dist
 // If running from dist, go up to src; if running from src, use current dir
 function getMigrationsDir(): string {
@@ -170,6 +210,9 @@ async function syncMigrationTracking(
 
 async function runMigrations() {
   console.log('🚀 Starting database migrations...\n');
+
+  // Ensure the target database exists before attempting migrations
+  await ensureDatabaseExists();
 
   const pool = new Pool({
     connectionString: config.databaseUrl,
