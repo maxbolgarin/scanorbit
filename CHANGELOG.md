@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.3](https://github.com/maxbolgarin/scanorbit/compare/v1.13.2...v1.13.3) (2026-01-23)
+
+### Code Refactoring
+
+* **app:** redesign ui components with responsive mobile-first layout and improved styling ([f4f222d](https://github.com/maxbolgarin/scanorbit/commit/f4f222d43209c7d650c674eeb6ff8c0c0e82a2ee))
+
 ## [1.13.2](https://github.com/maxbolgarin/scanorbit/compare/v1.13.1...v1.13.2) (2026-01-23)
 
 ### Bug Fixes
