@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.2](https://github.com/maxbolgarin/scanorbit/compare/v1.13.1...v1.13.2) (2026-01-23)
+
+### Bug Fixes
+
+* **auth,api,app:** normalize frontend url, fix oauth cookie samesite and update monitoring setup ([a0917c9](https://github.com/maxbolgarin/scanorbit/commit/a0917c9da983b55488e0789a72b801fa7a36c216))
+
 ## [1.13.1](https://github.com/maxbolgarin/scanorbit/compare/v1.13.0...v1.13.1) (2026-01-23)
 
 ### Code Refactoring
