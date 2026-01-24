@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.3](https://github.com/maxbolgarin/scanorbit/compare/v1.14.2...v1.14.3) (2026-01-24)
+
+### Bug Fixes
+
+* **app:** remove unused imports from RoleGuide.tsx ([9086ddf](https://github.com/maxbolgarin/scanorbit/commit/9086ddf90c896a508a936d20248055e01a9d51f2))
+
 ## [1.14.2](https://github.com/maxbolgarin/scanorbit/compare/v1.14.1...v1.14.2) (2026-01-24)
 
 ### Bug Fixes
