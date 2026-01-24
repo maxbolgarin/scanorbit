@@ -19,11 +19,14 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/service-down"
 
       - alert: APIHighErrorRate
+        # Only alert when there's actual traffic (at least 0.1 req/sec = 6 req/min)
         expr: |
           (
             sum(rate(http_requests_total{job="scanorbit-api", status=~"5.."}[5m])) /
             sum(rate(http_requests_total{job="scanorbit-api"}[5m]))
           ) > 0.05
+          and
+          sum(rate(http_requests_total{job="scanorbit-api"}[5m])) > 0.1
         for: 5m
         labels:
           severity: critical
@@ -83,11 +86,14 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/queue-backlog"
 
       - alert: HighJobFailureRate
+        # Only alert when there are jobs being processed (at least 1 job/15min)
         expr: |
           (
             sum(rate(jobs_processed_total{status="error"}[15m])) by (job_type) /
             sum(rate(jobs_processed_total[15m])) by (job_type)
           ) > 0.1
+          and
+          sum(rate(jobs_processed_total[15m])) by (job_type) > 0
         for: 10m
         labels:
           severity: warning
@@ -217,7 +223,11 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-down"
 
       - alert: RedisHighMemoryUsage
-        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        # Only alert when maxmemory is configured (> 0)
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes > 0.8)
+          and
+          (redis_memory_max_bytes > 0)
         for: 5m
         labels:
           severity: warning
@@ -227,13 +237,28 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-memory"
 
       - alert: RedisMemoryCritical
-        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.95
+        # Only alert when maxmemory is configured (> 0)
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes > 0.95)
+          and
+          (redis_memory_max_bytes > 0)
         for: 2m
         labels:
           severity: critical
         annotations:
           summary: "Redis memory critical"
           description: "Redis is using {{ $value | humanizePercentage }} of available memory."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-memory"
+
+      - alert: RedisNoMemoryLimit
+        # Warn if Redis has no maxmemory configured (production best practice)
+        expr: redis_memory_max_bytes == 0
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Redis has no memory limit configured"
+          description: "Redis maxmemory is not set. Consider setting a memory limit for production."
           runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-memory"
 
       - alert: RedisHighClientConnections
@@ -247,11 +272,14 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-connections"
 
       - alert: RedisLowHitRate
+        # Only alert when there's actual traffic (at least 1 op/sec)
         expr: |
           (
             rate(redis_keyspace_hits_total[5m]) /
             (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
           ) < 0.8
+          and
+          (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) > 1
         for: 10m
         labels:
           severity: warning
@@ -277,11 +305,14 @@ groups:
     interval: 30s
     rules:
       - alert: AWSAPIHighErrorRate
+        # Only alert when there's actual AWS API traffic
         expr: |
           (
             sum(rate(aws_api_calls_total{status="error"}[10m])) by (service) /
             sum(rate(aws_api_calls_total[10m])) by (service)
           ) > 0.1
+          and
+          sum(rate(aws_api_calls_total[10m])) by (service) > 0
         for: 5m
         labels:
           severity: warning
@@ -342,11 +373,14 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/no-scans"
 
       - alert: ScanSuccessRateLow
+        # Only alert when there are actual scans being processed
         expr: |
           (
             sum(rate(jobs_processed_total{job_type="scan_account", status="success"}[1h])) /
             sum(rate(jobs_processed_total{job_type="scan_account"}[1h]))
           ) < 0.9
+          and
+          sum(rate(jobs_processed_total{job_type="scan_account"}[1h])) > 0
         for: 1h
         labels:
           severity: warning

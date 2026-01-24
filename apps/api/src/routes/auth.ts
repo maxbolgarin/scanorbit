@@ -108,9 +108,9 @@ const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken:
   const cookieOptions: Parameters<typeof setCookie>[3] = {
     httpOnly: true,
     secure: isProduction,
-    // Use 'Lax' which is secure and works for same-site requests
-    // When domain is set to parent domain (.scanorbit.cloud), subdomains are same-site
-    sameSite: 'Lax',
+    // Use 'None' to allow cookie on cross-origin POST requests (e.g., /auth/refresh from app.scanorbit.cloud)
+    // Requires Secure=true which is set in production
+    sameSite: 'None',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
   };
@@ -694,7 +694,7 @@ authRoute.get('/google/callback', async (c) => {
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     // Redirect based on whether user has an org
-    const redirectPath = result.hasOrg ? '/overview' : '/onboarding/create-org';
+    const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
     return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'oauth_failed';
@@ -770,7 +770,7 @@ authRoute.get('/github/callback', async (c) => {
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     // Redirect based on whether user has an org
-    const redirectPath = result.hasOrg ? '/overview' : '/onboarding/create-org';
+    const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
     return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'oauth_failed';

@@ -85,6 +85,8 @@ services:
       - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL:-}
       # Frontend & CORS
       - FRONTEND_URL=${FRONTEND_URL}
+      # Cookie domain for cross-subdomain auth (e.g., .scanorbit.cloud)
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
       # AWS
       - AWS_REGION=${AWS_REGION:-eu-central-1}
       # Network/Security
@@ -258,7 +260,7 @@ services:
     networks:
       - scanorbit
 
-  # Redis Cache & Queue (with TLS + Password)
+  # Redis Cache & Queue (with TLS + Password + Production Config)
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -272,9 +274,8 @@ services:
         chown redis:redis /data/certs/*
         chmod 600 /data/certs/redis.key
         chmod 644 /data/certs/redis.crt /data/certs/ca.crt
-        # Start Redis with TLS
-        exec redis-server \
-          --appendonly yes \
+        # Start Redis with production config and TLS
+        exec redis-server /etc/redis/redis.conf \
           --requirepass "${REDIS_PASSWORD}" \
           --tls-port 6379 \
           --port 0 \
@@ -287,6 +288,7 @@ services:
     volumes:
       - redis_data:/data
       - ./certs/redis:/tls-source:ro
+      - ./redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
       test: ["CMD", "redis-cli", "--tls", "--cert", "/data/certs/redis.crt", "--key", "/data/certs/redis.key", "--cacert", "/data/certs/ca.crt", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
