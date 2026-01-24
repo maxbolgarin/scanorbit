@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.0](https://github.com/maxbolgarin/scanorbit/compare/v1.13.4...v1.14.0) (2026-01-24)
+
+### Features
+
+* **auth,config:** add cookie domain configuration for cross-subdomain oauth support ([72aeee9](https://github.com/maxbolgarin/scanorbit/commit/72aeee9bf7974042c3d160c1300cce243d4a3b48))
+
 ## [1.13.4](https://github.com/maxbolgarin/scanorbit/compare/v1.13.3...v1.13.4) (2026-01-23)
 
 ### Bug Fixes
