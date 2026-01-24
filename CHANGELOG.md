@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.5](https://github.com/maxbolgarin/scanorbit/compare/v1.14.4...v1.14.5) (2026-01-24)
+
+### Bug Fixes
+
+* **app:** make OAuth callback route public to avoid auth race conditions ([b5adb2e](https://github.com/maxbolgarin/scanorbit/commit/b5adb2e3da7216bee735a374636e0c2ec70ccc6b))
+
 ## [1.14.4](https://github.com/maxbolgarin/scanorbit/compare/v1.14.3...v1.14.4) (2026-01-24)
 
 ### Bug Fixes
