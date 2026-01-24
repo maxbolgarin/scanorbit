@@ -144,11 +144,15 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
+        console.log('[Auth] checkAuth called, checkAuthPromise:', checkAuthPromise ? 'exists' : 'null');
+
         // Deduplicate concurrent calls - return existing promise if one is in progress
         if (checkAuthPromise) {
+          console.log('[Auth] checkAuth returning existing promise');
           return checkAuthPromise;
         }
 
+        console.log('[Auth] checkAuth starting new check');
         set({ isLoading: true });
 
         checkAuthPromise = (async () => {
@@ -190,6 +194,11 @@ export const useAuthStore = create<AuthState>()(
 
       refreshAuth: async () => {
         try {
+          // Ensure we have a valid access token first
+          const hasToken = await ensureAccessToken();
+          if (!hasToken) {
+            return; // Silently fail if no valid session
+          }
           const response = await api.getMe();
           const currentOrg = get().org;
           // Keep current org if still in orgs list, otherwise pick first
