@@ -53,7 +53,10 @@ function ResourceRedirect() {
 }
 
 function App() {
-  const { hasOrg } = useAuthStore();
+  const { hasOrg, isAuthenticated } = useAuthStore();
+
+  // Debug: Log app render state
+  console.log('[App] Render:', { hasOrg, isAuthenticated, path: window.location.pathname });
 
   return (
     <ErrorBoundary>
