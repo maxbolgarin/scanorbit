@@ -104,24 +104,35 @@ const twoFactorRegenerateCodesSchema = z.object({
  * Set refresh token in httpOnly secure cookie
  */
 const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken: string) => {
-  setCookie(c, 'refresh_token', refreshToken, {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieOptions: Parameters<typeof setCookie>[3] = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    // Use 'None' for cross-origin requests (frontend and API on different subdomains)
-    // This is required because the frontend makes POST requests to /auth/refresh
-    // which would not include cookies with 'Lax' (only allows GET requests cross-origin)
-    // Note: 'None' requires 'Secure' which is set in production
-    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+    secure: isProduction,
+    // Use 'Lax' which is secure and works for same-site requests
+    // When domain is set to parent domain (.scanorbit.cloud), subdomains are same-site
+    sameSite: 'Lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
-  });
+  };
+
+  // Set domain to parent domain in production to share cookie across subdomains
+  // e.g., '.scanorbit.cloud' allows cookie from api.scanorbit.cloud to be sent to app.scanorbit.cloud
+  if (config.cookieDomain) {
+    cookieOptions.domain = config.cookieDomain;
+  }
+
+  setCookie(c, 'refresh_token', refreshToken, cookieOptions);
 };
 
 /**
  * Clear auth cookies (for logout)
  */
 const clearAuthCookies = (c: Parameters<typeof deleteCookie>[0]) => {
-  deleteCookie(c, 'refresh_token', { path: '/' });
+  const deleteOptions: Parameters<typeof deleteCookie>[2] = { path: '/' };
+  if (config.cookieDomain) {
+    deleteOptions.domain = config.cookieDomain;
+  }
+  deleteCookie(c, 'refresh_token', deleteOptions);
 };
 
 /**

@@ -77,6 +77,11 @@ export const config = {
   // Frontend - remove trailing slashes to prevent double-slash redirects
   frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, ''),
 
+  // Cookie domain - set to parent domain (e.g., '.scanorbit.cloud') for cross-subdomain auth
+  // This allows cookies set by api.scanorbit.cloud to be sent from app.scanorbit.cloud
+  // Leave empty for localhost development (uses default behavior)
+  cookieDomain: process.env.COOKIE_DOMAIN || '',
+
   // Email (SMTP)
   smtp: {
     enabled: process.env.SMTP_ENABLED !== 'false', // Default true if SMTP_HOST is set
