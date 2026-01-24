@@ -122,11 +122,15 @@ function notifyRefreshSubscribers(success: boolean) {
  * Returns true if refresh succeeded, false otherwise
  */
 async function tryRefreshToken(): Promise<boolean> {
+  console.log('[Auth] tryRefreshToken called');
   try {
+    console.log('[Auth] Making /auth/refresh request...');
     const { data } = await api.post<{ accessToken: string }>('/auth/refresh');
+    console.log('[Auth] Refresh succeeded');
     setAccessToken(data.accessToken);
     return true;
-  } catch {
+  } catch (error) {
+    console.error('[Auth] Refresh failed:', error);
     setAccessToken(null);
     return false;
   }
@@ -138,6 +142,7 @@ async function tryRefreshToken(): Promise<boolean> {
  * Returns true if a valid token exists after the call
  */
 export async function ensureAccessToken(): Promise<boolean> {
+  console.log('[Auth] ensureAccessToken, token:', accessToken ? 'exists' : 'null');
   // If we already have a token, we're good
   if (accessToken) {
     return true;

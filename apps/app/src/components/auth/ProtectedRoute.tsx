@@ -37,7 +37,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Preserve query params (like ?oauth=success) in the redirect
+    const redirectTo = `/login${location.search}`;
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
