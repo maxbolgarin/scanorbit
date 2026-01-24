@@ -97,13 +97,10 @@ function App() {
           />
 
           {/* Onboarding routes */}
+          {/* OAuth callback route - NOT protected to avoid auth race conditions */}
           <Route
             path="/onboarding/org"
-            element={
-              <ProtectedRoute>
-                {hasOrg ? <Navigate to="/overview" replace /> : <CreateOrg />}
-              </ProtectedRoute>
-            }
+            element={hasOrg ? <Navigate to="/overview" replace /> : <CreateOrg />}
           />
           <Route
             path="/onboarding/aws"
