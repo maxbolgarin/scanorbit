@@ -1,13 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Check, Copy, ExternalLink, AlertCircle, Info, ChevronDown } from "lucide-react";
+import { Check, Copy, ExternalLink, AlertCircle } from "lucide-react";
 
 // ScanOrbit's AWS Account ID - should be set in environment variables for production
 const SCANORBIT_AWS_ACCOUNT_ID = import.meta.env.VITE_SCANORBIT_AWS_ACCOUNT_ID || "";
