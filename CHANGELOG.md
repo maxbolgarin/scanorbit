@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.1](https://github.com/maxbolgarin/scanorbit/compare/v1.14.0...v1.14.1) (2026-01-24)
+
+### Bug Fixes
+
+* **auth,deploy:** update refresh token sameSite to 'None', add redis configuration and update oauth redirect paths ([a51a42f](https://github.com/maxbolgarin/scanorbit/commit/a51a42f6845cd0f99ffeea65ad60c79b14e15a65))
+
 ## [1.14.0](https://github.com/maxbolgarin/scanorbit/compare/v1.13.4...v1.14.0) (2026-01-24)
 
 ### Features
