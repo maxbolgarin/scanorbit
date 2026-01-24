@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.2](https://github.com/maxbolgarin/scanorbit/compare/v1.14.1...v1.14.2) (2026-01-24)
+
+### Bug Fixes
+
+* **app,auth:** preserve query params on unauthenticated redirect and add token refresh logging ([d5fedf8](https://github.com/maxbolgarin/scanorbit/commit/d5fedf8d11507edb512f4619a862c23e5a32b17d))
+
 ## [1.14.1](https://github.com/maxbolgarin/scanorbit/compare/v1.14.0...v1.14.1) (2026-01-24)
 
 ### Bug Fixes
