@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.4](https://github.com/maxbolgarin/scanorbit/compare/v1.14.3...v1.14.4) (2026-01-24)
+
+### Bug Fixes
+
+* **app:** add auth diagnostic logging and fix refreshAuth token handling ([85a7b3a](https://github.com/maxbolgarin/scanorbit/commit/85a7b3a4bf9509edd6a835b4f856bcc14bb7c080))
+
 ## [1.14.3](https://github.com/maxbolgarin/scanorbit/compare/v1.14.2...v1.14.3) (2026-01-24)
 
 ### Bug Fixes
