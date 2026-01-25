@@ -112,9 +112,9 @@ const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken:
   const cookieOptions: Parameters<typeof setCookie>[3] = {
     httpOnly: true,
     secure: isProduction,
-    // Use 'None' to allow cookie on cross-origin POST requests (e.g., /auth/refresh from app.scanorbit.cloud)
-    // Requires Secure=true which is set in production
-    sameSite: 'None',
+    // In production: Use 'None' to allow cookie on cross-origin POST requests (e.g., /auth/refresh from app.scanorbit.cloud)
+    // In development: Use 'Lax' because SameSite=None without Secure flag is rejected by modern browsers
+    sameSite: isProduction ? 'None' : 'Lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
   };

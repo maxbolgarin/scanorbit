@@ -36,6 +36,9 @@ export function Header() {
 
   const handleLogout = async () => {
     await logout();
+    // Clear persisted auth state before navigation to avoid race condition
+    // (zustand persist writes asynchronously, navigation might happen before write completes)
+    localStorage.removeItem('auth-storage');
     window.location.href = "/login";
   };
 
