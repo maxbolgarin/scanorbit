@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/auth-store";
+import { setAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,7 +20,7 @@ import { TIER_LIMITS } from "@/types";
 
 export function Header() {
   const navigate = useNavigate();
-  const { user, org, logout } = useAuthStore();
+  const { user, org } = useAuthStore();
   const {
     currentAccountId,
     currentAccount,
@@ -34,12 +35,31 @@ export function Header() {
   const isTeamTier = tier === 'team';
   const hasAccounts = accounts.length > 0;
 
-  const handleLogout = async () => {
-    await logout();
-    // Clear persisted auth state before navigation to avoid race condition
-    // (zustand persist writes asynchronously, navigation might happen before write completes)
+  const handleLogout = () => {
+    // Clear local auth state first (before navigating away)
+    setAccessToken(null);
     localStorage.removeItem('auth-storage');
-    window.location.href = "/login";
+
+    // Navigate directly to API logout endpoint (not through Vite proxy)
+    // This is needed because the refresh_token cookie was set by the API directly
+    // during OAuth callback, so it's stored for the API origin, not the frontend origin
+    const apiUrl = import.meta.env.VITE_API_URL;
+    let logoutUrl = "/api/auth/logout";
+
+    if (apiUrl) {
+      const normalized = apiUrl.trim().replace(/\/+$/, '');
+      if (normalized.startsWith("/")) {
+        logoutUrl = `${normalized}/auth/logout`;
+      } else if (!normalized.includes("://")) {
+        const isLocal = normalized.startsWith("localhost") || normalized.startsWith("127.0.0.1");
+        logoutUrl = `${isLocal ? "http" : "https"}://${normalized}/auth/logout`;
+      } else {
+        logoutUrl = `${normalized}/auth/logout`;
+      }
+    }
+
+    // Use GET navigation so the browser sends the cookie (SameSite=Lax allows GET navigations)
+    window.location.href = logoutUrl;
   };
 
   return (

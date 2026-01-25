@@ -1381,12 +1381,8 @@ export const authService = {
       return { message: genericMessage };
     }
 
-    // If user has no password (OAuth-only), return generic success
-    // These users should use their OAuth provider to sign in
-    if (!user.passwordHash) {
-      logger.info('Password reset requested for OAuth-only user', { email: normalizedEmail });
-      return { message: genericMessage };
-    }
+    // Note: OAuth-only users (no passwordHash) can also use password reset
+    // to set their initial password, enabling email/password login
 
     // Generate secure reset token
     const resetToken = crypto.randomBytes(32).toString('hex');

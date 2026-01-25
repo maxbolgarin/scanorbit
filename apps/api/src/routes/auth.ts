@@ -258,7 +258,7 @@ authRoute.post(
   }
 );
 
-// POST /auth/logout - Revoke refresh token and clear cookies
+// POST /auth/logout - Revoke refresh token and clear cookies (API call)
 authRoute.post('/logout', async (c) => {
   // Try to revoke the refresh token if present
   const refreshToken = getCookie(c, 'refresh_token');
@@ -275,6 +275,28 @@ authRoute.post('/logout', async (c) => {
   clearAuthCookies(c);
 
   return c.json({ message: 'Logged out successfully' });
+});
+
+// GET /auth/logout - Browser navigation logout (redirects to login page)
+// Used when cookies are stored on API origin (e.g., OAuth flow sets cookie directly)
+// and the frontend can't send them via fetch through a proxy
+authRoute.get('/logout', async (c) => {
+  // Try to revoke the refresh token if present
+  const refreshToken = getCookie(c, 'refresh_token');
+  if (refreshToken) {
+    try {
+      const payload = await jwt.verifyRefreshToken(refreshToken);
+      await refreshTokenStore.revoke(payload.tokenId);
+    } catch {
+      // Ignore errors - token may already be invalid
+    }
+  }
+
+  // Clear all auth cookies
+  clearAuthCookies(c);
+
+  // Redirect to login page
+  return c.redirect(`${config.frontendUrl}/login`);
 });
 
 // POST /auth/refresh - Get new access token using refresh token
