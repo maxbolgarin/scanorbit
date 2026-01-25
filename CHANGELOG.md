@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.19.0](https://github.com/maxbolgarin/scanorbit/compare/v1.18.0...v1.19.0) (2026-01-25)
+
+### Features
+
+* **api:** add concurrency handling to token refresh with subscriber pattern ([e17a9a3](https://github.com/maxbolgarin/scanorbit/commit/e17a9a392a254b1555ec680e6aa0f9e4c4eb7059))
+
 ## [1.18.0](https://github.com/maxbolgarin/scanorbit/compare/v1.17.1...v1.18.0) (2026-01-25)
 
 ### Features
