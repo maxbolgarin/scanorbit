@@ -137,17 +137,32 @@ function shouldRefreshToken(): boolean {
 }
 
 /**
- * Try to refresh the access token using the refresh token cookie
- * Returns true if refresh succeeded, false otherwise
+ * Refresh the access token with proper concurrency handling.
+ * If a refresh is already in progress, waits for it to complete.
+ * Returns true if refresh succeeded (or was already in progress and succeeded), false otherwise.
  */
-async function tryRefreshToken(): Promise<boolean> {
+async function doRefreshToken(): Promise<boolean> {
+  // If already refreshing, wait for the result
+  if (isRefreshing) {
+    return new Promise<boolean>((resolve) => {
+      subscribeToRefresh(resolve);
+    });
+  }
+
+  // Start refreshing
+  isRefreshing = true;
+
   try {
     const { data } = await api.post<{ accessToken: string }>('/auth/refresh');
     setAccessToken(data.accessToken);
+    notifyRefreshSubscribers(true);
     return true;
   } catch {
     setAccessToken(null);
+    notifyRefreshSubscribers(false);
     return false;
+  } finally {
+    isRefreshing = false;
   }
 }
 
@@ -157,12 +172,12 @@ async function tryRefreshToken(): Promise<boolean> {
  * Returns true if a valid token exists after the call
  */
 export async function ensureAccessToken(): Promise<boolean> {
-  // If we already have a token, we're good
-  if (accessToken) {
+  // If we already have a valid token that's not near expiry, we're good
+  if (accessToken && !shouldRefreshToken()) {
     return true;
   }
   // Try to refresh using the refresh token cookie
-  return tryRefreshToken();
+  return doRefreshToken();
 }
 
 // Request interceptor to add access token and proactively refresh if needed
@@ -172,8 +187,9 @@ api.interceptors.request.use(async (config) => {
   const isAuthEndpoint = url.includes('/auth/');
 
   // Proactively refresh token before it expires (at 80% of TTL)
+  // Uses concurrency-safe doRefreshToken to prevent duplicate refresh requests
   if (!isAuthEndpoint && shouldRefreshToken()) {
-    await tryRefreshToken();
+    await doRefreshToken();
   }
 
   if (accessToken) {
@@ -209,40 +225,15 @@ api.interceptors.response.use(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (originalRequest as any)._retry = true;
 
-      // If we're already refreshing, wait for the refresh to complete
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          subscribeToRefresh((success) => {
-            if (success && originalRequest) {
-              resolve(api(originalRequest));
-            } else {
-              reject(error);
-            }
-          });
-        });
+      // Try to refresh the token (handles concurrency internally)
+      const refreshSuccess = await doRefreshToken();
+
+      if (refreshSuccess && originalRequest) {
+        // Retry the original request with the new token
+        return api(originalRequest);
       }
 
-      // Start refreshing
-      isRefreshing = true;
-
-      try {
-        const refreshSuccess = await tryRefreshToken();
-
-        if (refreshSuccess) {
-          notifyRefreshSubscribers(true);
-          isRefreshing = false;
-          // Retry the original request
-          if (originalRequest) {
-            return api(originalRequest);
-          }
-        }
-      } catch {
-        // Refresh failed
-      }
-
-      // Refresh failed - notify subscribers and redirect to login
-      notifyRefreshSubscribers(false);
-      isRefreshing = false;
+      // Refresh failed - redirect to login
 
       if (!isHandling401) {
         isHandling401 = true;
