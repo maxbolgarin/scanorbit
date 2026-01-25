@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.0](https://github.com/maxbolgarin/scanorbit/compare/v1.14.5...v1.15.0) (2026-01-25)
+
+### Features
+
+* **auth:** add password setup for oauth-only users and improve aws credentials documentation ([f37af49](https://github.com/maxbolgarin/scanorbit/commit/f37af495a0f975daa63d03cb4a321897ec59b6bc))
+
 ## [1.14.5](https://github.com/maxbolgarin/scanorbit/compare/v1.14.4...v1.14.5) (2026-01-24)
 
 ### Bug Fixes
