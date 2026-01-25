@@ -312,6 +312,7 @@ export function SecuritySettings() {
                   {passwordForm.formState.errors.confirmPassword.message}
                 </p>
               )}
+            </div>
             <Button type="submit" disabled={isUpdatingPassword}>
               {isUpdatingPassword && (
                 <LoadingSpinner size="sm" className="mr-2" />
