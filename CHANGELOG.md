@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.1](https://github.com/maxbolgarin/scanorbit/compare/v1.17.0...v1.17.1) (2026-01-25)
+
+### Bug Fixes
+
+* **securitysettings:** close password form div to fix layout structure ([cf5b3a1](https://github.com/maxbolgarin/scanorbit/commit/cf5b3a156ffcb27795df62fd47348ce2f80fb2cd))
+
 ## [1.17.0](https://github.com/maxbolgarin/scanorbit/compare/v1.16.0...v1.17.0) (2026-01-25)
 
 ### Features
