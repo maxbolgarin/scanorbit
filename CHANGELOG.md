@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.20.0](https://github.com/maxbolgarin/scanorbit/compare/v1.19.0...v1.20.0) (2026-01-25)
+
+### Features
+
+* **api:** add refresh token ttl buffer and error handling with verification logging ([56d246a](https://github.com/maxbolgarin/scanorbit/commit/56d246ab36bdd69c385e8a65b4c00b54baac4aaf))
+
 ## [1.19.0](https://github.com/maxbolgarin/scanorbit/compare/v1.18.0...v1.19.0) (2026-01-25)
 
 ### Features
