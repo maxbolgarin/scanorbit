@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.16.0](https://github.com/maxbolgarin/scanorbit/compare/v1.15.1...v1.16.0) (2026-01-25)
+
+### Features
+
+* **auth:** add browser-based logout endpoint with cookie-based session handling ([df0ea73](https://github.com/maxbolgarin/scanorbit/commit/df0ea73f7dea4f7edfc8789521db2f154a987073))
+
 ## [1.15.1](https://github.com/maxbolgarin/scanorbit/compare/v1.15.0...v1.15.1) (2026-01-25)
 
 ### Bug Fixes
