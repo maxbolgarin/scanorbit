@@ -19,7 +19,6 @@ import * as api from "@/lib/api";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(64, "Name must be at most 64 characters"),
-  email: z.string().email("Please enter a valid email"),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -32,7 +31,6 @@ export function ProfileSettings() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: user?.fullName || "",
-      email: user?.email || "",
     },
   });
 
@@ -71,34 +69,18 @@ export function ProfileSettings() {
             onSubmit={profileForm.handleSubmit(handleProfileSubmit)}
             className="space-y-4"
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  {...profileForm.register("name")}
-                  disabled={isUpdatingProfile}
-                />
-                {profileForm.formState.errors.name && (
-                  <p className="text-sm text-red-500">
-                    {profileForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...profileForm.register("email")}
-                  disabled={isUpdatingProfile}
-                />
-                {profileForm.formState.errors.email && (
-                  <p className="text-sm text-red-500">
-                    {profileForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                {...profileForm.register("name")}
+                disabled={isUpdatingProfile}
+              />
+              {profileForm.formState.errors.name && (
+                <p className="text-sm text-red-500">
+                  {profileForm.formState.errors.name.message}
+                </p>
+              )}
             </div>
             <Button type="submit" disabled={isUpdatingProfile}>
               {isUpdatingProfile && (

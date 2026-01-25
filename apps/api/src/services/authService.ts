@@ -404,6 +404,7 @@ export const authService = {
         emailVerified: users.emailVerified,
         twoFactorEnabled: users.twoFactorEnabled,
         createdAt: users.createdAt,
+        passwordHash: users.passwordHash,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -427,7 +428,15 @@ export const authService = {
       .innerJoin(userOrgMembers, eq(orgs.id, userOrgMembers.orgId))
       .where(eq(userOrgMembers.userId, user.id));
 
-    return { user, orgs: userOrgs };
+    // Return user data with computed hasPassword field (never expose actual hash)
+    const { passwordHash, ...userWithoutHash } = user;
+    return {
+      user: {
+        ...userWithoutHash,
+        hasPassword: !!passwordHash,
+      },
+      orgs: userOrgs
+    };
   },
 
   async switchOrg(userId: string, orgId: string): Promise<void> {
@@ -663,6 +672,47 @@ export const authService = {
     await refreshTokenStore.revokeAllForUser(userId);
 
     return { success: true, message: 'Password changed successfully' };
+  },
+
+  /**
+   * Set password for OAuth-only users (users without a password)
+   */
+  async setPassword(
+    userId: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> {
+    // Get user with password hash
+    const [user] = await db
+      .select({
+        id: users.id,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP401Error('User not found');
+    }
+
+    // Only allow setting password if user doesn't have one (OAuth-only users)
+    if (user.passwordHash) {
+      throw new HTTP400Error('You already have a password. Use change password instead.');
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Set password
+    await db
+      .update(users)
+      .set({
+        passwordHash: newPasswordHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    return { success: true, message: 'Password set successfully' };
   },
 
   /**

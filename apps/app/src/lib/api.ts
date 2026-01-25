@@ -1169,6 +1169,14 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
+export async function setPassword(newPassword: string): Promise<void> {
+  try {
+    await api.post("/auth/set-password", { newPassword });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 // ============================================
 // Two-Factor Authentication API
 // ============================================

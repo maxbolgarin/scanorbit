@@ -87,8 +87,10 @@ services:
       - FRONTEND_URL=${FRONTEND_URL}
       # Cookie domain for cross-subdomain auth (e.g., .scanorbit.cloud)
       - COOKIE_DOMAIN=${COOKIE_DOMAIN}
-      # AWS
+      # AWS (credentials needed for STS AssumeRole)
       - AWS_REGION=${AWS_REGION:-eu-central-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       # Network/Security
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1}
       # SMTP Configuration
@@ -154,6 +156,8 @@ services:
       - REDIS_URL=${REDIS_URL}
       - REDIS_CA_CERT=/certs/redis-ca.crt
       - AWS_REGION=${AWS_REGION:-eu-central-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SCAN_CONCURRENCY=${SCAN_CONCURRENCY:-10}

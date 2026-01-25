@@ -26,15 +26,18 @@ import { TwoFactorSetup } from "./TwoFactorSetup";
 import { Shield, Smartphone, Key, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 
 const disableSchema = z.object({
   password: z.string().min(1, "Password is required"),
   code: z.string().length(6, "Code must be 6 digits").regex(/^\d+$/, "Code must contain only numbers"),
 });
 
+// Single password schema with optional currentPassword
+// Validation for currentPassword is done conditionally in the submit handler
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(8, "Password must be at least 8 characters"),
+    currentPassword: z.string().optional(),
     newPassword: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
   })
@@ -47,6 +50,10 @@ type DisableFormData = z.infer<typeof disableSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export function SecuritySettings() {
+  const user = useAuthStore((state) => state.user);
+  const refreshAuth = useAuthStore((state) => state.refreshAuth);
+  const hasPassword = user?.hasPassword ?? true; // Default to true for safety
+
   const [twoFactorStatus, setTwoFactorStatus] = useState<api.TwoFactorStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSetupDialog, setShowSetupDialog] = useState(false);
@@ -114,19 +121,36 @@ export function SecuritySettings() {
   };
 
   const handlePasswordSubmit = async (data: PasswordFormData) => {
+    // Validate current password is provided when user has a password
+    if (hasPassword && (!data.currentPassword || data.currentPassword.length < 8)) {
+      passwordForm.setError("currentPassword", {
+        type: "manual",
+        message: "Password must be at least 8 characters",
+      });
+      return;
+    }
+
     setIsUpdatingPassword(true);
     try {
-      await api.changePassword(data.currentPassword, data.newPassword);
+      if (hasPassword) {
+        await api.changePassword(data.currentPassword!, data.newPassword);
+      } else {
+        await api.setPassword(data.newPassword);
+      }
       toast({
-        title: "Password changed",
-        description: "Your password has been changed successfully.",
+        title: hasPassword ? "Password changed" : "Password set",
+        description: hasPassword
+          ? "Your password has been changed successfully."
+          : "Your password has been set successfully. You can now sign in with email and password.",
         type: "success",
       });
       passwordForm.reset();
+      // Refresh user data to update hasPassword state
+      await refreshAuth();
     } catch (err) {
       toast({
         title: "Update failed",
-        description: err instanceof Error ? err.message : "Failed to change password",
+        description: err instanceof Error ? err.message : "Failed to update password",
         type: "error",
       });
     } finally {
@@ -192,38 +216,46 @@ export function SecuritySettings() {
         </CardContent>
       </Card>
 
-      {/* Change Password */}
+      {/* Change/Set Password */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
-            Change Password
+            {hasPassword ? "Change Password" : "Set Password"}
           </CardTitle>
-          <CardDescription>Update your password</CardDescription>
+          <CardDescription>
+            {hasPassword
+              ? "Update your password"
+              : "Add a password to enable email/password login"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
             onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)}
             className="space-y-4"
           >
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                autoComplete="current-password"
-                {...passwordForm.register("currentPassword")}
-                disabled={isUpdatingPassword}
-              />
-              {passwordForm.formState.errors.currentPassword && (
-                <p className="text-sm text-red-500">
-                  {passwordForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
+            {hasPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  {...passwordForm.register("currentPassword")}
+                  disabled={isUpdatingPassword}
+                />
+                {passwordForm.formState.errors.currentPassword && (
+                  <p className="text-sm text-red-500">
+                    {passwordForm.formState.errors.currentPassword.message}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
+                <Label htmlFor="newPassword">
+                  {hasPassword ? "New Password" : "Password"}
+                </Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -257,7 +289,7 @@ export function SecuritySettings() {
               {isUpdatingPassword && (
                 <LoadingSpinner size="sm" className="mr-2" />
               )}
-              Change Password
+              {hasPassword ? "Change Password" : "Set Password"}
             </Button>
           </form>
         </CardContent>
@@ -277,9 +309,13 @@ export function SecuritySettings() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Key className="h-4 w-4 text-muted-foreground" />
-                <span>Password set</span>
+                <span>Password</span>
               </div>
-              <Badge variant="success">Active</Badge>
+              {hasPassword ? (
+                <Badge variant="success">Set</Badge>
+              ) : (
+                <Badge variant="secondary">Not set</Badge>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

@@ -151,6 +151,7 @@ export function useActiveScans() {
 }
 
 const ACTIVE_STATUSES = ["queued", "processing", "running", "analyzing"];
+const TERMINAL_STATUSES = ["complete", "partial", "error", "canceled"];
 
 export function useRecentScans(limit: number = 10, includeArchived: boolean = false) {
   return useQuery({
@@ -171,11 +172,19 @@ export function useRecentScans(limit: number = 10, includeArchived: boolean = fa
 /**
  * Hook that automatically refreshes all relevant data when scans complete.
  * Call this in pages that need to update when scan results are ready.
+ *
+ * Uses two detection mechanisms:
+ * 1. Watch for scans disappearing from activeScans list
+ * 2. Watch for status transitions to terminal states in recentScans
+ *    (catches fast-failing scans that error before being observed as active)
  */
 export function useScanCompletionRefresh() {
   const queryClient = useQueryClient();
   const { data: activeScans } = useActiveScans();
+  const { data: recentScans } = useRecentScans(10);
+
   const prevActiveScansRef = useRef<Scan[] | undefined>(undefined);
+  const prevRecentScansRef = useRef<Scan[] | undefined>(undefined);
 
   const invalidateAllData = useCallback(() => {
     // Invalidate all data that depends on scan results
@@ -194,6 +203,7 @@ export function useScanCompletionRefresh() {
     queryClient.invalidateQueries({ queryKey: ["subscription"] });
   }, [queryClient]);
 
+  // Detection Method 1: Watch for scans disappearing from activeScans
   useEffect(() => {
     const prevScans = prevActiveScansRef.current;
 
@@ -213,6 +223,28 @@ export function useScanCompletionRefresh() {
 
     prevActiveScansRef.current = activeScans;
   }, [activeScans, invalidateAllData]);
+
+  // Detection Method 2: Watch for status transitions in recentScans
+  // This catches scans that error before being observed as "active"
+  useEffect(() => {
+    const prevScans = prevRecentScansRef.current;
+
+    if (prevScans && recentScans) {
+      for (const currentScan of recentScans) {
+        const prevScan = prevScans.find(s => s.id === currentScan.id);
+
+        // Detect: scan existed before AND was not terminal AND is now terminal
+        if (prevScan &&
+            !TERMINAL_STATUSES.includes(prevScan.status) &&
+            TERMINAL_STATUSES.includes(currentScan.status)) {
+          invalidateAllData();
+          break;
+        }
+      }
+    }
+
+    prevRecentScansRef.current = recentScans;
+  }, [recentScans, invalidateAllData]);
 
   return { activeScans, invalidateAllData };
 }

@@ -5,6 +5,7 @@ export interface User {
   fullName: string | null;
   emailVerified?: boolean;
   twoFactorEnabled?: boolean;
+  hasPassword?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

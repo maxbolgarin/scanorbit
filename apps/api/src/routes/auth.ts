@@ -67,6 +67,10 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
 
+const setPasswordSchema = z.object({
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
 const updateProfileSchema = z.object({
   fullName: z.string().min(1, 'Full name must not be empty').max(64, 'Full name must be at most 64 characters').optional(),
 });
@@ -462,6 +466,22 @@ authRoute.post(
     const { currentPassword, newPassword } = c.req.valid('json');
 
     const result = await authService.changePassword(userId, currentPassword, newPassword);
+
+    return c.json(result);
+  }
+);
+
+// POST /auth/set-password - Set password for OAuth-only users
+authRoute.post(
+  '/set-password',
+  requireAuth,
+  rateLimiters.passwordReset,
+  zValidator('json', setPasswordSchema),
+  async (c) => {
+    const userId = c.get('userId');
+    const { newPassword } = c.req.valid('json');
+
+    const result = await authService.setPassword(userId, newPassword);
 
     return c.json(result);
   }
