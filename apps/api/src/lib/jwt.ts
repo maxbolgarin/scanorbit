@@ -30,8 +30,8 @@ export interface SignupTokenPayload {
 const accessSecret = new TextEncoder().encode(config.jwtSecret);
 const refreshSecret = new TextEncoder().encode(config.jwtRefreshSecret);
 
-// Access token: 5 minutes (short-lived for security)
-const ACCESS_TOKEN_EXPIRY = '5m';
+// Access token expiry from config (default: 5 minutes, short-lived for security)
+const ACCESS_TOKEN_EXPIRY = `${config.accessTokenExpiryMinutes}m`;
 
 // Refresh token: 7 days (stored in httpOnly cookie)
 const REFRESH_TOKEN_EXPIRY = '7d';

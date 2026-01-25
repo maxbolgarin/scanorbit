@@ -132,11 +132,11 @@ export function TestConnection({
 
       {/* Info about role propagation - only show before connection is verified */}
       {!testResult?.success && (
-        <Alert className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+        <Alert className="flex items-start gap-2 rounded-lg border border-muted bg-muted/50 p-3 text-sm text-muted-foreground">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <div>
             <p>
-              <strong>Note:</strong> IAM roles can take up to 1 minute to propagate in AWS.
+              <span className="font-medium text-foreground">Note:</span> IAM roles can take up to 1 minute to propagate in AWS.
               If the test fails, wait a moment and try again.
             </p>
           </div>

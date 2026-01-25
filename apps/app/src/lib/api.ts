@@ -87,12 +87,21 @@ let refreshSubscribers: ((success: boolean) => void)[] = [];
 
 // Store access token in memory (not localStorage for security)
 let accessToken: string | null = null;
+// Track when the token expires for proactive refresh
+let tokenExpiresAt: number | null = null;
+
+// Token timing constants (must match backend ACCESS_TOKEN_EXPIRY_MINUTES)
+const ACCESS_TOKEN_TTL_MINUTES = parseInt(import.meta.env.VITE_ACCESS_TOKEN_TTL_MINUTES || '5', 10);
+const ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000; // Convert to ms
+const REFRESH_THRESHOLD = 0.8; // Refresh at 80% of TTL
 
 /**
  * Set the access token for API requests
+ * Also tracks when the token will expire for proactive refresh
  */
 export function setAccessToken(token: string | null) {
   accessToken = token;
+  tokenExpiresAt = token ? Date.now() + ACCESS_TOKEN_TTL : null;
 }
 
 /**
@@ -115,6 +124,16 @@ function subscribeToRefresh(callback: (success: boolean) => void) {
 function notifyRefreshSubscribers(success: boolean) {
   refreshSubscribers.forEach(callback => callback(success));
   refreshSubscribers = [];
+}
+
+/**
+ * Check if the token needs to be refreshed (expired or near expiry)
+ * Returns true if token is missing or has passed the refresh threshold (80% of TTL)
+ */
+function shouldRefreshToken(): boolean {
+  if (!accessToken || !tokenExpiresAt) return true;
+  const elapsed = Date.now() - (tokenExpiresAt - ACCESS_TOKEN_TTL);
+  return elapsed >= ACCESS_TOKEN_TTL * REFRESH_THRESHOLD;
 }
 
 /**
@@ -146,8 +165,17 @@ export async function ensureAccessToken(): Promise<boolean> {
   return tryRefreshToken();
 }
 
-// Request interceptor to add access token to all requests
-api.interceptors.request.use((config) => {
+// Request interceptor to add access token and proactively refresh if needed
+api.interceptors.request.use(async (config) => {
+  // Skip auth endpoints to avoid refresh loops
+  const url = config.url || '';
+  const isAuthEndpoint = url.includes('/auth/');
+
+  // Proactively refresh token before it expires (at 80% of TTL)
+  if (!isAuthEndpoint && shouldRefreshToken()) {
+    await tryRefreshToken();
+  }
+
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }

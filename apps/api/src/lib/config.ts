@@ -34,6 +34,10 @@ export const config = {
       : 'dev-only-jwt-secret-do-not-use-in-production'
   ),
 
+  // Access token expiry in minutes (default: 5 minutes)
+  // Frontend must use the same value for proactive token refresh
+  accessTokenExpiryMinutes: parseInt(process.env.ACCESS_TOKEN_EXPIRY_MINUTES || '5', 10),
+
   // JWT Refresh Token Secret - MUST be set in production (separate secret for refresh tokens)
   // Used for signing long-lived refresh tokens (7 day expiry, stored in httpOnly cookie)
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || (
