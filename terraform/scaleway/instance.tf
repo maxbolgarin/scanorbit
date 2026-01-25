@@ -13,10 +13,7 @@ resource "scaleway_instance_server" "main" {
   user_data = {
     cloud-init = templatefile("${path.module}/cloud-init.yaml", {
       ssh_public_keys    = var.ssh_public_keys
-      script_gen_certs   = file("${path.module}/../scripts/generate-certs.sh")
-      script_backup      = file("${path.module}/../scripts/backup.sh")
-      script_restore     = file("${path.module}/../scripts/restore.sh")
-      script_crontab     = file("${path.module}/../scripts/crontab")
+      script_gen_certs   = file("${path.module}/generate-certs.sh")
     })
   }
 

@@ -82,16 +82,25 @@ export const config = {
   // Leave empty for localhost development (uses default behavior)
   cookieDomain: process.env.COOKIE_DOMAIN || '',
 
-  // Email (SMTP)
-  smtp: {
-    enabled: process.env.SMTP_ENABLED !== 'false', // Default true if SMTP_HOST is set
-    host: process.env.SMTP_HOST || '',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-    // Default to SMTP user's email if SMTP_FROM is not set, to avoid sender address rejection
-    from: process.env.SMTP_FROM || (process.env.SMTP_USER ? `ScanOrbit <${process.env.SMTP_USER}>` : 'ScanOrbit <noreply@scanorbit.io>'),
+  // Email Configuration
+  email: {
+    // Provider: 'resend' (HTTP API, bypasses SMTP port blocks) or 'smtp'
+    provider: (process.env.EMAIL_PROVIDER || 'smtp') as 'resend' | 'smtp',
+    // Shared "from" address for all providers
+    from: process.env.EMAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `ScanOrbit <${process.env.SMTP_USER}>` : 'ScanOrbit <noreply@scanorbit.io>'),
+    // Resend HTTP API configuration
+    resend: {
+      apiKey: process.env.RESEND_API_KEY || '',
+    },
+    // SMTP configuration (backwards compatible)
+    smtp: {
+      enabled: process.env.SMTP_ENABLED !== 'false',
+      host: process.env.SMTP_HOST || '',
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      user: process.env.SMTP_USER || '',
+      pass: process.env.SMTP_PASS || '',
+    },
   },
 
   // Logging

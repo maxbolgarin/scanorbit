@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 import { config } from '../lib/config.js';
 
 // Brand colors for ScanOrbit
@@ -33,28 +34,151 @@ function maskEmail(email: string): string {
   return `${masked}@${domain}`;
 }
 
-// Create reusable transporter
-let transporter: Transporter | null = null;
+// Create reusable SMTP transporter
+let smtpTransporter: Transporter | null = null;
 
-function getTransporter(): Transporter | null {
-  if (transporter) return transporter;
+// Create reusable Resend client
+let resendClient: Resend | null = null;
+
+function getSmtpTransporter(): Transporter | null {
+  if (smtpTransporter) return smtpTransporter;
 
   // Check if SMTP is configured
-  if (!config.smtp.host || !config.smtp.user) {
+  if (!config.email.smtp.host || !config.email.smtp.user) {
+    console.warn('SMTP not configured: missing host or user');
     return null;
   }
 
-  transporter = nodemailer.createTransport({
-    host: config.smtp.host,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
+  if (!config.email.smtp.pass) {
+    console.warn('SMTP not configured: missing password');
+    return null;
+  }
+
+  // Configure transporter with TLS options for Scaleway and other providers
+  smtpTransporter = nodemailer.createTransport({
+    host: config.email.smtp.host,
+    port: config.email.smtp.port,
+    secure: config.email.smtp.secure, // true for 465 (SSL), false for 587 (STARTTLS)
     auth: {
-      user: config.smtp.user,
-      pass: config.smtp.pass,
+      user: config.email.smtp.user,
+      pass: config.email.smtp.pass,
     },
+    tls: {
+      // Don't reject unauthorized certificates (some providers use self-signed certs)
+      // For production, you might want to set this to true and add proper CA certs
+      rejectUnauthorized: false,
+      // Minimum TLS version
+      minVersion: 'TLSv1.2',
+      // Server name for TLS certificate validation (required when using IP addresses)
+      servername: config.email.smtp.host,
+    },
+    // Debug mode (set to true for detailed logging)
+    debug: process.env.NODE_ENV === 'development',
+    // Log level for debugging
+    logger: process.env.NODE_ENV === 'development',
   });
 
-  return transporter;
+  return smtpTransporter;
+}
+
+function getResendClient(): Resend | null {
+  if (resendClient) return resendClient;
+
+  if (!config.email.resend.apiKey) {
+    console.warn('Resend not configured: missing API key');
+    return null;
+  }
+
+  resendClient = new Resend(config.email.resend.apiKey);
+  return resendClient;
+}
+
+// Send email via Resend HTTP API (bypasses SMTP port blocks)
+async function sendViaResend(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+): Promise<EmailResult> {
+  const client = getResendClient();
+  if (!client) {
+    return { success: false, error: 'Resend client not configured' };
+  }
+
+  try {
+    const { data, error } = await client.emails.send({
+      from: config.email.from,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    if (error) {
+      console.error('Resend API error:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`Email sent via Resend to ${maskEmail(to)}, id: ${data?.id}`);
+    return { success: true, messageId: data?.id };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Failed to send email via Resend:', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Send email via SMTP (existing implementation)
+async function sendViaSmtp(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+): Promise<EmailResult> {
+  const transport = config.email.smtp.enabled ? getSmtpTransporter() : null;
+
+  if (!transport) {
+    // Fallback to console logging
+    logEmail(to, subject, text);
+    return { success: true, messageId: `console-${Date.now()}` };
+  }
+
+  try {
+    const info = await transport.sendMail({
+      from: config.email.from,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    console.log(`Email sent via SMTP to ${maskEmail(to)}, messageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? error.stack : String(error);
+    console.error('Failed to send email via SMTP:', {
+      error: errorMessage,
+      details: errorDetails,
+      smtpHost: config.email.smtp.host,
+      smtpPort: config.email.smtp.port,
+      smtpUser: config.email.smtp.user ? '***configured***' : 'missing',
+    });
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Route email based on configured provider
+async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+): Promise<EmailResult> {
+  if (config.email.provider === 'resend') {
+    return sendViaResend(to, subject, text, html);
+  }
+  return sendViaSmtp(to, subject, text, html);
 }
 
 // Base email template wrapper
@@ -323,34 +447,7 @@ export const emailService = {
     const html = getVerificationEmailHtml(code, name);
     const text = getVerificationEmailText(code, name);
 
-    // Check if SMTP is enabled and configured
-    const transport = config.smtp.enabled ? getTransporter() : null;
-
-    if (!transport) {
-      // Fallback to console logging
-      logEmail(email, subject, text);
-      return { success: true, messageId: `console-${Date.now()}` };
-    }
-
-    // Send via SMTP
-    try {
-      const info = await transport.sendMail({
-        from: config.smtp.from,
-        to: email,
-        subject,
-        text,
-        html,
-      });
-
-      console.log(`Email sent to ${maskEmail(email)}, messageId: ${info.messageId}`);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+    return sendEmail(email, subject, text, html);
   },
 
   /**
@@ -366,48 +463,53 @@ export const emailService = {
     const html = getPasswordResetEmailHtml(resetUrl, name);
     const text = getPasswordResetEmailText(resetUrl, name);
 
-    // Check if SMTP is enabled and configured
-    const transport = config.smtp.enabled ? getTransporter() : null;
-
-    if (!transport) {
-      // Fallback to console logging
-      logEmail(email, subject, text);
-      return { success: true, messageId: `console-${Date.now()}` };
-    }
-
-    // Send via SMTP
-    try {
-      const info = await transport.sendMail({
-        from: config.smtp.from,
-        to: email,
-        subject,
-        text,
-        html,
-      });
-
-      console.log(`Email sent to ${maskEmail(email)}, messageId: ${info.messageId}`);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('Failed to send password reset email:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+    return sendEmail(email, subject, text, html);
   },
 
   /**
-   * Verify SMTP connection (useful for health checks)
+   * Verify email provider connection (useful for health checks)
+   * Note: Only SMTP supports connection verification
    */
-  async verifyConnection(): Promise<boolean> {
-    const transport = getTransporter();
-    if (!transport) return false;
+  async verifyConnection(): Promise<{ success: boolean; error?: string; provider: string }> {
+    if (config.email.provider === 'resend') {
+      // Resend doesn't have a verify endpoint - check if API key is configured
+      if (!config.email.resend.apiKey) {
+        return {
+          success: false,
+          error: 'Resend API key not configured',
+          provider: 'resend',
+        };
+      }
+      console.log('Resend API configured (API key present)');
+      return { success: true, provider: 'resend' };
+    }
+
+    // SMTP verification
+    const transport = getSmtpTransporter();
+    if (!transport) {
+      return {
+        success: false,
+        error: 'SMTP transporter not configured (missing host, user, or password)',
+        provider: 'smtp',
+      };
+    }
 
     try {
       await transport.verify();
-      return true;
-    } catch {
-      return false;
+      console.log('SMTP connection verified successfully');
+      return { success: true, provider: 'smtp' };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('SMTP connection verification failed:', {
+        error: errorMessage,
+        smtpHost: config.email.smtp.host,
+        smtpPort: config.email.smtp.port,
+      });
+      return {
+        success: false,
+        error: errorMessage,
+        provider: 'smtp',
+      };
     }
   },
 };

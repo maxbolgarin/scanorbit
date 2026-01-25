@@ -125,24 +125,6 @@ write_files:
     content: |
       ${indent(6, script_gen_certs)}
 
-  # PostgreSQL Backup Script
-  - path: /opt/scanorbit/deploy/scripts/backup.sh
-    permissions: "0755"
-    content: |
-      ${indent(6, script_backup)}
-
-  # PostgreSQL Restore Script
-  - path: /opt/scanorbit/deploy/scripts/restore.sh
-    permissions: "0755"
-    content: |
-      ${indent(6, script_restore)}
-
-  # Backup Crontab
-  - path: /opt/scanorbit/deploy/scripts/crontab
-    permissions: "0644"
-    content: |
-      ${indent(6, script_crontab)}
-
   # Application setup script
   - path: /opt/setup-app.sh
     permissions: "0755"
@@ -161,62 +143,8 @@ write_files:
       # Create required directories
       mkdir -p data/postgres data/redis logs
       mkdir -p deploy/certs/postgres deploy/certs/redis
-      mkdir -p deploy/scripts
-
-      echo "Setup complete. Application directory: $$APP_DIR"
-      echo ""
-      echo "Next steps:"
-      echo "1. Copy deployment files: scp docker-compose.prod.yml Caddyfile .env deploy@IP:/opt/scanorbit/deploy/"
-      echo "2. Generate TLS certs: $$DEPLOY_DIR/scripts/generate-certs.sh"
-      echo "3. Start services: cd deploy && docker compose -f docker-compose.prod.yml up -d"
-
-  # Deploy script
-  - path: /opt/deploy.sh
-    permissions: "0755"
-    content: |
-      #!/bin/bash
-      set -e
-
-      APP_DIR="/opt/scanorbit"
-      cd $$APP_DIR
-
-      echo "Pulling latest images..."
-      docker compose -f docker-compose.prod.yml pull
-
-      echo "Restarting services..."
-      docker compose -f docker-compose.prod.yml up -d
-
-      echo "Cleaning up old images..."
-      docker image prune -f
-
-      echo "Deploy complete!"
-
-  # Security audit script
-  - path: /opt/security-audit.sh
-    permissions: "0755"
-    content: |
-      #!/bin/bash
-      echo "=========================================="
-      echo "  Security Audit Report"
-      echo "=========================================="
-      echo ""
-      echo "=== SSH Configuration ==="
-      echo "Root login: $(grep -E '^PermitRootLogin' /etc/ssh/sshd_config.d/99-hardening.conf 2>/dev/null || echo 'default')"
-      echo "Password auth: $(grep -E '^PasswordAuthentication' /etc/ssh/sshd_config.d/99-hardening.conf 2>/dev/null || echo 'default')"
-      echo ""
-      echo "=== fail2ban Status ==="
-      sudo fail2ban-client status sshd 2>/dev/null || echo "fail2ban not running"
-      echo ""
-      echo "=== Firewall Status ==="
-      sudo ufw status verbose
-      echo ""
-      echo "=== Recent Failed SSH Attempts ==="
-      sudo journalctl -u ssh --since "24 hours ago" | grep -i "failed\|invalid" | tail -10 || echo "No recent failures"
-      echo ""
-      echo "=== Unattended Upgrades ==="
-      cat /var/log/unattended-upgrades/unattended-upgrades.log 2>/dev/null | tail -5 || echo "No upgrade logs yet"
-      echo ""
-      echo "=========================================="
+      sudo chmod +x /opt/scanorbit/deploy/scripts/generate-certs.sh
+      sudo /opt/scanorbit/deploy/scripts/generate-certs.sh
 
 runcmd:
   # Install Docker using official apt repository (ensures latest version)
@@ -262,51 +190,15 @@ runcmd:
   - ufw allow 443/tcp comment 'HTTPS'
   - ufw --force enable
 
-  # Set proper permissions on scripts
-  - chown deploy:deploy /opt/setup-app.sh /opt/deploy.sh /opt/security-audit.sh
-
-  # Set ownership on GDPR scripts and directories
-  - chown -R deploy:deploy /opt/scanorbit
-
 final_message: |
-  ==========================================
-  ScanOrbit VM Initialized (GDPR Compliant)
-  ==========================================
-
-  SECURITY & COMPLIANCE FEATURES:
-  - SSH: Key-only auth, root login disabled
-  - fail2ban: Blocks IPs after 3 failed attempts
-  - Firewall: Only ports 22, 80, 443 open
-  - Auto-updates: Security patches applied daily
-  - GDPR: Backup/restore scripts pre-installed
-  - TLS: Certificate generator ready
-
-  IMPORTANT: SSH as 'deploy' user (not root):
-    ssh deploy@scanorbit.cloud
-
-  DEPLOYMENT STEPS:
-  1. Copy deployment files from local machine:
-     scp deploy/docker-compose.prod.yml deploy/Caddyfile .env \
-         deploy@scanorbit.cloud:/opt/scanorbit/deploy/
-
-  2. SSH into the server:
-     ssh deploy@scanorbit.cloud
-
-  3. Generate TLS certificates (scripts pre-installed):
-     cd /opt/scanorbit/deploy
-     ./scripts/generate-certs.sh
-
-  4. Configure GHCR authentication:
-     echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
-
-  5. Start services:
-     docker compose -f docker-compose.prod.yml up -d
-
-  6. Verify GDPR components:
-     docker compose -f docker-compose.prod.yml logs postgres-backup
-     docker compose -f docker-compose.prod.yml logs retention-cleanup
-
-  7. Run security audit:
-     /opt/security-audit.sh
-
-  ==========================================
+        Setup complete
+        Next steps:
+        1. Copy deployment files (from repository root):
+           # Using rsync for safer incremental updates (preserves existing certs/data)
+           rsync -avz --exclude='certs/' --exclude='data/' --exclude='logs/' \
+             deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
+           # Or use scp if rsync is not available (will overwrite all files):
+           # scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
+           scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
+           scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
+        2. Start services: cd /opt/scanorbit/deploy && docker compose up -d

@@ -23,10 +23,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { TwoFactorSetup } from "./TwoFactorSetup";
-import { Shield, Smartphone, Key, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Shield, Smartphone, Key, AlertCircle, CheckCircle2, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import { cn } from "@/lib/utils";
 
 const disableSchema = z.object({
   password: z.string().min(1, "Password is required"),
@@ -38,7 +39,12 @@ const disableSchema = z.object({
 const passwordSchema = z
   .object({
     currentPassword: z.string().optional(),
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[a-z]/, "Password must contain a lowercase letter")
+      .regex(/[A-Z]/, "Password must contain an uppercase letter")
+      .regex(/[0-9]/, "Password must contain a number"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -74,6 +80,15 @@ export function SecuritySettings() {
   const passwordForm = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
   });
+
+  const newPassword = passwordForm.watch("newPassword", "");
+
+  const passwordRequirements = [
+    { label: "At least 8 characters", met: newPassword.length >= 8 },
+    { label: "Contains lowercase letter", met: /[a-z]/.test(newPassword) },
+    { label: "Contains uppercase letter", met: /[A-Z]/.test(newPassword) },
+    { label: "Contains number", met: /[0-9]/.test(newPassword) },
+  ];
 
   const fetchStatus = async () => {
     try {
@@ -251,40 +266,52 @@ export function SecuritySettings() {
                 )}
               </div>
             )}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">
-                  {hasPassword ? "New Password" : "Password"}
-                </Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  {...passwordForm.register("newPassword")}
-                  disabled={isUpdatingPassword}
-                />
-                {passwordForm.formState.errors.newPassword && (
-                  <p className="text-sm text-red-500">
-                    {passwordForm.formState.errors.newPassword.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  {...passwordForm.register("confirmPassword")}
-                  disabled={isUpdatingPassword}
-                />
-                {passwordForm.formState.errors.confirmPassword && (
-                  <p className="text-sm text-red-500">
-                    {passwordForm.formState.errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">
+                {hasPassword ? "New Password" : "Password"}
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                autoComplete="new-password"
+                {...passwordForm.register("newPassword")}
+                disabled={isUpdatingPassword}
+              />
+              {newPassword && (
+                <div className="mt-2 space-y-1">
+                  {passwordRequirements.map((req, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-center gap-2 text-xs",
+                        req.met ? "text-green-500" : "text-muted-foreground"
+                      )}
+                    >
+                      {req.met ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                      {req.label}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                {...passwordForm.register("confirmPassword")}
+                disabled={isUpdatingPassword}
+              />
+              {passwordForm.formState.errors.confirmPassword && (
+                <p className="text-sm text-red-500">
+                  {passwordForm.formState.errors.confirmPassword.message}
+                </p>
+              )}
             <Button type="submit" disabled={isUpdatingPassword}>
               {isUpdatingPassword && (
                 <LoadingSpinner size="sm" className="mr-2" />

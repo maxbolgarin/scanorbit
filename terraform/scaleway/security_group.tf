@@ -29,6 +29,24 @@ resource "scaleway_instance_security_group" "main" {
     ip_range = "0.0.0.0/0"
   }
 
+  # SMTP for email sending (ports 465 and 587)
+  # NOTE: You MUST also enable "Enable SMTP ports" checkbox in Scaleway console
+  # Terraform cannot enable this - it's a fixed rule override that must be done manually
+  # Go to: Scaleway Console > Instances > Security Groups > [Your Security Group] > Enable SMTP ports
+  outbound_rule {
+    action   = "accept"
+    port     = 465
+    protocol = "TCP"
+    ip_range = "0.0.0.0/0"
+  }
+
+  outbound_rule {
+    action   = "accept"
+    port     = 587
+    protocol = "TCP"
+    ip_range = "0.0.0.0/0"
+  }
+
   tags = [
     "project:${var.project_name}",
     "environment:${var.environment}",
