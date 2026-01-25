@@ -7,7 +7,7 @@ import { twoFactorService } from '../services/twoFactorService.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
 import { config } from '../lib/config.js';
-import { twoFactorStore, refreshTokenStore } from '../lib/redis.js';
+import { redis, twoFactorStore, refreshTokenStore } from '../lib/redis.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP401Error } from '../lib/errors.js';
 import type { Variables } from '../types/index.js';
@@ -156,9 +156,16 @@ const setAuthTokens = async (
   const { token: refreshToken, tokenId } = await jwt.signRefreshToken(userId);
 
   // Store refresh token ID in Redis for revocation tracking
-  await refreshTokenStore.store(tokenId, userId);
+  // This MUST succeed before setting the cookie, otherwise user will have
+  // a valid JWT but no Redis entry, causing "Token revoked" errors
+  try {
+    await refreshTokenStore.store(tokenId, userId);
+  } catch (error) {
+    console.error(`[Auth] Failed to store refresh token for user ${userId.slice(0, 8)}...:`, error);
+    throw new Error('Failed to establish session. Please try again.');
+  }
 
-  // Set refresh token in httpOnly cookie
+  // Only set cookie after Redis storage is confirmed
   setRefreshTokenCookie(c, refreshToken);
 
   return { accessToken };
@@ -304,16 +311,37 @@ authRoute.post('/refresh', async (c) => {
   const refreshToken = getCookie(c, 'refresh_token');
 
   if (!refreshToken) {
+    console.log('[Refresh] No refresh token cookie found');
     throw new HTTP401Error('No refresh token');
   }
 
   try {
     // Verify the refresh token
     const payload = await jwt.verifyRefreshToken(refreshToken);
+    const tokenLog = payload.tokenId.slice(0, 8) + '...';
+    const userLog = payload.userId.slice(0, 8) + '...';
+
+    console.log(`[Refresh] JWT verified - tokenId: ${tokenLog}, userId: ${userLog}`);
 
     // Check if token has been revoked
     const isValid = await refreshTokenStore.isValid(payload.tokenId);
+
     if (!isValid) {
+      // Log diagnostic info for debugging
+      const tokenKey = `refresh:${payload.tokenId}`;
+      const userKey = `refresh:user:${payload.userId}`;
+      const [tokenExists, userTokens] = await Promise.all([
+        redis.exists(tokenKey),
+        redis.smembers(userKey),
+      ]);
+
+      console.warn(`[Refresh] Token revoked - diagnostics:`, {
+        tokenId: tokenLog,
+        userId: userLog,
+        tokenKeyExists: tokenExists === 1,
+        userTokenCount: userTokens.length,
+      });
+
       clearAuthCookies(c);
       throw new HTTP401Error('Token revoked');
     }
@@ -330,6 +358,7 @@ authRoute.post('/refresh', async (c) => {
     if (error instanceof HTTP401Error) {
       throw error;
     }
+    console.error('[Refresh] Unexpected error:', error);
     // Clear invalid refresh cookie
     clearAuthCookies(c);
     throw new HTTP401Error('Invalid refresh token');

@@ -121,6 +121,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        console.warn('[AUTH] logout() called', new Error().stack);
         set({ isLoading: true });
         try {
           await api.logout();

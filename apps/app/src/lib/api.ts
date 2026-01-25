@@ -157,9 +157,19 @@ async function doRefreshToken(): Promise<boolean> {
     setAccessToken(data.accessToken);
     notifyRefreshSubscribers(true);
     return true;
-  } catch {
+  } catch (error) {
     setAccessToken(null);
     notifyRefreshSubscribers(false);
+
+    // Log specific error details for debugging
+    if (error instanceof AxiosError) {
+      console.warn('[Auth] Token refresh failed:', {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        error: error.response?.data?.error,
+      });
+    }
+
     return false;
   } finally {
     isRefreshing = false;

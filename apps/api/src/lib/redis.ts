@@ -387,7 +387,8 @@ export const passwordResetStore = {
 // Refresh Token Storage Helpers
 // ============================================
 
-const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days (matches JWT expiry)
+// 7 days + 10 minutes buffer to prevent TTL race with JWT expiry
+const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60 + 600;
 
 function refreshTokenKey(tokenId: string): string {
   return `refresh:${tokenId}`;
@@ -404,6 +405,11 @@ export const refreshTokenStore = {
    * Also tracks user's active tokens in a set for bulk revocation
    */
   async store(tokenId: string, userId: string): Promise<void> {
+    const tokenLog = tokenId.slice(0, 8) + '...';
+    const userLog = userId.slice(0, 8) + '...';
+
+    console.log(`[RefreshToken] Storing token ${tokenLog} for user ${userLog}`);
+
     const pipeline = redis.pipeline();
 
     // Store tokenId -> userId mapping with TTL
@@ -415,7 +421,31 @@ export const refreshTokenStore = {
     // Set TTL on the user's token set (refreshed on each new token)
     pipeline.expire(userRefreshTokensKey(userId), REFRESH_TOKEN_TTL);
 
-    await pipeline.exec();
+    const results = await pipeline.exec();
+
+    // Check for pipeline errors - pipeline.exec() returns [error, result][] tuples
+    // where errors are NOT thrown automatically
+    if (!results) {
+      console.error(`[RefreshToken] Pipeline returned null for token ${tokenLog}`);
+      throw new Error('Failed to store refresh token: pipeline returned null');
+    }
+
+    for (let i = 0; i < results.length; i++) {
+      const [error] = results[i];
+      if (error) {
+        console.error(`[RefreshToken] Pipeline command ${i} failed for token ${tokenLog}:`, error);
+        throw new Error(`Failed to store refresh token: ${error.message}`);
+      }
+    }
+
+    // Verify token was actually stored
+    const exists = await redis.exists(refreshTokenKey(tokenId));
+    if (exists !== 1) {
+      console.error(`[RefreshToken] Verification failed - token ${tokenLog} not found after store`);
+      throw new Error('Failed to store refresh token: verification failed');
+    }
+
+    console.log(`[RefreshToken] Successfully stored and verified token ${tokenLog}`);
   },
 
   /**
@@ -431,6 +461,7 @@ export const refreshTokenStore = {
    */
   async isValid(tokenId: string): Promise<boolean> {
     const exists = await redis.exists(refreshTokenKey(tokenId));
+    console.log(`[RefreshToken] isValid(${tokenId.slice(0, 8)}...) = ${exists === 1}`);
     return exists === 1;
   },
 
@@ -439,6 +470,7 @@ export const refreshTokenStore = {
    * Called on logout or token rotation
    */
   async revoke(tokenId: string): Promise<void> {
+    console.log(`[RefreshToken] REVOKING token ${tokenId.slice(0, 8)}...`, new Error().stack);
     // Get the userId first so we can remove from user's set
     const userId = await redis.get(refreshTokenKey(tokenId));
 
@@ -457,14 +489,18 @@ export const refreshTokenStore = {
    * Called on password change, account compromise, or "logout all devices"
    */
   async revokeAllForUser(userId: string): Promise<void> {
+    console.log(`[RefreshToken] REVOKING ALL tokens for user ${userId.slice(0, 8)}...`, new Error().stack);
     const userKey = userRefreshTokensKey(userId);
 
     // Get all token IDs for this user
     const tokenIds = await redis.smembers(userKey);
 
     if (tokenIds.length === 0) {
+      console.log(`[RefreshToken] No tokens to revoke for user ${userId.slice(0, 8)}...`);
       return;
     }
+
+    console.log(`[RefreshToken] Revoking ${tokenIds.length} tokens for user ${userId.slice(0, 8)}...`);
 
     // Build keys to delete
     const keysToDelete = tokenIds.map(refreshTokenKey);
