@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.18.0](https://github.com/maxbolgarin/scanorbit/compare/v1.17.1...v1.18.0) (2026-01-25)
+
+### Features
+
+* **auth:** make access token expiry configurable via environment variables ([c8887df](https://github.com/maxbolgarin/scanorbit/commit/c8887df1376c33bc6c5075ab5496925cd71180b7))
+
 ## [1.17.1](https://github.com/maxbolgarin/scanorbit/compare/v1.17.0...v1.17.1) (2026-01-25)
 
 ### Bug Fixes
