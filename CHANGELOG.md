@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.1](https://github.com/maxbolgarin/scanorbit/compare/v1.15.0...v1.15.1) (2026-01-25)
+
+### Bug Fixes
+
+* **auth:** use environment-aware sameSite cookie policy and clear auth state on logout ([be80953](https://github.com/maxbolgarin/scanorbit/commit/be80953608c8d00df89cebe59db5ee6a9df12b4b))
+
 ## [1.15.0](https://github.com/maxbolgarin/scanorbit/compare/v1.14.5...v1.15.0) (2026-01-25)
 
 ### Features
