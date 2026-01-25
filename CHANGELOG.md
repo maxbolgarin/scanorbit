@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.0](https://github.com/maxbolgarin/scanorbit/compare/v1.16.0...v1.17.0) (2026-01-25)
+
+### Features
+
+* **api:** add resend email provider support with fallback to smtp and environment configuration ([0af9958](https://github.com/maxbolgarin/scanorbit/commit/0af9958ce0fdb519a85ddf19832dcda2cc2b30a0))
+
 ## [1.16.0](https://github.com/maxbolgarin/scanorbit/compare/v1.15.1...v1.16.0) (2026-01-25)
 
 ### Features
