@@ -86,9 +86,7 @@ export const useAuthStore = create<AuthState>()(
             challengeToken: null,
           });
         } catch (err) {
-          console.error("Auth store login error:", err);
           const errorMessage = err instanceof Error ? err.message : "Login failed";
-          console.log("Auth store setting error:", errorMessage);
           set({
             error: errorMessage,
             isLoading: false,
@@ -144,15 +142,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        console.log('[Auth] checkAuth called, checkAuthPromise:', checkAuthPromise ? 'exists' : 'null');
-
         // Deduplicate concurrent calls - return existing promise if one is in progress
         if (checkAuthPromise) {
-          console.log('[Auth] checkAuth returning existing promise');
           return checkAuthPromise;
         }
 
-        console.log('[Auth] checkAuth starting new check');
         set({ isLoading: true });
 
         checkAuthPromise = (async () => {

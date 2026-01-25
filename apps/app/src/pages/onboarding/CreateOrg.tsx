@@ -21,24 +21,18 @@ export default function CreateOrg() {
 
     if (oauthStatus === "success") {
       // OAuth flow: authenticate using refresh token from cookie
-      console.log('[CreateOrg] OAuth success detected, checking auth...');
       checkAuth().then(() => {
-        console.log('[CreateOrg] Auth check complete');
         setAuthChecked(true);
         setSearchParams({}, { replace: true });
       }).catch(() => {
-        console.log('[CreateOrg] Auth check failed, redirecting to login');
         setAuthChecked(true);
         navigate("/login", { replace: true });
       });
     } else {
       // Direct navigation (no OAuth) - check if already authenticated
-      console.log('[CreateOrg] No OAuth param, checking existing auth...');
       checkAuth().then(() => {
-        console.log('[CreateOrg] Existing auth check complete');
         setAuthChecked(true);
       }).catch(() => {
-        console.log('[CreateOrg] Not authenticated, redirecting to login');
         setAuthChecked(true);
       });
     }
@@ -49,8 +43,6 @@ export default function CreateOrg() {
     if (!authChecked || isLoading) {
       return; // Wait for auth check to complete
     }
-
-    console.log('[CreateOrg] Deciding redirect:', { isAuthenticated, hasOrg, org: !!org });
 
     if (!isAuthenticated) {
       navigate("/login", { replace: true });

@@ -12,17 +12,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const [hasChecked, setHasChecked] = useState(false);
 
-  // Debug: Log on every render to see what's happening
-  console.log('[ProtectedRoute] Render:', { isAuthenticated, isLoading, hasChecked, path: location.pathname });
-
   useEffect(() => {
-    console.log('[ProtectedRoute] useEffect triggered, calling checkAuth');
     // Always check auth on mount to validate persisted state
     const doCheck = async () => {
       try {
-        console.log('[ProtectedRoute] About to call checkAuth()');
         await checkAuth();
-        console.log('[ProtectedRoute] checkAuth() completed');
       } catch {
         // checkAuth already handles errors internally by clearing auth state
         // Any error here means auth failed, which is handled by the redirect below
