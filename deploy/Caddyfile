@@ -1,6 +1,6 @@
 # Global options
 {
-	email {$ADMIN_EMAIL:admin@scanorbit.cloud}
+	email {$ADMIN_EMAIL}
 }
 
 # Common hardening: block dotfiles and obvious scanner probes early (before upstreams)
@@ -59,4 +59,10 @@ app.{$DOMAIN} {
 api.{$DOMAIN} {
 	import block_scanners
 	reverse_proxy api:4000
+}
+
+# maxbolgarin.com - both www and non-www (Caddy will get one cert covering both)
+maxbolgarin.com, www.maxbolgarin.com {
+	import block_scanners
+	reverse_proxy maxbolgarin:80
 }
