@@ -272,14 +272,16 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-connections"
 
       - alert: RedisLowHitRate
-        # Only alert when there's actual traffic (at least 1 op/sec)
+        # Only alert when there's significant traffic and cache is not cold (has some hits)
         expr: |
           (
             rate(redis_keyspace_hits_total[5m]) /
             (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
           ) < 0.8
           and
-          (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) > 1
+          (increase(redis_keyspace_hits_total[5m]) + increase(redis_keyspace_misses_total[5m])) > 100
+          and
+          rate(redis_keyspace_hits_total[5m]) > 0
         for: 10m
         labels:
           severity: warning
@@ -360,17 +362,17 @@ groups:
           description: "{{ $value }} critical/high severity findings created in the last hour."
           runbook_url: "https://docs.scanorbit.cloud/runbooks/findings-spike"
 
-      - alert: NoScansCompleted
+      - alert: ScanErrors
+        # Alert when there are scan errors (at least 1 error in the last hour)
         expr: |
-          increase(jobs_processed_total{job_type="scan_account", status="success"}[6h]) == 0
-          unless on() absent(jobs_processed_total{job_type="scan_account"})
-        for: 30m
+          increase(jobs_processed_total{job_type="scan_account", status="error"}[1h]) > 0
+        for: 0m
         labels:
           severity: warning
         annotations:
-          summary: "No scans completed in 6 hours"
-          description: "No AWS account scans have completed successfully in the last 6 hours."
-          runbook_url: "https://docs.scanorbit.cloud/runbooks/no-scans"
+          summary: "Scan errors detected"
+          description: "{{ $value }} AWS account scan(s) failed in the last hour."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/scan-errors"
 
       - alert: ScanSuccessRateLow
         # Only alert when there are actual scans being processed
