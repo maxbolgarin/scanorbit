@@ -346,19 +346,19 @@ ScanOrbit integrates with the following third-party services:
 
 | Service | Purpose | Privacy |
 |---------|---------|---------|
-| **Plausible Analytics** | Privacy-first website analytics | No cookies, no personal data, EU-hosted |
+| **Umami Analytics** | Privacy-first website analytics (self-hosted) | No cookies, no personal data, EU-hosted |
 | **Stripe** | Payment processing | PCI compliant, [Privacy Policy](https://stripe.com/privacy) |
 | **SendGrid** | Email delivery | [Privacy Policy](https://www.twilio.com/legal/privacy) |
 
-**About Plausible Analytics:**
-We use Plausible for website and application analytics. Unlike Google Analytics, Plausible:
+**About Umami Analytics:**
+We use Umami (self-hosted) for website and application analytics. Unlike Google Analytics, Umami:
 - Does not use cookies
 - Does not collect personal data
 - Does not track users across sites
 - Is fully GDPR compliant by design
-- Hosts all data in the EU
+- All data stays on our own EU infrastructure
 
-Learn more: [Plausible Data Policy](https://plausible.io/data-policy)
+Learn more: [Umami](https://umami.is)
 
 These third parties have their own terms and privacy policies. We recommend reviewing them.
 

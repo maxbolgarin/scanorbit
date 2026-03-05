@@ -112,6 +112,11 @@ services:
       - STRIPE_PRO_PRICE_ID=${STRIPE_PRO_PRICE_ID:-}
       - STRIPE_TEAM_PRICE_ID=${STRIPE_TEAM_PRICE_ID:-}
       - STRIPE_TRIAL_DAYS=${STRIPE_TRIAL_DAYS:-14}
+      # Listmonk Newsletter
+      - LISTMONK_API_URL=${LISTMONK_API_URL:-http://listmonk:9000}
+      - LISTMONK_API_USER=${LISTMONK_ADMIN_USER:-admin}
+      - LISTMONK_API_PASSWORD=${LISTMONK_ADMIN_PASSWORD:-}
+      - LISTMONK_DEFAULT_LIST_ID=${LISTMONK_DEFAULT_LIST_ID:-1}
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -554,11 +559,126 @@ services:
     networks:
       - scanorbit
 
+  # Umami Analytics - Database initialization
+  umami-db-init:
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      - PGHOST=postgres
+      - PGUSER=${POSTGRES_USER:-scanorbit}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGSSLMODE=require
+      - PGSSLROOTCERT=/certs/ca.crt
+    volumes:
+      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+    command: >
+      sh -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'umami'\" | grep -q 1 || psql -c 'CREATE DATABASE umami'"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
+  # Umami Analytics - Privacy-first self-hosted web analytics
+  umami:
+    image: docker.umami.is/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=require
+      - APP_SECRET=${UMAMI_APP_SECRET}
+      - TRACKER_SCRIPT_NAME=t
+      - COLLECT_API_ENDPOINT=/collect
+    ports:
+      - "127.0.0.1:3002:3000"  # Umami UI (localhost only, access via SSH tunnel)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      umami-db-init:
+        condition: service_completed_successfully
+    networks:
+      - scanorbit
+
+  # Listmonk Newsletter - Database initialization
+  listmonk-db-init:
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      - PGHOST=postgres
+      - PGUSER=${POSTGRES_USER:-scanorbit}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGSSLMODE=require
+      - PGSSLROOTCERT=/certs/ca.crt
+    volumes:
+      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+    command: >
+      sh -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'listmonk'\" | grep -q 1 || psql -c 'CREATE DATABASE listmonk'"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
+  # Listmonk Newsletter - Schema installation (idempotent)
+  listmonk-init:
+    image: listmonk/listmonk:latest
+    restart: "no"
+    command: ["./listmonk", "--install", "--idempotent", "--yes", "--config", ""]
+    environment:
+      - LISTMONK_app__address=0.0.0.0:9000
+      - LISTMONK_app__admin_username=${LISTMONK_ADMIN_USER:-admin}
+      - LISTMONK_app__admin_password=${LISTMONK_ADMIN_PASSWORD}
+      - LISTMONK_db__host=postgres
+      - LISTMONK_db__port=5432
+      - LISTMONK_db__user=${POSTGRES_USER:-scanorbit}
+      - LISTMONK_db__password=${POSTGRES_PASSWORD}
+      - LISTMONK_db__database=listmonk
+      - LISTMONK_db__ssl_mode=require
+    depends_on:
+      listmonk-db-init:
+        condition: service_completed_successfully
+    networks:
+      - scanorbit
+
+  # Listmonk Newsletter - Admin UI & API (localhost only, access via SSH tunnel)
+  listmonk:
+    image: listmonk/listmonk:latest
+    restart: unless-stopped
+    command: ["./listmonk", "--config", ""]
+    environment:
+      - LISTMONK_app__address=0.0.0.0:9000
+      - LISTMONK_app__admin_username=${LISTMONK_ADMIN_USER:-admin}
+      - LISTMONK_app__admin_password=${LISTMONK_ADMIN_PASSWORD}
+      - LISTMONK_db__host=postgres
+      - LISTMONK_db__port=5432
+      - LISTMONK_db__user=${POSTGRES_USER:-scanorbit}
+      - LISTMONK_db__password=${POSTGRES_PASSWORD}
+      - LISTMONK_db__database=listmonk
+      - LISTMONK_db__ssl_mode=require
+    ports:
+      - "127.0.0.1:9000:9000"  # Listmonk UI (localhost only, access via SSH tunnel)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      listmonk-init:
+        condition: service_completed_successfully
+    networks:
+      - scanorbit
+
   maxbolgarin:
     image: ghcr.io/maxbolgarin/maxbolgarin-web:latest
     restart: unless-stopped
     networks:
       - scanorbit
+    labels:
+      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
 volumes:
   postgres_data:

@@ -132,4 +132,12 @@ export const stripeConfig = {
   trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '14', 10),
 } as const;
 
+// Listmonk newsletter configuration
+export const listmonkConfig = {
+  apiUrl: process.env.LISTMONK_API_URL || 'http://localhost:9000',
+  apiUser: process.env.LISTMONK_API_USER || 'admin',
+  apiPassword: process.env.LISTMONK_API_PASSWORD || '',
+  defaultListId: parseInt(process.env.LISTMONK_DEFAULT_LIST_ID || '1', 10),
+} as const;
+
 export type Config = typeof config;

@@ -60,24 +60,25 @@ ScanOrbit uses **only essential cookies** necessary for the service to function.
 
 ---
 
-## 3. Privacy-First Analytics (Plausible)
+## 3. Privacy-First Analytics (Umami)
 
-We use **Plausible Analytics** to understand how our website and application are used. Plausible is fundamentally different from traditional analytics tools because it is designed to be privacy-first and **completely cookie-free**.
+We use **Umami Analytics** (self-hosted) to understand how our website and application are used. Umami is fundamentally different from traditional analytics tools because it is designed to be privacy-first and **completely cookie-free**.
 
-### 3.1 Why Plausible is Different
+### 3.1 Why Umami is Different
 
-| Feature | Google Analytics | Plausible (We Use) |
+| Feature | Google Analytics | Umami (We Use) |
 |---------|------------------|-------------------|
-| **Cookies** | Uses multiple tracking cookies | ❌ No cookies at all |
-| **Personal Data** | Collects IP, device fingerprint, user ID | ❌ No personal data |
-| **Cross-Site Tracking** | Tracks across websites | ❌ No cross-site tracking |
-| **Data Location** | USA (Google servers) | ✅ EU only |
-| **Consent Required** | Yes (GDPR) | ❌ No consent needed |
+| **Cookies** | Uses multiple tracking cookies | No cookies at all |
+| **Personal Data** | Collects IP, device fingerprint, user ID | No personal data |
+| **Cross-Site Tracking** | Tracks across websites | No cross-site tracking |
+| **Data Location** | USA (Google servers) | EU only (self-hosted on our infrastructure) |
+| **Consent Required** | Yes (GDPR) | No consent needed |
 | **Data Retention** | Indefinite | Aggregated only |
+| **Data Sharing** | Shared with Google | No third-party data sharing |
 
-### 3.2 What Plausible Collects
+### 3.2 What Umami Collects
 
-Plausible collects **aggregated, anonymous data only:**
+Umami collects **aggregated, anonymous data only:**
 - Page URLs visited
 - Referrer source (where you came from)
 - Browser type (e.g., "Firefox" - not version or fingerprint)
@@ -85,30 +86,30 @@ Plausible collects **aggregated, anonymous data only:**
 - Device type (desktop, mobile, tablet)
 - Country (derived from IP, then IP is immediately discarded)
 
-### 3.3 What Plausible Does NOT Collect
+### 3.3 What Umami Does NOT Collect
 
-- ❌ IP addresses (discarded after country lookup)
-- ❌ Cookies or local storage
-- ❌ User identifiers
-- ❌ Session identifiers
-- ❌ Cross-session tracking
-- ❌ Device fingerprints
-- ❌ Personal information of any kind
+- IP addresses (discarded after country lookup)
+- Cookies or local storage
+- User identifiers
+- Session identifiers
+- Cross-session tracking
+- Device fingerprints
+- Personal information of any kind
 
 ### 3.4 GDPR Compliance
 
-Plausible is **GDPR compliant by design** and does not require cookie consent because:
+Umami is **GDPR compliant by design** and does not require cookie consent because:
 - No cookies are used
 - No personal data is processed
 - No tracking across sites or sessions
-- Data is processed in the EU only
+- Data is processed on our own EU infrastructure (no third-party access)
 - Legal basis: Legitimate interest (Article 6(1)(f)) - since no personal data is involved
 
-Learn more: [Plausible Data Policy](https://plausible.io/data-policy)
+Learn more: [Umami](https://umami.is)
 
 ### 3.5 Opting Out
 
-Even though Plausible doesn't track you personally, you can still block it:
+Even though Umami doesn't track you personally, you can still block it:
 - Use browser extensions like uBlock Origin or Privacy Badger
 - Enable "Do Not Track" in your browser
 - Use a browser with built-in tracking protection (Firefox, Brave)
@@ -128,7 +129,7 @@ ScanOrbit **does not use:**
 - **Data Brokers** - No data sharing with third parties
 - **Retargeting** - No advertising retargeting cookies
 
-**Our principle:** We only use essential cookies for authentication. Analytics are handled by Plausible without any cookies.
+**Our principle:** We only use essential cookies for authentication. Analytics are handled by Umami (self-hosted) without any cookies.
 
 ---
 
@@ -231,7 +232,7 @@ ScanOrbit uses third-party services that respect your privacy:
 
 | Service | Purpose | Sets Cookies? | Privacy |
 |---------|---------|---------------|---------|
-| **Plausible Analytics** | Website analytics | ❌ No cookies | EU-hosted, no personal data |
+| **Umami Analytics** | Website analytics (self-hosted) | No cookies | EU-hosted on our infrastructure, no personal data |
 | **Scaleway** | Infrastructure | ❌ No cookies | EU-hosted |
 | **AWS** | Cloud infrastructure | ❌ No cookies | - |
 | **Stripe** | Payment processing | Essential only | PCI compliant |
@@ -344,7 +345,7 @@ Email: dpa@scanorbit.cloud
 
 **Remember:**
 - We use only essential authentication cookies
-- Analytics handled by Plausible (no cookies, no personal data)
+- Analytics handled by Umami (self-hosted, no cookies, no personal data)
 - No marketing or advertising cookies
 - All cookies encrypted and secure
 - You can manage or delete cookies anytime

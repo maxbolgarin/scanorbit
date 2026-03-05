@@ -352,6 +352,14 @@ export const rateLimiters = {
     message: 'Too many requests. Please slow down.',
   }),
 
+  /** Newsletter subscribe: 3 per 10 minutes per IP */
+  newsletter: rateLimit({
+    keyPrefix: 'newsletter',
+    maxRequests: 3,
+    windowSeconds: 10 * 60,
+    message: 'Too many subscription attempts.',
+  }),
+
   /** Password reset: 3 per hour per IP */
   passwordReset: rateLimit({
     keyPrefix: 'pwreset',

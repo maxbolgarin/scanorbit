@@ -475,7 +475,7 @@ A realistic schedule for a solo developer doing marketing 10-15 hours/week.
 | **Email Marketing** | Resend / Buttondown / ConvertKit | Free-€29/mo |
 | **Social Scheduling** | Buffer / Typefully | Free-€15/mo |
 | **SEO Research** | Ubersuggest / Google Search Console | Free |
-| **Analytics** | Google Analytics + Plausible | Free-€9/mo |
+| **Analytics** | Google Analytics + Umami (self-hosted) | Free |
 | **Writing** | Notion / Obsidian | Free |
 | **Grammar** | Grammarly | Free |
 

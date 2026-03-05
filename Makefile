@@ -1,4 +1,4 @@
-.PHONY: install dev build test lint clean docker-up docker-down docker-build help
+.PHONY: install dev build test lint clean docker-up docker-down docker-build tunnel-umami help
 
 # Colors for help output
 BLUE := \033[34m
@@ -82,6 +82,7 @@ help:
 	@echo "  $(BLUE)tunnel-grafana$(RESET)    Open tunnel to prod Grafana (localhost:3001)"
 	@echo "  $(BLUE)tunnel-prometheus$(RESET) Open tunnel to prod Prometheus (localhost:9092)"
 	@echo "  $(BLUE)tunnel-loki$(RESET)       Open tunnel to prod Loki (localhost:3100)"
+	@echo "  $(BLUE)tunnel-umami$(RESET)      Open tunnel to prod Umami analytics (localhost:3002)"
 	@echo "  $(BLUE)tunnel-monitoring$(RESET) Open tunnels to all monitoring services"
 	@echo "  $(BLUE)tunnel-all$(RESET)        Open tunnels to all prod services"
 	@echo ""
@@ -259,3 +260,10 @@ tunnel-grafana:
 	@echo "  Press Ctrl+C to close the tunnel"
 	@echo ""
 	ssh -N -L 3001:localhost:3001 deploy@scanorbit.cloud
+
+tunnel-umami:
+	@echo "$(YELLOW)Opening SSH tunnel to production Umami analytics...$(RESET)"
+	@echo "  Umami will be available at: http://localhost:3002"
+	@echo "  Press Ctrl+C to close the tunnel"
+	@echo ""
+	ssh -N -L 3002:localhost:3002 deploy@scanorbit.cloud
