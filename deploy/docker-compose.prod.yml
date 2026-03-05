@@ -584,7 +584,7 @@ services:
     image: docker.umami.is/umami-software/umami:postgresql-latest
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=require
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=disable
       - APP_SECRET=${UMAMI_APP_SECRET}
       - TRACKER_SCRIPT_NAME=t
       - COLLECT_API_ENDPOINT=/collect

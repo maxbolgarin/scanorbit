@@ -64,7 +64,7 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
     (c as unknown as { [key: string]: unknown })[errorInfoKey] = {
       error: 'ValidationError',
       message: 'Invalid request data',
-      details: err.errors.map((e) => ({
+      details: err.issues.map((e) => ({
         path: e.path.join('.'),
         message: e.message,
       })),
@@ -76,7 +76,7 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
       path: c.req.path,
       query: c.req.query(),
       error: err.message,
-      errors: err.errors.map((e) => ({
+      errors: err.issues.map((e) => ({
         path: e.path.join('.'),
         message: e.message,
       })),
@@ -86,7 +86,7 @@ export const errorHandler: ErrorHandler = (err: Error, c: Context) => {
       {
         error: 'ValidationError',
         message: 'Invalid request data',
-        details: err.errors.map((e) => ({
+        details: err.issues.map((e) => ({
           path: e.path.join('.'),
           message: e.message,
         })),

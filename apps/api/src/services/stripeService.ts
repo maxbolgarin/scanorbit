@@ -17,7 +17,7 @@ function getStripeClient(): Stripe {
       throw new HTTP400Error('Stripe is not configured');
     }
     stripeClient = new Stripe(stripeConfig.secretKey, {
-      apiVersion: '2025-02-24.acacia',
+      apiVersion: '2026-02-25.clover',
     });
   }
   return stripeClient;
@@ -254,8 +254,8 @@ export const stripeService = {
         tier: targetTier || getTierFromPriceId(subscription.items.data[0]?.price.id || ''),
         tierUpgradedAt: new Date(),
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-        subscriptionEndsAt: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000)
+        subscriptionEndsAt: subscription.cancel_at
+          ? new Date(subscription.cancel_at * 1000)
           : null,
         updatedAt: new Date(),
       })
@@ -313,9 +313,7 @@ export const stripeService = {
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         subscriptionEndsAt: subscription.cancel_at
           ? new Date(subscription.cancel_at * 1000)
-          : subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000)
-            : null,
+          : null,
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));
@@ -378,7 +376,7 @@ export const stripeService = {
    * Handle invoice payment failure
    */
   async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    const subscriptionId = invoice.subscription as string;
+    const subscriptionId = invoice.parent?.subscription_details?.subscription as string;
 
     if (!subscriptionId) {
       return;
