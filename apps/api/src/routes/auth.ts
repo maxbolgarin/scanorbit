@@ -10,6 +10,7 @@ import { config } from '../lib/config.js';
 import { redis, twoFactorStore, refreshTokenStore } from '../lib/redis.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP401Error } from '../lib/errors.js';
+import { listmonkService } from '../services/listmonkService.js';
 import type { Variables } from '../types/index.js';
 
 const authRoute = new Hono<{ Variables: Variables }>();
@@ -56,6 +57,7 @@ const completeSignupSchema = z.object({
   consent: z.boolean().refine((val) => val === true, {
     message: 'You must agree to the Terms of Service and Privacy Policy',
   }),
+  newsletterConsent: z.boolean().optional().default(false),
 });
 
 const resendCodeSchema = z.object({
@@ -444,6 +446,11 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, user.id, null);
 
+  // Auto-subscribe to newsletter if user consented (fire-and-forget)
+  if (c.req.valid('json').newsletterConsent) {
+    listmonkService.subscribe(user.email, user.fullName).catch(() => {});
+  }
+
   return c.json({
     user,
     accessToken,
@@ -764,6 +771,11 @@ authRoute.get('/google/callback', async (c) => {
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
+    // Auto-subscribe new OAuth users to newsletter (fire-and-forget)
+    if (result.isNewUser) {
+      listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
+    }
+
     // Redirect based on whether user has an org
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
     return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
@@ -789,6 +801,11 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
 
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
+
+  // Auto-subscribe new OAuth users to newsletter (fire-and-forget)
+  if (result.isNewUser) {
+    listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
+  }
 
   return c.json({
     user: result.user,
@@ -839,6 +856,11 @@ authRoute.get('/github/callback', async (c) => {
     // Set auth tokens (refresh cookie)
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
+
+    // Auto-subscribe new OAuth users to newsletter (fire-and-forget)
+    if (result.isNewUser) {
+      listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
+    }
 
     // Redirect based on whether user has an org
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';

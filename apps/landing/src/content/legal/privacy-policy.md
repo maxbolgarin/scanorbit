@@ -168,7 +168,7 @@ We use the following third-party services to operate ScanOrbit. All sub-processo
 |---------|---------|----------------|----------|-----|
 | **Scaleway** | Infrastructure hosting (servers, databases) | All application data | EU (Paris, Amsterdam) | [Scaleway DPA](https://www.scaleway.com/en/contracts/) |
 | **AWS** | Cloud infrastructure for customer scans | AWS account metadata only | EU (Frankfurt) | [AWS DPA](https://d1.awsstatic.com/legal/aws-gdpr/AWS_GDPR_DPA.pdf) |
-| **Plausible Analytics** | Privacy-first website analytics | No personal data (aggregated page views only) | EU (Germany) | [Plausible DPA](https://plausible.io/dpa) |
+| **Umami Analytics** | Privacy-first website analytics (self-hosted) | No personal data (aggregated page views only) | EU (self-hosted on our infrastructure) | Self-hosted, no third-party data sharing |
 | **Stripe** | Payment processing | Email, name, organization ID, user ID | USA (EU DPA) | [Stripe DPA](https://stripe.com/legal/dpa) |
 | **Google OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [Google DPA](https://cloud.google.com/terms/data-processing-terms) |
 | **GitHub OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [GitHub DPA](https://github.com/customer-terms/github-data-protection-agreement) |
@@ -339,17 +339,17 @@ We use **essential cookies only:**
 
 **No tracking cookies used.**
 
-### 9.2 Privacy-First Analytics (Plausible)
+### 9.2 Privacy-First Analytics (Umami)
 
-We use **Plausible Analytics** for understanding how our website and application are used. Plausible is a privacy-first, cookie-free analytics tool that is fully GDPR compliant by design.
+We use **Umami Analytics** (self-hosted) for understanding how our website and application are used. Umami is a privacy-first, cookie-free, open-source analytics tool that is fully GDPR compliant by design.
 
-**Why Plausible:**
-- **No cookies** - Plausible does not use cookies or store any data on your device
+**Why Umami:**
+- **Self-hosted** - All analytics data stays on our own EU infrastructure, no third-party data sharing
+- **No cookies** - Umami does not use cookies or store any data on your device
 - **No personal data** - No IP addresses, device fingerprints, or personally identifiable information collected
 - **No cross-site tracking** - Cannot track you across different websites
 - **No cross-device tracking** - Cannot link your activity across devices
-- **EU-hosted** - All analytics data is processed and stored in the European Union
-- **Open source** - Plausible's code is publicly auditable
+- **Open source** - Umami's code is publicly auditable on [GitHub](https://github.com/umami-software/umami)
 
 **What we collect:**
 - Page URL and referrer
@@ -365,11 +365,11 @@ We use **Plausible Analytics** for understanding how our website and application
 - Cross-session tracking data
 - Behavioral profiles
 
-**Legal basis (GDPR):** Legitimate interest (Article 6(1)(f)). Since Plausible collects no personal data and uses no cookies, no consent is required under GDPR or the ePrivacy Directive.
+**Legal basis (GDPR):** Legitimate interest (Article 6(1)(f)). Since Umami collects no personal data and uses no cookies, no consent is required under GDPR or the ePrivacy Directive.
 
-**Opt-out:** While Plausible doesn't track individuals, you can still block it using browser extensions like uBlock Origin or by enabling "Do Not Track" in your browser settings.
+**Opt-out:** While Umami doesn't track individuals, you can still block it using browser extensions like uBlock Origin or by enabling "Do Not Track" in your browser settings.
 
-Learn more: [Plausible Data Policy](https://plausible.io/data-policy)
+Learn more: [Umami](https://umami.is)
 
 ### 9.3 What We Do NOT Use
 - **No Google Analytics** - No invasive tracking
@@ -448,7 +448,7 @@ We process your data based on:
 | **Account information** | Contract (necessary to provide service) |
 | **Scan data** | Contract (necessary to perform AWS scans) |
 | **API logs** | Legitimate interest (security & fraud prevention) |
-| **Website analytics (Plausible)** | Legitimate interest (no personal data collected) |
+| **Website analytics (Umami)** | Legitimate interest (no personal data collected) |
 | **Communication data** | Consent & contract (responding to requests) |
 
 ---

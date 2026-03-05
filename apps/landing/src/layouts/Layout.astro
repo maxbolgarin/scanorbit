@@ -39,12 +39,8 @@ const {
 
     <title>{title}</title>
 
-    <!-- Privacy-friendly analytics by Plausible -->
-    <script async src="https://plausible.io/js/pa-fykPFSO5fsWqZVEe2m7a2.js"></script>
-    <script>
-      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-      plausible.init()
-    </script>
+    <!-- Privacy-friendly analytics by Umami (self-hosted) -->
+    <script defer src="/t.js" data-website-id="UMAMI_WEBSITE_ID"></script>
   </head>
   <body class="min-h-screen bg-deep-space text-cloud-gray antialiased">
     <slot />

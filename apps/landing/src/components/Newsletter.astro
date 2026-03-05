@@ -1,0 +1,86 @@
+---
+import { Icon } from "astro-icon/components";
+---
+
+<div class="max-w-md">
+  <h4 class="font-semibold text-cloud-gray mb-2 text-sm uppercase tracking-wider">Stay Updated</h4>
+  <p class="text-slate-gray text-sm mb-4">
+    AWS security tips, product updates, and best practices. No spam.
+  </p>
+
+  <form id="newsletter-form" class="space-y-3">
+    <div class="flex gap-2">
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="you@company.com"
+        class="flex-1 px-4 py-2.5 bg-deep-space border border-slate-gray/20 rounded-lg text-cloud-gray placeholder:text-slate-gray/50 text-sm focus:outline-none focus:border-cyber-cyan/50 transition-colors"
+      />
+      <button
+        type="submit"
+        class="px-4 py-2.5 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-medium text-sm text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.4)] flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Icon name="lucide:mail" class="w-4 h-4" />
+        Subscribe
+      </button>
+    </div>
+
+    <label class="flex items-start gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="consent"
+        required
+        class="mt-0.5 w-4 h-4 rounded border-slate-gray/30 bg-deep-space text-orbit-purple focus:ring-orbit-purple/50"
+      />
+      <span class="text-xs text-slate-gray leading-relaxed">
+        I agree to receive marketing emails. See our
+        <a href="/privacy" class="text-cyber-cyan hover:underline">Privacy Policy</a>.
+      </span>
+    </label>
+
+    <p id="newsletter-message" class="text-sm hidden"></p>
+  </form>
+</div>
+
+<script>
+  const form = document.getElementById('newsletter-form') as HTMLFormElement;
+  const message = document.getElementById('newsletter-message') as HTMLElement;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const emailInput = form.querySelector<HTMLInputElement>('input[name="email"]');
+    const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const email = emailInput?.value?.trim();
+
+    if (!email || !submitBtn) return;
+
+    submitBtn.disabled = true;
+    message.className = 'text-sm hidden';
+
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, consent: true }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        message.textContent = data.message || 'Thanks for subscribing!';
+        message.className = 'text-sm text-emerald-400';
+        form.reset();
+      } else {
+        message.textContent = data.message || 'Something went wrong. Please try again.';
+        message.className = 'text-sm text-red-400';
+      }
+    } catch {
+      message.textContent = 'Network error. Please try again.';
+      message.className = 'text-sm text-red-400';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+</script>

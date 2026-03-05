@@ -1,5 +1,6 @@
 ---
 import { Icon } from "astro-icon/components";
+import Newsletter from "./Newsletter.astro";
 
 const footerLinks = {
   features: [
@@ -23,6 +24,11 @@ const footerLinks = {
 
 <footer class="bg-midnight border-t border-deep-space">
   <div class="container mx-auto px-6 py-16">
+    <!-- Newsletter -->
+    <div class="mb-12">
+      <Newsletter />
+    </div>
+
     <!-- Link columns -->
     <div class="grid grid-cols-2 md:grid-cols-3 gap-8 mb-12">
       <!-- Features -->

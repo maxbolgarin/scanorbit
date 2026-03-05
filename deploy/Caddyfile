@@ -36,6 +36,15 @@
 # Landing page - root domain
 {$DOMAIN} {
 	import block_scanners
+
+	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
+	@umami path /t.js /collect
+	reverse_proxy @umami umami:3000
+
+	# Proxy API calls from landing page (newsletter subscribe, etc.)
+	@api path /api/*
+	reverse_proxy @api api:4000
+
 	reverse_proxy landing:80
 }
 
@@ -47,6 +56,11 @@ www.{$DOMAIN} {
 # React App - app subdomain
 app.{$DOMAIN} {
 	import block_scanners
+
+	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
+	@umami path /t.js /collect
+	reverse_proxy @umami umami:3000
+
 	# Route API paths to the API service (so they don't hit the SPA's nginx).
 	@api_paths path /api/* /auth/* /orgs* /aws/* /resources* /findings*
 	reverse_proxy @api_paths api:4000

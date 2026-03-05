@@ -7,6 +7,7 @@ import resourcesRoute from './resources.js';
 import findingsRoute from './findings.js';
 import gdprRoute from './gdpr.js';
 import stripeRoute from './stripe.js';
+import newsletterRoute from './newsletter.js';
 import type { Variables } from '../types/index.js';
 
 const routes = new Hono<{ Variables: Variables }>();
@@ -24,5 +25,8 @@ routes.route('/gdpr', gdprRoute);
 
 // Stripe payment routes
 routes.route('/stripe', stripeRoute);
+
+// Newsletter subscription (public)
+routes.route('/newsletter', newsletterRoute);
 
 export default routes;
