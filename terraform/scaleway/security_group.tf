@@ -4,6 +4,7 @@ resource "scaleway_instance_security_group" "main" {
   zone                    = var.scw_zone
   inbound_default_policy  = "drop"
   outbound_default_policy = "accept"
+  enable_default_security = false # Unblock SMTP (account is verified)
 
   # SSH access (open to all - use SSH keys for security)
   inbound_rule {
@@ -25,24 +26,6 @@ resource "scaleway_instance_security_group" "main" {
   inbound_rule {
     action   = "accept"
     port     = 443
-    protocol = "TCP"
-    ip_range = "0.0.0.0/0"
-  }
-
-  # SMTP for email sending (ports 465 and 587)
-  # NOTE: You MUST also enable "Enable SMTP ports" checkbox in Scaleway console
-  # Terraform cannot enable this - it's a fixed rule override that must be done manually
-  # Go to: Scaleway Console > Instances > Security Groups > [Your Security Group] > Enable SMTP ports
-  outbound_rule {
-    action   = "accept"
-    port     = 465
-    protocol = "TCP"
-    ip_range = "0.0.0.0/0"
-  }
-
-  outbound_rule {
-    action   = "accept"
-    port     = 587
     protocol = "TCP"
     ip_range = "0.0.0.0/0"
   }

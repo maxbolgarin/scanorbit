@@ -12,8 +12,8 @@ resource "scaleway_instance_server" "main" {
   # Scripts are loaded from deploy/scripts/ (canonical source)
   user_data = {
     cloud-init = templatefile("${path.module}/cloud-init.yaml", {
-      ssh_public_keys    = var.ssh_public_keys
-      script_gen_certs   = file("${path.module}/generate-certs.sh")
+      ssh_public_keys  = var.ssh_public_keys
+      script_gen_certs = file("${path.module}/generate-certs.sh")
     })
   }
 

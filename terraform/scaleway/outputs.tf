@@ -31,10 +31,10 @@ output "api_url" {
 output "dns_records" {
   description = "Created DNS records"
   value = {
-    root = "${var.domain} -> ${scaleway_instance_ip.main.address}"
-    www  = "www.${var.domain} -> ${var.domain}"
-    app  = "app.${var.domain} -> ${scaleway_instance_ip.main.address}"
-    api  = "api.${var.domain} -> ${scaleway_instance_ip.main.address}"
+    root = "${scaleway_domain_record.root.dns_zone} -> ${scaleway_domain_record.root.data} (A)"
+    www  = "${scaleway_domain_record.www.name}.${scaleway_domain_record.www.dns_zone} -> ${scaleway_domain_record.www.data} (CNAME)"
+    app  = "${scaleway_domain_record.app.name}.${scaleway_domain_record.app.dns_zone} -> ${scaleway_domain_record.app.data} (A)"
+    api  = "${scaleway_domain_record.api.name}.${scaleway_domain_record.api.dns_zone} -> ${scaleway_domain_record.api.data} (A)"
   }
 }
 
