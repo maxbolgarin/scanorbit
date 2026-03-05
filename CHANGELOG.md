@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.0](https://github.com/maxbolgarin/scanorbit/compare/v1.20.0...v1.21.0) (2026-03-05)
+
+### Features
+
+* **deploy:** add maxbolgarin.com service with caddy reverse proxy and admin email configuration ([8188fbf](https://github.com/maxbolgarin/scanorbit/commit/8188fbf56039f31644103b148776c8c72c7bf26b))
+* **newsletter:** add listmonk integration with subscription endpoints and landing page components ([bf82ce1](https://github.com/maxbolgarin/scanorbit/commit/bf82ce1b7c063ce3f3b06788f8e6e71167904129))
+
 ## [1.20.0](https://github.com/maxbolgarin/scanorbit/compare/v1.19.0...v1.20.0) (2026-01-25)
 
 ### Features
