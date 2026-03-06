@@ -434,6 +434,104 @@ function logEmail(to: string, subject: string, text: string): void {
   console.log('=======================================\n');
 }
 
+// Trial ending email HTML
+function getTrialEndingEmailHtml(trialEndsAt: Date, tier: string, name?: string): string {
+  const greeting = name ? `Hi ${name},` : 'Hi there,';
+  const endDate = trialEndsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const settingsUrl = `${config.frontendUrl}/settings?tab=subscription`;
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      Your trial is ending soon
+    </h1>
+    <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      ${greeting}<br><br>
+      Your free trial of the <strong style="color: ${BRAND.text};">${tier}</strong> plan ends on <strong style="color: ${BRAND.text};">${endDate}</strong>.
+      Add a payment method to continue using all features after your trial ends.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${settingsUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.3);">
+        Manage Subscription
+      </a>
+    </div>
+
+    <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      If you don't add a payment method, your account will be downgraded to the Free plan when the trial ends.
+    </p>
+  `;
+
+  return wrapInTemplate(content, 'Your ScanOrbit trial is ending soon');
+}
+
+function getTrialEndingEmailText(trialEndsAt: Date, tier: string, name?: string): string {
+  const greeting = name ? `Hi ${name}` : 'Hi there';
+  const endDate = trialEndsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  return `
+${greeting},
+
+Your free trial of the ${tier} plan ends on ${endDate}. Add a payment method to continue using all features after your trial ends.
+
+Manage your subscription: ${config.frontendUrl}/settings?tab=subscription
+
+If you don't add a payment method, your account will be downgraded to the Free plan when the trial ends.
+
+---
+ScanOrbit
+https://scanorbit.io
+  `.trim();
+}
+
+// Payment failed email HTML
+function getPaymentFailedEmailHtml(tier: string, name?: string): string {
+  const greeting = name ? `Hi ${name},` : 'Hi there,';
+  const settingsUrl = `${config.frontendUrl}/settings?tab=subscription`;
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      Payment failed
+    </h1>
+    <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      ${greeting}<br><br>
+      We were unable to process your payment for the <strong style="color: ${BRAND.text};">${tier}</strong> plan.
+      Please update your payment method to avoid losing access to paid features.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${settingsUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.3);">
+        Update Payment Method
+      </a>
+    </div>
+
+    <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      If this issue persists, your subscription may be canceled and your account downgraded to the Free plan.
+    </p>
+  `;
+
+  return wrapInTemplate(content, 'Your ScanOrbit payment failed');
+}
+
+function getPaymentFailedEmailText(tier: string, name?: string): string {
+  const greeting = name ? `Hi ${name}` : 'Hi there';
+
+  return `
+${greeting},
+
+We were unable to process your payment for the ${tier} plan. Please update your payment method to avoid losing access to paid features.
+
+Manage your subscription: ${config.frontendUrl}/settings?tab=subscription
+
+If this issue persists, your subscription may be canceled and your account downgraded to the Free plan.
+
+---
+ScanOrbit
+https://scanorbit.io
+  `.trim();
+}
+
 export const emailService = {
   /**
    * Send verification email with 6-digit code
@@ -462,6 +560,37 @@ export const emailService = {
     const subject = 'Reset your ScanOrbit password';
     const html = getPasswordResetEmailHtml(resetUrl, name);
     const text = getPasswordResetEmailText(resetUrl, name);
+
+    return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send trial ending soon notification
+   */
+  async sendTrialEndingEmail(
+    email: string,
+    trialEndsAt: Date,
+    tier: string,
+    name?: string
+  ): Promise<EmailResult> {
+    const subject = 'Your ScanOrbit trial is ending soon';
+    const html = getTrialEndingEmailHtml(trialEndsAt, tier, name);
+    const text = getTrialEndingEmailText(trialEndsAt, tier, name);
+
+    return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send payment failed notification
+   */
+  async sendPaymentFailedEmail(
+    email: string,
+    tier: string,
+    name?: string
+  ): Promise<EmailResult> {
+    const subject = 'Your ScanOrbit payment failed';
+    const html = getPaymentFailedEmailHtml(tier, name);
+    const text = getPaymentFailedEmailText(tier, name);
 
     return sendEmail(email, subject, text, html);
   },

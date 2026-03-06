@@ -468,6 +468,7 @@ export function SubscriptionSettings() {
         targetTier={selectedTier}
         onConfirm={handleConfirmUpgrade}
         isLoading={upgradeMutation.isPending}
+        stripeEnabled={!!status?.stripeEnabled}
       />
     </div>
   );
