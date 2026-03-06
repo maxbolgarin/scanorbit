@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.22.0](https://github.com/maxbolgarin/scanorbit/compare/v1.21.0...v1.22.0) (2026-03-06)
+
+### Features
+
+* **landing:** restructure comparison and features sections with dependency graph focus and clarified value propositions ([48d42d2](https://github.com/maxbolgarin/scanorbit/commit/48d42d2db4cf7d6499b7d0e3d54e68ffa2adc42b))
+* **terraform/scaleway:** add dns records for root, www, app, and api subdomains ([befdddf](https://github.com/maxbolgarin/scanorbit/commit/befdddf03fa7d74362e19061fa262656b2bae46a))
+
+### Build System
+
+* upgrade dependencies across api, app, and landing packages with pnpm lockfile consolidation ([b702b81](https://github.com/maxbolgarin/scanorbit/commit/b702b81900545b0fb625a079d9deedeb989e4b5f))
+
+### Docs
+
+* **marketing-plan:** restructure strategy with focus on solo developer advantages and async-first approach ([e860377](https://github.com/maxbolgarin/scanorbit/commit/e8603779913bc1d2b270b09749338230674f37a1))
+
 ## [1.21.0](https://github.com/maxbolgarin/scanorbit/compare/v1.20.0...v1.21.0) (2026-03-05)
 
 ### Features
