@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
+  DEV_TAG: ${{ vars.DEV_IMAGE_TAG || 'develop' }}
 
 jobs:
   changes:
@@ -67,7 +68,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api
           tags: |
-            type=raw,value=develop
+            type=raw,value=${{ env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -109,7 +110,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/app
           tags: |
-            type=raw,value=develop
+            type=raw,value=${{ env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -154,7 +155,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/landing
           tags: |
-            type=raw,value=develop
+            type=raw,value=${{ env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -199,7 +200,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.worker }}
           tags: |
-            type=raw,value=develop
+            type=raw,value=${{ env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
