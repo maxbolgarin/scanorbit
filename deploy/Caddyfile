@@ -36,10 +36,14 @@
 # Landing page - root domain
 {$DOMAIN} {
 	import block_scanners
+	header /* {
+		-Server
+		-Via
+	}
 
 	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
 	@umami path /t.js /collect
-	reverse_proxy @umami umami:3002
+	reverse_proxy @umami umami:3000
 
 	# Proxy API calls from landing page (newsletter subscribe, etc.)
 	@api path /api/*
@@ -56,10 +60,14 @@ www.{$DOMAIN} {
 # React App - app subdomain
 app.{$DOMAIN} {
 	import block_scanners
+	header /* {
+		-Server
+		-Via
+	}
 
 	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
 	@umami path /t.js /collect
-	reverse_proxy @umami umami:3002
+	reverse_proxy @umami umami:3000
 
 	# Route API paths to the API service (so they don't hit the SPA's nginx).
 	@api_paths path /api/* /auth/* /orgs* /aws/* /resources* /findings*
@@ -72,11 +80,19 @@ app.{$DOMAIN} {
 # API - api subdomain
 api.{$DOMAIN} {
 	import block_scanners
+	header /* {
+		-Server
+		-Via
+	}
 	reverse_proxy api:4000
 }
 
 # maxbolgarin.com - both www and non-www (Caddy will get one cert covering both)
 maxbolgarin.com, www.maxbolgarin.com {
 	import block_scanners
+	header /* {
+		-Server
+		-Via
+	}
 	reverse_proxy maxbolgarin:80
 }
