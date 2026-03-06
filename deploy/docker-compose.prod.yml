@@ -586,7 +586,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=disable
       - APP_SECRET=${UMAMI_APP_SECRET}
-      - TRACKER_SCRIPT_NAME=t
+      - TRACKER_SCRIPT_NAME=t.js
       - COLLECT_API_ENDPOINT=/collect
     ports:
       - "127.0.0.1:3002:3000"  # Umami UI (localhost only, access via SSH tunnel)
