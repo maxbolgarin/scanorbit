@@ -16,6 +16,7 @@ interface UpgradeConfirmModalProps {
   targetTier: SubscriptionTier;
   onConfirm: () => void;
   isLoading?: boolean;
+  stripeEnabled?: boolean;
 }
 
 const tierLabels: Record<SubscriptionTier, string> = {
@@ -30,21 +31,44 @@ export const UpgradeConfirmModal = memo(function UpgradeConfirmModal({
   targetTier,
   onConfirm,
   isLoading,
+  stripeEnabled,
 }: UpgradeConfirmModalProps) {
+  const isDowngrade = targetTier === "free";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirm Upgrade to {tierLabels[targetTier]}</DialogTitle>
+          <DialogTitle>
+            {isDowngrade
+              ? "Downgrade to Free"
+              : `Upgrade to ${tierLabels[targetTier]}`}
+          </DialogTitle>
           <DialogDescription className="pt-2">
-            This is a demo upgrade. After public beta-testing this would redirect you to a payment flow. Now it is free.
+            {isDowngrade
+              ? "Are you sure you want to downgrade to the Free plan? You will lose access to paid features."
+              : stripeEnabled
+                ? `Your organization will be upgraded to the ${tierLabels[targetTier]} tier.`
+                : `This will activate the ${tierLabels[targetTier]} tier for your organization.`}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <p className="text-sm text-muted-foreground">
-            Your organization will be upgraded to the <strong>{tierLabels[targetTier]}</strong> tier immediately.
-            All features associated with this tier will be unlocked.
-          </p>
+          {isDowngrade ? (
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>- Resource and finding lists will be locked</li>
+              <li>- Infrastructure map will be unavailable</li>
+              <li>- Scanning will be limited to one successful scan</li>
+              {stripeEnabled && (
+                <li>- Your subscription will be canceled at the end of the billing period</li>
+              )}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              All features associated with the{" "}
+              <strong>{tierLabels[targetTier]}</strong> tier will be unlocked
+              immediately.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button
@@ -54,8 +78,18 @@ export const UpgradeConfirmModal = memo(function UpgradeConfirmModal({
           >
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={isLoading}>
-            {isLoading ? "Upgrading..." : `Upgrade to ${tierLabels[targetTier]}`}
+          <Button
+            variant={isDowngrade ? "destructive" : "default"}
+            onClick={onConfirm}
+            disabled={isLoading}
+          >
+            {isLoading
+              ? isDowngrade
+                ? "Downgrading..."
+                : "Upgrading..."
+              : isDowngrade
+                ? "Confirm Downgrade"
+                : `Upgrade to ${tierLabels[targetTier]}`}
           </Button>
         </DialogFooter>
       </DialogContent>

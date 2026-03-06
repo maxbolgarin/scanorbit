@@ -1349,6 +1349,21 @@ export async function createPortalSession(
   }
 }
 
+export async function cancelSubscription(
+  _orgId: string,
+  immediate: boolean = false
+): Promise<{ canceled: boolean; immediate: boolean }> {
+  try {
+    const { data } = await api.post<{ data: { canceled: boolean; immediate: boolean } }>(
+      `/stripe/cancel`,
+      { immediate }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 // ============================================
 // GDPR API
 // ============================================

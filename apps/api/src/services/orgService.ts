@@ -369,6 +369,17 @@ export const orgService = {
   /**
    * Upgrade organization tier (mock implementation for demo)
    */
+  async getOrgAdminEmail(orgId: string): Promise<{ email: string; name: string | null } | null> {
+    const [admin] = await db
+      .select({ email: users.email, fullName: users.fullName })
+      .from(users)
+      .innerJoin(userOrgMembers, eq(users.id, userOrgMembers.userId))
+      .where(and(eq(userOrgMembers.orgId, orgId), eq(userOrgMembers.role, 'admin')))
+      .limit(1);
+
+    return admin ? { email: admin.email, name: admin.fullName } : null;
+  },
+
   async upgradeSubscription(
     orgId: string,
     userId: string,
@@ -397,6 +408,23 @@ export const orgService = {
     // Validate target tier
     if (!['free', 'pro', 'team'].includes(targetTier)) {
       throw new HTTP400Error('Invalid tier. Must be free, pro, or team.');
+    }
+
+    // When Stripe is enabled, paid upgrades must go through Stripe checkout
+    if (stripeService.isConfigured()) {
+      if (targetTier !== 'free') {
+        throw new HTTP400Error('Paid tier changes must go through Stripe checkout.');
+      }
+      // Cancel active Stripe subscription if exists
+      const [org] = await db
+        .select({ stripeSubscriptionId: orgs.stripeSubscriptionId, subscriptionStatus: orgs.subscriptionStatus })
+        .from(orgs)
+        .where(eq(orgs.id, orgId))
+        .limit(1);
+
+      if (org?.stripeSubscriptionId && ['active', 'trialing'].includes(org.subscriptionStatus || '')) {
+        await stripeService.cancelSubscription(orgId, userId, false);
+      }
     }
 
     // Update org tier

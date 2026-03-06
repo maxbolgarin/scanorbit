@@ -362,6 +362,17 @@ export const stripeService = {
   },
 
   /**
+   * Retrieve a subscription by ID
+   */
+  async getSubscription(subscriptionId: string): Promise<Stripe.Subscription | null> {
+    try {
+      return await getStripeClient().subscriptions.retrieve(subscriptionId);
+    } catch {
+      return null;
+    }
+  },
+
+  /**
    * Construct and verify webhook event
    */
   constructWebhookEvent(payload: string | Buffer, signature: string): Stripe.Event {

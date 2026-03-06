@@ -3,6 +3,8 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
 import { stripeService } from '../services/stripeService.js';
+import { orgService } from '../services/orgService.js';
+import { emailService } from '../services/emailService.js';
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { HTTP400Error } from '../lib/errors.js';
@@ -46,8 +48,8 @@ stripeRoute.post(
     }
 
     // Default URLs based on frontend URL
-    const defaultSuccessUrl = `${config.frontendUrl}/settings/subscription?success=true`;
-    const defaultCancelUrl = `${config.frontendUrl}/settings/subscription?canceled=true`;
+    const defaultSuccessUrl = `${config.frontendUrl}/settings?tab=subscription&success=true`;
+    const defaultCancelUrl = `${config.frontendUrl}/settings?tab=subscription&canceled=true`;
 
     const session = await stripeService.createCheckoutSession(
       orgId,
@@ -84,7 +86,7 @@ stripeRoute.post(
       throw new HTTP400Error('Stripe is not configured');
     }
 
-    const defaultReturnUrl = `${config.frontendUrl}/settings/subscription`;
+    const defaultReturnUrl = `${config.frontendUrl}/settings?tab=subscription`;
 
     const session = await stripeService.createPortalSession(
       orgId,
@@ -93,6 +95,37 @@ stripeRoute.post(
     );
 
     return c.json({ data: session });
+  }
+);
+
+/**
+ * POST /stripe/cancel
+ * Cancel the current subscription
+ * Requires authentication and admin role
+ */
+const cancelSchema = z.object({
+  immediate: z.boolean().optional().default(false),
+});
+
+stripeRoute.post(
+  '/cancel',
+  requireAuth,
+  zValidator('json', cancelSchema),
+  async (c) => {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    const { immediate } = c.req.valid('json');
+
+    if (!orgId) {
+      throw new HTTP400Error('Organization context required');
+    }
+
+    if (!stripeService.isConfigured()) {
+      throw new HTTP400Error('Stripe is not configured');
+    }
+
+    await stripeService.cancelSubscription(orgId, userId, immediate);
+    return c.json({ data: { canceled: true, immediate } });
   }
 );
 
@@ -146,17 +179,64 @@ stripeRoute.post('/webhook', async (c) => {
 
       case 'customer.subscription.trial_will_end': {
         const subscription = event.data.object as Stripe.Subscription;
-        // Log trial ending soon - could send email notification here
         logger.info('Trial will end soon', {
           subscriptionId: subscription.id,
           trialEnd: subscription.trial_end,
         });
+
+        // Send trial ending email to org admin
+        try {
+          const orgId = subscription.metadata?.orgId;
+          if (orgId) {
+            const admin = await orgService.getOrgAdminEmail(orgId);
+            if (admin) {
+              const trialEndsAt = subscription.trial_end
+                ? new Date(subscription.trial_end * 1000)
+                : new Date();
+              const tier = subscription.items.data[0]?.price?.nickname || 'Pro';
+              await emailService.sendTrialEndingEmail(
+                admin.email,
+                trialEndsAt,
+                tier,
+                admin.name || undefined
+              );
+            }
+          }
+        } catch (emailErr) {
+          logger.warn('Failed to send trial ending email', {
+            error: (emailErr as Error).message,
+          });
+        }
         break;
       }
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         await stripeService.handlePaymentFailed(invoice);
+
+        // Send payment failed email to org admin
+        try {
+          const subscriptionId = invoice.parent?.subscription_details?.subscription as string;
+          if (subscriptionId) {
+            const subscription = await stripeService.getSubscription(subscriptionId);
+            const orgId = subscription?.metadata?.orgId;
+            if (orgId) {
+              const admin = await orgService.getOrgAdminEmail(orgId);
+              if (admin) {
+                const tier = subscription?.items?.data[0]?.price?.nickname || 'Pro';
+                await emailService.sendPaymentFailedEmail(
+                  admin.email,
+                  tier,
+                  admin.name || undefined
+                );
+              }
+            }
+          }
+        } catch (emailErr) {
+          logger.warn('Failed to send payment failed email', {
+            error: (emailErr as Error).message,
+          });
+        }
         break;
       }
 
