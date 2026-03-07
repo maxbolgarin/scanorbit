@@ -8,6 +8,7 @@ import {
   users,
   userOrgMembers,
 } from '../db/schema.js';
+import { listmonkService } from './listmonkService.js';
 import { eq, and, lt, lte, isNotNull, sql } from 'drizzle-orm';
 import { config } from '../lib/config.js';
 
@@ -230,6 +231,16 @@ async function processPendingDeletions(): Promise<number> {
  */
 async function processUserDeletion(userId: string, requestId: string): Promise<void> {
   console.log(`[Retention] Processing deletion for user ${userId}`);
+
+  // Unsubscribe from Listmonk before deleting user data
+  try {
+    const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    if (user?.email) {
+      await listmonkService.unsubscribe(user.email);
+    }
+  } catch (err) {
+    console.error(`[Retention] Failed to unsubscribe ${userId} from Listmonk:`, err);
+  }
 
   // Use a transaction for atomic deletion
   await db.transaction(async (tx) => {
