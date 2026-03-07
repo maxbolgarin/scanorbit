@@ -138,6 +138,17 @@ export const listmonkConfig = {
   apiUser: process.env.LISTMONK_API_USER || 'admin',
   apiPassword: process.env.LISTMONK_API_PASSWORD || '',
   defaultListId: parseInt(process.env.LISTMONK_DEFAULT_LIST_ID || '1', 10),
+  // Campaign list IDs (0 = not configured, skip operations)
+  lists: {
+    coldLeads: parseInt(process.env.LISTMONK_LIST_COLD_LEADS || '0', 10),
+    subscribers: parseInt(process.env.LISTMONK_LIST_SUBSCRIBERS || '0', 10),
+    freeNew: parseInt(process.env.LISTMONK_LIST_FREE_NEW || '0', 10),
+    freeScanned: parseInt(process.env.LISTMONK_LIST_FREE_SCANNED || '0', 10),
+    trialNew: parseInt(process.env.LISTMONK_LIST_TRIAL_NEW || '0', 10),
+    trialActive: parseInt(process.env.LISTMONK_LIST_TRIAL_ACTIVE || '0', 10),
+    paidPro: parseInt(process.env.LISTMONK_LIST_PAID_PRO || '0', 10),
+    paidTeam: parseInt(process.env.LISTMONK_LIST_PAID_TEAM || '0', 10),
+  },
 } as const;
 
 export type Config = typeof config;

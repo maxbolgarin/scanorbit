@@ -5,7 +5,8 @@ import { requireAuth } from '../middlewares/auth.js';
 import { stripeService } from '../services/stripeService.js';
 import { orgService } from '../services/orgService.js';
 import { emailService } from '../services/emailService.js';
-import { config } from '../lib/config.js';
+import { listmonkService } from '../services/listmonkService.js';
+import { config, stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { HTTP400Error } from '../lib/errors.js';
 import type { Variables } from '../types/index.js';
@@ -166,6 +167,21 @@ stripeRoute.post('/webhook', async (c) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         await stripeService.handleCheckoutComplete(session);
+
+        // Move subscriber to trial-new list in Listmonk
+        try {
+          const orgId = session.metadata?.orgId;
+          if (orgId) {
+            const admin = await orgService.getOrgAdminEmail(orgId);
+            if (admin) {
+              listmonkService.onTrialStart(admin.email).catch(() => {});
+            }
+          }
+        } catch (listmonkErr) {
+          logger.warn('Failed to update Listmonk on checkout', {
+            error: (listmonkErr as Error).message,
+          });
+        }
         break;
       }
 
@@ -174,6 +190,46 @@ stripeRoute.post('/webhook', async (c) => {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         await stripeService.handleSubscriptionChange(subscription);
+
+        // Update Listmonk lists based on subscription transitions
+        try {
+          const orgId = subscription.metadata?.orgId;
+          if (orgId) {
+            const admin = await orgService.getOrgAdminEmail(orgId);
+            if (admin) {
+              const priceId = subscription.items.data[0]?.price.id || '';
+              const tier = priceId === stripeConfig.teamPriceId ? 'team' as const : 'pro' as const;
+
+              if (event.type === 'customer.subscription.updated') {
+                const prev = (event.data as Stripe.Event.Data & { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
+                // Trial → Active (payment confirmed)
+                if (prev?.status === 'trialing' && subscription.status === 'active') {
+                  listmonkService.onPayment(admin.email, tier).catch(() => {});
+                }
+                // Plan change (Pro ↔ Team)
+                if (prev?.items && subscription.status === 'active') {
+                  const prevPriceId = prev.items.data?.[0]?.price?.id;
+                  if (prevPriceId && prevPriceId !== priceId) {
+                    const prevTier = prevPriceId === stripeConfig.teamPriceId ? 'team' as const : 'pro' as const;
+                    listmonkService.onPlanChange(admin.email, prevTier, tier).catch(() => {});
+                  }
+                }
+                // Subscription canceled (at period end or immediately)
+                if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+                  listmonkService.onChurn(admin.email).catch(() => {});
+                }
+              }
+
+              if (event.type === 'customer.subscription.deleted') {
+                listmonkService.onChurn(admin.email).catch(() => {});
+              }
+            }
+          }
+        } catch (listmonkErr) {
+          logger.warn('Failed to update Listmonk on subscription change', {
+            error: (listmonkErr as Error).message,
+          });
+        }
         break;
       }
 
