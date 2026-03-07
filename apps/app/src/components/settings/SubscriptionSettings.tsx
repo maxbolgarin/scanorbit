@@ -424,7 +424,7 @@ export function SubscriptionSettings() {
                         ) : (
                           <Sparkles className="h-4 w-4 mr-2" />
                         )}
-                        Start 14-Day Free Trial
+                        Start 7-Day Free Trial
                       </Button>
                     ) : isDowngrade ? (
                       <Button

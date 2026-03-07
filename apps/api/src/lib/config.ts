@@ -129,7 +129,7 @@ export const stripeConfig = {
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
   proPriceId: process.env.STRIPE_PRO_PRICE_ID || '',
   teamPriceId: process.env.STRIPE_TEAM_PRICE_ID || '',
-  trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '14', 10),
+  trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '7', 10),
 } as const;
 
 // Listmonk newsletter configuration
