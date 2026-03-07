@@ -449,6 +449,7 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
 
   // Add to free-new campaign list (product emails, always)
   listmonkService.onUserSignup(user.email, user.fullName).catch(() => {});
+  listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
   sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }).catch(() => {});
 
   // Subscribe to newsletter only if user consented (marketing emails)

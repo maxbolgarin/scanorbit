@@ -176,6 +176,11 @@ stripeRoute.post('/webhook', async (c) => {
             const admin = await orgService.getOrgAdminEmail(orgId);
             if (admin) {
               listmonkService.onTrialStart(admin.email).catch(() => {});
+              listmonkService.updateAttribsByEmail(admin.email, {
+                trial_started_at: new Date().toISOString(),
+                tier: 'trial',
+                plan: session.metadata?.targetTier || 'pro',
+              }).catch(() => {});
               sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }).catch(() => {});
             }
           }
@@ -207,6 +212,11 @@ stripeRoute.post('/webhook', async (c) => {
                 // Trial → Active (payment confirmed)
                 if (prev?.status === 'trialing' && subscription.status === 'active') {
                   listmonkService.onPayment(admin.email, tier).catch(() => {});
+                  listmonkService.updateAttribsByEmail(admin.email, {
+                    paid_at: new Date().toISOString(),
+                    tier: `paid-${tier}`,
+                    plan: tier,
+                  }).catch(() => {});
                   sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }).catch(() => {});
                 }
                 // Plan change (Pro ↔ Team)
