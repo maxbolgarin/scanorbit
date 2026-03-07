@@ -105,7 +105,7 @@ Every detected issue becomes a "finding" with a full lifecycle:
 - Unlimited scans with 60-minute cooldown between scans
 - Full access to resources, findings, and infrastructure map
 - Maximum 1 AWS account
-- 14-day free trial
+- 7-day free trial (card required, no charge during trial)
 
 ### Team
 - Unlimited scans with no cooldown
@@ -113,7 +113,7 @@ Every detected issue becomes a "finding" with a full lifecycle:
 - Unlimited AWS accounts
 - Multi-user organization support with role-based access (Admin, Member)
 - Organization overview dashboard
-- 14-day free trial
+- 7-day free trial (card required, no charge during trial)
 
 ---
 
@@ -124,7 +124,7 @@ Every detected issue becomes a "finding" with a full lifecycle:
 | Scan cooldown (Pro) | 60 minutes between scans per account |
 | Scan cooldown (Team) | None |
 | Free tier limit | 1 successful scan ever; retries allowed on errors |
-| Trial period | 14 days for Pro and Team tiers |
+| Trial period | 7 days for Pro and Team tiers (card required) |
 | Access token lifetime | 5 minutes |
 | Refresh token lifetime | 7 days |
 | Resource retention (stale) | 90 days |

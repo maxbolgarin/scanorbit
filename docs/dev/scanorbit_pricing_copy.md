@@ -68,8 +68,8 @@ Start free. Upgrade anytime.
 
 ### *What's included in the free trial?*
 ```
-Your 14-day free trial includes full Pro features—5 AWS accounts, API access, 
-priority support, everything. No credit card required to start. No strings attached.
+Your 7-day free trial includes full Pro features—5 AWS accounts, API access,
+priority support, everything. Enter your card to start — you won't be charged during the trial.
 ```
 
 ### *Can I upgrade from Plus to Pro?*
@@ -138,7 +138,7 @@ We don't believe in forcing you to pay for features you don't need.
 ```
 ✓ No hidden fees. No per-resource pricing.
 ✓ GDPR compliant. EU-hosted. Read-only access to your AWS infrastructure.
-✓ 14-day free trial. Full features. No credit card.
+✓ 7-day free trial. Full features. Card required, no charge during trial.
 ✓ Cancel anytime, no questions asked.
 ✓ Built for DevOps teams who care about security and cost.
 ```
@@ -163,7 +163,7 @@ Plus (€19/month): 1 AWS account, all scanners, 30-day retention. Perfect to st
 
 Pro (€79/month): 5 AWS accounts, API, priority support, 90-day retention. Built for teams.
 
-14-day free trial. No credit card. GDPR compliant.
+7-day free trial. GDPR compliant.
 ```
 
 ---
@@ -174,13 +174,13 @@ Pro (€79/month): 5 AWS accounts, API, priority support, 90-day retention. Buil
 `Start Your Free Trial`
 
 **Confidence-building:**  
-`Get Started Free – 14 Days Full Access`
+`Get Started Free – 7 Days Full Access`
 
 **Urgency (light):**  
 `Start Scanning Your AWS Infrastructure Today`
 
 **Feature-focused:**  
-`Try ScanOrbit Pro Free for 14 Days`
+`Try ScanOrbit Pro Free for 7 Days`
 
 ---
 
@@ -193,7 +193,7 @@ ScanOrbit finds orphaned resources, expiring SSL certs, and data residency viola
 in minutes—not weeks.
 
 📊 €19/month for solo engineers. €79 for teams.
-🎯 14-day free trial. No credit card.
+🎯 7-day free trial.
 🇪🇺 GDPR compliant. EU-hosted.
 
 Start scanning → [link]
@@ -241,7 +241,7 @@ Enterprise:
 ## **Notes for Your Landing Page**
 
 1. **Lead with simplicity**: "Two tiers. One promise: Find hidden costs and security risks."
-2. **Emphasize the free trial**: Make it obvious—14 days, full features, no credit card needed.
+2. **Emphasize the free trial**: Make it obvious—7 days, full features, card required but no charge during trial.
 3. **Use the comparison table** if you want to be thorough; omit it if you want to keep landing page scannable.
 4. **Highlight EU/GDPR compliance** as a trust signal (you're in Amsterdam—own this advantage).
 5. **Add a "Why ScanOrbit?" section** before pricing, so people understand the problem before seeing the price.
@@ -254,5 +254,5 @@ Enterprise:
 Pick one:
 
 - *"Agentless AWS scanning. Simple pricing. GDPR compliant."*
-- *"Find hidden AWS costs and security risks in 14 days. Free trial. EU-hosted."*
+- *"Find hidden AWS costs and security risks in 7 days. Free trial. EU-hosted."*
 - *"Your AWS infrastructure, simplified. €19/month to start."*
