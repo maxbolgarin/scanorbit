@@ -13,6 +13,7 @@ import { logger } from './lib/logger.js';
 import { getMetrics, getContentType, dbPoolConnections, queueLength } from './lib/metrics.js';
 import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
+import { startListmonkCron } from './services/listmonkCronService.js';
 import type { Variables } from './types/index.js';
 
 const app = new Hono<{ Variables: Variables }>();
@@ -248,6 +249,9 @@ try {
         port: info.port,
         url: `http://localhost:${info.port}`,
       });
+
+      // Start Listmonk campaign list polling after server is ready
+      startListmonkCron();
     }
   );
 

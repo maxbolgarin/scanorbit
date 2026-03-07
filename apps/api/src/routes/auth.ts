@@ -446,7 +446,10 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, user.id, null);
 
-  // Auto-subscribe to newsletter if user consented (fire-and-forget)
+  // Add to free-new campaign list (product emails, always)
+  listmonkService.onUserSignup(user.email, user.fullName).catch(() => {});
+
+  // Subscribe to newsletter only if user consented (marketing emails)
   if (c.req.valid('json').newsletterConsent) {
     listmonkService.subscribe(user.email, user.fullName).catch(() => {});
   }
@@ -771,8 +774,9 @@ authRoute.get('/google/callback', async (c) => {
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-    // Auto-subscribe new OAuth users to newsletter (fire-and-forget)
+    // Add new OAuth users to campaign + newsletter lists (fire-and-forget)
     if (result.isNewUser) {
+      listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
       listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
     }
 
@@ -802,8 +806,9 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-  // Auto-subscribe new OAuth users to newsletter (fire-and-forget)
+  // Add new OAuth users to campaign + newsletter lists (fire-and-forget)
   if (result.isNewUser) {
+    listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
     listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
   }
 
@@ -857,8 +862,9 @@ authRoute.get('/github/callback', async (c) => {
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-    // Auto-subscribe new OAuth users to newsletter (fire-and-forget)
+    // Add new OAuth users to campaign + newsletter lists (fire-and-forget)
     if (result.isNewUser) {
+      listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
       listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
     }
 
