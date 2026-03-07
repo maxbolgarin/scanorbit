@@ -447,7 +447,7 @@ function getTrialEndingEmailHtml(trialEndsAt: Date, tier: string, name?: string)
     <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
       ${greeting}<br><br>
       Your free trial of the <strong style="color: ${BRAND.text};">${tier}</strong> plan ends on <strong style="color: ${BRAND.text};">${endDate}</strong>.
-      Add a payment method to continue using all features after your trial ends.
+      Your subscription will automatically continue and your card on file will be charged. No action needed if you'd like to keep your plan.
     </p>
 
     <!-- CTA Button -->
@@ -458,7 +458,7 @@ function getTrialEndingEmailHtml(trialEndsAt: Date, tier: string, name?: string)
     </div>
 
     <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
-      If you don't add a payment method, your account will be downgraded to the Free plan when the trial ends.
+      If you'd like to cancel, you can do so from your subscription settings before the trial ends. Your account will be downgraded to the Free plan.
     </p>
   `;
 
@@ -472,11 +472,11 @@ function getTrialEndingEmailText(trialEndsAt: Date, tier: string, name?: string)
   return `
 ${greeting},
 
-Your free trial of the ${tier} plan ends on ${endDate}. Add a payment method to continue using all features after your trial ends.
+Your free trial of the ${tier} plan ends on ${endDate}. Your subscription will automatically continue and your card on file will be charged. No action needed if you'd like to keep your plan.
 
 Manage your subscription: ${config.frontendUrl}/settings?tab=subscription
 
-If you don't add a payment method, your account will be downgraded to the Free plan when the trial ends.
+If you'd like to cancel, you can do so from your subscription settings before the trial ends. Your account will be downgraded to the Free plan.
 
 ---
 ScanOrbit
