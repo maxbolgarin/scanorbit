@@ -97,7 +97,7 @@ This prints a webhook signing secret (`whsec_...`) — use it as `STRIPE_WEBHOOK
 
 1. Start the API and app locally
 2. Log in, go to Settings > Subscription
-3. Click "Start 14-Day Free Trial" on Pro or Team
+3. Click "Start 7-Day Free Trial" on Pro or Team
 4. Use test card: `4242 4242 4242 4242`, any future expiry date, any CVC, any billing details
 5. Complete checkout — you should be redirected back to the Subscription tab with a success message
 
@@ -125,7 +125,7 @@ stripe trigger invoice.payment_failed
 
 1. User clicks "Start Free Trial" on Pro or Team plan
 2. Frontend calls `POST /stripe/checkout` with the target tier
-3. Backend creates a Stripe Checkout Session with a 14-day trial
+3. Backend creates a Stripe Checkout Session with a 7-day trial
 4. User is redirected to Stripe's hosted checkout page
 5. After completing checkout, user is redirected back to `/settings?tab=subscription`
 6. Stripe sends `checkout.session.completed` webhook

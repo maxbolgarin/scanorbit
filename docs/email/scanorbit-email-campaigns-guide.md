@@ -400,7 +400,7 @@ account. It's the fastest way to know if something needs attention.
 → Run your free scan
 
 The free tier includes one full scan. If you want to dig into the details 
-and re-scan after fixing issues, you can start a 14-day Pro trial anytime.
+and re-scan after fixing issues, you can start a 7-day Pro trial anytime.
 
 Maksim
 ```
@@ -426,7 +426,7 @@ Your scan just finished! Here's what we found:
 
 You can see the severity breakdown in your dashboard. To view the full 
 details of each finding — what's affected, why it matters, and what 
-to do — start your 14-day Pro trial (no credit card required).
+to do — start your 7-day Pro trial.
 
 → View your results
 
@@ -452,7 +452,7 @@ resources are affected, with specific remediation guidance.
 
 You also get unlimited re-scans so you can verify fixes as you go.
 
-→ Start 14-day Pro trial (no credit card)
+→ Start 7-day Pro trial
 
 Maksim
 ```
@@ -469,7 +469,7 @@ experience, the average account saves $50-200/month by cleaning up
 orphaned resources alone.
 
 Pro gives you the full breakdown: which resources, how much each one 
-costs, and how long they've been idle. The 14-day trial is free — 
+costs, and how long they've been idle. The 7-day trial is free —
 if the savings from one cleanup cover a month of Pro, it pays for itself.
 
 → Start free trial
@@ -488,7 +488,7 @@ Just a heads up — scan data is retained for 90 days. After that,
 you'd need to re-scan (which requires Pro or Team).
 
 If you found the severity breakdown useful, the full details in Pro 
-will give you actionable next steps. 14-day trial, no credit card.
+will give you actionable next steps. 7-day free trial.
 
 → Upgrade to Pro
 
@@ -501,13 +501,13 @@ Maksim
 
 ### TRACK 3: CONVERSION
 
-**Goal:** Get trial users to enter payment before the 14-day trial ends.
+**Goal:** Convert trial users to paid before the 7-day trial ends.
 
 #### List: `trial-new` (started trial, low activity)
 
 **Email 1 — Day 0: Trial welcome**
 ```
-Subject: Your 14-day Pro trial is active
+Subject: Your 7-day Pro trial is active
 From: ScanOrbit <hello@scanorbit.cloud>
 
 Hey {first_name},
