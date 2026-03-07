@@ -329,6 +329,83 @@ export const listmonkService = {
     }
   },
 
+  // ── Transactional email & subscriber queries ────────────────────────
+
+  /**
+   * Send a transactional email via Listmonk.
+   * Content lives in Listmonk templates — code just passes template ID + data.
+   * Returns false if templateId is 0 (not configured yet).
+   */
+  async sendTx(params: {
+    email: string;
+    templateId: number;
+    data?: Record<string, unknown>;
+    fromEmail?: string;
+  }): Promise<boolean> {
+    if (params.templateId === 0) return false;
+    const result = await apiRequest<unknown>(
+      'POST',
+      '/api/tx',
+      {
+        subscriber_email: params.email,
+        template_id: params.templateId,
+        data: params.data ?? {},
+        ...(params.fromEmail ? { from_email: params.fromEmail } : {}),
+      },
+    );
+    if (result !== null) {
+      logger.info(`[Listmonk] TX → ${maskEmail(params.email)} (template ${params.templateId})`);
+      return true;
+    }
+    return false;
+  },
+
+  /**
+   * Query all subscribers in a Listmonk list.
+   * Returns empty array if listId is 0 (not configured).
+   */
+  async queryByList(listId: number, perPage = 100): Promise<Array<{
+    id: number;
+    email: string;
+    name: string;
+    attribs: Record<string, unknown>;
+    created_at: string;
+  }>> {
+    if (listId === 0) return [];
+    const q = encodeURIComponent(
+      `subscribers.id IN (SELECT subscriber_id FROM subscriber_lists WHERE list_id=${listId} AND status='confirmed')`
+    );
+    const result = await apiRequest<{
+      data: { results: Array<{ id: number; email: string; name: string; attribs: Record<string, unknown>; created_at: string }> }
+    }>('GET', `/api/subscribers?query=${q}&per_page=${perPage}`);
+    return result?.data?.results ?? [];
+  },
+
+  /**
+   * Update subscriber attributes by email (merges with existing).
+   */
+  async updateAttribsByEmail(email: string, attribs: Record<string, unknown>): Promise<boolean> {
+    const subscriberId = await getSubscriberByEmail(email);
+    if (!subscriberId) return false;
+
+    const sub = await apiRequest<{ data: { email: string; name: string; status: string; attribs: Record<string, unknown> } }>(
+      'GET', `/api/subscribers/${subscriberId}`
+    );
+    if (!sub) return false;
+
+    const result = await apiRequest<unknown>(
+      'PUT',
+      `/api/subscribers/${subscriberId}`,
+      {
+        email: sub.data.email,
+        name: sub.data.name,
+        status: sub.data.status,
+        attribs: { ...sub.data.attribs, ...attribs },
+      },
+    );
+    return result !== null;
+  },
+
   isConfigured,
   listsConfigured,
 };

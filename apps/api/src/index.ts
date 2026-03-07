@@ -14,6 +14,7 @@ import { getMetrics, getContentType, dbPoolConnections, queueLength } from './li
 import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
 import { startListmonkCron } from './services/listmonkCronService.js';
+import { startDripScheduler } from './services/dripSchedulerService.js';
 import type { Variables } from './types/index.js';
 
 const app = new Hono<{ Variables: Variables }>();
@@ -252,6 +253,7 @@ try {
 
       // Start Listmonk campaign list polling after server is ready
       startListmonkCron();
+      startDripScheduler();
     }
   );
 

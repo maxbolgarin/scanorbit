@@ -548,6 +548,18 @@ export const orgSettingsRelations = relations(orgSettings, ({ one }) => ({
   }),
 }));
 
+// Drip Email Campaign Log (deduplication for drip scheduler)
+export const dripLog = pgTable('drip_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  subscriberEmail: varchar('subscriber_email', { length: 255 }).notNull(),
+  sequenceName: varchar('sequence_name', { length: 100 }).notNull(),
+  emailDay: integer('email_day').notNull(),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('drip_log_email_seq_day_idx').on(table.subscriberEmail, table.sequenceName, table.emailDay),
+  index('drip_log_subscriber_email_idx').on(table.subscriberEmail),
+]);
+
 // Type exports for use in services
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -587,3 +599,5 @@ export type FindingScan = typeof findingScans.$inferSelect;
 export type NewFindingScan = typeof findingScans.$inferInsert;
 export type UserOauthAccount = typeof userOauthAccounts.$inferSelect;
 export type NewUserOauthAccount = typeof userOauthAccounts.$inferInsert;
+export type DripLog = typeof dripLog.$inferSelect;
+export type NewDripLog = typeof dripLog.$inferInsert;

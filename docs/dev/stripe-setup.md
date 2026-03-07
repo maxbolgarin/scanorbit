@@ -67,8 +67,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRO_PRICE_ID=price_...
 STRIPE_TEAM_PRICE_ID=price_...
 
-# Optional — defaults to 14
-STRIPE_TRIAL_DAYS=14
+# Optional — defaults to 7
+STRIPE_TRIAL_DAYS=7
 ```
 
 When all four required variables are set, `stripeService.isConfigured()` returns `true` and the checkout/portal/webhook flows activate automatically. Without them, the app falls back to a demo mode where tier changes are applied directly.
