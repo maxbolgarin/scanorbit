@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.23.0](https://github.com/maxbolgarin/scanorbit/compare/v1.22.0...v1.23.0) (2026-03-07)
+
+### Features
+
+* **api:** add drip email campaign scheduler with listmonk integration and trial period reduction to 7 days ([cc319d8](https://github.com/maxbolgarin/scanorbit/commit/cc319d8dbf1df88b24b74e64244adeedf77e50c8))
+* **api:** add email attribute tracking for user signup and trial events with listmonk integration ([f2d38b9](https://github.com/maxbolgarin/scanorbit/commit/f2d38b979296c7ba76a15ecabc4831280a101438))
+* **api:** add listmonk campaign list configuration and automatic polling service ([8f62c25](https://github.com/maxbolgarin/scanorbit/commit/8f62c25d7ac9340aa576fd699b633ad9466a321a))
+* **api:** add stripe subscription cancellation with email notifications and portal management ([fbf70cc](https://github.com/maxbolgarin/scanorbit/commit/fbf70cc1dbe807c8fd72503db662170a7250e5eb))
+
+### Continuous Integration
+
+* **.github/workflows:** add force-build workflow for manual docker image builds with selective service deployment ([1cdc9ee](https://github.com/maxbolgarin/scanorbit/commit/1cdc9ee642fa7fe3bde33cae4eb89e330d4ebd99))
+* **.github/workflows:** make develop image tag configurable via repository variable ([a934f28](https://github.com/maxbolgarin/scanorbit/commit/a934f2889b292665e59fd7b98415451e7d2828a8))
+
+### Docs
+
+* **email:** add listmonk campaign setup guide with email templates and architecture ([48b50c1](https://github.com/maxbolgarin/scanorbit/commit/48b50c103674ef1580419b5e4106401341f92b90))
+* **email:** update trial period from 14 to 7 days and add card requirement clarification ([9a7f200](https://github.com/maxbolgarin/scanorbit/commit/9a7f2009b09636311136b99a273de04a54a2a718))
+* update trial period from 14 to 7 days and clarify automatic subscription renewal in email messaging ([316b344](https://github.com/maxbolgarin/scanorbit/commit/316b344c8b6f498179ca0b21e2365c143bb68b11))
+
 ## [1.22.0](https://github.com/maxbolgarin/scanorbit/compare/v1.21.0...v1.22.0) (2026-03-06)
 
 ### Features
