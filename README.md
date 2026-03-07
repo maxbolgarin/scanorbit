@@ -510,7 +510,7 @@ scanorbit/
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | - |
 | `STRIPE_PRO_PRICE_ID` | Price ID for Pro tier | - |
 | `STRIPE_TEAM_PRICE_ID` | Price ID for Team tier | - |
-| `STRIPE_TRIAL_DAYS` | Trial period in days | `14` |
+| `STRIPE_TRIAL_DAYS` | Trial period in days | `7` |
 
 ### Email Configuration (Optional)
 

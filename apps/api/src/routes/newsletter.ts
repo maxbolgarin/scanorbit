@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { listmonkService } from '../services/listmonkService.js';
+import { sendImmediate } from '../services/dripSchedulerService.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
 import type { Variables } from '../types/index.js';
 
@@ -25,6 +26,7 @@ newsletterRoute.post(
 
     // Fire-and-forget: always return success to prevent email enumeration
     await listmonkService.subscribe(email, name);
+    sendImmediate({ sequenceName: 'subscribers', email, name }).catch(() => {});
 
     return c.json({
       message: 'Thank you for subscribing! Check your inbox for confirmation.',

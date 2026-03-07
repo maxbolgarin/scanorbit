@@ -11,6 +11,7 @@ import { redis, twoFactorStore, refreshTokenStore } from '../lib/redis.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP401Error } from '../lib/errors.js';
 import { listmonkService } from '../services/listmonkService.js';
+import { sendImmediate } from '../services/dripSchedulerService.js';
 import type { Variables } from '../types/index.js';
 
 const authRoute = new Hono<{ Variables: Variables }>();
@@ -448,6 +449,7 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
 
   // Add to free-new campaign list (product emails, always)
   listmonkService.onUserSignup(user.email, user.fullName).catch(() => {});
+  sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }).catch(() => {});
 
   // Subscribe to newsletter only if user consented (marketing emails)
   if (c.req.valid('json').newsletterConsent) {
@@ -778,6 +780,7 @@ authRoute.get('/google/callback', async (c) => {
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
       listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
+      sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
     }
 
     // Redirect based on whether user has an org
@@ -810,6 +813,7 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   if (result.isNewUser) {
     listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
     listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
+    sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
   }
 
   return c.json({
@@ -866,6 +870,7 @@ authRoute.get('/github/callback', async (c) => {
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
       listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
+      sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
     }
 
     // Redirect based on whether user has an org

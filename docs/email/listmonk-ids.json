@@ -1,0 +1,39 @@
+{
+  "lists": {
+    "cold-leads": 27,
+    "subscribers": 28,
+    "free-new": 29,
+    "free-scanned": 30,
+    "trial-new": 31,
+    "trial-active": 32,
+    "paid-pro": 33,
+    "paid-team": 34
+  },
+  "templates": {
+    "cold-day0-pain": 32,
+    "cold-day4-gdpr": 33,
+    "cold-day10-breakup": 34,
+    "subs-day0-welcome": 35,
+    "subs-day3-security": 36,
+    "subs-day7-cost": 37,
+    "subs-day11-gdpr": 38,
+    "subs-day16-social-proof": 39,
+    "subs-day21-final-cta": 40,
+    "free-new-day0-welcome": 41,
+    "free-new-day2-security": 42,
+    "free-new-day5-value": 43,
+    "free-scanned-day0-results": 44,
+    "free-scanned-day2-critical": 45,
+    "free-scanned-day5-cost": 46,
+    "free-scanned-day10-breakup": 47,
+    "trial-new-day0-welcome": 48,
+    "trial-new-day3-stuck": 49,
+    "trial-active-day3-deepen": 50,
+    "trial-active-day5-warning": 51,
+    "trial-active-day6-lastday": 52,
+    "trial-active-day9-winback": 53,
+    "paid-pro-day0-welcome": 54,
+    "paid-team-day0-welcome": 55
+  },
+  "generatedAt": "2026-03-07T11:28:36.301Z"
+}

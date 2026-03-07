@@ -1025,7 +1025,7 @@ STRIPE_PRO_PRICE_ID=price_...
 STRIPE_TEAM_PRICE_ID=price_...
 
 # Trial period
-STRIPE_TRIAL_DAYS=14
+STRIPE_TRIAL_DAYS=7
 ```
 
 ### 13.3 Stripe Service (services/stripeService.ts)

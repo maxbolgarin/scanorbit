@@ -1,8 +1,9 @@
 import { eq, and, sql, gte, count } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
-import { orgs, scans, users, userOrgMembers } from '../db/schema.js';
+import { orgs, scans, users, userOrgMembers, findings } from '../db/schema.js';
 import { listmonkService } from './listmonkService.js';
+import { sendImmediate } from './dripSchedulerService.js';
 import { logger } from '../lib/logger.js';
 import { ScanStatus } from '../types/index.js';
 
@@ -71,6 +72,36 @@ async function processFirstScanCompletions(): Promise<void> {
     await listmonkService.onFirstScanComplete(email);
     await redis.sadd(REDIS_KEY_FIRST_SCAN, row.scanId);
     logger.info('[ListmonkCron] Processed first scan completion', { orgId: row.orgId });
+
+    // Store scan stats as subscriber attributes and send day-0 drip email
+    try {
+      const severityCounts = await db
+        .select({ severity: findings.severity, total: count() })
+        .from(findings)
+        .where(and(eq(findings.orgId, row.orgId), eq(findings.status, 'open')))
+        .groupBy(findings.severity);
+
+      const stats: Record<string, number> = { high: 0, medium: 0, low: 0 };
+      for (const s of severityCounts) {
+        stats[s.severity] = Number(s.total);
+      }
+      const totalFindings = Object.values(stats).reduce((a, b) => a + b, 0);
+
+      const scanData = {
+        scan_completed_at: new Date().toISOString(),
+        high_count: stats.high,
+        medium_count: stats.medium,
+        low_count: stats.low,
+        total_findings: totalFindings,
+      };
+
+      await listmonkService.updateAttribsByEmail(email, scanData);
+      sendImmediate({ sequenceName: 'free-scanned', email, data: scanData }).catch(() => {});
+    } catch (attribErr) {
+      logger.warn('[ListmonkCron] Failed to store scan stats or send drip', {
+        error: (attribErr as Error).message,
+      });
+    }
   }
 }
 

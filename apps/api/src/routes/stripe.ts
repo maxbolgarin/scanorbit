@@ -6,6 +6,7 @@ import { stripeService } from '../services/stripeService.js';
 import { orgService } from '../services/orgService.js';
 import { emailService } from '../services/emailService.js';
 import { listmonkService } from '../services/listmonkService.js';
+import { sendImmediate } from '../services/dripSchedulerService.js';
 import { config, stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { HTTP400Error } from '../lib/errors.js';
@@ -175,6 +176,7 @@ stripeRoute.post('/webhook', async (c) => {
             const admin = await orgService.getOrgAdminEmail(orgId);
             if (admin) {
               listmonkService.onTrialStart(admin.email).catch(() => {});
+              sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }).catch(() => {});
             }
           }
         } catch (listmonkErr) {
@@ -205,6 +207,7 @@ stripeRoute.post('/webhook', async (c) => {
                 // Trial → Active (payment confirmed)
                 if (prev?.status === 'trialing' && subscription.status === 'active') {
                   listmonkService.onPayment(admin.email, tier).catch(() => {});
+                  sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }).catch(() => {});
                 }
                 // Plan change (Pro ↔ Team)
                 if (prev?.items && subscription.status === 'active') {

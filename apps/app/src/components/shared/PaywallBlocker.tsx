@@ -1,8 +1,14 @@
-import { memo, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import { Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { useAuthStore } from "@/stores/auth-store";
+import { useSubscriptionStatus } from "@/hooks/use-subscription";
+import { toast } from "@/hooks/use-toast";
+import * as api from "@/lib/api";
 
 interface PaywallBlockerProps {
   feature: "resources" | "findings" | "infrastructure-map";
@@ -24,8 +30,30 @@ const featureConfig: Record<string, { title: string; description: string }> = {
   },
 };
 
-export const PaywallBlocker = memo(function PaywallBlocker({ feature, children }: PaywallBlockerProps) {
+export function PaywallBlocker({ feature, children }: PaywallBlockerProps) {
   const config = featureConfig[feature];
+  const { org } = useAuthStore();
+  const { status } = useSubscriptionStatus();
+
+  const canStartTrial =
+    status?.stripeEnabled &&
+    status?.subscriptionStatus === "none" &&
+    status?.tier === "free";
+
+  const checkoutMutation = useMutation({
+    mutationFn: () => api.createCheckoutSession(org!.id, "pro"),
+    onSuccess: (data) => {
+      window.location.href = data.url;
+    },
+    onError: (error) => {
+      toast({
+        title: "Checkout Failed",
+        description:
+          error instanceof Error ? error.message : "Failed to start checkout",
+        type: "error",
+      });
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -42,14 +70,35 @@ export const PaywallBlocker = memo(function PaywallBlocker({ feature, children }
           <p className="mb-4 text-sm text-muted-foreground">
             This feature is available on Pro and Team plans.
           </p>
-          <Button asChild>
-            <Link to="/settings?tab=subscription" className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              Upgrade to Pro
-            </Link>
-          </Button>
+          {canStartTrial ? (
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                onClick={() => checkoutMutation.mutate()}
+                disabled={checkoutMutation.isPending}
+              >
+                {checkoutMutation.isPending ? (
+                  <LoadingSpinner className="h-4 w-4 mr-2" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Start 7-Day Free Trial
+              </Button>
+              <Button variant="link" size="sm" asChild>
+                <Link to="/settings?tab=subscription">
+                  View all plans
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <Button asChild>
+              <Link to="/settings?tab=subscription" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                Upgrade to Pro
+              </Link>
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>
   );
-});
+}
