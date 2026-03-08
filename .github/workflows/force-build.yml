@@ -7,33 +7,34 @@ on:
         description: Docker image tag (e.g. v1.0.0, hotfix-123, develop)
         required: true
         type: string
+        default: latest
       environment:
         description: Target environment
         required: true
         type: choice
         options:
-          - develop
           - production
+          - develop
       api:
         description: Build API
         required: false
         type: boolean
-        default: true
+        default: false
       app:
         description: Build App
         required: false
         type: boolean
-        default: true
+        default: false
       landing:
         description: Build Landing
         required: false
         type: boolean
-        default: true
+        default: false
       workers:
         description: Build Workers (scanner + analyzer)
         required: false
         type: boolean
-        default: true
+        default: false
 
 env:
   REGISTRY: ghcr.io
