@@ -144,7 +144,7 @@ export const logAuthEvent = async (
  */
 export const logDataAccess = async (
   userId: string,
-  action: 'export' | 'delete' | 'anonymize',
+  action: 'export' | 'delete' | 'anonymize' | 'update',
   path: string,
   ipAddress: string | null,
   userAgent: string | null

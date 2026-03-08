@@ -20,6 +20,7 @@ export const redis = new Redis(config.redisUrl, {
     tls: {
       rejectUnauthorized: true,
       ca: caCert,
+      minVersion: 'TLSv1.3',
     },
   }),
 });

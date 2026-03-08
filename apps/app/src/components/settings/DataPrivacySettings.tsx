@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -32,6 +33,10 @@ import {
   FileJson,
   Shield,
   ExternalLink,
+  Mail,
+  History,
+  User,
+  Pencil,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
@@ -49,10 +54,26 @@ export function DataPrivacySettings() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  // Marketing consent state
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [marketingLastUpdated, setMarketingLastUpdated] = useState<string | null>(null);
+  const [isLoadingConsent, setIsLoadingConsent] = useState(true);
+  const [isUpdatingConsent, setIsUpdatingConsent] = useState(false);
+
+  // Consent history state
+  const [consentHistory, setConsentHistory] = useState<api.ConsentRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Profile rectification state
+  const [profile, setProfile] = useState<api.GdprProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+
   const fetchDeletionStatus = async () => {
     try {
       const { requests } = await api.getDeletionStatus();
-      // Find the most recent pending request
       const pendingRequest = requests.find((r) => r.status === "pending");
       setDeletionStatus(pendingRequest || null);
     } catch (error) {
@@ -62,8 +83,45 @@ export function DataPrivacySettings() {
     }
   };
 
+  const fetchMarketingConsent = async () => {
+    try {
+      const data = await api.getMarketingConsent();
+      setMarketingConsent(data.marketingConsent);
+      setMarketingLastUpdated(data.lastUpdated);
+    } catch (error) {
+      console.error("Failed to fetch marketing consent:", error);
+    } finally {
+      setIsLoadingConsent(false);
+    }
+  };
+
+  const fetchConsentHistory = async () => {
+    try {
+      const data = await api.getConsentHistory();
+      setConsentHistory(data.consents);
+    } catch (error) {
+      console.error("Failed to fetch consent history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const data = await api.getGdprProfile();
+      setProfile(data);
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
   useEffect(() => {
     fetchDeletionStatus();
+    fetchMarketingConsent();
+    fetchConsentHistory();
+    fetchProfile();
   }, []);
 
   const handleExport = async () => {
@@ -71,7 +129,6 @@ export function DataPrivacySettings() {
     try {
       const blob = await api.exportGdprData();
 
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -94,6 +151,59 @@ export function DataPrivacySettings() {
       });
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleMarketingConsentChange = async (checked: boolean) => {
+    setIsUpdatingConsent(true);
+    try {
+      const result = await api.updateMarketingConsent(checked);
+      setMarketingConsent(result.marketingConsent);
+      setMarketingLastUpdated(new Date().toISOString());
+
+      toast({
+        title: checked ? "Marketing emails enabled" : "Marketing emails disabled",
+        description: checked
+          ? "You will receive product updates and newsletters."
+          : "You will no longer receive marketing emails.",
+        type: "success",
+      });
+
+      // Refresh consent history
+      fetchConsentHistory();
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Failed to update preference",
+        type: "error",
+      });
+    } finally {
+      setIsUpdatingConsent(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!editName.trim()) return;
+
+    setIsSavingName(true);
+    try {
+      const updated = await api.updateGdprProfile({ fullName: editName.trim() });
+      setProfile(updated);
+      setIsEditingName(false);
+
+      toast({
+        title: "Profile updated",
+        description: "Your name has been updated successfully.",
+        type: "success",
+      });
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Failed to update profile",
+        type: "error",
+      });
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -166,6 +276,27 @@ export function DataPrivacySettings() {
     });
   };
 
+  const formatDateTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const consentTypeLabel = (type: string) => {
+    switch (type) {
+      case "terms_and_privacy":
+        return "Terms & Privacy Policy";
+      case "marketing":
+        return "Marketing Emails";
+      default:
+        return type;
+    }
+  };
+
   const daysUntilDeletion = deletionStatus
     ? Math.ceil(
         (new Date(deletionStatus.scheduledDeletionAt).getTime() - Date.now()) /
@@ -200,6 +331,135 @@ export function DataPrivacySettings() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Personal Data (Right to Rectification - Article 16) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Personal Data
+          </CardTitle>
+          <CardDescription>
+            View and update your personal information (GDPR Article 16 - Right to Rectification)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingProfile ? (
+            <div className="flex items-center justify-center py-4">
+              <LoadingSpinner />
+            </div>
+          ) : profile ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Full Name</p>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        value={editName}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName(e.target.value)}
+                        className="h-8 w-48"
+                        maxLength={64}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveName}
+                        disabled={isSavingName || !editName.trim()}
+                      >
+                        {isSavingName ? <LoadingSpinner size="sm" /> : "Save"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsEditingName(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm">{profile.fullName}</p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          setEditName(profile.fullName);
+                          setIsEditingName(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Email</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm">{profile.email}</p>
+                    {profile.emailVerified && (
+                      <Badge variant="outline" className="text-green-600 border-green-500/50 text-xs">
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                To change your email address, please contact <a href="mailto:dpa@scanorbit.cloud" className="text-primary hover:underline">dpa@scanorbit.cloud</a>
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Failed to load profile data.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Marketing Preferences */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Marketing Preferences
+          </CardTitle>
+          <CardDescription>
+            Manage your email marketing consent (GDPR Article 7 - Conditions for Consent)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingConsent ? (
+            <div className="flex items-center justify-center py-4">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Product updates and newsletters</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Receive emails about new features, security updates, and product news.
+                  </p>
+                  {marketingLastUpdated && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Last updated: {formatDateTime(marketingLastUpdated)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-4">
+                  {isUpdatingConsent && <LoadingSpinner size="sm" />}
+                  <Checkbox
+                    checked={marketingConsent}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMarketingConsentChange(e.target.checked)}
+                    disabled={isUpdatingConsent}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Data Export */}
       <Card>
@@ -263,6 +523,51 @@ export function DataPrivacySettings() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Consent History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Consent History
+          </CardTitle>
+          <CardDescription>
+            A record of all consent actions for your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center py-4">
+              <LoadingSpinner />
+            </div>
+          ) : consentHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No consent records found.</p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {consentHistory.map((record, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded-lg border p-3 text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant={record.given ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {record.given ? "Granted" : "Withdrawn"}
+                    </Badge>
+                    <span>{consentTypeLabel(record.type)}</span>
+                    <span className="text-muted-foreground">v{record.version}</span>
+                  </div>
+                  <span className="text-muted-foreground text-xs">
+                    {formatDateTime(record.timestamp)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -370,6 +675,24 @@ export function DataPrivacySettings() {
               className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
             >
               <span className="text-sm font-medium">Cookie Policy</span>
+              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+            </a>
+            <a
+              href="/dpa"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-sm font-medium">Data Processing Agreement</span>
+              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+            </a>
+            <a
+              href="/subprocessors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-sm font-medium">Subprocessor List</span>
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </a>
             <div className="rounded-lg border p-3">

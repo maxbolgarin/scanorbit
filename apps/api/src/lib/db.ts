@@ -23,6 +23,7 @@ const pool = new Pool({
     ssl: {
       rejectUnauthorized: true,
       ca: caCert,
+      minVersion: 'TLSv1.3',
     },
   }),
 });

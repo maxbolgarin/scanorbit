@@ -13,6 +13,8 @@ import {
 } from '../db/schema.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { logDataAccess } from '../middlewares/auditLog.js';
+import { consentService } from '../services/consentService.js';
+import { listmonkService } from '../services/listmonkService.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import type { Variables } from '../types/index.js';
 
@@ -354,6 +356,167 @@ gdpr.get('/deletion-status', async (c) => {
       scheduledDeletionAt: r.scheduledDeletionAt,
       processedAt: r.processedAt,
     })),
+  });
+});
+
+// =============================================================================
+// GET /api/gdpr/consent/marketing - Get marketing consent status
+// =============================================================================
+gdpr.get('/consent/marketing', async (c) => {
+  const userId = c.get('userId');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  const [latestConsent] = await db
+    .select()
+    .from(consentLogs)
+    .where(
+      and(
+        eq(consentLogs.userId, userId),
+        eq(consentLogs.consentType, 'marketing')
+      )
+    )
+    .orderBy(desc(consentLogs.consentedAt))
+    .limit(1);
+
+  return c.json({
+    marketingConsent: latestConsent?.consentGiven ?? false,
+    lastUpdated: latestConsent?.consentedAt ?? null,
+  });
+});
+
+// =============================================================================
+// PUT /api/gdpr/consent/marketing - Update marketing consent (GDPR Article 7)
+// =============================================================================
+const marketingConsentSchema = z.object({
+  consentGiven: z.boolean(),
+});
+
+gdpr.put('/consent/marketing', zValidator('json', marketingConsentSchema), async (c) => {
+  const userId = c.get('userId');
+  const { consentGiven } = c.req.valid('json');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  // Log consent change (immutable record)
+  await consentService.logConsent({
+    userId,
+    email: user.email,
+    consentType: 'marketing',
+    consentGiven,
+    ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+    userAgent: c.req.header('user-agent'),
+  });
+
+  // Update Listmonk subscription status
+  if (consentGiven) {
+    await listmonkService.subscribe(user.email, user.fullName);
+  } else {
+    await listmonkService.unsubscribe(user.email);
+  }
+
+  // Audit log
+  await logDataAccess(
+    userId,
+    'update',
+    '/gdpr/consent/marketing',
+    c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
+    c.req.header('user-agent') || null
+  );
+
+  return c.json({ success: true, marketingConsent: consentGiven });
+});
+
+// =============================================================================
+// GET /api/gdpr/consent/history - Get user's consent history (GDPR Article 7)
+// =============================================================================
+gdpr.get('/consent/history', async (c) => {
+  const userId = c.get('userId');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  const history = await consentService.getConsentHistory(user.email);
+
+  return c.json({
+    consents: history.map((h) => ({
+      type: h.consentType,
+      version: h.consentVersion,
+      given: h.consentGiven,
+      timestamp: h.consentedAt,
+    })),
+  });
+});
+
+// =============================================================================
+// GET /api/gdpr/profile - Get user's personal data (GDPR Article 15)
+// =============================================================================
+gdpr.get('/profile', async (c) => {
+  const userId = c.get('userId');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({
+    fullName: user.fullName,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  });
+});
+
+// =============================================================================
+// PATCH /api/gdpr/profile - Update personal data (GDPR Article 16 - Rectification)
+// =============================================================================
+const updateProfileSchema = z.object({
+  fullName: z.string().min(1).max(64).optional(),
+});
+
+gdpr.patch('/profile', zValidator('json', updateProfileSchema), async (c) => {
+  const userId = c.get('userId');
+  const updates = c.req.valid('json');
+
+  if (Object.keys(updates).length === 0) {
+    return c.json({ error: 'No updates provided' }, 400);
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  const [updated] = await db
+    .update(users)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+
+  // Audit log for rectification
+  await logDataAccess(
+    userId,
+    'update',
+    '/gdpr/profile',
+    c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
+    c.req.header('user-agent') || null
+  );
+
+  return c.json({
+    fullName: updated.fullName,
+    email: updated.email,
+    emailVerified: updated.emailVerified,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
   });
 });
 
