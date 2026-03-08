@@ -67,7 +67,8 @@ function getSmtpTransporter(): Transporter | null {
       // Don't reject unauthorized certificates (some providers use self-signed certs)
       // For production, you might want to set this to true and add proper CA certs
       rejectUnauthorized: false,
-      // Minimum TLS version
+      // Minimum TLS version — kept at 1.2 for SMTP provider compatibility
+      // (many providers like Scaleway TEM do not yet support TLS 1.3 for SMTP)
       minVersion: 'TLSv1.2',
       // Server name for TLS certificate validation (required when using IP addresses)
       servername: config.email.smtp.host,

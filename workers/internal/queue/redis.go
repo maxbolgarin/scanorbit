@@ -62,7 +62,7 @@ func NewRedisQueue(redisURL, caCertPath string, logger zerolog.Logger) (*RedisQu
 		tlsConfig := &tls.Config{
 			RootCAs:            certPool,
 			InsecureSkipVerify: false, // Explicitly enforce certificate verification
-			MinVersion:         tls.VersionTLS12,
+			MinVersion:         tls.VersionTLS13,
 		}
 		opts.TLSConfig = tlsConfig
 	}

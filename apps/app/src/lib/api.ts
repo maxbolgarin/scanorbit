@@ -1475,3 +1475,72 @@ export async function getDeletionStatus(): Promise<{ requests: DeletionRequest[]
     handleApiError(error);
   }
 }
+
+// ============================================
+// GDPR Consent & Profile API
+// ============================================
+
+export interface MarketingConsentResponse {
+  marketingConsent: boolean;
+  lastUpdated: string | null;
+}
+
+export interface ConsentRecord {
+  type: string;
+  version: string;
+  given: boolean;
+  timestamp: string;
+}
+
+export interface GdprProfile {
+  fullName: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getMarketingConsent(): Promise<MarketingConsentResponse> {
+  try {
+    const { data } = await api.get<MarketingConsentResponse>('/gdpr/consent/marketing');
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateMarketingConsent(consentGiven: boolean): Promise<{ success: boolean; marketingConsent: boolean }> {
+  try {
+    const { data } = await api.put<{ success: boolean; marketingConsent: boolean }>('/gdpr/consent/marketing', { consentGiven });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getConsentHistory(): Promise<{ consents: ConsentRecord[] }> {
+  try {
+    const { data } = await api.get<{ consents: ConsentRecord[] }>('/gdpr/consent/history');
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getGdprProfile(): Promise<GdprProfile> {
+  try {
+    const { data } = await api.get<GdprProfile>('/gdpr/profile');
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateGdprProfile(updates: { fullName?: string }): Promise<GdprProfile> {
+  try {
+    const { data } = await api.patch<GdprProfile>('/gdpr/profile', updates);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}

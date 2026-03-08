@@ -256,6 +256,7 @@ services:
           -c ssl_cert_file=/var/lib/postgresql/certs/server.crt \
           -c ssl_key_file=/var/lib/postgresql/certs/server.key \
           -c ssl_ca_file=/var/lib/postgresql/certs/ca.crt \
+          -c ssl_min_protocol_version=TLSv1.3 \
           -c log_statement=mod \
           -c log_connections=on \
           -c log_disconnections=on
@@ -296,7 +297,8 @@ services:
           --tls-cert-file /data/certs/redis.crt \
           --tls-key-file /data/certs/redis.key \
           --tls-ca-cert-file /data/certs/ca.crt \
-          --tls-auth-clients no
+          --tls-auth-clients no \
+          --tls-protocols "TLSv1.3"
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:

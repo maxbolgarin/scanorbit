@@ -60,7 +60,7 @@ func NewDB(ctx context.Context, databaseURL, caCertPath string) (*DB, error) {
 		tlsConfig := &tls.Config{
 			RootCAs:            certPool,
 			InsecureSkipVerify: false, // Explicitly enforce certificate verification
-			MinVersion:         tls.VersionTLS12,
+			MinVersion:         tls.VersionTLS13,
 		}
 		config.ConnConfig.TLSConfig = tlsConfig
 	}
