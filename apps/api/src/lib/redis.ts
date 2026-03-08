@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { readFileSync } from 'fs';
 import Redis from 'ioredis';
 import { config } from './config.js';
@@ -146,6 +147,34 @@ export const signupCodes = {
 };
 
 // ============================================
+// TOTP Replay Protection
+// ============================================
+
+import { TOTP_REPLAY_TTL } from './totp.js';
+
+function totpUsedKey(userId: string, code: string): string {
+  return `totp:used:${userId}:${code}`;
+}
+
+export const totpReplayStore = {
+  /**
+   * Check if a TOTP code has already been used (replay attack prevention).
+   * Returns true if the code was already consumed.
+   */
+  async isCodeUsed(userId: string, code: string): Promise<boolean> {
+    const exists = await redis.exists(totpUsedKey(userId, code));
+    return exists === 1;
+  },
+
+  /**
+   * Mark a TOTP code as used. The key auto-expires after the TOTP validity window.
+   */
+  async markCodeUsed(userId: string, code: string): Promise<void> {
+    await redis.setex(totpUsedKey(userId, code), TOTP_REPLAY_TTL, '1');
+  },
+};
+
+// ============================================
 // Two-Factor Authentication Helpers
 // ============================================
 
@@ -287,9 +316,6 @@ export const twoFactorStore = {
     await redis.del(twoFactorVerifyAttemptsKey(identifier));
   },
 };
-
-// Need crypto for token generation
-import crypto from 'crypto';
 
 // ============================================
 // Account Lockout Helpers (Protection against brute force)
@@ -542,13 +568,18 @@ export const oauthConsentStore = {
   },
 
   /**
-   * Retrieve and delete pending OAuth signup data (one-time use)
+   * Retrieve and delete pending OAuth signup data (one-time use).
+   * Uses atomic Lua script to prevent race conditions where
+   * concurrent requests could both consume the same token.
    */
   async consume(token: string): Promise<Record<string, unknown> | null> {
     const key = oauthConsentKey(token);
-    const data = await redis.get(key);
+    const data = await redis.eval(
+      'local v = redis.call("GET", KEYS[1]) if v then redis.call("DEL", KEYS[1]) end return v',
+      1,
+      key,
+    ) as string | null;
     if (!data) return null;
-    await redis.del(key);
     return JSON.parse(data);
   },
 };

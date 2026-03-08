@@ -15,6 +15,20 @@ import type Stripe from 'stripe';
 
 const stripeRoute = new Hono<{ Variables: Variables }>();
 
+/**
+ * Validate that a URL belongs to the application's frontend origin.
+ * Prevents open redirect attacks via Stripe redirect URLs.
+ */
+function isAllowedRedirectUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const allowed = new URL(config.frontendUrl);
+    return parsed.origin === allowed.origin;
+  } catch {
+    return false;
+  }
+}
+
 // Validation schemas
 const checkoutSchema = z.object({
   targetTier: z.enum(['pro', 'team']),
@@ -47,6 +61,14 @@ stripeRoute.post(
     // Check if Stripe is configured
     if (!stripeService.isConfigured()) {
       throw new HTTP400Error('Stripe is not configured');
+    }
+
+    // Validate redirect URLs belong to our frontend origin (prevent open redirect)
+    if (successUrl && !isAllowedRedirectUrl(successUrl)) {
+      throw new HTTP400Error('Invalid successUrl: must be on the application domain');
+    }
+    if (cancelUrl && !isAllowedRedirectUrl(cancelUrl)) {
+      throw new HTTP400Error('Invalid cancelUrl: must be on the application domain');
     }
 
     // Default URLs based on frontend URL
@@ -117,6 +139,11 @@ stripeRoute.post(
     // Check if Stripe is configured
     if (!stripeService.isConfigured()) {
       throw new HTTP400Error('Stripe is not configured');
+    }
+
+    // Validate redirect URL belongs to our frontend origin (prevent open redirect)
+    if (returnUrl && !isAllowedRedirectUrl(returnUrl)) {
+      throw new HTTP400Error('Invalid returnUrl: must be on the application domain');
     }
 
     const defaultReturnUrl = `${config.frontendUrl}/settings?tab=subscription`;
