@@ -1,0 +1,104 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+
+const posts = (await getCollection("blog"))
+  .filter((post) => !post.data.draft)
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+function estimateReadTime(body: string): number {
+  const words = body.split(/\s+/).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
+const blogJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  name: "ScanOrbit Blog",
+  description:
+    "Insights on AWS cloud security, infrastructure scanning, cost optimization, and compliance best practices.",
+  url: new URL("/blog", Astro.site).href,
+  publisher: {
+    "@type": "Organization",
+    name: "ScanOrbit",
+    url: Astro.site?.href,
+  },
+};
+---
+
+<Layout
+  title="ScanOrbit Blog - AWS Cloud Security & Infrastructure Insights"
+  description="Insights on AWS cloud security, infrastructure scanning, cost optimization, and compliance best practices from the ScanOrbit team."
+>
+  <Header />
+  <main class="pt-24">
+    <section class="py-16 bg-deep-space">
+      <div class="container mx-auto px-6 max-w-4xl">
+        <!-- Page Header -->
+        <div class="mb-12">
+          <h1 class="text-4xl md:text-5xl font-bold mb-4">
+            <span
+              class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent"
+            >
+              Blog
+            </span>
+          </h1>
+          <p class="text-lg text-slate-gray max-w-2xl">
+            Insights on AWS cloud security, infrastructure scanning, cost
+            optimization, and compliance best practices.
+          </p>
+        </div>
+
+        <!-- Posts List -->
+        {
+          posts.length === 0 ? (
+            <p class="text-slate-gray">No posts yet. Check back soon!</p>
+          ) : (
+            <div class="space-y-8">
+              {posts.map((post) => (
+                <article class="group border border-slate-gray/10 rounded-xl p-6 hover:border-cyber-cyan/30 transition-colors bg-midnight/30">
+                  <a href={`/blog/${post.id}`} class="block">
+                    <div class="flex flex-wrap items-center gap-3 mb-3 text-sm">
+                      <time
+                        datetime={post.data.pubDate.toISOString()}
+                        class="text-slate-gray"
+                      >
+                        {post.data.pubDate.toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </time>
+                      <span class="text-slate-gray/40">|</span>
+                      <span class="text-slate-gray">
+                        {estimateReadTime(post.body || "")} min read
+                      </span>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-semibold text-cloud-gray group-hover:text-cyber-cyan transition-colors mb-3">
+                      {post.data.title}
+                    </h2>
+                    <p class="text-slate-gray mb-4 line-clamp-2">
+                      {post.data.description}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      {post.data.tags.map((tag) => (
+                        <span class="px-2.5 py-0.5 text-xs rounded-full bg-orbit-purple/15 text-orbit-purple border border-orbit-purple/20">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </a>
+                </article>
+              ))}
+            </div>
+          )
+        }
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Layout>
+
+<script type="application/ld+json" set:html={JSON.stringify(blogJsonLd)} />

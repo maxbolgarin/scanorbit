@@ -12,6 +12,7 @@
     "clean": "rm -rf dist .astro node_modules"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.0",
     "@fontsource/geist-mono": "^5.2.7",
     "@fontsource/geist-sans": "^5.2.5",
     "@iconify-json/lucide": "^1.2.95",
