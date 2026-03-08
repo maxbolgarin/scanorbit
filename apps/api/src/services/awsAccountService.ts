@@ -518,7 +518,7 @@ export const awsAccountService = {
     } catch (redisError) {
       // Redis failed - mark job as failed
       logger.error(`[enqueueAnalysis] Redis error for ${analysisType}, marking job as failed`, redisError as Error);
-      await db.update(jobs).set({ status: 'failed' }).where(eq(jobs.id, job.id));
+      await db.update(jobs).set({ status: 'error' }).where(eq(jobs.id, job.id));
       throw new HTTP400Error(`Failed to queue ${analysisType} job. Please try again.`);
     }
     // Track job enqueued

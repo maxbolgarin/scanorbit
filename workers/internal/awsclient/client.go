@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -44,8 +45,15 @@ func NewClient(ctx context.Context, logger zerolog.Logger) (*Client, error) {
 	}, nil
 }
 
+// arnRegex validates that a role ARN matches the expected AWS format.
+var arnRegex = regexp.MustCompile(`^arn:aws:iam::\d{12}:role/[\w+=,.@/-]{1,64}$`)
+
 // AssumeRole assumes an IAM role and returns auto-refreshing credentials.
 func (c *Client) AssumeRole(ctx context.Context, roleARN, externalID string) (aws.CredentialsProvider, error) {
+	if !arnRegex.MatchString(roleARN) {
+		return nil, fmt.Errorf("invalid role ARN format: %q", roleARN)
+	}
+
 	stsClient := sts.NewFromConfig(c.baseConfig)
 
 	// Generate unique session name for CloudTrail audit trail

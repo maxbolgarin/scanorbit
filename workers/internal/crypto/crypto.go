@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -89,8 +90,9 @@ func (d *Decryptor) DecryptExternalID(encrypted string) (string, error) {
 	// Decrypt
 	plaintext, err := gcm.Open(nil, iv, ciphertextWithTag, nil)
 	if err != nil {
-		// Decryption failed, might be legacy unencrypted value
-		return encrypted, nil
+		// GCM authentication failed — wrong key or tampered data.
+		// Do NOT fall back to plaintext; the value matched the encrypted format.
+		return "", fmt.Errorf("decrypt external_id: authentication failed (wrong key or tampered data): %w", err)
 	}
 
 	return string(plaintext), nil

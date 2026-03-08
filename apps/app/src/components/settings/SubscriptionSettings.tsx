@@ -179,8 +179,15 @@ export function SubscriptionSettings() {
     mutationFn: (targetTier: SubscriptionTier) =>
       api.createCheckoutSession(org!.id, targetTier),
     onSuccess: (data) => {
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
+      // Validate Stripe URL before redirect
+      try {
+        const parsed = new URL(data.url);
+        if (parsed.protocol === 'https:' && (parsed.hostname === 'checkout.stripe.com' || parsed.hostname === 'billing.stripe.com')) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch { /* invalid URL */ }
+      toast({ title: "Error", description: "Invalid redirect URL", type: "error" });
     },
     onError: (error) => {
       toast({
@@ -195,8 +202,15 @@ export function SubscriptionSettings() {
   const portalMutation = useMutation({
     mutationFn: () => api.createPortalSession(org!.id),
     onSuccess: (data) => {
-      // Open portal in new tab
-      window.open(data.url, '_blank');
+      // Validate Stripe URL before opening
+      try {
+        const parsed = new URL(data.url);
+        if (parsed.protocol === 'https:' && (parsed.hostname === 'billing.stripe.com' || parsed.hostname === 'checkout.stripe.com')) {
+          window.open(data.url, '_blank');
+          return;
+        }
+      } catch { /* invalid URL */ }
+      toast({ title: "Error", description: "Invalid redirect URL", type: "error" });
     },
     onError: (error) => {
       toast({

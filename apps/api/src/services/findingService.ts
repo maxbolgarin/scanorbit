@@ -28,6 +28,9 @@ export const findingService = {
     if (filters.awsAccountId) {
       conditions.push(eq(findings.awsAccountId, filters.awsAccountId));
     }
+    if (filters.resourceId) {
+      conditions.push(eq(findings.resourceId, filters.resourceId));
+    }
     if (filters.type) {
       conditions.push(eq(findings.type, filters.type));
     }

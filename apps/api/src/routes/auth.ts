@@ -21,7 +21,7 @@ const authRoute = new Hono<{ Variables: Variables }>();
 // Validation schemas
 const signupSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password must be at most 128 characters'),
   fullName: z.string().min(1, 'Full name is required').max(64, 'Full name must be at most 64 characters').optional(),
   orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(32, 'Organization name must be at most 32 characters').optional(),
 });
@@ -56,7 +56,7 @@ const verifyCodeSchema = z.object({
 
 const completeSignupSchema = z.object({
   signupToken: z.string().min(1, 'Signup token is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password must be at most 128 characters'),
   consent: z.boolean().refine((val) => val === true, {
     message: 'You must agree to the Terms of Service and Privacy Policy',
   }),
@@ -69,11 +69,11 @@ const resendCodeSchema = z.object({
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(128, 'New password must be at most 128 characters'),
 });
 
 const setPasswordSchema = z.object({
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(128, 'New password must be at most 128 characters'),
 });
 
 const updateProfileSchema = z.object({
@@ -691,18 +691,20 @@ authRoute.get('/google/callback', async (c) => {
   try {
     const result = await authService.handleGoogleCallback(code, state);
 
+    // New user needs explicit consent before account creation
+    if (result.requiresConsent) {
+      return c.redirect(`${config.frontendUrl}/oauth-consent?token=${result.consentToken}&provider=google`);
+    }
+
     // Check if 2FA is required
     if (result.requires2FA) {
-      // Redirect to login with 2FA challenge token
       return c.redirect(`${config.frontendUrl}/login?2fa_challenge=${result.challengeToken}`);
     }
 
     // Set auth tokens (refresh cookie)
-    // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
     // Add new OAuth users to product campaign list only (fire-and-forget)
-    // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
       listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
@@ -723,6 +725,14 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   const { idToken } = c.req.valid('json');
 
   const result = await authService.handleGoogleIdToken(idToken);
+
+  // New user needs explicit consent before account creation
+  if (result.requiresConsent) {
+    return c.json({
+      requiresConsent: true,
+      consentToken: result.consentToken,
+    });
+  }
 
   // Check if 2FA is required
   if (result.requires2FA) {
@@ -783,9 +793,13 @@ authRoute.get('/github/callback', async (c) => {
   try {
     const result = await authService.handleGithubCallback(code, state);
 
+    // New user needs explicit consent before account creation
+    if (result.requiresConsent) {
+      return c.redirect(`${config.frontendUrl}/oauth-consent?token=${result.consentToken}&provider=github`);
+    }
+
     // Check if 2FA is required
     if (result.requires2FA) {
-      // Redirect to login with 2FA challenge token
       return c.redirect(`${config.frontendUrl}/login?2fa_challenge=${result.challengeToken}`);
     }
 
@@ -808,6 +822,37 @@ authRoute.get('/github/callback', async (c) => {
     const errorMessage = err instanceof Error ? err.message : 'oauth_failed';
     return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
   }
+});
+
+// ============================================
+// OAuth Consent Completion
+// ============================================
+
+const oauthConsentSchema = z.object({
+  consentToken: z.string().min(1),
+  termsAccepted: z.boolean().refine(v => v === true, { message: 'You must accept the Terms of Service' }),
+  privacyAccepted: z.boolean().refine(v => v === true, { message: 'You must accept the Privacy Policy' }),
+});
+
+// POST /auth/oauth/complete-signup - Complete OAuth signup after consent
+authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json', oauthConsentSchema), async (c) => {
+  const { consentToken } = c.req.valid('json');
+
+  const result = await authService.completeOAuthSignup(consentToken);
+
+  // Set auth tokens
+  const { accessToken } = await setAuthTokens(c, result.userId, null);
+
+  // Add new OAuth users to product campaign list only (fire-and-forget)
+  listmonkService.onUserSignup(result.email, result.fullName).catch(() => {});
+  listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
+  sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }).catch(() => {});
+
+  return c.json({
+    user: { id: result.userId, email: result.email, fullName: result.fullName },
+    accessToken,
+    isNewUser: true,
+  });
 });
 
 export default authRoute;

@@ -171,7 +171,7 @@ async function deleteOldScans(): Promise<number> {
   // Delete old scans
   const deleted = await db
     .delete(scans)
-    .where(lt(scans.startedAt, cutoffDate))
+    .where(lt(scans.createdAt, cutoffDate))
     .returning({ id: scans.id });
 
   return deleted.length;
@@ -277,6 +277,34 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
     .innerJoin(orgs, eq(orgs.id, userOrgMembers.orgId))
     .where(eq(userOrgMembers.userId, userId));
 
+  // Cancel Stripe subscriptions BEFORE the DB transaction to avoid
+  // inconsistency if DB rolls back after Stripe calls succeed
+  const orphanedOrgIds: string[] = [];
+  for (const org of userOrgs) {
+    // Check member count to find orphaned orgs (will become 0 after user removal)
+    const [memberCount] = await db
+      .select({ count: count() })
+      .from(userOrgMembers)
+      .where(eq(userOrgMembers.orgId, org.orgId));
+
+    // Will be orphaned after this user is removed (count === 1 means only this user)
+    if (memberCount.count <= 1) {
+      orphanedOrgIds.push(org.orgId);
+      if (stripeService.isConfigured()) {
+        try {
+          if (org.stripeSubscriptionId) {
+            await stripeService.cancelSubscriptionById(org.stripeSubscriptionId);
+          }
+          if (org.stripeCustomerId) {
+            await stripeService.deleteCustomer(org.stripeCustomerId);
+          }
+        } catch (err) {
+          logger.error('[Retention] Failed Stripe cleanup for org', err as Error, { orgId: org.orgId });
+        }
+      }
+    }
+  }
+
   // Use a transaction for atomic deletion
   await db.transaction(async (tx) => {
     // 1. Remove user from all organizations
@@ -284,31 +312,10 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
       .delete(userOrgMembers)
       .where(eq(userOrgMembers.userId, userId));
 
-    // 2. Delete orphaned orgs (no remaining members) — cascades to all org data
-    // Only cancel Stripe subscriptions for orgs with no remaining members
-    for (const org of userOrgs) {
-      const [memberCount] = await tx
-        .select({ count: count() })
-        .from(userOrgMembers)
-        .where(eq(userOrgMembers.orgId, org.orgId));
-
-      if (memberCount.count === 0) {
-        // Cancel Stripe subscription and delete customer only for orphaned orgs
-        if (stripeService.isConfigured()) {
-          try {
-            if (org.stripeSubscriptionId) {
-              await stripeService.cancelSubscriptionById(org.stripeSubscriptionId);
-            }
-            if (org.stripeCustomerId) {
-              await stripeService.deleteCustomer(org.stripeCustomerId);
-            }
-          } catch (err) {
-            logger.error('[Retention] Failed Stripe cleanup for org', err as Error, { orgId: org.orgId });
-          }
-        }
-        await tx.delete(orgs).where(eq(orgs.id, org.orgId));
-        logger.info('[Retention] Deleted orphaned org', { orgId: org.orgId });
-      }
+    // 2. Delete orphaned orgs — cascades to all org data
+    for (const orgId of orphanedOrgIds) {
+      await tx.delete(orgs).where(eq(orgs.id, orgId));
+      logger.info('[Retention] Deleted orphaned org', { orgId });
     }
 
     // 3. Anonymize audit logs (keep for compliance, remove PII)

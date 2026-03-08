@@ -24,39 +24,35 @@ Cookies are small text files stored on your device (computer, tablet, or mobile 
 
 ScanOrbit uses **only essential cookies** necessary for the service to function. We do **NOT** use tracking, analytics, or marketing cookies.
 
-### 2.1 Session & Authentication Cookies
+### 2.1 Authentication Cookie
 
 | Cookie Name | Purpose | Duration | Type | Required |
 |-------------|---------|----------|------|----------|
-| `session_token` | Keep you logged into your account | 24 hours | Session | Yes |
 | `refresh_token` | Refresh your authentication session | 7 days | Persistent | Yes |
-| `csrf_token` | Prevent cross-site request forgery attacks | Session | Session | Yes |
-| `2fa_challenge` | Temporary 2FA challenge token during login | 10 minutes | Session | Conditional |
 
-**What they do:**
-- Allow you to log in and stay logged in
-- Protect against unauthorized requests
-- Maintain your authentication state
-- Enable two-factor authentication verification (if 2FA is enabled)
+**What it does:**
+- Allows you to stay logged in across browser sessions
+- Used to obtain new short-lived access tokens
+- Access tokens are stored in browser memory only (not as cookies)
+- Two-factor authentication challenges are handled via temporary JWT tokens, not cookies
 
 **Technical details:**
-- Stored securely with `httpOnly` flag (inaccessible to JavaScript)
+- Stored securely with `HttpOnly` flag (inaccessible to JavaScript)
 - Transmitted only over HTTPS/TLS 1.3
-- `SameSite=Strict` attribute enabled (prevents cross-site attacks)
+- `SameSite=None` attribute with `Secure` flag (required for cross-subdomain authentication between app.scanorbit.cloud and api.scanorbit.cloud)
 - `Secure` flag enabled (HTTPS only)
 
-### 2.2 User Preference Cookies
+### 2.2 Local Storage (Not Cookies)
 
-| Cookie Name | Purpose | Duration | Type | Required |
-|-------------|---------|----------|------|----------|
-| `theme_preference` | Remember your dark/light mode choice | 1 year | Persistent | No |
-| `language_preference` | Remember your language selection | 1 year | Persistent | No |
-| `sidebar_state` | Remember if sidebar is collapsed/expanded | Session | Session | No |
+ScanOrbit uses browser Local Storage for UI preferences. These are **not cookies** and are never sent to our servers:
 
-**What they do:**
-- Save your UI preferences so you don't have to set them every visit
-- Improve your user experience
-- No personal information stored
+| Key | Purpose | Persistence |
+|-----|---------|-------------|
+| `auth-storage` | Remember authentication state | Persistent |
+| `scanorbit:account-context` | Remember selected AWS account | Persistent |
+| `scanorbit:viewing-settings` | Remember finding filter preferences | Persistent |
+
+**Note:** These are stored only in your browser and are never transmitted to our servers.
 
 ---
 
@@ -145,7 +141,7 @@ ScanOrbit **does not use:**
 **Cookie Flags:**
 - `Secure` - Only sent over HTTPS, never over plain HTTP
 - `HttpOnly` - Cannot be accessed by JavaScript (prevents XSS attacks)
-- `SameSite=Strict` - Cannot be sent in cross-site requests (prevents CSRF)
+- `SameSite=None` with `Secure` - Required for cross-subdomain authentication
 
 **Expiration:**
 - Session cookies automatically deleted when you close your browser

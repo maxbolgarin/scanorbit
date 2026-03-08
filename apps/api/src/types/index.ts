@@ -122,6 +122,7 @@ export interface ResourceFilters extends PaginationParams {
 
 export interface FindingFilters extends PaginationParams {
   awsAccountId?: string;
+  resourceId?: string;
   type?: string;
   severity?: string;
   status?: string;
@@ -497,17 +498,28 @@ export interface GoogleAuthResultSuccess {
   isNewUser: boolean;
   hasOrg: boolean;
   requires2FA?: false;
+  requiresConsent?: false;
 }
 
 // Result when 2FA is required
 export interface GoogleAuthResult2FA {
   requires2FA: true;
+  requiresConsent?: false;
   challengeToken: string;
   isNewUser: boolean;
 }
 
+// Result when consent is required for new OAuth users
+export interface GoogleAuthResultConsent {
+  requiresConsent: true;
+  requires2FA?: false;
+  consentToken: string;
+  email: string;
+  fullName: string | null;
+}
+
 // Combined type
-export type GoogleAuthResult = GoogleAuthResultSuccess | GoogleAuthResult2FA;
+export type GoogleAuthResult = GoogleAuthResultSuccess | GoogleAuthResult2FA | GoogleAuthResultConsent;
 
 // GitHub user info from OAuth
 export interface GitHubUserInfo {
@@ -536,14 +548,25 @@ export interface GitHubAuthResultSuccess {
   isNewUser: boolean;
   hasOrg: boolean;
   requires2FA?: false;
+  requiresConsent?: false;
 }
 
 // Result when 2FA is required
 export interface GitHubAuthResult2FA {
   requires2FA: true;
+  requiresConsent?: false;
   challengeToken: string;
   isNewUser: boolean;
 }
 
+// Result when consent is required for new OAuth users
+export interface GitHubAuthResultConsent {
+  requiresConsent: true;
+  requires2FA?: false;
+  consentToken: string;
+  email: string;
+  fullName: string | null;
+}
+
 // Combined type
-export type GitHubAuthResult = GitHubAuthResultSuccess | GitHubAuthResult2FA;
+export type GitHubAuthResult = GitHubAuthResultSuccess | GitHubAuthResult2FA | GitHubAuthResultConsent;

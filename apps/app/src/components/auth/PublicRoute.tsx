@@ -46,7 +46,7 @@ export function PublicRoute({ children }: PublicRouteProps) {
     if (!hasOrg && location.pathname === "/signup") {
       return <>{children}</>;
     }
-    return <Navigate to={hasOrg ? "/dashboard" : "/signup"} replace />;
+    return <Navigate to={hasOrg ? "/overview" : "/signup"} replace />;
   }
 
   return <>{children}</>;

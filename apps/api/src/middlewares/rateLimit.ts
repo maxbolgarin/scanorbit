@@ -133,13 +133,9 @@ export function rateLimit(options: RateLimitOptions) {
       const identifier = keyExtractor ? keyExtractor(c) : getRateLimitClientIP(c);
       const key = `ratelimit:${keyPrefix}:${identifier}`;
 
-      // Increment counter
+      // Increment counter and always set expiry to avoid immortal keys
       const count = await redis.incr(key);
-
-      // Set expiry on first request
-      if (count === 1) {
-        await redis.expire(key, windowSeconds);
-      }
+      await redis.expire(key, windowSeconds);
 
       // Get remaining TTL for headers
       const ttl = await redis.ttl(key);
@@ -252,17 +248,11 @@ export function rateLimitByEmailAndIP(options: DualRateLimitOptions) {
         redis.incr(emailKey),
       ]);
 
-      // Set expiry on first request for each key
-      const expiryPromises: Promise<number>[] = [];
-      if (ipCount === 1) {
-        expiryPromises.push(redis.expire(ipKey, windowSeconds));
-      }
-      if (emailCount === 1) {
-        expiryPromises.push(redis.expire(emailKey, windowSeconds));
-      }
-      if (expiryPromises.length > 0) {
-        await Promise.all(expiryPromises);
-      }
+      // Always set expiry to avoid immortal keys on partial Redis failures
+      await Promise.all([
+        redis.expire(ipKey, windowSeconds),
+        redis.expire(emailKey, windowSeconds),
+      ]);
 
       // Get TTLs for headers
       const [ipTTL, emailTTL] = await Promise.all([

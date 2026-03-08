@@ -280,24 +280,14 @@ export default function InfrastructureMap() {
   const tier = org?.tier || 'free';
   const canViewInfrastructureMap = TIER_LIMITS[tier].canViewInfrastructureMap;
 
-  const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources();
-  const { data: findingsData, isLoading: findingsLoading } = useFilteredFindings();
-  const { data: dependenciesData } = useAllDependencies();
-
-  // Show paywall for free tier
-  if (!canViewInfrastructureMap) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Infrastructure Map</h1>
-          <p className="text-muted-foreground">
-            Visualize your AWS infrastructure and dependencies
-          </p>
-        </div>
-        <PaywallBlocker feature="infrastructure-map" />
-      </div>
-    );
-  }
+  // All hooks MUST be called before any conditional return (Rules of Hooks)
+  const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources(
+    undefined, { enabled: canViewInfrastructureMap }
+  );
+  const { data: findingsData, isLoading: findingsLoading } = useFilteredFindings(
+    undefined, { enabled: canViewInfrastructureMap }
+  );
+  const { data: dependenciesData } = useAllDependencies({ enabled: canViewInfrastructureMap });
 
   const [filters, setFilters] = useState<MapFilters>(getDefaultFilters);
   const [layoutPreset, setLayoutPresetState] = useState<LayoutPreset>(loadLayoutPreset);
@@ -503,6 +493,21 @@ export default function InfrastructureMap() {
   }, [filteredGraph, setNodes, setEdges]);
 
   const isLoading = resourcesLoading || findingsLoading;
+
+  // Show paywall for free tier (after all hooks)
+  if (!canViewInfrastructureMap) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Infrastructure Map</h1>
+          <p className="text-muted-foreground">
+            Visualize your AWS infrastructure and dependencies
+          </p>
+        </div>
+        <PaywallBlocker feature="infrastructure-map" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

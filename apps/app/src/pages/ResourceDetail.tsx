@@ -222,14 +222,20 @@ interface LocationState {
 }
 
 export default function ResourceDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id, accountId } = useParams<{ id: string; accountId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { data: resource, isLoading } = useResource(id || "");
-  const { data: findingsResponse } = useFilteredFindings();
+  const { data: findingsResponse } = useFilteredFindings(
+    { resourceId: id, status: 'open' },
+    { enabled: !!id }
+  );
   const { data: dependencies = [] } = useResourceDependencies(id || "");
   const { data: dependents = [] } = useResourceDependents(id || "");
-  const allFindings = findingsResponse?.data || [];
+  const resourceFindings = findingsResponse?.data || [];
+
+  // Build context-aware path prefix for navigation
+  const pathPrefix = accountId ? `/accounts/${accountId}` : '/overview';
 
   // Determine back navigation destination based on where user came from
   const locationState = location.state as LocationState | null;
@@ -237,18 +243,13 @@ export default function ResourceDetail() {
 
   const handleBack = () => {
     if (cameFromMap) {
-      navigate('/infrastructure-map');
+      navigate(`${pathPrefix}/infrastructure-map`);
     } else {
-      navigate('/resources');
+      navigate(`${pathPrefix}/resources`);
     }
   };
 
   const backLabel = cameFromMap ? 'Back to Map' : 'Back to Resources';
-
-  // Filter findings for this resource
-  const resourceFindings = allFindings.filter(
-    (f) => f.resourceId === id && f.status === "open"
-  );
 
   if (isLoading) {
     return (
@@ -370,7 +371,7 @@ export default function ResourceDetail() {
                     <div
                       key={finding.id}
                       className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                      onClick={() => navigate(`/findings?id=${finding.id}`)}
+                      onClick={() => navigate(`${pathPrefix}/findings?id=${finding.id}`)}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <SeverityBadge severity={finding.severity} />
@@ -424,7 +425,7 @@ export default function ResourceDetail() {
                         }`}
                         onClick={() => {
                           if (dep.targetResource) {
-                            navigate(`/resources/${dep.targetResource.id}`);
+                            navigate(`${pathPrefix}/resources/${dep.targetResource.id}`);
                           }
                         }}
                       >
@@ -462,7 +463,7 @@ export default function ResourceDetail() {
                       <div
                         key={dep.id}
                         className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                        onClick={() => navigate(`/resources/${dep.sourceResource.id}`)}
+                        onClick={() => navigate(`${pathPrefix}/resources/${dep.sourceResource.id}`)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">

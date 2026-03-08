@@ -604,6 +604,7 @@ export interface FindingFilters {
   severity?: FindingSeverity;
   status?: FindingStatus;
   awsAccountId?: string;
+  resourceId?: string;
   page?: number;
   limit?: number;
 }

@@ -100,7 +100,7 @@ export default function AwsSetup() {
   // Clear state and navigate to dashboard
   const handleClose = useCallback(() => {
     clearOnboardingState();
-    navigate("/dashboard");
+    navigate("/overview");
   }, [navigate]);
 
   const handleAccountDetails = async (data: { name: string; awsAccountId: string }) => {
@@ -202,7 +202,7 @@ export default function AwsSetup() {
       clearOnboardingState();
 
       // Go to dashboard - scan will be visible there
-      navigate("/dashboard");
+      navigate("/overview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
     }
