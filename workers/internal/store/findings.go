@@ -253,6 +253,9 @@ func (s *findingStore) AutoResolveMissingFindings(ctx context.Context, scanID, a
 
 // AutoResolveByScanID marks open findings as resolved if they were not detected in this scan.
 // Uses the last_scan_id field to determine which findings to resolve.
+// Only auto-resolves findings whose type was actively analyzed in this scan
+// (i.e., at least one finding of that type appears in finding_scans for this scan).
+// This prevents resolving findings from disabled analyzers that didn't run.
 // Returns the number of findings that were auto-resolved.
 func (s *findingStore) AutoResolveByScanID(ctx context.Context, scanID, accountID string) (int64, error) {
 	finish := metrics.TrackDBQuery("auto_resolve_by_scan", "findings")
@@ -263,6 +266,12 @@ func (s *findingStore) AutoResolveByScanID(ctx context.Context, scanID, accountI
 		WHERE aws_account_id = $1
 		  AND status = 'open'
 		  AND (last_scan_id IS NULL OR last_scan_id != $2)
+		  AND type IN (
+		    SELECT DISTINCT f.type
+		    FROM findings f
+		    INNER JOIN finding_scans fs ON fs.finding_id = f.id
+		    WHERE fs.scan_id = $2
+		  )
 	`
 	result, err := s.db.Pool().Exec(ctx, query, accountID, scanID)
 	if err != nil {

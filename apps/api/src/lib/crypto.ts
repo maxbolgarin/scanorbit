@@ -78,25 +78,20 @@ export function encryptOAuthTokenOptional(token: string | null | undefined): str
 }
 
 /**
- * Decrypt an OAuth token if it exists and is in encrypted format, otherwise return as-is
- * This allows backward compatibility with existing unencrypted tokens
+ * Decrypt an OAuth token if it exists and is in encrypted format.
+ * Throws on decryption failure instead of silently returning raw value,
+ * to prevent tampered or corrupted data from being used.
  */
 export function decryptOAuthTokenOptional(token: string | null | undefined): string | null {
   if (!token) return null;
 
   // Check if token is in encrypted format (iv:authTag:ciphertext with base64)
-  // Encrypted tokens have exactly 2 colons and the parts look like base64
   const parts = token.split(':');
   if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/=]+$/.test(p))) {
-    try {
-      return decryptOAuthToken(token);
-    } catch {
-      // If decryption fails, assume it's a legacy unencrypted token
-      return token;
-    }
+    return decryptOAuthToken(token);
   }
 
-  // Not encrypted, return as-is (backward compatibility)
+  // Not in encrypted format — legacy unencrypted token (backward compatibility)
   return token;
 }
 
@@ -166,24 +161,19 @@ export function encryptExternalIdOptional(id: string | null | undefined): string
 }
 
 /**
- * Decrypt an external ID if it exists and is in encrypted format
- * This allows backward compatibility with existing unencrypted external IDs
+ * Decrypt an external ID if it exists and is in encrypted format.
+ * Throws on decryption failure instead of silently returning raw value,
+ * to prevent tampered or corrupted data from being used.
  */
 export function decryptExternalIdOptional(id: string | null | undefined): string | null {
   if (!id) return null;
 
   // Check if ID is in encrypted format (iv:authTag:ciphertext with base64)
-  // Encrypted IDs have exactly 2 colons and the parts look like base64
   const parts = id.split(':');
   if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/=]+$/.test(p))) {
-    try {
-      return decryptExternalId(id);
-    } catch {
-      // If decryption fails, assume it's a legacy unencrypted ID
-      return id;
-    }
+    return decryptExternalId(id);
   }
 
-  // Not encrypted, return as-is (backward compatibility)
+  // Not in encrypted format — legacy unencrypted ID (backward compatibility)
   return id;
 }

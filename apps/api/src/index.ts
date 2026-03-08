@@ -278,25 +278,34 @@ try {
   const gracefulShutdown = (signal: string) => {
     logger.info(`${signal} received, starting graceful shutdown`);
 
-    // Stop accepting new connections and drain in-flight requests
-    if (server && typeof server === 'object' && 'close' in server) {
-      (server as { close: (cb?: () => void) => void }).close(async () => {
-        logger.info('HTTP server closed, cleaning up connections');
-        try {
-          await pool.end();
-          await redis.quit();
-        } catch (err) {
-          logger.error('Error during connection cleanup', err as Error);
-        }
-        process.exit(0);
-      });
-    }
-
-    // Force exit if graceful shutdown takes too long
-    setTimeout(() => {
+    // Force exit if graceful shutdown takes too long (unref so it doesn't keep process alive)
+    const forceTimer = setTimeout(() => {
       logger.error('Graceful shutdown timed out, forcing exit');
       process.exit(1);
     }, 30_000);
+    forceTimer.unref();
+
+    // Stop accepting new connections and drain in-flight requests
+    if (server && typeof server === 'object' && 'close' in server) {
+      (server as { close: (cb?: () => void) => void }).close(() => {
+        logger.info('HTTP server closed, cleaning up connections');
+
+        // Race cleanup against a timeout to prevent hanging on pool.end()/redis.quit()
+        const cleanup = Promise.allSettled([pool.end(), redis.quit()]);
+        const timeout = new Promise<void>((resolve) => {
+          const t = setTimeout(resolve, 5_000);
+          t.unref();
+        });
+
+        Promise.race([cleanup, timeout])
+          .catch((err) => {
+            logger.error('Error during connection cleanup', err as Error);
+          })
+          .finally(() => {
+            process.exit(0);
+          });
+      });
+    }
   };
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

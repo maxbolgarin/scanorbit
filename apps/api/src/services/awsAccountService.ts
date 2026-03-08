@@ -326,9 +326,6 @@ export const awsAccountService = {
   },
 
   async enqueueScan(orgId: string, accountId: string): Promise<Scan> {
-    // Get org tier outside transaction (this is read-only and doesn't need locking)
-    const tier = await getOrgTier(orgId);
-
     // Use transaction with pessimistic locking to prevent race conditions
     // This ensures only one scan can be created at a time for an account
     const result = await db.transaction(async (tx) => {
@@ -350,6 +347,9 @@ export const awsAccountService = {
       if (!account) {
         throw new HTTP404Error('AWS account not found');
       }
+
+      // Get org tier INSIDE transaction so the check is consistent with the lock
+      const tier = await getOrgTier(orgId);
 
       // Tier-based scan checks (inside transaction to ensure consistency)
       if (tier === 'free') {

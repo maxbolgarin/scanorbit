@@ -133,9 +133,13 @@ export function rateLimit(options: RateLimitOptions) {
       const identifier = keyExtractor ? keyExtractor(c) : getRateLimitClientIP(c);
       const key = `ratelimit:${keyPrefix}:${identifier}`;
 
-      // Increment counter and always set expiry to avoid immortal keys
-      const count = await redis.incr(key);
-      await redis.expire(key, windowSeconds);
+      // Atomic increment + conditional expire via Lua to prevent immortal keys
+      const count = await redis.eval(
+        'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c',
+        1,
+        key,
+        windowSeconds,
+      ) as number;
 
       // Get remaining TTL for headers
       const ttl = await redis.ttl(key);
@@ -237,16 +241,11 @@ export function rateLimitByEmailAndIP(options: DualRateLimitOptions) {
       const ipKey = `ratelimit:${keyPrefix}:ip:${ip}`;
       const emailKey = `ratelimit:${keyPrefix}:email:${email}`;
 
-      // Check both limits in parallel
+      // Atomic increment + conditional expire via Lua for both keys
+      const luaScript = 'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c';
       const [ipCount, emailCount] = await Promise.all([
-        redis.incr(ipKey),
-        redis.incr(emailKey),
-      ]);
-
-      // Always set expiry to avoid immortal keys on partial Redis failures
-      await Promise.all([
-        redis.expire(ipKey, windowSeconds),
-        redis.expire(emailKey, windowSeconds),
+        redis.eval(luaScript, 1, ipKey, windowSeconds) as Promise<number>,
+        redis.eval(luaScript, 1, emailKey, windowSeconds) as Promise<number>,
       ]);
 
       // Get TTLs for headers
