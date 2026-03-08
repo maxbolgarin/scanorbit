@@ -16,6 +16,7 @@ import { requireAuth } from '../middlewares/auth.js';
 import { logDataAccess } from '../middlewares/auditLog.js';
 import { consentService } from '../services/consentService.js';
 import { listmonkService } from '../services/listmonkService.js';
+import { getClientIP } from '../lib/ip.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import type { Variables } from '../types/index.js';
 
@@ -35,7 +36,7 @@ gdpr.get('/export', async (c) => {
     userId,
     'export',
     '/gdpr/export',
-    c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
+    getClientIP(c) || null,
     c.req.header('user-agent') || null
   );
 
@@ -228,7 +229,7 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
       status: 'pending',
       reason,
       scheduledDeletionAt,
-      ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      ipAddress: getClientIP(c),
       userAgent: c.req.header('user-agent'),
     })
     .returning();
@@ -238,7 +239,7 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
     userId,
     'delete',
     '/gdpr/delete',
-    c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
+    getClientIP(c) || null,
     c.req.header('user-agent') || null
   );
 
@@ -426,7 +427,7 @@ gdpr.put('/consent/marketing', zValidator('json', marketingConsentSchema), async
     email: user.email,
     consentType: 'marketing',
     consentGiven,
-    ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+    ipAddress: getClientIP(c),
     userAgent: c.req.header('user-agent'),
   });
 
@@ -442,7 +443,7 @@ gdpr.put('/consent/marketing', zValidator('json', marketingConsentSchema), async
     userId,
     'update',
     '/gdpr/consent/marketing',
-    c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
+    getClientIP(c) || null,
     c.req.header('user-agent') || null
   );
 
@@ -523,7 +524,7 @@ gdpr.patch('/profile', zValidator('json', updateProfileSchema), async (c) => {
     userId,
     'update',
     '/gdpr/profile',
-    c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null,
+    getClientIP(c) || null,
     c.req.header('user-agent') || null
   );
 

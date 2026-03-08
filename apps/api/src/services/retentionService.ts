@@ -216,6 +216,10 @@ async function processPendingDeletions(): Promise<number> {
   let processedCount = 0;
 
   for (const request of pendingRequests) {
+    if (!request.userId) {
+      logger.warn('[Retention] Skipping deletion request with null userId', { requestId: request.id });
+      continue;
+    }
     try {
       await processUserDeletion(request.userId, request.id);
       processedCount++;
@@ -273,22 +277,6 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
     .innerJoin(orgs, eq(orgs.id, userOrgMembers.orgId))
     .where(eq(userOrgMembers.userId, userId));
 
-  // Cancel Stripe subscriptions and delete customers for user's orgs
-  if (stripeService.isConfigured()) {
-    for (const org of userOrgs) {
-      try {
-        if (org.stripeSubscriptionId) {
-          await stripeService.cancelSubscriptionById(org.stripeSubscriptionId);
-        }
-        if (org.stripeCustomerId) {
-          await stripeService.deleteCustomer(org.stripeCustomerId);
-        }
-      } catch (err) {
-        logger.error('[Retention] Failed Stripe cleanup for org', err as Error, { orgId: org.orgId });
-      }
-    }
-  }
-
   // Use a transaction for atomic deletion
   await db.transaction(async (tx) => {
     // 1. Remove user from all organizations
@@ -297,6 +285,7 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
       .where(eq(userOrgMembers.userId, userId));
 
     // 2. Delete orphaned orgs (no remaining members) — cascades to all org data
+    // Only cancel Stripe subscriptions for orgs with no remaining members
     for (const org of userOrgs) {
       const [memberCount] = await tx
         .select({ count: count() })
@@ -304,6 +293,19 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
         .where(eq(userOrgMembers.orgId, org.orgId));
 
       if (memberCount.count === 0) {
+        // Cancel Stripe subscription and delete customer only for orphaned orgs
+        if (stripeService.isConfigured()) {
+          try {
+            if (org.stripeSubscriptionId) {
+              await stripeService.cancelSubscriptionById(org.stripeSubscriptionId);
+            }
+            if (org.stripeCustomerId) {
+              await stripeService.deleteCustomer(org.stripeCustomerId);
+            }
+          } catch (err) {
+            logger.error('[Retention] Failed Stripe cleanup for org', err as Error, { orgId: org.orgId });
+          }
+        }
         await tx.delete(orgs).where(eq(orgs.id, org.orgId));
         logger.info('[Retention] Deleted orphaned org', { orgId: org.orgId });
       }
@@ -329,15 +331,14 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
     // 5. Anonymize consent logs (keep records for legal basis, remove PII)
     await tx
       .update(consentLogs)
-      .set({ userId: null })
+      .set({
+        userId: null,
+        email: `deleted-${userId.slice(0, 8)}@anonymized`,
+      })
       .where(eq(consentLogs.userId, userId));
 
-    // 6. Delete the user account
-    await tx
-      .delete(users)
-      .where(eq(users.id, userId));
-
-    // 7. Mark deletion request as completed and anonymize email
+    // 6. Mark deletion request as completed and anonymize email
+    // Must happen BEFORE user deletion to avoid ON DELETE SET NULL nullifying userId
     await tx
       .update(dataDeletionRequests)
       .set({
@@ -347,6 +348,11 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
         notes: 'User data deleted successfully',
       })
       .where(eq(dataDeletionRequests.id, requestId));
+
+    // 7. Delete the user account (must be last — cascades to OAuth accounts, org memberships)
+    await tx
+      .delete(users)
+      .where(eq(users.id, userId));
   });
 
   logger.info('[Retention] Successfully deleted user', { userId });

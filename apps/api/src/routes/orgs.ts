@@ -1,50 +1,11 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { setCookie } from 'hono/cookie';
 import { requireAuth } from '../middlewares/auth.js';
 import { orgService } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
-import { jwt } from '../lib/jwt.js';
-import { config } from '../lib/config.js';
-import { refreshTokenStore } from '../lib/redis.js';
+import { setAuthTokens } from '../lib/authTokens.js';
 import type { Variables, SubscriptionTier } from '../types/index.js';
-
-/**
- * Set refresh token in httpOnly secure cookie
- * Must match the cookie settings in auth.ts for cross-subdomain support
- */
-const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken: string) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const cookieOptions: Parameters<typeof setCookie>[3] = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'None' : 'Lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: '/',
-  };
-
-  if (config.cookieDomain) {
-    cookieOptions.domain = config.cookieDomain;
-  }
-
-  setCookie(c, 'refresh_token', refreshToken, cookieOptions);
-};
-
-/**
- * Issue new access and refresh tokens for a user
- */
-const setAuthTokens = async (
-  c: Parameters<typeof setCookie>[0],
-  userId: string,
-  orgId: string | null
-): Promise<{ accessToken: string }> => {
-  const accessToken = await jwt.signAccessToken({ userId, orgId });
-  const { token: refreshToken, tokenId } = await jwt.signRefreshToken(userId);
-  await refreshTokenStore.store(tokenId, userId);
-  setRefreshTokenCookie(c, refreshToken);
-  return { accessToken };
-};
 
 const orgsRoute = new Hono<{ Variables: Variables }>();
 

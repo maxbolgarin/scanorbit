@@ -1,6 +1,8 @@
 import type { Context, Next } from 'hono';
 import { db } from '../lib/db.js';
 import { auditLogs } from '../db/schema.js';
+import { getClientIP } from '../lib/ip.js';
+import { logger } from '../lib/logger.js';
 import type { Variables } from '../types/index.js';
 
 /**
@@ -43,27 +45,10 @@ function shouldExclude(path: string): boolean {
   return excludePatterns.some(pattern => pattern.test(path));
 }
 
-// Get client IP from request headers
-function getClientIp(c: Context): string | null {
-  // Check common proxy headers
-  const forwardedFor = c.req.header('x-forwarded-for');
-  if (forwardedFor) {
-    // Take the first IP if multiple are present
-    return forwardedFor.split(',')[0].trim();
-  }
-
-  const realIp = c.req.header('x-real-ip');
-  if (realIp) {
-    return realIp;
-  }
-
-  // Fallback to CF-Connecting-IP for Cloudflare
-  const cfConnectingIp = c.req.header('cf-connecting-ip');
-  if (cfConnectingIp) {
-    return cfConnectingIp;
-  }
-
-  return null;
+// Get client IP using the trusted proxy validation from lib/ip.ts
+function getClientIp(c: Context<{ Variables: Variables }>): string | null {
+  const ip = getClientIP(c);
+  return ip !== 'unknown' ? ip : null;
 }
 
 /**
@@ -109,11 +94,11 @@ export const auditLog = async (
       })
       .catch((err) => {
         // Log error but don't throw - audit logging should never break the app
-        console.error('[AuditLog] Failed to write audit log:', err);
+        logger.error('[AuditLog] Failed to write audit log', err as Error);
       });
   } catch (err) {
     // Silently fail - audit logging should never break the app
-    console.error('[AuditLog] Error in audit middleware:', err);
+    logger.error('[AuditLog] Error in audit middleware', err as Error);
   }
 };
 
@@ -135,7 +120,7 @@ export const logAuthEvent = async (
       userAgent,
     });
   } catch (err) {
-    console.error('[AuditLog] Failed to log auth event:', err);
+    logger.error('[AuditLog] Failed to log auth event', err as Error);
   }
 };
 
@@ -158,6 +143,6 @@ export const logDataAccess = async (
       userAgent,
     });
   } catch (err) {
-    console.error('[AuditLog] Failed to log data access:', err);
+    logger.error('[AuditLog] Failed to log data access', err as Error);
   }
 };

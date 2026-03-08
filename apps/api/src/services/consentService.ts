@@ -1,6 +1,7 @@
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { consentLogs } from '../db/schema.js';
+import { logger } from '../lib/logger.js';
 
 // Current version of terms and privacy policy
 const CURRENT_TERMS_VERSION = '1.0';
@@ -61,7 +62,7 @@ export const consentService = {
       },
     });
 
-    console.log(`Consent logged: ${consentType} for ${maskEmail(email)} (given: ${consentGiven})`);
+    logger.info('Consent logged', { consentType, email: maskEmail(email), consentGiven });
   },
 
   /**

@@ -280,6 +280,16 @@ stripeRoute.post('/webhook', async (c) => {
 
       case 'customer.subscription.trial_will_end': {
         const subscription = event.data.object as Stripe.Subscription;
+
+        // Only send if still in trial (skip if already paid/active)
+        if (subscription.status !== 'trialing') {
+          logger.info('Skipping trial-ending email: subscription is already', {
+            status: subscription.status,
+            subscriptionId: subscription.id,
+          });
+          break;
+        }
+
         logger.info('Trial will end soon', {
           subscriptionId: subscription.id,
           trialEnd: subscription.trial_end,

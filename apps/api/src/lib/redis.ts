@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import Redis from 'ioredis';
 import { config } from './config.js';
+import { logger } from './logger.js';
 
 // Determine if TLS is used (rediss:// protocol)
 const isTLS = config.redisUrl.startsWith('rediss://');
@@ -26,11 +27,11 @@ export const redis = new Redis(config.redisUrl, {
 });
 
 redis.on('error', (err) => {
-  console.error('Redis connection error:', err);
+  logger.error('Redis connection error', err);
 });
 
 redis.on('connect', () => {
-  console.log('Connected to Redis');
+  logger.info('Connected to Redis');
 });
 
 // ============================================
@@ -409,7 +410,7 @@ export const refreshTokenStore = {
     const tokenLog = tokenId.slice(0, 8) + '...';
     const userLog = userId.slice(0, 8) + '...';
 
-    console.log(`[RefreshToken] Storing token ${tokenLog} for user ${userLog}`);
+    logger.debug('[RefreshToken] Storing token', { tokenId: tokenLog, userId: userLog });
 
     const pipeline = redis.pipeline();
 
@@ -427,14 +428,14 @@ export const refreshTokenStore = {
     // Check for pipeline errors - pipeline.exec() returns [error, result][] tuples
     // where errors are NOT thrown automatically
     if (!results) {
-      console.error(`[RefreshToken] Pipeline returned null for token ${tokenLog}`);
+      logger.error('[RefreshToken] Pipeline returned null', { tokenId: tokenLog });
       throw new Error('Failed to store refresh token: pipeline returned null');
     }
 
     for (let i = 0; i < results.length; i++) {
       const [error] = results[i];
       if (error) {
-        console.error(`[RefreshToken] Pipeline command ${i} failed for token ${tokenLog}:`, error);
+        logger.error(`[RefreshToken] Pipeline command ${i} failed`, error as Error, { tokenId: tokenLog });
         throw new Error(`Failed to store refresh token: ${error.message}`);
       }
     }
@@ -442,11 +443,11 @@ export const refreshTokenStore = {
     // Verify token was actually stored
     const exists = await redis.exists(refreshTokenKey(tokenId));
     if (exists !== 1) {
-      console.error(`[RefreshToken] Verification failed - token ${tokenLog} not found after store`);
+      logger.error('[RefreshToken] Verification failed - token not found after store', { tokenId: tokenLog });
       throw new Error('Failed to store refresh token: verification failed');
     }
 
-    console.log(`[RefreshToken] Successfully stored and verified token ${tokenLog}`);
+    logger.debug('[RefreshToken] Successfully stored and verified', { tokenId: tokenLog });
   },
 
   /**
@@ -462,7 +463,7 @@ export const refreshTokenStore = {
    */
   async isValid(tokenId: string): Promise<boolean> {
     const exists = await redis.exists(refreshTokenKey(tokenId));
-    console.log(`[RefreshToken] isValid(${tokenId.slice(0, 8)}...) = ${exists === 1}`);
+    logger.debug('[RefreshToken] isValid check', { tokenId: tokenId.slice(0, 8), valid: exists === 1 });
     return exists === 1;
   },
 
@@ -471,7 +472,7 @@ export const refreshTokenStore = {
    * Called on logout or token rotation
    */
   async revoke(tokenId: string): Promise<void> {
-    console.log(`[RefreshToken] REVOKING token ${tokenId.slice(0, 8)}...`, new Error().stack);
+    logger.debug('[RefreshToken] Revoking token', { tokenId: tokenId.slice(0, 8) });
     // Get the userId first so we can remove from user's set
     const userId = await redis.get(refreshTokenKey(tokenId));
 
@@ -490,18 +491,18 @@ export const refreshTokenStore = {
    * Called on password change, account compromise, or "logout all devices"
    */
   async revokeAllForUser(userId: string): Promise<void> {
-    console.log(`[RefreshToken] REVOKING ALL tokens for user ${userId.slice(0, 8)}...`, new Error().stack);
+    logger.debug('[RefreshToken] Revoking all tokens for user', { userId: userId.slice(0, 8) });
     const userKey = userRefreshTokensKey(userId);
 
     // Get all token IDs for this user
     const tokenIds = await redis.smembers(userKey);
 
     if (tokenIds.length === 0) {
-      console.log(`[RefreshToken] No tokens to revoke for user ${userId.slice(0, 8)}...`);
+      logger.debug('[RefreshToken] No tokens to revoke', { userId: userId.slice(0, 8) });
       return;
     }
 
-    console.log(`[RefreshToken] Revoking ${tokenIds.length} tokens for user ${userId.slice(0, 8)}...`);
+    logger.debug('[RefreshToken] Revoking tokens', { userId: userId.slice(0, 8), count: tokenIds.length });
 
     // Build keys to delete
     const keysToDelete = tokenIds.map(refreshTokenKey);

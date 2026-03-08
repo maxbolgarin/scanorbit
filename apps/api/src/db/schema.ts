@@ -157,6 +157,7 @@ export const scans = pgTable('scans', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
   index('scans_org_id_idx').on(table.orgId),
+  index('scans_org_status_idx').on(table.orgId, table.status),
   index('scans_aws_account_id_idx').on(table.awsAccountId),
   index('scans_has_key_idx').on(table.hasKey),
 ]);
@@ -316,6 +317,7 @@ export const findings = pgTable('findings', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
   index('findings_org_id_idx').on(table.orgId),
+  index('findings_org_status_idx').on(table.orgId, table.status),
   index('findings_type_idx').on(table.type),
   index('findings_severity_idx').on(table.severity),
   index('findings_status_idx').on(table.status),
@@ -495,7 +497,7 @@ export const retentionPoliciesRelations = relations(retentionPolicies, ({ one })
 // Tracks user data deletion requests per GDPR Article 17
 export const dataDeletionRequests = pgTable('data_deletion_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   email: varchar('email', { length: 255 }).notNull(), // Stored in case user is deleted
   // Request details
   requestType: varchar('request_type', { length: 50 }).notNull(), // 'full_deletion', 'anonymization', 'data_export'
