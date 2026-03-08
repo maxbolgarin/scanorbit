@@ -46,8 +46,9 @@
 	reverse_proxy @umami umami:3000
 
 	# Proxy API calls from landing page (newsletter subscribe, etc.)
-	@api path /api/*
-	reverse_proxy @api api:4000
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
 
 	reverse_proxy landing:80
 }
@@ -70,7 +71,10 @@ app.{$DOMAIN} {
 	reverse_proxy @umami umami:3000
 
 	# Route API paths to the API service (so they don't hit the SPA's nginx).
-	@api_paths path /api/* /auth/* /orgs* /aws/* /resources* /findings*
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
+	@api_paths path /auth/* /orgs* /aws/* /resources* /findings*
 	reverse_proxy @api_paths api:4000
 
 	# Everything else is the SPA.

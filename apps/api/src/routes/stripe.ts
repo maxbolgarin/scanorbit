@@ -154,8 +154,9 @@ stripeRoute.post('/webhook', async (c) => {
   let event: Stripe.Event;
 
   try {
-    const rawBody = await c.req.text();
+    const rawBody = Buffer.from(await c.req.arrayBuffer());
     event = stripeService.constructWebhookEvent(rawBody, signature);
+    logger.info('Stripe webhook received', { type: event.type, id: event.id });
   } catch (err) {
     const error = err as Error;
     logger.warn('Webhook signature verification failed', { error: error.message });
