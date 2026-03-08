@@ -5,9 +5,9 @@ import { config } from '../lib/config.js';
 
 // Brand colors for ScanOrbit
 const BRAND = {
-  primary: '#0f766e', // Teal-700
-  primaryDark: '#0d9488', // Teal-600
-  primaryLight: '#14b8a6', // Teal-500
+  primary: '#6b46c1', // Orbit Purple
+  primaryDark: '#5b37a8', // Darker purple for gradients
+  primaryLight: '#7c5acc', // Lighter purple for gradients
   background: '#f8fafc', // Slate-50
   surface: '#ffffff',
   text: '#1e293b', // Slate-800
@@ -381,7 +381,7 @@ function getPasswordResetEmailHtml(resetUrl: string, name?: string): string {
 
     <!-- CTA Button -->
     <div style="text-align: center; margin: 0 0 24px;">
-      <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.3);">
+      <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
         Reset Password
       </a>
     </div>
@@ -453,7 +453,7 @@ function getTrialEndingEmailHtml(trialEndsAt: Date, tier: string, name?: string)
 
     <!-- CTA Button -->
     <div style="text-align: center; margin: 0 0 24px;">
-      <a href="${settingsUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.3);">
+      <a href="${settingsUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
         Manage Subscription
       </a>
     </div>
@@ -502,7 +502,7 @@ function getPaymentFailedEmailHtml(tier: string, name?: string): string {
 
     <!-- CTA Button -->
     <div style="text-align: center; margin: 0 0 24px;">
-      <a href="${settingsUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.3);">
+      <a href="${settingsUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
         Update Payment Method
       </a>
     </div>

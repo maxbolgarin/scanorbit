@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
+import { bodyLimit } from 'hono/body-limit';
 import routes from './routes/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { auditLog } from './middlewares/auditLog.js';
@@ -18,6 +19,9 @@ import { startDripScheduler } from './services/dripSchedulerService.js';
 import type { Variables } from './types/index.js';
 
 const app = new Hono<{ Variables: Variables }>();
+
+// Request body size limit (1MB) - prevents large payload DoS attacks
+app.use('*', bodyLimit({ maxSize: 1024 * 1024 }));
 
 // Security headers middleware - prevents XSS, clickjacking, MIME sniffing
 app.use(
@@ -81,7 +85,7 @@ app.get('/health', (c) => {
   });
 });
 
-// Metrics endpoint (Prometheus format)
+// Metrics endpoint (Prometheus format) — internal only, blocked by Caddy in production
 app.get('/metrics', async (c) => {
   try {
     // Update pool metrics
@@ -190,15 +194,9 @@ app.route('/', routes);
 // Global error handler
 app.onError(errorHandler);
 
-// 404 handler
+// 404 handler — generic message to avoid leaking route structure
 app.notFound((c) => {
-  return c.json(
-    {
-      error: 'NotFound',
-      message: `Route ${c.req.method} ${c.req.path} not found`,
-    },
-    404
-  );
+  return c.json({ error: 'Not found' }, 404);
 });
 
 // Start server
