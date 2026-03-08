@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { users } from '../db/schema.js';
 import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
-import { twoFactorStore } from '../lib/redis.js';
+import { twoFactorStore, totpReplayStore } from '../lib/redis.js';
 import {
   generateTotpSecret,
   generateQRCodeUri,
@@ -214,7 +214,8 @@ export const twoFactorService = {
   },
 
   /**
-   * Verify TOTP code during login challenge
+   * Verify TOTP code during login challenge.
+   * Includes replay protection — each code can only be used once.
    */
   async verify(userId: string, code: string): Promise<boolean> {
     // Get user's 2FA data
@@ -235,9 +236,21 @@ export const twoFactorService = {
       throw new HTTP400Error('Two-factor authentication is not enabled');
     }
 
+    // Check for replay attack — reject already-used codes
+    if (await totpReplayStore.isCodeUsed(userId, code)) {
+      return false;
+    }
+
     // Decrypt and verify
     const decryptedSecret = decryptSecret(user.twoFactorSecret);
-    return verifyTotpCode(decryptedSecret, code);
+    const isValid = verifyTotpCode(decryptedSecret, code);
+
+    // Mark code as used to prevent replay within the validity window
+    if (isValid) {
+      await totpReplayStore.markCodeUsed(userId, code);
+    }
+
+    return isValid;
   },
 
   /**

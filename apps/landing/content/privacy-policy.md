@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last Updated:** January 7, 2026
+**Last Updated:** March 8, 2026
 
 ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
 
@@ -61,7 +61,7 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 - Creating and managing your account
 - Authenticating your identity
 - Sending account notifications (password resets, security alerts)
-- Handling subscription and billing (future)
+- Handling subscription and billing via Stripe
 
 ### 2.3 Communication
 - Responding to your support inquiries
@@ -81,10 +81,13 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 - Complying with legal obligations
 
 **We do NOT use your data for:**
-- Marketing or third-party advertising
+- Third-party advertising
 - Selling or sharing your personal information
 - Training machine learning models
-- Any purpose other than operating ScanOrbit
+
+**Marketing communications:**
+- Product onboarding emails and newsletters are only sent with your explicit consent
+- You can withdraw marketing consent at any time via account settings or the unsubscribe link
 
 ---
 
@@ -93,8 +96,8 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 ### 3.1 Geographic Location
 
 **All data is stored in the European Union:**
-- **Primary:** Frankfurt, Germany (AWS eu-central-1)
-- **Backup:** Amsterdam, Netherlands (AWS eu-west-1)
+- **Primary:** Amsterdam, Netherlands (Scaleway AMS-1)
+- **Backup:** Amsterdam, Netherlands (Scaleway Object Storage)
 - **No data transfer:** Information never leaves the EU
 
 This ensures compliance with:
@@ -126,16 +129,16 @@ This ensures compliance with:
 | Data Type | Retention Period | Reason |
 |-----------|------------------|--------|
 | **Account Information** | Until account deletion | Required to operate your account |
-| **Scan Results** | 90 days | Enables trend analysis and historical comparison |
-| **Findings** | 90 days | Allows you to track resolution progress |
-| **API Logs** | 30 days | Debugging and security monitoring |
-| **Authentication Logs** | 30 days | Security and fraud detection |
+| **Stale Resources** | 90 days | Enables trend analysis and historical comparison |
+| **Resolved Findings** | 180 days | Allows you to track resolution progress |
+| **Scan Records** | 365 days | Historical scan analysis |
+| **Audit Logs** | 730 days (2 years) | GDPR compliance and security monitoring |
 | **Backups** | 30 days after deletion | Disaster recovery purposes |
 
 **Deletion:**
-- When you delete your account, all personal data is removed within 7 days
+- When you request account deletion, a 30-day grace period applies (you can cancel during this period)
+- After 30 days, all personal data is permanently deleted and audit logs are anonymized
 - Backups are kept for 30 days for disaster recovery
-- Scan data is permanently deleted after 90 days of inactivity
 
 ---
 
@@ -150,16 +153,19 @@ This ensures compliance with:
 
 We use the following third-party services (all EU-based or GDPR compliant):
 
-| Service | Purpose | Location |
-|---------|---------|----------|
-| **AWS** | Infrastructure hosting | EU (Frankfurt, Amsterdam) |
-| **SendGrid** | Email delivery (future) | EU-compliant |
-| **Stripe** | Payment processing (future) | GDPR-compliant |
+| Service | Purpose | Data Processed | Location |
+|---------|---------|----------------|----------|
+| **Scaleway** | Infrastructure hosting, email delivery (TEM) | All service data | EU (Amsterdam, Netherlands) |
+| **Stripe** | Payment processing | Name, email, billing info | GDPR-compliant (EU processing) |
+| **Resend** | Transactional email delivery | Email address, name | GDPR-compliant |
+| **Listmonk** | Email campaign management (self-hosted) | Email address, name, subscription preferences | EU (self-hosted, Amsterdam) |
+| **Umami** | Privacy-first web analytics (self-hosted) | Anonymized page views (no personal data) | EU (self-hosted, Amsterdam) |
+| **AWS** | Customer infrastructure scanning (read-only) | AWS resource metadata via IAM role | Customer-selected regions |
 
 **No third party has access to:**
 - Your AWS credentials (stored encrypted)
 - Your scan data
-- Your personal information
+- Your personal information beyond what is listed above
 
 ### 5.3 Legal Requirements
 We may disclose information when required by law:
@@ -237,7 +243,7 @@ You can disable:
 ### 7.2 Organizational Controls
 ✅ Minimal data access (principle of least privilege)
 ✅ No access to AWS credentials by staff
-✅ Secure secret management (HashiCorp Vault)
+✅ Secure secret management (environment-based, encrypted at rest)
 ✅ Encrypted backups
 ✅ Automated backup testing
 ✅ Incident response procedures
@@ -291,8 +297,9 @@ We use **essential cookies only:**
 
 **No tracking cookies used.**
 
-### 9.2 Third-Party Analytics
-- **Google Analytics:** Optional, can be disabled
+### 9.2 Analytics
+- **Umami:** Privacy-first, self-hosted analytics (no cookies, no personal data)
+- **No Google Analytics** or third-party tracking
 - **No tracking pixels** on website
 - **No behavioral tracking**
 
@@ -367,8 +374,10 @@ We process your data based on:
 |-----------|-------------|
 | **Account information** | Contract (necessary to provide service) |
 | **Scan data** | Contract (necessary to perform AWS scans) |
-| **API logs** | Legitimate interest (security & fraud prevention) |
-| **Usage analytics** | Legitimate interest (service improvement) |
+| **API & audit logs** | Legitimate interest (security & fraud prevention) |
+| **Usage analytics** | Legitimate interest (service improvement, anonymized) |
+| **Payment data** | Contract (subscription management via Stripe) |
+| **Marketing emails** | Consent (explicit opt-in, withdrawable at any time) |
 | **Communication data** | Consent & contract (responding to requests) |
 
 ---
@@ -401,9 +410,9 @@ If you do not agree with any part of this policy, please discontinue use of the 
 
 ---
 
-**Version:** 1.0
-**Effective Date:** January 7, 2026
-**Last Updated:** January 7, 2026
+**Version:** 1.1
+**Effective Date:** March 8, 2026
+**Last Updated:** March 8, 2026
 
 ---
 

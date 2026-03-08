@@ -371,13 +371,11 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, user.id, null);
 
-  // Add to free-new campaign list (product emails, always)
-  listmonkService.onUserSignup(user.email, user.fullName).catch(() => {});
-  listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
-  sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }).catch(() => {});
-
-  // Subscribe to newsletter only if user consented (marketing emails)
+  // Only enroll in marketing campaigns if user explicitly consented (GDPR Art. 7)
   if (c.req.valid('json').newsletterConsent) {
+    listmonkService.onUserSignup(user.email, user.fullName).catch(() => {});
+    listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
+    sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }).catch(() => {});
     listmonkService.subscribe(user.email, user.fullName).catch(() => {});
   }
 
@@ -704,12 +702,8 @@ authRoute.get('/google/callback', async (c) => {
     // Set auth tokens (refresh cookie)
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-    // Add new OAuth users to product campaign list only (fire-and-forget)
-    if (result.isNewUser) {
-      listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
-      listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
-      sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
-    }
+    // Do NOT auto-enroll in marketing campaigns here — no consent form in redirect flow (GDPR Art. 7)
+    // Marketing enrollment happens in /auth/oauth/complete-signup if user gives explicit consent
 
     // Redirect based on whether user has an org
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
@@ -745,13 +739,8 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-  // Add new OAuth users to product campaign list only (fire-and-forget)
-  // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
-  if (result.isNewUser) {
-    listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
-    listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
-    sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
-  }
+  // Do NOT auto-enroll in marketing campaigns — no consent form in this flow (GDPR Art. 7)
+  // Marketing enrollment happens in /auth/oauth/complete-signup if user gives explicit consent
 
   return c.json({
     user: result.user,
@@ -807,13 +796,8 @@ authRoute.get('/github/callback', async (c) => {
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-    // Add new OAuth users to product campaign list only (fire-and-forget)
-    // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
-    if (result.isNewUser) {
-      listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
-      listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
-      sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
-    }
+    // Do NOT auto-enroll in marketing campaigns here — no consent form in redirect flow (GDPR Art. 7)
+    // Marketing enrollment happens in /auth/oauth/complete-signup if user gives explicit consent
 
     // Redirect based on whether user has an org
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
@@ -832,21 +816,24 @@ const oauthConsentSchema = z.object({
   consentToken: z.string().min(1),
   termsAccepted: z.boolean().refine(v => v === true, { message: 'You must accept the Terms of Service' }),
   privacyAccepted: z.boolean().refine(v => v === true, { message: 'You must accept the Privacy Policy' }),
+  marketingConsent: z.boolean().optional().default(false),
 });
 
 // POST /auth/oauth/complete-signup - Complete OAuth signup after consent
 authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json', oauthConsentSchema), async (c) => {
-  const { consentToken } = c.req.valid('json');
+  const { consentToken, marketingConsent } = c.req.valid('json');
 
   const result = await authService.completeOAuthSignup(consentToken);
 
   // Set auth tokens
   const { accessToken } = await setAuthTokens(c, result.userId, null);
 
-  // Add new OAuth users to product campaign list only (fire-and-forget)
-  listmonkService.onUserSignup(result.email, result.fullName).catch(() => {});
-  listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
-  sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }).catch(() => {});
+  // Only enroll in marketing campaigns if user explicitly consented (GDPR Art. 7)
+  if (marketingConsent) {
+    listmonkService.onUserSignup(result.email, result.fullName).catch(() => {});
+    listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
+    sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }).catch(() => {});
+  }
 
   return c.json({
     user: { id: result.userId, email: result.email, fullName: result.fullName },

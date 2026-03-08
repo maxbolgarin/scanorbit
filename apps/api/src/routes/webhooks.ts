@@ -9,8 +9,12 @@ const webhooksRoute = new Hono<{ Variables: Variables }>();
 const BOUNCE_EVENT_TYPES = new Set(['email_dropped', 'email_mailbox_not_found']);
 
 // Webhook secret for Scaleway bounce webhook authentication
-// Set SCALEWAY_WEBHOOK_SECRET env var and add ?secret=<value> to the Scaleway webhook URL
+// Set SCALEWAY_WEBHOOK_SECRET env var and configure the X-Webhook-Secret header in Scaleway
 const WEBHOOK_SECRET = process.env.SCALEWAY_WEBHOOK_SECRET || '';
+
+if (!WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('SCALEWAY_WEBHOOK_SECRET is required in production');
+}
 
 /**
  * POST /webhooks/scaleway-bounce
@@ -19,9 +23,9 @@ const WEBHOOK_SECRET = process.env.SCALEWAY_WEBHOOK_SECRET || '';
  * Authenticated via shared secret query parameter (configure in Scaleway webhook URL).
  */
 webhooksRoute.post('/scaleway-bounce', async (c) => {
-  // Verify shared secret if configured
+  // Verify shared secret via header (not query param to avoid logging secrets in URLs)
   if (WEBHOOK_SECRET) {
-    const secret = c.req.query('secret') || '';
+    const secret = c.req.header('x-webhook-secret') || '';
     if (!secret || !safeCompare(secret, WEBHOOK_SECRET)) {
       logger.warn('[Bounce] Unauthorized webhook request');
       return c.json({ error: 'Unauthorized' }, 401);
@@ -84,11 +88,19 @@ webhooksRoute.post('/scaleway-bounce', async (c) => {
 });
 
 /**
- * Constant-time string comparison to prevent timing attacks on webhook secret
+ * Constant-time string comparison to prevent timing attacks on webhook secret.
+ * Always runs timingSafeEqual to avoid leaking the secret's length via timing.
  */
 function safeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  // Pad to equal length so timingSafeEqual always runs
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.alloc(maxLen);
+  const paddedB = Buffer.alloc(maxLen);
+  bufA.copy(paddedA);
+  bufB.copy(paddedB);
+  return timingSafeEqual(paddedA, paddedB) && bufA.length === bufB.length;
 }
 
 export default webhooksRoute;

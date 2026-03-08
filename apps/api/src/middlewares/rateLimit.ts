@@ -172,13 +172,8 @@ export function rateLimit(options: RateLimitOptions) {
         threshold: circuitBreaker.threshold,
       });
 
-      // If we've hit the threshold, fail closed for security
-      if (isCircuitOpen()) {
-        throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
-      }
-
-      // Allow a few failures before failing closed (graceful degradation)
-      await next();
+      // Always fail closed — never bypass rate limiting on Redis errors
+      throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
     }
   };
 }
@@ -296,11 +291,8 @@ export function rateLimitByEmailAndIP(options: DualRateLimitOptions) {
         threshold: circuitBreaker.threshold,
       });
 
-      if (isCircuitOpen()) {
-        throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
-      }
-
-      await next();
+      // Always fail closed — never bypass rate limiting on Redis errors
+      throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
     }
   };
 }

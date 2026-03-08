@@ -56,8 +56,10 @@ export function generateQRCodeUri(secret: string, email: string): string {
 }
 
 /**
- * Verify a TOTP code against the secret
- * Allows 1-step window for clock skew tolerance
+ * Verify a TOTP code against the secret.
+ * Allows 1-step window for clock skew tolerance.
+ * This is the low-level check without replay protection.
+ * Use verifyTotpCodeWithReplayProtection for login flows.
  */
 export function verifyTotpCode(secret: string, code: string): boolean {
   const totp = new OTPAuth.TOTP({
@@ -72,6 +74,12 @@ export function verifyTotpCode(secret: string, code: string): boolean {
   const delta = totp.validate({ token: code, window: TOTP_WINDOW });
   return delta !== null;
 }
+
+/**
+ * TOTP replay protection window in seconds.
+ * Codes are valid for TOTP_PERIOD * (2 * TOTP_WINDOW + 1) = 90 seconds.
+ */
+export const TOTP_REPLAY_TTL = TOTP_PERIOD * (2 * TOTP_WINDOW + 1);
 
 /**
  * Encrypt a TOTP secret using AES-256-GCM
