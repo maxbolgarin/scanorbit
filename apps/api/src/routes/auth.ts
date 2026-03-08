@@ -1,15 +1,17 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
+import { deleteCookie, getCookie } from 'hono/cookie';
 import { authService } from '../services/authService.js';
 import { twoFactorService } from '../services/twoFactorService.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
 import { config } from '../lib/config.js';
-import { redis, twoFactorStore, refreshTokenStore } from '../lib/redis.js';
+import { twoFactorStore, refreshTokenStore } from '../lib/redis.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP401Error } from '../lib/errors.js';
+import { getClientIP } from '../lib/ip.js';
+import { setAuthTokens } from '../lib/authTokens.js';
 import { listmonkService } from '../services/listmonkService.js';
 import { sendImmediate } from '../services/dripSchedulerService.js';
 import type { Variables } from '../types/index.js';
@@ -108,30 +110,6 @@ const twoFactorRegenerateCodesSchema = z.object({
 // ============================================
 
 /**
- * Set refresh token in httpOnly secure cookie
- */
-const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken: string) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const cookieOptions: Parameters<typeof setCookie>[3] = {
-    httpOnly: true,
-    secure: isProduction,
-    // In production: Use 'None' to allow cookie on cross-origin POST requests (e.g., /auth/refresh from app.scanorbit.cloud)
-    // In development: Use 'Lax' because SameSite=None without Secure flag is rejected by modern browsers
-    sameSite: isProduction ? 'None' : 'Lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: '/',
-  };
-
-  // Set domain to parent domain in production to share cookie across subdomains
-  // e.g., '.scanorbit.cloud' allows cookie from api.scanorbit.cloud to be sent to app.scanorbit.cloud
-  if (config.cookieDomain) {
-    cookieOptions.domain = config.cookieDomain;
-  }
-
-  setCookie(c, 'refresh_token', refreshToken, cookieOptions);
-};
-
-/**
  * Clear auth cookies (for logout)
  */
 const clearAuthCookies = (c: Parameters<typeof deleteCookie>[0]) => {
@@ -140,38 +118,6 @@ const clearAuthCookies = (c: Parameters<typeof deleteCookie>[0]) => {
     deleteOptions.domain = config.cookieDomain;
   }
   deleteCookie(c, 'refresh_token', deleteOptions);
-};
-
-/**
- * Issue new access and refresh tokens for a user
- * - Access token (5 min): returned in response body, stored in frontend memory
- * - Refresh token (7 days): stored in httpOnly secure cookie
- */
-const setAuthTokens = async (
-  c: Parameters<typeof setCookie>[0],
-  userId: string,
-  orgId: string | null
-): Promise<{ accessToken: string }> => {
-  // Generate access token (short-lived, 5 min)
-  const accessToken = await jwt.signAccessToken({ userId, orgId });
-
-  // Generate refresh token (long-lived, 7 days)
-  const { token: refreshToken, tokenId } = await jwt.signRefreshToken(userId);
-
-  // Store refresh token ID in Redis for revocation tracking
-  // This MUST succeed before setting the cookie, otherwise user will have
-  // a valid JWT but no Redis entry, causing "Token revoked" errors
-  try {
-    await refreshTokenStore.store(tokenId, userId);
-  } catch (error) {
-    console.error(`[Auth] Failed to store refresh token for user ${userId.slice(0, 8)}...:`, error);
-    throw new Error('Failed to establish session. Please try again.');
-  }
-
-  // Only set cookie after Redis storage is confirmed
-  setRefreshTokenCookie(c, refreshToken);
-
-  return { accessToken };
 };
 
 // POST /auth/signup - Rate limited by both email and IP to prevent spam
@@ -314,37 +260,17 @@ authRoute.post('/refresh', async (c) => {
   const refreshToken = getCookie(c, 'refresh_token');
 
   if (!refreshToken) {
-    console.log('[Refresh] No refresh token cookie found');
+    // No refresh token — expected on unauthenticated requests
     throw new HTTP401Error('No refresh token');
   }
 
   try {
     // Verify the refresh token
     const payload = await jwt.verifyRefreshToken(refreshToken);
-    const tokenLog = payload.tokenId.slice(0, 8) + '...';
-    const userLog = payload.userId.slice(0, 8) + '...';
-
-    console.log(`[Refresh] JWT verified - tokenId: ${tokenLog}, userId: ${userLog}`);
-
     // Check if token has been revoked
     const isValid = await refreshTokenStore.isValid(payload.tokenId);
 
     if (!isValid) {
-      // Log diagnostic info for debugging
-      const tokenKey = `refresh:${payload.tokenId}`;
-      const userKey = `refresh:user:${payload.userId}`;
-      const [tokenExists, userTokens] = await Promise.all([
-        redis.exists(tokenKey),
-        redis.smembers(userKey),
-      ]);
-
-      console.warn(`[Refresh] Token revoked - diagnostics:`, {
-        tokenId: tokenLog,
-        userId: userLog,
-        tokenKeyExists: tokenExists === 1,
-        userTokenCount: userTokens.length,
-      });
-
       clearAuthCookies(c);
       throw new HTTP401Error('Token revoked');
     }
@@ -361,7 +287,7 @@ authRoute.post('/refresh', async (c) => {
     if (error instanceof HTTP401Error) {
       throw error;
     }
-    console.error('[Refresh] Unexpected error:', error);
+    // Token verification failed (expired, malformed, etc.)
     // Clear invalid refresh cookie
     clearAuthCookies(c);
     throw new HTTP401Error('Invalid refresh token');
@@ -434,9 +360,7 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   const { signupToken, password } = c.req.valid('json');
 
   // Extract client info for GDPR consent logging
-  const ipAddress = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
-    || c.req.header('x-real-ip')
-    || 'unknown';
+  const ipAddress = getClientIP(c);
   const userAgent = c.req.header('user-agent') || 'unknown';
 
   const { user } = await authService.completeSignup(signupToken, password, {
@@ -781,6 +705,7 @@ authRoute.get('/google/callback', async (c) => {
     // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
+      listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
       sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
     }
 
@@ -814,6 +739,7 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
   if (result.isNewUser) {
     listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
+    listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
     sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
   }
 
@@ -871,6 +797,7 @@ authRoute.get('/github/callback', async (c) => {
     // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
+      listmonkService.updateAttribsByEmail(result.user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch(() => {});
       sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
     }
 

@@ -121,7 +121,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        console.warn('[AUTH] logout() called', new Error().stack);
+        // Logout initiated
         set({ isLoading: true });
         try {
           await api.logout();
@@ -213,7 +213,9 @@ export const useAuthStore = create<AuthState>()(
       switchOrg: async (orgId: string) => {
         set({ isLoading: true, error: null });
         try {
-          await api.switchOrg(orgId);
+          const response = await api.switchOrg(orgId);
+          // Store the new access token with the updated orgId
+          setAccessToken(response.accessToken);
           const orgs = get().orgs;
           const newOrg = orgs.find(o => o.id === orgId);
           if (newOrg) {
@@ -235,7 +237,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setOrg: (org: Org) => {
-        set({ org, hasOrg: true, orgs: [...get().orgs, org] });
+        const existingOrgs = get().orgs.filter(o => o.id !== org.id);
+        set({ org, hasOrg: true, orgs: [...existingOrgs, org] });
       },
 
       setUser: (user: User) => {

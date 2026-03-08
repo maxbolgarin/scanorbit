@@ -2,6 +2,7 @@ import { eq, and, desc, inArray, not, gte } from 'drizzle-orm';
 import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
+import { logger } from '../lib/logger.js';
 import { HTTP400Error, HTTP403Error, HTTP404Error, HTTP429Error } from '../lib/errors.js';
 import { awsAccounts, scans, jobs, orgSettings } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
@@ -451,7 +452,7 @@ export const awsAccountService = {
       }));
     } catch (redisError) {
       // Redis failed - mark scan and job as failed to prevent inconsistency
-      console.error('[enqueueScan] Redis error, marking scan as failed:', redisError);
+      logger.error('[enqueueScan] Redis error, marking scan as failed', redisError as Error);
       await Promise.all([
         db.update(scans).set({ status: ScanStatus.ERROR }).where(eq(scans.id, scan.id)),
         db.update(jobs).set({ status: 'error' }).where(eq(jobs.id, job.id)),
@@ -516,7 +517,7 @@ export const awsAccountService = {
       }));
     } catch (redisError) {
       // Redis failed - mark job as failed
-      console.error(`[enqueueAnalysis] Redis error for ${analysisType}, marking job as failed:`, redisError);
+      logger.error(`[enqueueAnalysis] Redis error for ${analysisType}, marking job as failed`, redisError as Error);
       await db.update(jobs).set({ status: 'failed' }).where(eq(jobs.id, job.id));
       throw new HTTP400Error(`Failed to queue ${analysisType} job. Please try again.`);
     }

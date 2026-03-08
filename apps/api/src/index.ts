@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { bodyLimit } from 'hono/body-limit';
 import routes from './routes/index.js';
+import { requireAuth } from './middlewares/auth.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { auditLog } from './middlewares/auditLog.js';
 import { metricsMiddleware } from './middlewares/metrics.js';
@@ -76,13 +77,24 @@ app.use(metricsMiddleware);
 // Note: Routes are mounted at root (e.g., /auth, /orgs), not under /api
 app.use('/*', auditLog);
 
-// Health check endpoint
+// Liveness probe — always returns 200 if the process is running
 app.get('/health', (c) => {
   return c.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     env: config.nodeEnv,
   });
+});
+
+// Readiness probe — checks DB and Redis connectivity
+app.get('/health/ready', async (c) => {
+  try {
+    await pool.query('SELECT 1');
+    await redis.ping();
+    return c.json({ status: 'ok' });
+  } catch {
+    return c.json({ status: 'error' }, 503);
+  }
 });
 
 // Metrics endpoint (Prometheus format) — internal only, blocked by Caddy in production
@@ -120,8 +132,8 @@ app.get('/metrics', async (c) => {
   }
 });
 
-// Status endpoint (JSON format for CLI/debugging)
-app.get('/status', async (c) => {
+// Status endpoint (JSON format for CLI/debugging) — requires authentication
+app.get('/status', requireAuth, async (c) => {
   try {
     // Get queue lengths
     const queueLengths: Record<string, number> = {};
@@ -261,6 +273,34 @@ try {
       handlePortError(err, port);
     });
   }
+
+  // Graceful shutdown handler
+  const gracefulShutdown = (signal: string) => {
+    logger.info(`${signal} received, starting graceful shutdown`);
+
+    // Stop accepting new connections and drain in-flight requests
+    if (server && typeof server === 'object' && 'close' in server) {
+      (server as { close: (cb?: () => void) => void }).close(async () => {
+        logger.info('HTTP server closed, cleaning up connections');
+        try {
+          await pool.end();
+          await redis.quit();
+        } catch (err) {
+          logger.error('Error during connection cleanup', err as Error);
+        }
+        process.exit(0);
+      });
+    }
+
+    // Force exit if graceful shutdown takes too long
+    setTimeout(() => {
+      logger.error('Graceful shutdown timed out, forcing exit');
+      process.exit(1);
+    }, 30_000);
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 } catch (err) {
   const error = err as NodeJS.ErrnoException;
   if (error.code === 'EADDRINUSE') {
