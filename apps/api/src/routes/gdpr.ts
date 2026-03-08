@@ -537,4 +537,75 @@ gdpr.patch('/profile', zValidator('json', updateProfileSchema), async (c) => {
   });
 });
 
+// =============================================================================
+// GET /api/gdpr/restriction - Get processing restriction status (GDPR Article 18)
+// =============================================================================
+gdpr.get('/restriction', async (c) => {
+  const userId = c.get('userId');
+
+  const [user] = await db
+    .select({
+      processingRestricted: users.processingRestricted,
+      processingRestrictedAt: users.processingRestrictedAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({
+    restricted: user.processingRestricted,
+    restrictedAt: user.processingRestrictedAt,
+  });
+});
+
+// =============================================================================
+// PUT /api/gdpr/restriction - Toggle processing restriction (GDPR Article 18)
+// =============================================================================
+const restrictionSchema = z.object({
+  restricted: z.boolean(),
+});
+
+gdpr.put('/restriction', zValidator('json', restrictionSchema), async (c) => {
+  const userId = c.get('userId');
+  const { restricted } = c.req.valid('json');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  await db
+    .update(users)
+    .set({
+      processingRestricted: restricted,
+      processingRestrictedAt: restricted ? new Date() : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+
+  // Log consent change
+  await consentService.logConsent({
+    userId,
+    email: user.email,
+    consentType: 'processing_restriction',
+    consentGiven: !restricted, // Restriction = withdrawal of processing consent
+    ipAddress: getClientIP(c),
+    userAgent: c.req.header('user-agent'),
+  });
+
+  // Audit log
+  await logDataAccess(
+    userId,
+    'update',
+    '/gdpr/restriction',
+    getClientIP(c) || null,
+    c.req.header('user-agent') || null
+  );
+
+  return c.json({ restricted, restrictedAt: restricted ? new Date() : null });
+});
+
 export default gdpr;

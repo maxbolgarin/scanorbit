@@ -14,6 +14,9 @@ export const users = pgTable('users', {
   twoFactorEnabled: boolean('two_factor_enabled').default(false).notNull(),
   twoFactorSecret: varchar('two_factor_secret', { length: 255 }), // Encrypted TOTP secret
   twoFactorRecoveryCodes: text('two_factor_recovery_codes'), // JSON array of hashed recovery codes
+  // GDPR Article 18 - Right to Restriction of Processing
+  processingRestricted: boolean('processing_restricted').default(false).notNull(),
+  processingRestrictedAt: timestamp('processing_restricted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

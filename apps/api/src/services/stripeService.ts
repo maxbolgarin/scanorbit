@@ -72,60 +72,64 @@ export const stripeService = {
    * Get or create a Stripe customer for an organization
    */
   async getOrCreateCustomer(orgId: string, userId: string): Promise<string> {
-    // Get org details
-    const [org] = await db
-      .select({
-        stripeCustomerId: orgs.stripeCustomerId,
-        name: orgs.name,
-      })
-      .from(orgs)
-      .where(eq(orgs.id, orgId))
-      .limit(1);
+    // Use a transaction with FOR UPDATE to prevent concurrent customer creation
+    return db.transaction(async (tx) => {
+      // Lock the org row to prevent race conditions
+      const [org] = await tx
+        .select({
+          stripeCustomerId: orgs.stripeCustomerId,
+          name: orgs.name,
+        })
+        .from(orgs)
+        .where(eq(orgs.id, orgId))
+        .for('update')
+        .limit(1);
 
-    if (!org) {
-      throw new HTTP404Error('Organization not found');
-    }
+      if (!org) {
+        throw new HTTP404Error('Organization not found');
+      }
 
-    // Return existing customer ID if available
-    if (org.stripeCustomerId) {
-      return org.stripeCustomerId;
-    }
+      // Return existing customer ID if available
+      if (org.stripeCustomerId) {
+        return org.stripeCustomerId;
+      }
 
-    // Get user email for the customer
-    const [user] = await db
-      .select({ email: users.email, fullName: users.fullName })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+      // Get user email for the customer
+      const [user] = await tx
+        .select({ email: users.email, fullName: users.fullName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
-    if (!user) {
-      throw new HTTP404Error('User not found');
-    }
+      if (!user) {
+        throw new HTTP404Error('User not found');
+      }
 
-    // Create new Stripe customer
-    const customer = await getStripeClient().customers.create({
-      email: user.email,
-      name: user.fullName || org.name,
-      metadata: {
-        orgId,
-        userId,
-        userEmail: user.email,
-        userName: user.fullName || '',
-      },
+      // Create new Stripe customer
+      const customer = await getStripeClient().customers.create({
+        email: user.email,
+        name: user.fullName || org.name,
+        metadata: {
+          orgId,
+          userId,
+          userEmail: user.email,
+          userName: user.fullName || '',
+        },
+      });
+
+      // Save customer ID to org (inside transaction)
+      await tx
+        .update(orgs)
+        .set({
+          stripeCustomerId: customer.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(orgs.id, orgId));
+
+      logger.info('Created Stripe customer', { orgId, customerId: customer.id });
+
+      return customer.id;
     });
-
-    // Save customer ID to org
-    await db
-      .update(orgs)
-      .set({
-        stripeCustomerId: customer.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(orgs.id, orgId));
-
-    logger.info('Created Stripe customer', { orgId, customerId: customer.id });
-
-    return customer.id;
   },
 
   /**
@@ -254,7 +258,12 @@ export const stripeService = {
     const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
     const newPriceId = getPriceIdForTier(targetTier);
 
-    // Update the subscription's price, keeping trial intact
+    // Update the subscription's price, keeping trial intact.
+    // Do NOT update the org tier here — rely on the webhook
+    // (customer.subscription.updated → handleSubscriptionChange) to update
+    // the tier after Stripe confirms the change. This avoids DB/Stripe
+    // inconsistency if the Stripe call succeeds but webhook hasn't fired yet,
+    // or if Stripe rejects the switch.
     await getStripeClient().subscriptions.update(org.stripeSubscriptionId, {
       items: [
         {
@@ -269,16 +278,7 @@ export const stripeService = {
       },
     });
 
-    // Update org tier immediately
-    await db
-      .update(orgs)
-      .set({
-        tier: targetTier,
-        updatedAt: new Date(),
-      })
-      .where(eq(orgs.id, orgId));
-
-    logger.info('Switched subscription plan', { orgId, targetTier });
+    logger.info('Switched subscription plan (awaiting webhook confirmation)', { orgId, targetTier });
   },
 
   /**

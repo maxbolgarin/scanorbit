@@ -170,101 +170,59 @@ export const findingService = {
   },
 
   async getFindingStats(orgId: string) {
-    // Get counts by status
-    const byStatus = await db
-      .select({
-        status: findings.status,
-        count: count(),
-      })
-      .from(findings)
-      .where(eq(findings.orgId, orgId))
-      .groupBy(findings.status);
+    // Run all 6 queries in parallel instead of sequentially
+    const [byStatus, bySeverity, byType, typeSeverities, [totalResult], [openResult]] = await Promise.all([
+      // Counts by status
+      db.select({ status: findings.status, count: count() })
+        .from(findings)
+        .where(eq(findings.orgId, orgId))
+        .groupBy(findings.status),
 
-    // Get counts by severity (only open findings)
-    const bySeverity = await db
-      .select({
-        severity: findings.severity,
-        count: count(),
-      })
-      .from(findings)
-      .where(
-        and(
-          eq(findings.orgId, orgId),
-          eq(findings.status, 'open')
-        )
-      )
-      .groupBy(findings.severity);
+      // Counts by severity (only open findings)
+      db.select({ severity: findings.severity, count: count() })
+        .from(findings)
+        .where(and(eq(findings.orgId, orgId), eq(findings.status, 'open')))
+        .groupBy(findings.severity),
 
-    // Get counts by type (only open findings)
-    const byType = await db
-      .select({
-        type: findings.type,
-        count: count(),
-      })
-      .from(findings)
-      .where(
-        and(
-          eq(findings.orgId, orgId),
-          eq(findings.status, 'open')
-        )
-      )
-      .groupBy(findings.type);
+      // Counts by type (only open findings)
+      db.select({ type: findings.type, count: count() })
+        .from(findings)
+        .where(and(eq(findings.orgId, orgId), eq(findings.status, 'open')))
+        .groupBy(findings.type),
 
-    // Get severity for each type (for filtering calculations)
-    const typeSeverities = await db
-      .selectDistinct({
-        type: findings.type,
-        severity: findings.severity,
-      })
-      .from(findings)
-      .where(eq(findings.orgId, orgId));
+      // Severity for each type (for filtering calculations)
+      db.selectDistinct({ type: findings.type, severity: findings.severity })
+        .from(findings)
+        .where(eq(findings.orgId, orgId)),
 
-    // Get total count
-    const [totalResult] = await db
-      .select({ count: count() })
-      .from(findings)
-      .where(eq(findings.orgId, orgId));
+      // Total count
+      db.select({ count: count() })
+        .from(findings)
+        .where(eq(findings.orgId, orgId)),
 
-    // Get open count
-    const [openResult] = await db
-      .select({ count: count() })
-      .from(findings)
-      .where(
-        and(
-          eq(findings.orgId, orgId),
-          eq(findings.status, 'open')
-        )
-      );
+      // Open count
+      db.select({ count: count() })
+        .from(findings)
+        .where(and(eq(findings.orgId, orgId), eq(findings.status, 'open'))),
+    ]);
 
     return {
       total: totalResult?.count ?? 0,
       open: openResult?.count ?? 0,
       byStatus: byStatus.reduce(
-        (acc, item) => ({
-          ...acc,
-          [item.status]: item.count,
-        }),
+        (acc, item) => ({ ...acc, [item.status]: item.count }),
         {} as Record<string, number>
       ),
       bySeverity: bySeverity.reduce(
-        (acc, item) => ({
-          ...acc,
-          [item.severity]: item.count,
-        }),
+        (acc, item) => ({ ...acc, [item.severity]: item.count }),
         {} as Record<string, number>
       ),
       byType: byType.reduce(
-        (acc, item) => ({
-          ...acc,
-          [item.type]: item.count,
-        }),
+        (acc, item) => ({ ...acc, [item.type]: item.count }),
         {} as Record<string, number>
       ),
       byTypeSeverity: typeSeverities.reduce(
-        (acc, item) => ({
-          ...acc,
-          [item.type]: item.severity,
-        }),
+        (acc, item) => ({ ...acc, [item.type]: item.severity }),
         {} as Record<string, string>
       ),
     };
@@ -365,33 +323,42 @@ export const findingService = {
       )
       .orderBy(desc(findings.firstDetectedAt));
 
-    // For each finding, get its detection history
-    const timeline = await Promise.all(
-      resourceFindings.map(async (finding) => {
-        const history = await db
-          .select({
-            id: findingScans.id,
-            status: findingScans.status,
-            createdAt: findingScans.createdAt,
-            scan: {
-              id: scans.id,
-              completedAt: scans.completedAt,
-            },
-          })
-          .from(findingScans)
-          .innerJoin(scans, eq(findingScans.scanId, scans.id))
-          .where(eq(findingScans.findingId, finding.id))
-          .orderBy(desc(findingScans.createdAt))
-          .limit(10); // Limit history per finding
+    if (resourceFindings.length === 0) {
+      return [];
+    }
 
-        return {
-          finding,
-          detectionHistory: history,
-        };
+    // Fetch all detection history in a single query (avoids N+1)
+    const findingIds = resourceFindings.map((f) => f.id);
+    const allHistory = await db
+      .select({
+        id: findingScans.id,
+        findingId: findingScans.findingId,
+        status: findingScans.status,
+        createdAt: findingScans.createdAt,
+        scan: {
+          id: scans.id,
+          completedAt: scans.completedAt,
+        },
       })
-    );
+      .from(findingScans)
+      .innerJoin(scans, eq(findingScans.scanId, scans.id))
+      .where(inArray(findingScans.findingId, findingIds))
+      .orderBy(desc(findingScans.createdAt));
 
-    return timeline;
+    // Group history by finding ID (application-level grouping)
+    const historyByFindingId = new Map<string, typeof allHistory>();
+    for (const record of allHistory) {
+      const list = historyByFindingId.get(record.findingId) ?? [];
+      if (list.length < 10) { // Limit history per finding
+        list.push(record);
+      }
+      historyByFindingId.set(record.findingId, list);
+    }
+
+    return resourceFindings.map((finding) => ({
+      finding,
+      detectionHistory: historyByFindingId.get(finding.id) ?? [],
+    }));
   },
 
   /**

@@ -94,15 +94,16 @@ export const signupCodes = {
   },
 
   /**
-   * Increment attempt count
+   * Increment attempt count (atomic INCR + conditional EXPIRE via Lua)
    */
   async incrementAttempts(email: string): Promise<number> {
     const key = signupAttemptsKey(email);
-    const count = await redis.incr(key);
-    // Set TTL only on first attempt
-    if (count === 1) {
-      await redis.expire(key, SIGNUP_ATTEMPTS_TTL);
-    }
+    const count = await redis.eval(
+      'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c',
+      1,
+      key,
+      SIGNUP_ATTEMPTS_TTL,
+    ) as number;
     return count;
   },
 
@@ -298,14 +299,16 @@ export const twoFactorStore = {
   },
 
   /**
-   * Increment verification attempt count
+   * Increment verification attempt count (atomic INCR + conditional EXPIRE via Lua)
    */
   async incrementVerifyAttempts(identifier: string): Promise<number> {
     const key = twoFactorVerifyAttemptsKey(identifier);
-    const count = await redis.incr(key);
-    if (count === 1) {
-      await redis.expire(key, TWO_FACTOR_VERIFY_ATTEMPTS_TTL);
-    }
+    const count = await redis.eval(
+      'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c',
+      1,
+      key,
+      TWO_FACTOR_VERIFY_ATTEMPTS_TTL,
+    ) as number;
     return count;
   },
 
@@ -349,14 +352,18 @@ export const accountLockoutStore = {
   },
 
   /**
-   * Record a failed login attempt
-   * Returns the new count of failed attempts
+   * Record a failed login attempt (atomic INCR + EXPIRE via Lua).
+   * TTL is set only on first attempt to avoid resetting the lockout window.
+   * Returns the new count of failed attempts.
    */
   async recordFailedAttempt(email: string): Promise<number> {
     const key = accountLockoutKey(email);
-    const count = await redis.incr(key);
-    // Reset TTL on each failure to extend lockout window
-    await redis.expire(key, ACCOUNT_LOCKOUT_TTL);
+    const count = await redis.eval(
+      'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c',
+      1,
+      key,
+      ACCOUNT_LOCKOUT_TTL,
+    ) as number;
     return count;
   },
 
