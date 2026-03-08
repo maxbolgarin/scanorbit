@@ -1349,6 +1349,22 @@ export async function createPortalSession(
   }
 }
 
+// Stripe: Switch subscription plan (preserves trial)
+export async function switchPlan(
+  _orgId: string,
+  targetTier: SubscriptionTier
+): Promise<{ switched: boolean; targetTier: string }> {
+  try {
+    const { data } = await api.post<{ data: { switched: boolean; targetTier: string } }>(
+      `/stripe/switch-plan`,
+      { targetTier }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 export async function cancelSubscription(
   _orgId: string,
   immediate: boolean = false

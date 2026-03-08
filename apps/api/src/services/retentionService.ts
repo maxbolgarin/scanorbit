@@ -7,9 +7,11 @@ import {
   dataDeletionRequests,
   users,
   userOrgMembers,
+  orgs,
 } from '../db/schema.js';
 import { listmonkService } from './listmonkService.js';
-import { eq, and, lt, lte, isNotNull, sql } from 'drizzle-orm';
+import { stripeService } from './stripeService.js';
+import { eq, and, lt, lte, isNotNull, sql, count } from 'drizzle-orm';
 import { config } from '../lib/config.js';
 
 /**
@@ -232,14 +234,41 @@ async function processPendingDeletions(): Promise<number> {
 async function processUserDeletion(userId: string, requestId: string): Promise<void> {
   console.log(`[Retention] Processing deletion for user ${userId}`);
 
-  // Unsubscribe from Listmonk before deleting user data
+  // Delete subscriber from Listmonk (full GDPR erasure, not just blocklist)
   try {
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
     if (user?.email) {
-      await listmonkService.unsubscribe(user.email);
+      await listmonkService.deleteSubscriber(user.email);
     }
   } catch (err) {
-    console.error(`[Retention] Failed to unsubscribe ${userId} from Listmonk:`, err);
+    console.error(`[Retention] Failed to delete ${userId} from Listmonk:`, err);
+  }
+
+  // Find orgs where user is a member (for Stripe cleanup and orphan detection)
+  const userOrgs = await db
+    .select({
+      orgId: userOrgMembers.orgId,
+      stripeSubscriptionId: orgs.stripeSubscriptionId,
+      stripeCustomerId: orgs.stripeCustomerId,
+    })
+    .from(userOrgMembers)
+    .innerJoin(orgs, eq(orgs.id, userOrgMembers.orgId))
+    .where(eq(userOrgMembers.userId, userId));
+
+  // Cancel Stripe subscriptions and delete customers for user's orgs
+  if (stripeService.isConfigured()) {
+    for (const org of userOrgs) {
+      try {
+        if (org.stripeSubscriptionId) {
+          await stripeService.cancelSubscriptionById(org.stripeSubscriptionId);
+        }
+        if (org.stripeCustomerId) {
+          await stripeService.deleteCustomer(org.stripeCustomerId);
+        }
+      } catch (err) {
+        console.error(`[Retention] Failed Stripe cleanup for org ${org.orgId}:`, err);
+      }
+    }
   }
 
   // Use a transaction for atomic deletion
@@ -249,7 +278,20 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
       .delete(userOrgMembers)
       .where(eq(userOrgMembers.userId, userId));
 
-    // 2. Anonymize audit logs (keep for compliance, remove PII)
+    // 2. Delete orphaned orgs (no remaining members) — cascades to all org data
+    for (const org of userOrgs) {
+      const [memberCount] = await tx
+        .select({ count: count() })
+        .from(userOrgMembers)
+        .where(eq(userOrgMembers.orgId, org.orgId));
+
+      if (memberCount.count === 0) {
+        await tx.delete(orgs).where(eq(orgs.id, org.orgId));
+        console.log(`[Retention] Deleted orphaned org ${org.orgId}`);
+      }
+    }
+
+    // 3. Anonymize audit logs (keep for compliance, remove PII)
     await tx
       .update(auditLogs)
       .set({
@@ -259,12 +301,12 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
       })
       .where(eq(auditLogs.userId, userId));
 
-    // 3. Delete the user account
+    // 4. Delete the user account
     await tx
       .delete(users)
       .where(eq(users.id, userId));
 
-    // 4. Mark deletion request as completed
+    // 5. Mark deletion request as completed
     await tx
       .update(dataDeletionRequests)
       .set({

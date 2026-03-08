@@ -240,6 +240,14 @@ export function DataPrivacySettings() {
                     <CheckCircle2 className="h-3 w-3 text-green-500" />
                     Activity log (last 90 days)
                   </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Billing and subscription data
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Email marketing history
+                  </li>
                 </ul>
               </div>
               <Button onClick={handleExport} disabled={isExporting}>

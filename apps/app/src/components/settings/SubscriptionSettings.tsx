@@ -207,12 +207,40 @@ export function SubscriptionSettings() {
     },
   });
 
+  // Switch plan mutation (preserves trial)
+  const switchPlanMutation = useMutation({
+    mutationFn: (targetTier: SubscriptionTier) =>
+      api.switchPlan(org!.id, targetTier),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      await refreshAuth();
+      toast({
+        title: "Plan Switched",
+        description: `Your plan has been switched to ${planConfigs[selectedTier].name}. Your trial period remains unchanged.`,
+        type: "success",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Switch Failed",
+        description: error instanceof Error ? error.message : "Failed to switch plan",
+        type: "error",
+      });
+    },
+  });
+
   const handleUpgradeClick = (tier: SubscriptionTier) => {
     setSelectedTier(tier);
 
     // Stripe disabled - use direct upgrade flow
     if (!status?.stripeEnabled) {
       setUpgradeModalOpen(true);
+      return;
+    }
+
+    // If trialing, switch plan directly (preserves trial period)
+    if (status?.subscriptionStatus === 'trialing' && tier !== 'free') {
+      switchPlanMutation.mutate(tier);
       return;
     }
 
@@ -259,7 +287,7 @@ export function SubscriptionSettings() {
           <Clock className="h-4 w-4" />
           <AlertTitle>Free Trial Active</AlertTitle>
           <AlertDescription>
-            Your trial ends in {trialTimeRemaining}. Add a payment method to continue after the trial.
+            Your trial ends in {trialTimeRemaining}. Your subscription will automatically renew after the trial.
           </AlertDescription>
         </Alert>
       )}
@@ -283,14 +311,26 @@ export function SubscriptionSettings() {
         </Alert>
       )}
 
+      {/* Canceling Alert - subscription is active but will end */}
+      {status?.stripeEnabled && subscriptionStatus === 'active' && status?.subscriptionEndsAt && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Subscription Ending</AlertTitle>
+          <AlertDescription>
+            Your {planConfigs[currentTier].name} subscription will end on {new Date(status.subscriptionEndsAt).toLocaleDateString()}.
+            After that, your account will be downgraded to the Free plan. You can resubscribe from the Manage Subscription portal.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Canceled Alert - only show when Stripe is enabled */}
       {status?.stripeEnabled && subscriptionStatus === 'canceled' && status?.subscriptionEndsAt && (
-        <Alert>
+        <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
           <AlertTitle>Subscription Canceled</AlertTitle>
           <AlertDescription>
             Your subscription will end on {new Date(status.subscriptionEndsAt).toLocaleDateString()}.
-            You can resubscribe anytime to keep your Pro features.
+            After that, your account will be downgraded to the Free plan.
           </AlertDescription>
         </Alert>
       )}
@@ -352,8 +392,9 @@ export function SubscriptionSettings() {
           {(Object.entries(planConfigs) as [SubscriptionTier, PlanConfig][]).map(
             ([tier, config]) => {
               const Icon = config.icon;
+              const tierOrder: Record<SubscriptionTier, number> = { free: 0, pro: 1, team: 2 };
               const isCurrent = tier === currentTier;
-              const isDowngrade = tier === 'free' && currentTier !== 'free';
+              const isHigherTier = tierOrder[tier] > tierOrder[currentTier];
               const canStartTrial = tier !== 'free' && currentTier === 'free' && subscriptionStatus === 'none';
 
               return (
@@ -426,33 +467,21 @@ export function SubscriptionSettings() {
                         )}
                         Start 7-Day Free Trial
                       </Button>
-                    ) : isDowngrade ? (
-                      <Button
-                        className="w-full"
-                        variant="outline"
-                        onClick={() => handleUpgradeClick(tier)}
-                        disabled={upgradeMutation.isPending && selectedTier === tier}
-                      >
-                        {upgradeMutation.isPending && selectedTier === tier ? (
-                          <LoadingSpinner className="h-4 w-4 mr-2" />
-                        ) : null}
-                        Downgrade to {config.name}
-                      </Button>
-                    ) : (
+                    ) : isHigherTier ? (
                       <Button
                         className="w-full"
                         variant={config.popular ? "default" : "outline"}
                         onClick={() => handleUpgradeClick(tier)}
-                        disabled={checkoutMutation.isPending || portalMutation.isPending || upgradeMutation.isPending}
+                        disabled={checkoutMutation.isPending || portalMutation.isPending || switchPlanMutation.isPending}
                       >
-                        {(upgradeMutation.isPending || checkoutMutation.isPending) && selectedTier === tier ? (
+                        {(checkoutMutation.isPending || switchPlanMutation.isPending) && selectedTier === tier ? (
                           <LoadingSpinner className="h-4 w-4 mr-2" />
                         ) : (
                           <Sparkles className="h-4 w-4 mr-2" />
                         )}
-                        {tier === "free" ? "Downgrade" : "Upgrade"} to {config.name}
+                        Upgrade to {config.name}
                       </Button>
-                    )}
+                    ) : null}
                   </CardContent>
                 </Card>
               );

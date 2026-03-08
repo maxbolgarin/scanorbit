@@ -193,6 +193,25 @@ export const listmonkService = {
     return false;
   },
 
+  /**
+   * Delete a subscriber from Listmonk entirely (for GDPR account deletion)
+   */
+  async deleteSubscriber(email: string): Promise<boolean> {
+    const subscriberId = await getSubscriberByEmail(email);
+    if (!subscriberId) return false;
+
+    const result = await apiRequest<unknown>(
+      'DELETE',
+      `/api/subscribers/${subscriberId}`,
+    );
+
+    if (result !== null) {
+      logger.info(`[Listmonk] Deleted subscriber ${maskEmail(email)}`);
+      return true;
+    }
+    return false;
+  },
+
   // ── Campaign list transition methods ──────────────────────────────
 
   /**

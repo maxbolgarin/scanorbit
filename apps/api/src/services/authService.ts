@@ -722,6 +722,20 @@ export const authService = {
     userId: string,
     updates: { fullName?: string }
   ): Promise<{ user: Pick<User, 'id' | 'email' | 'fullName'> }> {
+    // Check if user has an active subscription — name changes are restricted
+    if (updates.fullName !== undefined) {
+      const [membership] = await db
+        .select({ subscriptionStatus: orgs.subscriptionStatus })
+        .from(userOrgMembers)
+        .innerJoin(orgs, eq(orgs.id, userOrgMembers.orgId))
+        .where(eq(userOrgMembers.userId, userId))
+        .limit(1);
+
+      if (membership && (membership.subscriptionStatus === 'active' || membership.subscriptionStatus === 'trialing')) {
+        throw new HTTP400Error('Name cannot be changed while you have an active subscription. Please contact support.');
+      }
+    }
+
     // Build update object
     const updateData: { fullName?: string; updatedAt: Date } = {
       updatedAt: new Date(),
