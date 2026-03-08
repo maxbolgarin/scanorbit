@@ -33,7 +33,14 @@ export default function Scanning() {
   const checkoutMutation = useMutation({
     mutationFn: () => api.createCheckoutSession(org!.id, "pro"),
     onSuccess: (data) => {
-      window.location.href = data.url;
+      try {
+        const parsed = new URL(data.url);
+        if (parsed.protocol === 'https:' && (parsed.hostname === 'checkout.stripe.com' || parsed.hostname === 'billing.stripe.com')) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch { /* invalid URL */ }
+      toast({ title: "Error", description: "Invalid redirect URL", type: "error" });
     },
     onError: (error) => {
       toast({
@@ -58,7 +65,7 @@ export default function Scanning() {
       } else {
         // Wait a moment before redirecting
         const timeout = setTimeout(() => {
-          navigate("/dashboard");
+          navigate("/overview");
         }, 2000);
         return () => clearTimeout(timeout);
       }
@@ -170,7 +177,7 @@ export default function Scanning() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate("/dashboard")}
+                        onClick={() => navigate("/overview")}
                       >
                         Skip for now
                         <ArrowRight className="h-4 w-4 ml-1" />

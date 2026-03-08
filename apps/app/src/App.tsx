@@ -13,6 +13,7 @@ const Login = lazy(() => import("@/pages/Login"));
 const Signup = lazy(() => import("@/pages/Signup"));
 const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 const CreateOrg = lazy(() => import("@/pages/onboarding/CreateOrg"));
 const AwsSetup = lazy(() => import("@/pages/onboarding/AwsSetup"));
 const Scanning = lazy(() => import("@/pages/onboarding/Scanning"));
@@ -42,6 +43,21 @@ function PageLoader() {
   return (
     <div className="flex h-screen items-center justify-center">
       <LoadingSpinner size="lg" />
+    </div>
+  );
+}
+
+function PageError() {
+  return (
+    <div className="flex h-96 flex-col items-center justify-center gap-4 p-8">
+      <p className="text-lg font-semibold">Something went wrong</p>
+      <p className="text-muted-foreground text-sm">An error occurred loading this page.</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+      >
+        Refresh Page
+      </button>
     </div>
   );
 }
@@ -93,6 +109,9 @@ function App() {
             }
           />
 
+          {/* OAuth consent page for new users (not protected - user isn't authenticated yet) */}
+          <Route path="/oauth-consent" element={<OAuthConsent />} />
+
           {/* Onboarding routes */}
           {/* OAuth callback route - NOT protected to avoid auth race conditions */}
           <Route
@@ -129,20 +148,20 @@ function App() {
             <Route index element={<Navigate to="/overview" replace />} />
 
             {/* Organization Overview routes (merged data from all accounts) */}
-            <Route path="overview" element={<Overview />} />
-            <Route path="overview/resources" element={<Resources />} />
-            <Route path="overview/resources/:id" element={<ResourceDetail />} />
-            <Route path="overview/infrastructure-map" element={<InfrastructureMap />} />
-            <Route path="overview/findings" element={<Findings />} />
-            <Route path="overview/scans" element={<Scans />} />
+            <Route path="overview" element={<ErrorBoundary fallback={<PageError />}><Overview /></ErrorBoundary>} />
+            <Route path="overview/resources" element={<ErrorBoundary fallback={<PageError />}><Resources /></ErrorBoundary>} />
+            <Route path="overview/resources/:id" element={<ErrorBoundary fallback={<PageError />}><ResourceDetail /></ErrorBoundary>} />
+            <Route path="overview/infrastructure-map" element={<ErrorBoundary fallback={<PageError />}><InfrastructureMap /></ErrorBoundary>} />
+            <Route path="overview/findings" element={<ErrorBoundary fallback={<PageError />}><Findings /></ErrorBoundary>} />
+            <Route path="overview/scans" element={<ErrorBoundary fallback={<PageError />}><Scans /></ErrorBoundary>} />
 
             {/* Per-account routes */}
-            <Route path="accounts/:accountId" element={<AccountDashboard />} />
-            <Route path="accounts/:accountId/resources" element={<AccountResources />} />
-            <Route path="accounts/:accountId/resources/:id" element={<ResourceDetail />} />
-            <Route path="accounts/:accountId/infrastructure-map" element={<AccountInfrastructureMap />} />
-            <Route path="accounts/:accountId/findings" element={<AccountFindings />} />
-            <Route path="accounts/:accountId/scans" element={<AccountScans />} />
+            <Route path="accounts/:accountId" element={<ErrorBoundary fallback={<PageError />}><AccountDashboard /></ErrorBoundary>} />
+            <Route path="accounts/:accountId/resources" element={<ErrorBoundary fallback={<PageError />}><AccountResources /></ErrorBoundary>} />
+            <Route path="accounts/:accountId/resources/:id" element={<ErrorBoundary fallback={<PageError />}><ResourceDetail /></ErrorBoundary>} />
+            <Route path="accounts/:accountId/infrastructure-map" element={<ErrorBoundary fallback={<PageError />}><AccountInfrastructureMap /></ErrorBoundary>} />
+            <Route path="accounts/:accountId/findings" element={<ErrorBoundary fallback={<PageError />}><AccountFindings /></ErrorBoundary>} />
+            <Route path="accounts/:accountId/scans" element={<ErrorBoundary fallback={<PageError />}><AccountScans /></ErrorBoundary>} />
 
             {/* Account management page */}
             <Route path="accounts" element={<Accounts />} />

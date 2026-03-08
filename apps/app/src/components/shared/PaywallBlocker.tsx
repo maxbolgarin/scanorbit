@@ -10,6 +10,17 @@ import { useSubscriptionStatus } from "@/hooks/use-subscription";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 
+function isAllowedStripeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' &&
+      (parsed.hostname === 'checkout.stripe.com' ||
+       parsed.hostname === 'billing.stripe.com');
+  } catch {
+    return false;
+  }
+}
+
 interface PaywallBlockerProps {
   feature: "resources" | "findings" | "infrastructure-map";
   children?: ReactNode;
@@ -43,7 +54,11 @@ export function PaywallBlocker({ feature, children }: PaywallBlockerProps) {
   const checkoutMutation = useMutation({
     mutationFn: () => api.createCheckoutSession(org!.id, "pro"),
     onSuccess: (data) => {
-      window.location.href = data.url;
+      if (isAllowedStripeUrl(data.url)) {
+        window.location.href = data.url;
+      } else {
+        toast({ title: "Error", description: "Invalid redirect URL", type: "error" });
+      }
     },
     onError: (error) => {
       toast({

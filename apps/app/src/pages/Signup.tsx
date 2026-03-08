@@ -168,7 +168,7 @@ export default function Signup() {
   const handleComplete = () => {
     // Clear persisted state and redirect to dashboard
     clearPersistedState();
-    navigate("/dashboard");
+    navigate("/overview");
   };
 
   const handleBackToEmail = () => {

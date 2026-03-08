@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { resourceDependencies, resources } from '../db/schema.js';
 import type { ResourceDependency } from '../db/schema.js';
@@ -73,42 +73,39 @@ export const dependencyService = {
         )
       );
 
-    // Try to resolve target resources that exist in our DB
-    const result: DependencyWithResource[] = [];
-    for (const dep of deps) {
-      const depWithResource: DependencyWithResource = {
+    if (deps.length === 0) return [];
+
+    // Batch-fetch all target resources in a single query instead of N+1
+    const targetIds = deps.map(d => d.targetResourceId);
+    const targetResources = await db
+      .select({
+        id: resources.id,
+        resourceId: resources.resourceId,
+        name: resources.name,
+        region: resources.region,
+        state: resources.state,
+      })
+      .from(resources)
+      .where(
+        and(
+          eq(resources.orgId, orgId),
+          inArray(resources.resourceId, targetIds)
+        )
+      );
+
+    const targetMap = new Map(targetResources.map(r => [r.resourceId, r]));
+
+    return deps.map(dep => {
+      const target = targetMap.get(dep.targetResourceId);
+      return {
         id: dep.id,
         targetResourceId: dep.targetResourceId,
         targetService: dep.targetService,
         relationshipType: dep.relationshipType,
         createdAt: dep.createdAt,
+        ...(target ? { targetResource: { id: target.id, name: target.name, region: target.region, state: target.state } } : {}),
       };
-
-      // Try to find the target resource in our DB by AWS resource ID
-      const [targetResource] = await db
-        .select({
-          id: resources.id,
-          name: resources.name,
-          region: resources.region,
-          state: resources.state,
-        })
-        .from(resources)
-        .where(
-          and(
-            eq(resources.orgId, orgId),
-            eq(resources.resourceId, dep.targetResourceId)
-          )
-        )
-        .limit(1);
-
-      if (targetResource) {
-        depWithResource.targetResource = targetResource;
-      }
-
-      result.push(depWithResource);
-    }
-
-    return result;
+    });
   },
 
   /**
@@ -147,35 +144,37 @@ export const dependencyService = {
         )
       );
 
-    // Resolve source resources
-    const result: DependentWithResource[] = [];
-    for (const dep of deps) {
-      const [sourceResource] = await db
-        .select({
-          id: resources.id,
-          resourceId: resources.resourceId,
-          name: resources.name,
-          region: resources.region,
-          state: resources.state,
-          service: resources.service,
-        })
-        .from(resources)
-        .where(eq(resources.id, dep.sourceResourceId))
-        .limit(1);
+    if (deps.length === 0) return [];
 
-      if (sourceResource) {
-        result.push({
+    // Batch-fetch all source resources in a single query instead of N+1
+    const sourceIds = deps.map(d => d.sourceResourceId);
+    const sourceResources = await db
+      .select({
+        id: resources.id,
+        resourceId: resources.resourceId,
+        name: resources.name,
+        region: resources.region,
+        state: resources.state,
+        service: resources.service,
+      })
+      .from(resources)
+      .where(inArray(resources.id, sourceIds));
+
+    const sourceMap = new Map(sourceResources.map(r => [r.id, r]));
+
+    return deps
+      .filter(dep => sourceMap.has(dep.sourceResourceId))
+      .map(dep => {
+        const sourceResource = sourceMap.get(dep.sourceResourceId)!;
+        return {
           id: dep.id,
           sourceResourceId: dep.sourceResourceId,
           sourceService: sourceResource.service,
           relationshipType: dep.relationshipType,
           createdAt: dep.createdAt,
           sourceResource,
-        });
-      }
-    }
-
-    return result;
+        };
+      });
   },
 
   /**

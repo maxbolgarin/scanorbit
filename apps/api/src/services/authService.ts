@@ -8,13 +8,38 @@ import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../db/schema.js';
 import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
-import { signupCodes, redis, twoFactorStore, passwordResetStore, accountLockoutStore, refreshTokenStore } from '../lib/redis.js';
+import { signupCodes, redis, twoFactorStore, passwordResetStore, accountLockoutStore, refreshTokenStore, oauthConsentStore } from '../lib/redis.js';
 import { consentService } from './consentService.js';
 import { authOperationsTotal } from '../lib/metrics.js';
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { encryptOAuthTokenOptional } from '../lib/crypto.js';
 import type { GoogleUserInfo, GoogleAuthResult, GitHubUserInfo, GitHubAuthResult } from '../types/index.js';
+
+/**
+ * Minimize raw OAuth profile to only essential fields for GDPR compliance.
+ * Strips unnecessary PII (avatar, locale, bio, etc.) from stored profiles.
+ */
+function minimizeOAuthProfile(raw: Record<string, unknown>, provider: 'google' | 'github'): Record<string, unknown> {
+  if (provider === 'google') {
+    return {
+      sub: raw.sub,
+      email: raw.email,
+      email_verified: raw.email_verified,
+      name: raw.name,
+      iss: raw.iss,
+      aud: raw.aud,
+    };
+  }
+  // GitHub
+  return {
+    id: raw.id,
+    login: raw.login,
+    email: raw.email,
+    name: raw.name,
+    type: raw.type,
+  };
+}
 
 const SALT_ROUNDS = 10;
 const VERIFICATION_CODE_EXPIRY_HOURS = 24;
@@ -895,7 +920,7 @@ export const authService = {
       accessToken: tokens.access_token ?? undefined,
       refreshToken: tokens.refresh_token ?? undefined,
       tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-      rawProfile: payload as unknown as Record<string, unknown>,
+      rawProfile: minimizeOAuthProfile(payload as unknown as Record<string, unknown>, 'google'),
     });
   },
 
@@ -921,7 +946,7 @@ export const authService = {
       emailVerified: payload.email_verified ?? false,
       fullName: payload.name,
       picture: payload.picture,
-      rawProfile: payload as unknown as Record<string, unknown>,
+      rawProfile: minimizeOAuthProfile(payload as unknown as Record<string, unknown>, 'google'),
     });
   },
 
@@ -970,48 +995,23 @@ export const authService = {
       return this.completeOAuthLogin(existingUser[0].id, googleUser, false);
     }
 
-    // Create new user with Google account
-    const newUser = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({
-          email: normalizedEmail,
-          passwordHash: null, // OAuth-only user, no password
-          fullName: googleUser.fullName || '',
-          emailVerified: googleUser.emailVerified,
-        })
-        .returning({
-          id: users.id,
-          email: users.email,
-          fullName: users.fullName,
-        });
-
-      // Link OAuth account (encrypt tokens before storage)
-      await tx.insert(userOauthAccounts).values({
-        userId: user.id,
-        provider: 'google',
-        providerUserId: googleUser.googleId,
-        providerEmail: googleUser.email,
-        accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
-        refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
-        tokenExpiresAt: googleUser.tokenExpiresAt,
-        rawProfile: googleUser.rawProfile,
-      });
-
-      return user;
+    // New user — require explicit consent before creating account
+    const consentToken = await oauthConsentStore.store({
+      provider: 'google',
+      googleUser: {
+        ...googleUser,
+        accessToken: undefined, // Don't store raw tokens in Redis
+        refreshToken: undefined,
+      },
     });
 
-    // Log terms consent for GDPR compliance (OAuth users accept terms by signing in)
-    await consentService.logConsent({
-      userId: newUser.id,
-      email: newUser.email,
-      consentType: 'terms_and_privacy',
-      consentGiven: true,
-      metadata: { source: 'google_oauth' },
-    });
-
-    authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
-    return this.completeOAuthLogin(newUser.id, googleUser, true);
+    authOperationsTotal.inc({ operation: 'google_oauth', status: 'consent_required' });
+    return {
+      requiresConsent: true,
+      consentToken,
+      email: normalizedEmail,
+      fullName: googleUser.fullName || null,
+    };
   },
 
   /**
@@ -1212,7 +1212,7 @@ export const authService = {
       picture: userData.avatar_url,
       username: userData.login,
       accessToken,
-      rawProfile: userData as unknown as Record<string, unknown>,
+      rawProfile: minimizeOAuthProfile(userData as unknown as Record<string, unknown>, 'github'),
     });
   },
 
@@ -1261,48 +1261,22 @@ export const authService = {
       return this.completeGithubOAuthLogin(existingUser[0].id, githubUser, false);
     }
 
-    // Create new user with GitHub account
-    const newUser = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({
-          email: normalizedEmail,
-          passwordHash: null, // OAuth-only user, no password
-          fullName: githubUser.fullName || '',
-          emailVerified: githubUser.emailVerified,
-        })
-        .returning({
-          id: users.id,
-          email: users.email,
-          fullName: users.fullName,
-        });
-
-      // Link OAuth account (encrypt tokens before storage)
-      await tx.insert(userOauthAccounts).values({
-        userId: user.id,
-        provider: 'github',
-        providerUserId: githubUser.githubId,
-        providerEmail: githubUser.email,
-        accessToken: encryptOAuthTokenOptional(githubUser.accessToken),
-        refreshToken: null, // GitHub doesn't provide refresh tokens
-        tokenExpiresAt: null, // GitHub tokens don't expire
-        rawProfile: githubUser.rawProfile,
-      });
-
-      return user;
+    // New user — require explicit consent before creating account
+    const consentToken = await oauthConsentStore.store({
+      provider: 'github',
+      githubUser: {
+        ...githubUser,
+        accessToken: undefined, // Don't store raw tokens in Redis
+      },
     });
 
-    // Log terms consent for GDPR compliance (OAuth users accept terms by signing in)
-    await consentService.logConsent({
-      userId: newUser.id,
-      email: newUser.email,
-      consentType: 'terms_and_privacy',
-      consentGiven: true,
-      metadata: { source: 'github_oauth' },
-    });
-
-    authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
-    return this.completeGithubOAuthLogin(newUser.id, githubUser, true);
+    authOperationsTotal.inc({ operation: 'github_oauth', status: 'consent_required' });
+    return {
+      requiresConsent: true,
+      consentToken,
+      email: normalizedEmail,
+      fullName: githubUser.fullName || null,
+    };
   },
 
   /**
@@ -1379,6 +1353,107 @@ export const authService = {
       isNewUser,
       hasOrg: userOrgs.length > 0,
     };
+  },
+
+  // ============================================
+  // OAuth Consent Completion
+  // ============================================
+
+  /**
+   * Complete OAuth signup after user gives explicit consent to terms & privacy policy.
+   * Called from POST /auth/oauth/complete-signup after the consent UI.
+   */
+  async completeOAuthSignup(consentToken: string): Promise<{ userId: string; email: string; fullName: string | null; provider: string }> {
+    const data = await oauthConsentStore.consume(consentToken);
+    if (!data) {
+      throw new HTTP400Error('Invalid or expired consent token. Please try signing up again.');
+    }
+
+    const provider = data.provider as string;
+
+    if (provider === 'google') {
+      const googleUser = data.googleUser as GoogleUserInfo;
+      const normalizedEmail = googleUser.email.toLowerCase();
+
+      const newUser = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(users)
+          .values({
+            email: normalizedEmail,
+            passwordHash: null,
+            fullName: googleUser.fullName || '',
+            emailVerified: googleUser.emailVerified,
+          })
+          .returning({ id: users.id, email: users.email, fullName: users.fullName });
+
+        await tx.insert(userOauthAccounts).values({
+          userId: user.id,
+          provider: 'google',
+          providerUserId: googleUser.googleId,
+          providerEmail: googleUser.email,
+          accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
+          refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
+          tokenExpiresAt: googleUser.tokenExpiresAt ?? null,
+          rawProfile: googleUser.rawProfile,
+        });
+
+        return user;
+      });
+
+      await consentService.logConsent({
+        userId: newUser.id,
+        email: newUser.email,
+        consentType: 'terms_and_privacy',
+        consentGiven: true,
+        metadata: { source: 'google_oauth', explicit_consent: true },
+      });
+
+      authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
+      return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
+    }
+
+    if (provider === 'github') {
+      const githubUser = data.githubUser as GitHubUserInfo;
+      const normalizedEmail = githubUser.email.toLowerCase();
+
+      const newUser = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(users)
+          .values({
+            email: normalizedEmail,
+            passwordHash: null,
+            fullName: githubUser.fullName || '',
+            emailVerified: githubUser.emailVerified,
+          })
+          .returning({ id: users.id, email: users.email, fullName: users.fullName });
+
+        await tx.insert(userOauthAccounts).values({
+          userId: user.id,
+          provider: 'github',
+          providerUserId: githubUser.githubId,
+          providerEmail: githubUser.email,
+          accessToken: encryptOAuthTokenOptional(githubUser.accessToken),
+          refreshToken: null,
+          tokenExpiresAt: null,
+          rawProfile: githubUser.rawProfile,
+        });
+
+        return user;
+      });
+
+      await consentService.logConsent({
+        userId: newUser.id,
+        email: newUser.email,
+        consentType: 'terms_and_privacy',
+        consentGiven: true,
+        metadata: { source: 'github_oauth', explicit_consent: true },
+      });
+
+      authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
+      return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
+    }
+
+    throw new HTTP400Error('Unknown OAuth provider');
   },
 
   // ============================================

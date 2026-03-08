@@ -520,3 +520,35 @@ export const refreshTokenStore = {
     return redis.scard(userRefreshTokensKey(userId));
   },
 };
+
+// ============================================
+// Pending OAuth Signup (consent required)
+// ============================================
+
+const OAUTH_CONSENT_TTL = 600; // 10 minutes
+
+function oauthConsentKey(token: string): string {
+  return `oauth:consent:${token}`;
+}
+
+export const oauthConsentStore = {
+  /**
+   * Store pending OAuth signup data while awaiting consent
+   */
+  async store(data: Record<string, unknown>): Promise<string> {
+    const token = crypto.randomBytes(32).toString('hex');
+    await redis.setex(oauthConsentKey(token), OAUTH_CONSENT_TTL, JSON.stringify(data));
+    return token;
+  },
+
+  /**
+   * Retrieve and delete pending OAuth signup data (one-time use)
+   */
+  async consume(token: string): Promise<Record<string, unknown> | null> {
+    const key = oauthConsentKey(token);
+    const data = await redis.get(key);
+    if (!data) return null;
+    await redis.del(key);
+    return JSON.parse(data);
+  },
+};

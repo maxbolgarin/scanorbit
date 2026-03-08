@@ -17,6 +17,7 @@ const querySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
   awsAccountId: z.string().uuid().optional(),
+  resourceId: z.string().uuid().optional(),
   type: z.string().optional(),
   severity: z.enum(['low', 'medium', 'high']).optional(),
   status: z.enum(['open', 'resolved', 'snoozed', 'ignored']).optional(),

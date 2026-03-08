@@ -222,6 +222,7 @@ api.interceptors.response.use(
                              url.includes('/auth/logout') ||
                              url.includes('/auth/2fa') ||
                              url.includes('/auth/signup') ||
+                             url.includes('/auth/oauth/complete-signup') ||
                              url.includes('/auth/me') ||
                              url.includes('/auth/refresh');
 
@@ -405,6 +406,19 @@ export async function verifyCode(email: string, code: string): Promise<{ success
 export async function completeSignup(signupToken: string, password: string, consent: boolean): Promise<{ user: User; accessToken: string }> {
   try {
     const { data } = await api.post<{ user: User; accessToken: string }>("/auth/complete-signup", { signupToken, password, consent });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function completeOAuthSignup(consentToken: string): Promise<{ user: User; accessToken: string; isNewUser: boolean }> {
+  try {
+    const { data } = await api.post<{ user: User; accessToken: string; isNewUser: boolean }>("/auth/oauth/complete-signup", {
+      consentToken,
+      termsAccepted: true,
+      privacyAccepted: true,
+    });
     return data;
   } catch (error) {
     handleApiError(error);
@@ -743,6 +757,7 @@ export async function getFindings(filters?: FindingFilters): Promise<PaginatedRe
   try {
     const params = new URLSearchParams();
     if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.resourceId) params.set("resourceId", filters.resourceId);
     if (filters?.type) params.set("type", filters.type);
     if (filters?.severity) params.set("severity", filters.severity);
     if (filters?.status) params.set("status", filters.status);
