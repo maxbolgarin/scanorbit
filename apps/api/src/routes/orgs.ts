@@ -6,20 +6,29 @@ import { requireAuth } from '../middlewares/auth.js';
 import { orgService } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
 import { jwt } from '../lib/jwt.js';
+import { config } from '../lib/config.js';
 import { refreshTokenStore } from '../lib/redis.js';
 import type { Variables, SubscriptionTier } from '../types/index.js';
 
 /**
  * Set refresh token in httpOnly secure cookie
+ * Must match the cookie settings in auth.ts for cross-subdomain support
  */
 const setRefreshTokenCookie = (c: Parameters<typeof setCookie>[0], refreshToken: string) => {
-  setCookie(c, 'refresh_token', refreshToken, {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieOptions: Parameters<typeof setCookie>[3] = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
+    secure: isProduction,
+    sameSite: isProduction ? 'None' : 'Lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: '/',
-  });
+  };
+
+  if (config.cookieDomain) {
+    cookieOptions.domain = config.cookieDomain;
+  }
+
+  setCookie(c, 'refresh_token', refreshToken, cookieOptions);
 };
 
 /**

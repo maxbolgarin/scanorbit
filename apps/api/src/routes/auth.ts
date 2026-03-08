@@ -777,10 +777,10 @@ authRoute.get('/google/callback', async (c) => {
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-    // Add new OAuth users to campaign + newsletter lists (fire-and-forget)
+    // Add new OAuth users to product campaign list only (fire-and-forget)
+    // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
-      listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
       sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
     }
 
@@ -810,10 +810,10 @@ authRoute.post('/google/token', zValidator('json', googleTokenSchema), async (c)
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-  // Add new OAuth users to campaign + newsletter lists (fire-and-forget)
+  // Add new OAuth users to product campaign list only (fire-and-forget)
+  // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
   if (result.isNewUser) {
     listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
-    listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
     sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
   }
 
@@ -867,10 +867,10 @@ authRoute.get('/github/callback', async (c) => {
     // Frontend will call /auth/refresh after redirect to get access token
     await setAuthTokens(c, result.user.id, result.orgs[0]?.id ?? null);
 
-    // Add new OAuth users to campaign + newsletter lists (fire-and-forget)
+    // Add new OAuth users to product campaign list only (fire-and-forget)
+    // Do NOT auto-subscribe to newsletter — requires explicit marketing consent (GDPR Art. 7)
     if (result.isNewUser) {
       listmonkService.onUserSignup(result.user.email, result.user.fullName).catch(() => {});
-      listmonkService.subscribe(result.user.email, result.user.fullName).catch(() => {});
       sendImmediate({ sequenceName: 'free-new', email: result.user.email, name: result.user.fullName }).catch(() => {});
     }
 

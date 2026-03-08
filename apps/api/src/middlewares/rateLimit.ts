@@ -2,7 +2,7 @@ import type { Context, Next } from 'hono';
 import { redis } from '../lib/redis.js';
 import { HTTP429Error, HTTP503Error } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
-import { getClientIPUnsafe } from '../lib/ip.js';
+import { getClientIP } from '../lib/ip.js';
 import type { Variables } from '../types/index.js';
 
 interface RateLimitOptions {
@@ -61,12 +61,11 @@ function recordSuccess(): void {
 
 /**
  * Get client IP address from request
- * Uses the centralized IP utility for consistent handling
- * Note: For rate limiting, we use the unsafe version since we need to
- * rate limit even if the proxy isn't in the trusted list
+ * Uses the secure IP utility that only trusts X-Forwarded-For from trusted proxies.
+ * Configure TRUSTED_PROXIES env var with your reverse proxy IPs (e.g., Caddy).
  */
-function getClientIP(c: Context<{ Variables: Variables }>): string {
-  return getClientIPUnsafe(c);
+function getRateLimitClientIP(c: Context<{ Variables: Variables }>): string {
+  return getClientIP(c);
 }
 
 /**
@@ -131,7 +130,7 @@ export function rateLimit(options: RateLimitOptions) {
 
     try {
       // Get identifier (IP or custom)
-      const identifier = keyExtractor ? keyExtractor(c) : getClientIP(c);
+      const identifier = keyExtractor ? keyExtractor(c) : getRateLimitClientIP(c);
       const key = `ratelimit:${keyPrefix}:${identifier}`;
 
       // Increment counter
@@ -241,7 +240,7 @@ export function rateLimitByEmailAndIP(options: DualRateLimitOptions) {
     }
 
     try {
-      const ip = getClientIP(c);
+      const ip = getRateLimitClientIP(c);
       const email = emailExtractor(c).toLowerCase();
 
       const ipKey = `ratelimit:${keyPrefix}:ip:${ip}`;

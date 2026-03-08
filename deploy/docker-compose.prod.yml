@@ -93,7 +93,8 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       # Network/Security
-      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1}
+      # Include Docker bridge subnet (172.20.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.20.0.0/16}
       # Email Configuration
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
       - EMAIL_FROM=${EMAIL_FROM:-}
@@ -117,6 +118,8 @@ services:
       - LISTMONK_API_USER=${LISTMONK_ADMIN_USER:-admin}
       - LISTMONK_API_PASSWORD=${LISTMONK_ADMIN_PASSWORD:-}
       - LISTMONK_DEFAULT_LIST_ID=${LISTMONK_DEFAULT_LIST_ID:-1}
+      # Scaleway bounce webhook secret
+      - SCALEWAY_WEBHOOK_SECRET=${SCALEWAY_WEBHOOK_SECRET:-}
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -416,7 +419,7 @@ services:
       - '--storage.tsdb.retention.time=30d'
       - '--web.enable-lifecycle'
     ports:
-      - "9092:9090"  # Prometheus UI (9090 is used by scanner, so using 9092)
+      - "127.0.0.1:9092:9090"  # Prometheus UI (localhost only, access via SSH tunnel)
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -435,13 +438,13 @@ services:
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
-      - "3001:3000"  # Grafana UI (3000 is used by frontend, so using 3001)
+      - "127.0.0.1:3001:3000"  # Grafana UI (localhost only, access via SSH tunnel)
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -465,7 +468,7 @@ services:
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     ports:
-      - "3100:3100"  # Loki API
+      - "127.0.0.1:3100:3100"  # Loki API (localhost only, access via SSH tunnel)
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
       interval: 30s
@@ -523,7 +526,9 @@ services:
     environment:
       - REDIS_ADDR=rediss://redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - REDIS_EXPORTER_SKIP_TLS_VERIFICATION=true
+      - REDIS_EXPORTER_TLS_CA_CERT_FILE=/certs/ca.crt
+    volumes:
+      - ./certs/redis/ca.crt:/certs/ca.crt:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9121/metrics"]
       interval: 30s
@@ -551,7 +556,7 @@ services:
       - alertmanager_data:/alertmanager
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"  # Alertmanager (localhost only, access via SSH tunnel)
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
       interval: 30s
@@ -586,7 +591,7 @@ services:
     image: docker.umami.is/umami-software/umami:postgresql-latest
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=disable
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=require
       - APP_SECRET=${UMAMI_APP_SECRET}
       - TRACKER_SCRIPT_NAME=t.js
       - COLLECT_API_ENDPOINT=/collect
@@ -696,3 +701,6 @@ volumes:
 networks:
   scanorbit:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

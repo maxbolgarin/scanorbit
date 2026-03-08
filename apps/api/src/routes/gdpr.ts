@@ -6,6 +6,7 @@ import {
   users,
   orgs,
   userOrgMembers,
+  userOauthAccounts,
   auditLogs,
   dataDeletionRequests,
   consentLogs,
@@ -100,6 +101,16 @@ gdpr.get('/export', async (c) => {
     .innerJoin(orgs, eq(userOrgMembers.orgId, orgs.id))
     .where(eq(userOrgMembers.userId, userId));
 
+  // Get connected OAuth accounts (GDPR Article 15 - all personal data)
+  const oauthAccounts = await db
+    .select({
+      provider: userOauthAccounts.provider,
+      providerEmail: userOauthAccounts.providerEmail,
+      createdAt: userOauthAccounts.createdAt,
+    })
+    .from(userOauthAccounts)
+    .where(eq(userOauthAccounts.userId, userId));
+
   // Get email marketing history
   const emailMarketingData = await db
     .select({
@@ -127,6 +138,11 @@ gdpr.get('/export', async (c) => {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },
+    connectedAccounts: oauthAccounts.map((a) => ({
+      provider: a.provider,
+      providerEmail: a.providerEmail,
+      connectedAt: a.createdAt,
+    })),
     organizations: memberships.map((m) => ({
       name: m.orgName,
       slug: m.orgSlug,

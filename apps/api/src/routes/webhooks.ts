@@ -1,19 +1,33 @@
 import { Hono } from 'hono';
 import { listmonkConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
+import { timingSafeEqual } from 'crypto';
 import type { Variables } from '../types/index.js';
 
 const webhooksRoute = new Hono<{ Variables: Variables }>();
 
 const BOUNCE_EVENT_TYPES = new Set(['email_dropped', 'email_mailbox_not_found']);
 
+// Webhook secret for Scaleway bounce webhook authentication
+// Set SCALEWAY_WEBHOOK_SECRET env var and add ?secret=<value> to the Scaleway webhook URL
+const WEBHOOK_SECRET = process.env.SCALEWAY_WEBHOOK_SECRET || '';
+
 /**
  * POST /webhooks/scaleway-bounce
  * Bridge between Scaleway TEM bounce webhooks and Listmonk's bounce API.
  * Receives Scaleway events, filters for bounces, forwards to Listmonk.
- * No auth — Scaleway webhooks are unauthenticated (like Stripe webhooks).
+ * Authenticated via shared secret query parameter (configure in Scaleway webhook URL).
  */
 webhooksRoute.post('/scaleway-bounce', async (c) => {
+  // Verify shared secret if configured
+  if (WEBHOOK_SECRET) {
+    const secret = c.req.query('secret') || '';
+    if (!secret || !safeCompare(secret, WEBHOOK_SECRET)) {
+      logger.warn('[Bounce] Unauthorized webhook request');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+  }
+
   let body: { type?: string; payload?: Record<string, unknown> };
 
   try {
@@ -68,5 +82,13 @@ webhooksRoute.post('/scaleway-bounce', async (c) => {
 
   return c.json({ received: true });
 });
+
+/**
+ * Constant-time string comparison to prevent timing attacks on webhook secret
+ */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 export default webhooksRoute;

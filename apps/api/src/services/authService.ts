@@ -96,7 +96,7 @@ export const authService = {
 
     if (existing.length > 0) {
       authOperationsTotal.inc({ operation: 'signup', status: 'duplicate_email' });
-      throw new HTTP400Error('Email already registered');
+      throw new HTTP400Error('Unable to create account. If you already have an account, please sign in.');
     }
 
     // Hash password
@@ -1001,6 +1001,15 @@ export const authService = {
       return user;
     });
 
+    // Log terms consent for GDPR compliance (OAuth users accept terms by signing in)
+    await consentService.logConsent({
+      userId: newUser.id,
+      email: newUser.email,
+      consentType: 'terms_and_privacy',
+      consentGiven: true,
+      metadata: { source: 'google_oauth' },
+    });
+
     authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
     return this.completeOAuthLogin(newUser.id, googleUser, true);
   },
@@ -1281,6 +1290,15 @@ export const authService = {
       });
 
       return user;
+    });
+
+    // Log terms consent for GDPR compliance (OAuth users accept terms by signing in)
+    await consentService.logConsent({
+      userId: newUser.id,
+      email: newUser.email,
+      consentType: 'terms_and_privacy',
+      consentGiven: true,
+      metadata: { source: 'github_oauth' },
     });
 
     authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
