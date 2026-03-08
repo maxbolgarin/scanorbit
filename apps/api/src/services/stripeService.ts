@@ -105,7 +105,7 @@ export const stripeService = {
     // Create new Stripe customer
     const customer = await getStripeClient().customers.create({
       email: user.email,
-      name: org.name,
+      name: user.fullName || org.name,
       metadata: {
         orgId,
         userId,
@@ -222,6 +222,63 @@ export const stripeService = {
     logger.info('Created Stripe portal session', { orgId });
 
     return { url: session.url };
+  },
+
+  /**
+   * Switch subscription plan while preserving the trial period
+   */
+  async switchPlan(
+    orgId: string,
+    userId: string,
+    targetTier: SubscriptionTier
+  ): Promise<void> {
+    await verifyOrgAdmin(orgId, userId);
+
+    const [org] = await db
+      .select({
+        stripeSubscriptionId: orgs.stripeSubscriptionId,
+        tier: orgs.tier,
+      })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (!org?.stripeSubscriptionId) {
+      throw new HTTP400Error('No active subscription found');
+    }
+
+    if (org.tier === targetTier) {
+      throw new HTTP400Error(`Already on the ${targetTier} plan`);
+    }
+
+    const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
+    const newPriceId = getPriceIdForTier(targetTier);
+
+    // Update the subscription's price, keeping trial intact
+    await getStripeClient().subscriptions.update(org.stripeSubscriptionId, {
+      items: [
+        {
+          id: subscription.items.data[0].id,
+          price: newPriceId,
+        },
+      ],
+      proration_behavior: 'none',
+      metadata: {
+        ...subscription.metadata,
+        targetTier,
+      },
+    });
+
+    // Update org tier immediately
+    await db
+      .update(orgs)
+      .set({
+        tier: targetTier,
+        updatedAt: new Date(),
+      })
+      .where(eq(orgs.id, orgId));
+
+    logger.info('Switched subscription plan', { orgId, targetTier });
   },
 
   /**
@@ -418,6 +475,30 @@ export const stripeService = {
       orgId: org.id,
       subscriptionId,
     });
+  },
+
+  /**
+   * Cancel a Stripe subscription by ID (system-level, no auth check)
+   */
+  async cancelSubscriptionById(subscriptionId: string): Promise<void> {
+    try {
+      await getStripeClient().subscriptions.cancel(subscriptionId);
+      logger.info('Canceled Stripe subscription', { subscriptionId });
+    } catch (err) {
+      logger.error('Failed to cancel Stripe subscription', { subscriptionId, error: (err as Error).message });
+    }
+  },
+
+  /**
+   * Delete a Stripe customer (for GDPR account deletion)
+   */
+  async deleteCustomer(customerId: string): Promise<void> {
+    try {
+      await getStripeClient().customers.del(customerId);
+      logger.info('Deleted Stripe customer', { customerId });
+    } catch (err) {
+      logger.error('Failed to delete Stripe customer', { customerId, error: (err as Error).message });
+    }
   },
 
   /**

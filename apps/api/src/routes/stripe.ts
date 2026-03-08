@@ -66,6 +66,37 @@ stripeRoute.post(
 );
 
 /**
+ * POST /stripe/switch-plan
+ * Switch subscription plan while preserving the trial period
+ * Requires authentication and admin role
+ */
+const switchPlanSchema = z.object({
+  targetTier: z.enum(['pro', 'team']),
+});
+
+stripeRoute.post(
+  '/switch-plan',
+  requireAuth,
+  zValidator('json', switchPlanSchema),
+  async (c) => {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    const { targetTier } = c.req.valid('json');
+
+    if (!orgId) {
+      throw new HTTP400Error('Organization context required');
+    }
+
+    if (!stripeService.isConfigured()) {
+      throw new HTTP400Error('Stripe is not configured');
+    }
+
+    await stripeService.switchPlan(orgId, userId, targetTier);
+    return c.json({ data: { switched: true, targetTier } });
+  }
+);
+
+/**
  * POST /stripe/portal
  * Create a Stripe Customer Portal session for managing subscription
  * Requires authentication and admin role

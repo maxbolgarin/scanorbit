@@ -24,7 +24,8 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export function ProfileSettings() {
-  const { user, updateUser } = useAuthStore();
+  const { user, org, updateUser } = useAuthStore();
+  const hasActiveSubscription = org?.tier === 'pro' || org?.tier === 'team';
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   const profileForm = useForm<ProfileFormData>({
@@ -74,15 +75,20 @@ export function ProfileSettings() {
               <Input
                 id="name"
                 {...profileForm.register("name")}
-                disabled={isUpdatingProfile}
+                disabled={isUpdatingProfile || hasActiveSubscription}
               />
+              {hasActiveSubscription && (
+                <p className="text-sm text-muted-foreground">
+                  Name cannot be changed while you have an active subscription.
+                </p>
+              )}
               {profileForm.formState.errors.name && (
                 <p className="text-sm text-red-500">
                   {profileForm.formState.errors.name.message}
                 </p>
               )}
             </div>
-            <Button type="submit" disabled={isUpdatingProfile}>
+            <Button type="submit" disabled={isUpdatingProfile || hasActiveSubscription}>
               {isUpdatingProfile && (
                 <LoadingSpinner size="sm" className="mr-2" />
               )}

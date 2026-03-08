@@ -9,6 +9,7 @@ import {
   auditLogs,
   dataDeletionRequests,
   consentLogs,
+  dripLog,
 } from '../db/schema.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { logDataAccess } from '../middlewares/auditLog.js';
@@ -84,6 +85,30 @@ gdpr.get('/export', async (c) => {
     .orderBy(desc(auditLogs.timestamp))
     .limit(1000);
 
+  // Get billing data from user's organizations
+  const billingData = await db
+    .select({
+      orgName: orgs.name,
+      tier: orgs.tier,
+      subscriptionStatus: orgs.subscriptionStatus,
+      trialEndsAt: orgs.trialEndsAt,
+      subscriptionEndsAt: orgs.subscriptionEndsAt,
+    })
+    .from(userOrgMembers)
+    .innerJoin(orgs, eq(userOrgMembers.orgId, orgs.id))
+    .where(eq(userOrgMembers.userId, userId));
+
+  // Get email marketing history
+  const emailMarketingData = await db
+    .select({
+      sequenceName: dripLog.sequenceName,
+      emailDay: dripLog.emailDay,
+      sentAt: dripLog.sentAt,
+    })
+    .from(dripLog)
+    .where(eq(dripLog.subscriberEmail, user.email))
+    .orderBy(desc(dripLog.sentAt));
+
   // Build export data
   const exportData = {
     exportedAt: new Date().toISOString(),
@@ -106,6 +131,18 @@ gdpr.get('/export', async (c) => {
       role: m.role,
       title: m.title,
       joinedAt: m.joinedAt,
+    })),
+    billing: billingData.map((b) => ({
+      organization: b.orgName,
+      tier: b.tier,
+      subscriptionStatus: b.subscriptionStatus,
+      trialEndsAt: b.trialEndsAt,
+      subscriptionEndsAt: b.subscriptionEndsAt,
+    })),
+    emailMarketing: emailMarketingData.map((e) => ({
+      campaign: e.sequenceName,
+      emailDay: e.emailDay,
+      sentAt: e.sentAt,
     })),
     consents: consents.map((c) => ({
       type: c.consentType,
