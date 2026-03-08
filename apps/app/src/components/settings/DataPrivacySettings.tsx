@@ -282,30 +282,30 @@ export function DataPrivacySettings() {
         <CardContent>
           <div className="space-y-4">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-              <h4 className="font-medium text-destructive">What happens when you delete your account?</h4>
-              <ul className="text-sm mt-2 space-y-2">
-                <li className="flex items-start gap-2">
-                  <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+              <h4 className="font-medium text-destructive mb-3">What happens when you delete your account?</h4>
+              <ul className="text-sm space-y-2.5">
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">1</span>
                   <span>
-                    <strong>30-day grace period:</strong> You can cancel the deletion request within 30 days
+                    <strong>30-day grace period</strong> — you can cancel the deletion request within 30 days
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <XCircle className="h-4 w-4 mt-0.5 text-destructive" />
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-[10px] font-semibold text-destructive">2</span>
                   <span>
-                    <strong>Permanently deleted:</strong> Your account, profile, and organization memberships
+                    <strong>Permanently deleted</strong> — your account, profile, organization memberships, and billing data
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <Shield className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">3</span>
                   <span>
-                    <strong>Anonymized:</strong> Audit logs (user ID removed, kept for compliance)
+                    <strong>Anonymized</strong> — audit logs (user ID removed, kept for compliance)
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-500/15 text-[10px] font-semibold text-green-600 dark:text-green-400">4</span>
                   <span>
-                    <strong>Preserved:</strong> Consent records (required for GDPR proof of consent)
+                    <strong>Preserved</strong> — consent records (required for GDPR proof of consent)
                   </span>
                 </li>
               </ul>
