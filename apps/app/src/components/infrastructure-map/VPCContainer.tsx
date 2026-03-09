@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { type NodeProps } from '@xyflow/react';
+import type { NodeProps } from '@xyflow/react';
 import { ChevronDown, ChevronRight, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VPCContainerNode, VPCContainerNodeData } from '@/types/graph';

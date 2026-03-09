@@ -777,6 +777,13 @@ export default function AccountInfrastructureMap() {
           size={1}
           color="hsl(var(--muted-foreground) / 0.2)"
         />
+        {resourcesData?.truncated && (
+          <Panel position="bottom-center">
+            <div className="bg-yellow-50 dark:bg-yellow-950/50 border border-yellow-200 dark:border-yellow-800 rounded-lg px-4 py-2 text-xs text-yellow-800 dark:text-yellow-200">
+              Showing first {resources.length} resources. Use filters to narrow results.
+            </div>
+          </Panel>
+        )}
       </ReactFlow>
 
       {/* Resource Preview Modal */}

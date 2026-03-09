@@ -31,10 +31,10 @@ export default function AccountDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Fetch account-specific data
-  const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);
+  // Fetch account-specific data (pass empty string if missing — hooks have enabled: !!id guards)
+  const { data: account, isLoading: accountLoading } = useAwsAccount(accountId ?? '');
   const { data: summary, isLoading: summaryLoading, isFetching } = useEnhancedDashboardSummary({ awsAccountId: accountId });
-  const { data: scanHistory, isLoading: scansLoading } = useScanHistory(accountId!);
+  const { data: scanHistory, isLoading: scansLoading } = useScanHistory(accountId ?? '');
   const { data: activeScans } = useActiveScans();
 
   // Auto-refresh data when scans complete
@@ -54,6 +54,11 @@ export default function AccountDashboard() {
   const accountActiveScans = activeScans?.filter(scan => scan.awsAccountId === accountId);
   const hasScanInProgress = (accountActiveScans && accountActiveScans.length > 0) ||
     scanHistory?.some(scan => ACTIVE_SCAN_STATUSES.includes(scan.status));
+
+  if (!accountId) {
+    navigate("/overview", { replace: true });
+    return null;
+  }
 
   if (accountLoading) {
     return (
@@ -135,7 +140,7 @@ export default function AccountDashboard() {
       {/* Scanning in progress state */}
       {account.status === "ok" && !hasCompletedScan && hasScanInProgress && (
         <NoScanState
-          accountId={accountId!}
+          accountId={accountId ?? ''}
           isScanning={true}
         />
       )}
@@ -143,7 +148,7 @@ export default function AccountDashboard() {
       {/* No scan yet - direct to Scans page */}
       {account.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
         <NoScanState
-          accountId={accountId!}
+          accountId={accountId ?? ''}
           title="Ready to scan this account"
           description="Go to the Scans page to start discovering resources, identify security vulnerabilities, find cost optimization opportunities, and check compliance status."
         />

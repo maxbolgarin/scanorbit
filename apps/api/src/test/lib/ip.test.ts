@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { Context } from 'hono';
+import type { Variables } from '../../types/index.js';
 
 vi.mock('../../lib/config.js', () => ({
   config: {
@@ -8,12 +10,12 @@ vi.mock('../../lib/config.js', () => ({
 
 import { getClientIP, getClientIPUnsafe } from '../../lib/ip.js';
 
-function createMockContext(headers: Record<string, string> = {}): any {
+function createMockContext(headers: Record<string, string> = {}): Context<{ Variables: Variables }> {
   return {
     req: {
       header: (name: string) => headers[name.toLowerCase()] || undefined,
     },
-  };
+  } as unknown as Context<{ Variables: Variables }>;
 }
 
 describe('getClientIP', () => {

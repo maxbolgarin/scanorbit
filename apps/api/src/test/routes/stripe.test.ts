@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 
@@ -102,7 +103,7 @@ describe('Stripe Routes', () => {
         body: JSON.stringify({ targetTier: 'pro' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data.url).toContain('stripe.com');
     });
 
@@ -164,7 +165,7 @@ describe('Stripe Routes', () => {
         body: JSON.stringify({}),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data.canceled).toBe(true);
     });
   });
@@ -179,7 +180,7 @@ describe('Stripe Routes', () => {
         body: JSON.stringify({ targetTier: 'team' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data.switched).toBe(true);
       expect(body.data.targetTier).toBe('team');
     });

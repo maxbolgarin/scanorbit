@@ -66,7 +66,7 @@ async function main() {
       hasErrors = true;
     }
 
-    console.log('\n' + '='.repeat(60));
+    console.log(`\n${  '='.repeat(60)}`);
     console.log(hasErrors ? 'Job completed with errors' : 'Job completed successfully');
     console.log(`Finished at: ${new Date().toISOString()}`);
     console.log('='.repeat(60));

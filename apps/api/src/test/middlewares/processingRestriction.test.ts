@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createChain } from '../helpers/mockDb.js';
@@ -51,7 +52,7 @@ describe('requireNoProcessingRestriction', () => {
     const app = createApp();
     const res = await app.request('/test', { method: 'POST' });
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toContain('processing restriction');
   });
 

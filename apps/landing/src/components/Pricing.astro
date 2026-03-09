@@ -83,7 +83,6 @@ const planKeys = ["free", "pro", "team"] as const;
             <ul class="space-y-3">
               {features.map((feature) => {
                 const value = feature[planKeys[planIndex]];
-                const isIncluded = value === true || (typeof value === 'string' && value);
                 return (
                   <li class="flex items-center justify-between py-2 border-b border-slate-gray/10 last:border-0">
                     <span class="text-cloud-gray text-sm">{feature.name}</span>

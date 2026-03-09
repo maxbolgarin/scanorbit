@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createResource } from '../helpers/factories.js';
@@ -143,7 +144,7 @@ describe('Resources Routes', () => {
 
       const res = await app.request('/resources/regions');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toEqual(['eu-central-1', 'us-east-1']);
     });
   });

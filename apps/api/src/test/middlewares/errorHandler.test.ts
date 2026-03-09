@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
@@ -35,7 +36,7 @@ describe('errorHandler', () => {
     });
     const res = await app.request('/test');
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('HTTP400Error');
     expect(body.message).toBe('Invalid email');
   });
@@ -46,7 +47,7 @@ describe('errorHandler', () => {
     });
     const res = await app.request('/test');
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('HTTP401Error');
   });
 
@@ -72,7 +73,7 @@ describe('errorHandler', () => {
     });
     const res = await app.request('/test');
     expect(res.status).toBe(500);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('HTTP500Error');
   });
 
@@ -87,7 +88,7 @@ describe('errorHandler', () => {
 
     const res = await app.request('/test');
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('ValidationError');
     expect(body.message).toBe('Invalid request data');
     expect(body.details).toBeDefined();
@@ -102,7 +103,7 @@ describe('errorHandler', () => {
     });
     const res = await app.request('/test');
     expect(res.status).toBe(500);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('DatabaseError');
     expect(body.message).toContain('database error');
   });
@@ -113,7 +114,7 @@ describe('errorHandler', () => {
     });
     const res = await app.request('/test');
     expect(res.status).toBe(500);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('InternalServerError');
     expect(body.message).toBe('An unexpected error occurred');
   });

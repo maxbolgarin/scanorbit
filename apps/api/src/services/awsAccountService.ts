@@ -296,7 +296,7 @@ export const awsAccountService = {
         message: 'Connection successful! ScanOrbit can access your AWS account.',
       };
     } catch (error) {
-      let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       let userFriendlyMessage = errorMessage;
 
       // Provide user-friendly error messages for common IAM issues

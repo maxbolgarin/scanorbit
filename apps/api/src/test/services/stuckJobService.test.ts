@@ -5,11 +5,22 @@ let selectResult: unknown[] = [];
 let insertResult: unknown[] = [];
 let updateResult: unknown[] = [];
 
+// Transaction-aware mock: db.transaction(async (tx) => { ... }) passes tx with same methods
+const createTxMock = () => ({
+  select: vi.fn(() => createChain(selectResult)),
+  insert: vi.fn(() => createChain(insertResult)),
+  update: vi.fn(() => createChain(updateResult)),
+});
+
 vi.mock('../../lib/db.js', () => ({
   db: {
     select: vi.fn(() => createChain(selectResult)),
     insert: vi.fn(() => createChain(insertResult)),
     update: vi.fn(() => createChain(updateResult)),
+    transaction: vi.fn(async (fn: (tx: ReturnType<typeof createTxMock>) => Promise<unknown>) => {
+      const tx = createTxMock();
+      return fn(tx);
+    }),
   },
   pool: {},
 }));
@@ -30,12 +41,20 @@ describe('stuckJobService', () => {
     vi.mocked(db.select).mockImplementation(() => createChain(selectResult) as any);
     vi.mocked(db.insert).mockImplementation(() => createChain(insertResult) as any);
     vi.mocked(db.update).mockImplementation(() => createChain(updateResult) as any);
+    // Reset transaction mock to use current selectResult/insertResult/updateResult
+    vi.mocked(db.transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        select: vi.fn(() => createChain(selectResult)),
+        insert: vi.fn(() => createChain(insertResult)),
+        update: vi.fn(() => createChain(updateResult)),
+      };
+      return fn(tx);
+    });
   });
 
   describe('recoverStuckJobs', () => {
     it('returns zero counts when no stuck jobs', async () => {
-      const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => createChain([]) as any);
+      selectResult = [];
 
       const result = await recoverStuckJobs();
       expect(result.stuckJobsRecovered).toBe(0);
@@ -45,71 +64,79 @@ describe('stuckJobService', () => {
     });
 
     it('recovers stuck job with low recovery count', async () => {
-      let callCount = 0;
       const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // stuck running jobs
-          return createChain([{
+
+      // Transaction mock: tx.select returns stuck job
+      vi.mocked(db.transaction).mockImplementation(async (fn: any) => {
+        const tx = {
+          select: vi.fn(() => createChain([{
             id: 'job-1',
             scanId: 'scan-1',
             type: 'scan_account',
             payload: {},
             recoveryCount: 0,
-            startedAt: new Date(Date.now() - 3600000), // 1 hour ago
-          }]) as any;
-        }
-        // orphaned scans query returns empty
-        return createChain([]) as any;
+            startedAt: new Date(Date.now() - 3600000),
+          }])),
+          insert: vi.fn(() => createChain([])),
+          update: vi.fn(() => createChain([])),
+        };
+        return fn(tx);
       });
+
+      // Orphaned scans query (outside transaction) returns empty
+      vi.mocked(db.select).mockImplementation(() => createChain([]) as any);
 
       const result = await recoverStuckJobs();
       expect(result.stuckJobsRecovered).toBe(1);
-      expect(db.update).toHaveBeenCalled();
     });
 
     it('moves job to DLQ after max recovery attempts', async () => {
-      let callCount = 0;
       const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return createChain([{
+
+      // Transaction mock: tx.select returns job at max recovery count
+      vi.mocked(db.transaction).mockImplementation(async (fn: any) => {
+        const tx = {
+          select: vi.fn(() => createChain([{
             id: 'job-1',
             scanId: 'scan-1',
             type: 'scan_account',
             payload: {},
-            recoveryCount: 3, // MAX_RECOVERY_COUNT
+            recoveryCount: 3,
             startedAt: new Date(Date.now() - 3600000),
-          }]) as any;
-        }
-        return createChain([]) as any;
+          }])),
+          insert: vi.fn(() => createChain([])),
+          update: vi.fn(() => createChain([])),
+        };
+        return fn(tx);
       });
+
+      // Orphaned scans query returns empty
+      vi.mocked(db.select).mockImplementation(() => createChain([]) as any);
 
       const result = await recoverStuckJobs();
       expect(result.jobsMovedToDLQ).toBe(1);
       expect(result.stuckScansErrored).toBe(1);
-      expect(db.insert).toHaveBeenCalled(); // dead letter insert
     });
 
     it('handles orphaned scans', async () => {
-      let callCount = 0;
       const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return createChain([]) as any; // no stuck jobs
-        if (callCount === 2) {
-          // orphaned scans
-          return createChain([{
-            id: 'scan-1',
-            status: 'running',
-            createdAt: new Date(Date.now() - 3600000),
-          }]) as any;
-        }
-        // active job check: no active job
-        return createChain([]) as any;
+
+      // Transaction: no stuck jobs
+      vi.mocked(db.transaction).mockImplementation(async (fn: any) => {
+        const tx = {
+          select: vi.fn(() => createChain([])),
+          insert: vi.fn(() => createChain([])),
+          update: vi.fn(() => createChain([])),
+        };
+        return fn(tx);
       });
+
+      // Orphaned scans query returns one orphaned scan
+      vi.mocked(db.select).mockImplementation(() => createChain([{
+        id: 'scan-1',
+        status: 'running',
+        createdAt: new Date(Date.now() - 3600000),
+      }]) as any);
 
       const result = await recoverStuckJobs();
       expect(result.stuckScansErrored).toBe(1);
@@ -117,9 +144,7 @@ describe('stuckJobService', () => {
 
     it('captures errors without failing', async () => {
       const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        throw new Error('DB error');
-      });
+      vi.mocked(db.transaction).mockRejectedValue(new Error('DB error'));
 
       const result = await recoverStuckJobs();
       expect(result.errors.length).toBeGreaterThan(0);

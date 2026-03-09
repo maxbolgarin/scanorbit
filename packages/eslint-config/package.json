@@ -1,0 +1,21 @@
+{
+  "name": "@scanorbit/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./base": "./base.js",
+    "./react": "./react.js",
+    "./astro": "./astro.js"
+  },
+  "dependencies": {
+    "typescript-eslint": "^8.56.0",
+    "@eslint-react/eslint-plugin": "^2.13.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-astro": "^1.6.0"
+  },
+  "peerDependencies": {
+    "eslint": ">=10.0.0",
+    "typescript": ">=5.0.0"
+  }
+}

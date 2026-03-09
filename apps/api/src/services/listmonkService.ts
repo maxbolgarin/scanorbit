@@ -9,9 +9,9 @@ interface ListmonkSubscriber {
 }
 
 function getAuthHeader(): string {
-  return 'Basic ' + Buffer.from(
+  return `Basic ${  Buffer.from(
     `${listmonkConfig.apiUser}:${listmonkConfig.apiPassword}`
-  ).toString('base64');
+  ).toString('base64')}`;
 }
 
 function isConfigured(): boolean {

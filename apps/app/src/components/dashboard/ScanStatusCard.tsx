@@ -71,6 +71,8 @@ export function ScanStatusCard({
   // Get subscription status for scan permissions
   const { canScan: subscriptionCanScan, scanReason, cooldownEndsAt, tier } = useSubscriptionStatus();
   const cooldownTimeLeft = useCooldownTimer(cooldownEndsAt);
+  const [showScanDialog, setShowScanDialog] = useState(false);
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -153,9 +155,6 @@ export function ScanStatusCard({
   // Check both account status and subscription permissions
   const canScan = scannableAccounts.length > 0 && !hasActiveScans && !isTriggeringScan && subscriptionCanScan;
   const isSingleAccount = accounts.length === 1;
-
-  const [showScanDialog, setShowScanDialog] = useState(false);
-  const navigate = useNavigate();
 
   const handleScanAll = () => {
     // Trigger scan for each account

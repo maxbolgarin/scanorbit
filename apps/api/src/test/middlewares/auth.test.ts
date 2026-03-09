@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 
@@ -34,7 +35,7 @@ describe('requireAuth', () => {
   it('returns 401 when no Authorization header', async () => {
     const res = await app.request('/test');
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('Missing authentication token');
   });
 
@@ -44,7 +45,7 @@ describe('requireAuth', () => {
       headers: { Authorization: 'Bearer bad-token' },
     });
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('Invalid or expired token');
   });
 
@@ -70,7 +71,7 @@ describe('requireAuth', () => {
       headers: { Authorization: 'Bearer valid-token' },
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.userId).toBe('user-123');
     expect(body.orgId).toBe('org-456');
   });
@@ -85,7 +86,7 @@ describe('requireAuth', () => {
       headers: { Authorization: 'Bearer valid-token' },
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.orgId).toBe('');
   });
 });
@@ -112,7 +113,7 @@ describe('optionalAuth', () => {
       headers: { Authorization: 'Bearer valid-token' },
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.userId).toBe('user-123');
   });
 

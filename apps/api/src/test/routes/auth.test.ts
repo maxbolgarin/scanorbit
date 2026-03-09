@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createUser, createOrg } from '../helpers/factories.js';
@@ -170,7 +171,7 @@ describe('Auth Routes', () => {
         body: JSON.stringify({ email: 'user@example.com', code: '123456' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.signupToken).toBe('token-123');
     });
 
@@ -199,7 +200,7 @@ describe('Auth Routes', () => {
         }),
       });
       expect(res.status).toBe(201);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.accessToken).toBe('mock-access-token');
     });
 
@@ -246,7 +247,7 @@ describe('Auth Routes', () => {
         body: JSON.stringify({ email: 'user@example.com', password: 'password123' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.user).toBeDefined();
       expect(body.accessToken).toBe('mock-access-token');
     });
@@ -263,7 +264,7 @@ describe('Auth Routes', () => {
         body: JSON.stringify({ email: 'user@example.com', password: 'password123' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.requires2FA).toBe(true);
       expect(body.challengeToken).toBe('challenge-123');
     });
@@ -286,7 +287,7 @@ describe('Auth Routes', () => {
     it('logs out successfully', async () => {
       const res = await app.request('/auth/logout', { method: 'POST' });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.message).toContain('Logged out');
     });
   });
@@ -333,7 +334,7 @@ describe('Auth Routes', () => {
         body: JSON.stringify({ orgId: crypto.randomUUID() }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.accessToken).toBe('mock-access-token');
     });
 
@@ -512,7 +513,7 @@ describe('Auth Routes', () => {
         body: JSON.stringify({ idToken: 'google-id-token' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.isNewUser).toBe(true);
     });
 
@@ -528,7 +529,7 @@ describe('Auth Routes', () => {
         body: JSON.stringify({ idToken: 'google-id-token' }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.requiresConsent).toBe(true);
     });
   });
@@ -552,7 +553,7 @@ describe('Auth Routes', () => {
         }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.isNewUser).toBe(true);
     });
 

@@ -44,6 +44,7 @@ import { PaywallBlocker } from '@/components/shared/PaywallBlocker';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { RefreshCw, Network, RotateCcw, Layout, GitBranch, Waypoints, Globe, EyeOff } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import type { ServiceType, Resource } from '@/types';
 import { TIER_LIMITS } from '@/types';
 import type {
@@ -73,6 +74,15 @@ const NETWORK_SETTINGS_KEY = 'infrastructure-map:network-settings';
 // Type for stored positions
 type NodePositions = Record<string, XYPosition>;
 
+// Show toast only once per session to avoid spamming
+let storageWarningShown = false;
+function warnStorageError(): void {
+  if (!storageWarningShown) {
+    storageWarningShown = true;
+    toast({ title: 'Unable to save layout preferences', description: 'Your layout changes may not persist after refresh.', type: 'error' });
+  }
+}
+
 // Load saved positions from localStorage
 function loadNodePositions(): NodePositions {
   try {
@@ -88,7 +98,7 @@ function saveNodePositions(positions: NodePositions): void {
   try {
     localStorage.setItem(NODE_POSITIONS_KEY, JSON.stringify(positions));
   } catch {
-    // Ignore storage errors
+    warnStorageError();
   }
 }
 
@@ -110,7 +120,7 @@ function saveLayoutPreset(preset: LayoutPreset): void {
   try {
     localStorage.setItem(LAYOUT_PRESET_KEY, preset);
   } catch {
-    // Ignore storage errors
+    warnStorageError();
   }
 }
 
@@ -132,7 +142,7 @@ function saveViewMode(mode: MapViewMode): void {
   try {
     localStorage.setItem(VIEW_MODE_KEY, mode);
   } catch {
-    // Ignore storage errors
+    warnStorageError();
   }
 }
 
@@ -154,7 +164,7 @@ function saveCollapsedState(state: ContainerCollapsedState): void {
   try {
     localStorage.setItem(COLLAPSED_STATE_KEY, JSON.stringify(state));
   } catch {
-    // Ignore storage errors
+    warnStorageError();
   }
 }
 
@@ -176,7 +186,7 @@ function saveNetworkSettings(settings: NetworkViewSettings): void {
   try {
     localStorage.setItem(NETWORK_SETTINGS_KEY, JSON.stringify(settings));
   } catch {
-    // Ignore storage errors
+    warnStorageError();
   }
 }
 
@@ -712,6 +722,13 @@ export default function InfrastructureMap() {
           size={1}
           color="hsl(var(--muted-foreground) / 0.2)"
         />
+        {resourcesData?.truncated && (
+          <Panel position="bottom-center">
+            <div className="bg-yellow-50 dark:bg-yellow-950/50 border border-yellow-200 dark:border-yellow-800 rounded-lg px-4 py-2 text-xs text-yellow-800 dark:text-yellow-200">
+              Showing first {resourcesData.data.length} resources. Use filters to narrow results.
+            </div>
+          </Panel>
+        )}
       </ReactFlow>
 
       {/* Resource Preview Modal */}

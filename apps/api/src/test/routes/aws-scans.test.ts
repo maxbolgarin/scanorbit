@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createScan } from '../helpers/factories.js';
@@ -55,7 +56,7 @@ describe('AWS Scans Routes', () => {
 
       const res = await app.request('/aws/scans/active');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toHaveLength(1);
     });
   });

@@ -46,13 +46,13 @@ describe('dependencyService', () => {
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) return createChain([{ id: 'r-1' }]) as any;
-        if (callCount === 2) return createChain([{
+        if (callCount === 2) {return createChain([{
           id: 'dep-1',
           targetResourceId: 'sg-123',
           targetService: 'ec2',
           relationshipType: 'security_group',
           createdAt: new Date(),
-        }]) as any;
+        }]) as any;}
         return createChain([{
           id: 'r-2',
           resourceId: 'sg-123',
@@ -95,12 +95,12 @@ describe('dependencyService', () => {
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) return createChain([{ id: 'r-1', resourceId: 'i-12345' }]) as any;
-        if (callCount === 2) return createChain([{
+        if (callCount === 2) {return createChain([{
           id: 'dep-1',
           sourceResourceId: 'r-2',
           relationshipType: 'attached_to',
           createdAt: new Date(),
-        }]) as any;
+        }]) as any;}
         return createChain([{
           id: 'r-2',
           resourceId: 'vol-abc',
