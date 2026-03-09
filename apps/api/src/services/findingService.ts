@@ -403,67 +403,36 @@ export const findingService = {
       'idle_nat_gateway',
     ];
 
-    // Get unique resources with orphaned findings
-    const orphanedResources = await db
-      .select({ resourceId: findings.resourceId })
+    // Single query to classify each resource by its worst finding category:
+    // orphaned > critical > warning, using CASE/WHEN with priority
+    const healthCategories = await db
+      .select({
+        resourceId: findings.resourceId,
+        category: sql<string>`
+          CASE
+            WHEN bool_or(${findings.type} IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})) THEN 'orphaned'
+            WHEN bool_or(${findings.severity} = 'critical') THEN 'critical'
+            ELSE 'warning'
+          END
+        `.as('category'),
+      })
       .from(findings)
       .where(
         and(
           ...findingConditions,
-          sql`${findings.type} IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})`,
           sql`${findings.resourceId} IS NOT NULL`
         )
       )
       .groupBy(findings.resourceId);
 
-    const orphanedResourceIds = new Set(
-      orphanedResources.map(r => r.resourceId).filter(Boolean)
-    );
-
-    // Get unique resources with critical findings (excluding orphaned)
-    const criticalResources = await db
-      .select({ resourceId: findings.resourceId })
-      .from(findings)
-      .where(
-        and(
-          ...findingConditions,
-          eq(findings.severity, 'critical'),
-          sql`${findings.type} NOT IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})`,
-          sql`${findings.resourceId} IS NOT NULL`
-        )
-      )
-      .groupBy(findings.resourceId);
-
-    const criticalResourceIds = new Set(
-      criticalResources
-        .map(r => r.resourceId)
-        .filter(id => id && !orphanedResourceIds.has(id))
-    );
-
-    // Get unique resources with non-critical findings (high, medium, low, trivial), excluding orphaned
-    const warningResources = await db
-      .select({ resourceId: findings.resourceId })
-      .from(findings)
-      .where(
-        and(
-          ...findingConditions,
-          sql`${findings.severity} != 'critical'`,
-          sql`${findings.type} NOT IN (${sql.join(orphanedTypes.map(t => sql`${t}`), sql`, `)})`,
-          sql`${findings.resourceId} IS NOT NULL`
-        )
-      )
-      .groupBy(findings.resourceId);
-
-    // Warning resources are those with findings but not critical and not orphaned
-    const warningResourceIds = new Set(
-      warningResources
-        .map(r => r.resourceId)
-        .filter(id => id && !criticalResourceIds.has(id) && !orphanedResourceIds.has(id))
-    );
-
-    const orphaned = orphanedResourceIds.size;
-    const critical = criticalResourceIds.size;
-    const warning = warningResourceIds.size;
+    let orphaned = 0;
+    let critical = 0;
+    let warning = 0;
+    for (const row of healthCategories) {
+      if (row.category === 'orphaned') orphaned++;
+      else if (row.category === 'critical') critical++;
+      else warning++;
+    }
     const healthy = Math.max(0, total - critical - warning - orphaned);
 
     return {

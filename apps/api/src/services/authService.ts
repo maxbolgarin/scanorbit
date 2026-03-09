@@ -184,7 +184,15 @@ export const authService = {
     });
 
     // Send verification email (outside transaction - external operation)
-    await emailService.sendVerificationEmail(email, verificationCode, fullName);
+    // Wrapped in try-catch to prevent email delivery failures from crashing signup.
+    // The user record is already committed, so failing here would leave them stuck
+    // (can't retry signup due to "email exists", but never received the code).
+    try {
+      await emailService.sendVerificationEmail(email, verificationCode, fullName);
+    } catch (emailError) {
+      logger.error('Failed to send verification email during signup', emailError as Error, { email: email.toLowerCase() });
+      // User can request a new code via "resend verification" flow
+    }
 
     authOperationsTotal.inc({ operation: 'signup', status: 'success' });
 

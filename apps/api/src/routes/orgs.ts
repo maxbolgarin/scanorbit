@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
+import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { orgService } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
 import { setAuthTokens } from '../lib/authTokens.js';
@@ -11,6 +12,13 @@ const orgsRoute = new Hono<{ Variables: Variables }>();
 
 // All routes require authentication
 orgsRoute.use(requireAuth);
+// Block write operations when GDPR processing restriction is active (Article 18)
+orgsRoute.use('*', async (c, next) => {
+  if (c.req.method !== 'GET') {
+    return requireNoProcessingRestriction(c, next);
+  }
+  await next();
+});
 
 // Validation schemas
 const createOrgSchema = z.object({

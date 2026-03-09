@@ -291,16 +291,23 @@ try {
         logger.info('HTTP server closed, cleaning up connections');
 
         // Race cleanup against a timeout to prevent hanging on pool.end()/redis.quit()
-        const cleanup = Promise.allSettled([pool.end(), redis.quit()]);
+        const cleanup = Promise.allSettled([pool.end(), redis.quit()]).then((results) => {
+          const labels = ['database pool', 'redis'];
+          results.forEach((result, i) => {
+            if (result.status === 'rejected') {
+              logger.error(`Failed to close ${labels[i]}`, result.reason as Error);
+            }
+          });
+        });
         const timeout = new Promise<void>((resolve) => {
-          const t = setTimeout(resolve, 5_000);
+          const t = setTimeout(() => {
+            logger.warn('Connection cleanup timed out after 5s');
+            resolve();
+          }, 5_000);
           t.unref();
         });
 
         Promise.race([cleanup, timeout])
-          .catch((err) => {
-            logger.error('Error during connection cleanup', err as Error);
-          })
           .finally(() => {
             process.exit(0);
           });
