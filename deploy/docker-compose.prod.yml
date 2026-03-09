@@ -93,8 +93,8 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       # Network/Security
-      # Include Docker bridge subnet (172.20.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
-      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.20.0.0/16}
+      # Include Docker bridge subnet (172.21.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.21.0.0/16}
       # Email Configuration
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
       - EMAIL_FROM=${EMAIL_FROM:-}
@@ -711,4 +711,4 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.21.0.0/16

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
+import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { awsAccountService } from '../services/awsAccountService.js';
 import { HTTP400Error } from '../lib/errors.js';
 import type { Variables } from '../types/index.js';
@@ -10,6 +11,13 @@ const awsAccountsRoute = new Hono<{ Variables: Variables }>();
 
 // All routes require authentication
 awsAccountsRoute.use(requireAuth);
+// Block write operations when GDPR processing restriction is active (Article 18)
+awsAccountsRoute.use('*', async (c, next) => {
+  if (c.req.method !== 'GET') {
+    return requireNoProcessingRestriction(c, next);
+  }
+  await next();
+});
 
 // Scanner type enum for validation
 const scannerTypeEnum = z.enum([

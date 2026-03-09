@@ -338,11 +338,15 @@ export const accountLockoutStore = {
    */
   async checkLockout(email: string): Promise<{ locked: boolean; failedAttempts: number; remainingLockoutSeconds: number }> {
     const key = accountLockoutKey(email);
-    const [attempts, ttl] = await Promise.all([
-      redis.get(key),
-      redis.ttl(key),
-    ]);
-    const count = attempts ? parseInt(attempts, 10) : 0;
+    // Atomic read of both value and TTL via Lua to prevent race condition
+    // where the key could expire between separate GET and TTL calls
+    const result = await redis.eval(
+      'local v = redis.call("GET", KEYS[1]) local t = redis.call("TTL", KEYS[1]) return {v or "0", t}',
+      1,
+      key,
+    ) as [string, number];
+    const count = parseInt(result[0], 10) || 0;
+    const ttl = result[1];
 
     return {
       locked: count >= ACCOUNT_LOCKOUT_THRESHOLD,
