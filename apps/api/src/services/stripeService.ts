@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { orgs, users } from '../db/schema.js';
@@ -72,64 +72,68 @@ export const stripeService = {
    * Get or create a Stripe customer for an organization
    */
   async getOrCreateCustomer(orgId: string, userId: string): Promise<string> {
-    // Use a transaction with FOR UPDATE to prevent concurrent customer creation
-    return db.transaction(async (tx) => {
-      // Lock the org row to prevent race conditions
-      const [org] = await tx
-        .select({
-          stripeCustomerId: orgs.stripeCustomerId,
-          name: orgs.name,
-        })
+    // 1. Quick check without lock — avoid transaction for common case
+    const [orgCheck] = await db
+      .select({ stripeCustomerId: orgs.stripeCustomerId, name: orgs.name })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (!orgCheck) {
+      throw new HTTP404Error('Organization not found');
+    }
+
+    if (orgCheck.stripeCustomerId) {
+      return orgCheck.stripeCustomerId;
+    }
+
+    // 2. Get user email outside transaction
+    const [user] = await db
+      .select({ email: users.email, fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP404Error('User not found');
+    }
+
+    // 3. Create Stripe customer OUTSIDE transaction (avoids holding DB row lock during external HTTP call)
+    const customer = await getStripeClient().customers.create({
+      email: user.email,
+      name: user.fullName || orgCheck.name,
+      metadata: {
+        orgId,
+        userId,
+        userEmail: user.email,
+        userName: user.fullName || '',
+      },
+    });
+
+    // 4. Conditional UPDATE — only write if still null (prevents double-create race)
+    const [updated] = await db
+      .update(orgs)
+      .set({ stripeCustomerId: customer.id, updatedAt: new Date() })
+      .where(and(eq(orgs.id, orgId), isNull(orgs.stripeCustomerId)))
+      .returning({ stripeCustomerId: orgs.stripeCustomerId });
+
+    if (!updated) {
+      // Another concurrent request already set the customer ID — clean up orphan
+      try {
+        await getStripeClient().customers.del(customer.id);
+      } catch {
+        logger.warn('Failed to delete orphan Stripe customer', { customerId: customer.id });
+      }
+      const [org] = await db
+        .select({ stripeCustomerId: orgs.stripeCustomerId })
         .from(orgs)
         .where(eq(orgs.id, orgId))
-        .for('update')
         .limit(1);
+      return org!.stripeCustomerId!;
+    }
 
-      if (!org) {
-        throw new HTTP404Error('Organization not found');
-      }
-
-      // Return existing customer ID if available
-      if (org.stripeCustomerId) {
-        return org.stripeCustomerId;
-      }
-
-      // Get user email for the customer
-      const [user] = await tx
-        .select({ email: users.email, fullName: users.fullName })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-      if (!user) {
-        throw new HTTP404Error('User not found');
-      }
-
-      // Create new Stripe customer
-      const customer = await getStripeClient().customers.create({
-        email: user.email,
-        name: user.fullName || org.name,
-        metadata: {
-          orgId,
-          userId,
-          userEmail: user.email,
-          userName: user.fullName || '',
-        },
-      });
-
-      // Save customer ID to org (inside transaction)
-      await tx
-        .update(orgs)
-        .set({
-          stripeCustomerId: customer.id,
-          updatedAt: new Date(),
-        })
-        .where(eq(orgs.id, orgId));
-
-      logger.info('Created Stripe customer', { orgId, customerId: customer.id });
-
-      return customer.id;
-    });
+    logger.info('Created Stripe customer', { orgId, customerId: customer.id });
+    return customer.id;
   },
 
   /**
@@ -258,6 +262,11 @@ export const stripeService = {
     const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
     const newPriceId = getPriceIdForTier(targetTier);
 
+    const subscriptionItem = subscription.items.data[0];
+    if (!subscriptionItem) {
+      throw new HTTP400Error('Subscription has no active items. Please contact support.');
+    }
+
     // Update the subscription's price, keeping trial intact.
     // Do NOT update the org tier here — rely on the webhook
     // (customer.subscription.updated → handleSubscriptionChange) to update
@@ -267,7 +276,7 @@ export const stripeService = {
     await getStripeClient().subscriptions.update(org.stripeSubscriptionId, {
       items: [
         {
-          id: subscription.items.data[0].id,
+          id: subscriptionItem.id,
           price: newPriceId,
         },
       ],

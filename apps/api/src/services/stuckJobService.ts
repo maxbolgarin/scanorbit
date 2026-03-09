@@ -1,6 +1,6 @@
 import { db } from '../lib/db.js';
 import { jobs, scans, deadLetterJobs } from '../db/schema.js';
-import { eq, and, lt, inArray } from 'drizzle-orm';
+import { eq, and, lt, inArray, isNull } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { ACTIVE_SCAN_STATUSES, ScanStatus } from '../types/index.js';
 
@@ -139,49 +139,43 @@ export async function recoverStuckJobs(): Promise<StuckJobResult> {
 
     // 2. Find scans stuck in active state with no corresponding active job
     //    (orphaned scans where job was already completed/errored or deleted)
+    //    Single LEFT JOIN query instead of N+1 per-scan queries
     const orphanedScans = await db
       .select({ id: scans.id, status: scans.status, createdAt: scans.createdAt })
       .from(scans)
+      .leftJoin(
+        jobs,
+        and(
+          eq(jobs.scanId, scans.id),
+          inArray(jobs.status, ['queued', 'running'])
+        )
+      )
       .where(
         and(
           inArray(scans.status, ACTIVE_SCAN_STATUSES),
-          lt(scans.createdAt, cutoff)
+          lt(scans.createdAt, cutoff),
+          isNull(jobs.id)
         )
       );
 
     for (const scan of orphanedScans) {
-      // Check if there's any active job for this scan
-      const [activeJob] = await db
-        .select({ id: jobs.id })
-        .from(jobs)
-        .where(
-          and(
-            eq(jobs.scanId, scan.id),
-            inArray(jobs.status, ['queued', 'running'])
-          )
-        )
-        .limit(1);
+      try {
+        await db
+          .update(scans)
+          .set({
+            status: ScanStatus.ERROR,
+            errorMessage: 'Scan abandoned: no active worker processing this scan',
+            completedAt: new Date(),
+          })
+          .where(eq(scans.id, scan.id));
 
-      if (!activeJob) {
-        // No active job exists - mark scan as error
-        try {
-          await db
-            .update(scans)
-            .set({
-              status: ScanStatus.ERROR,
-              errorMessage: 'Scan abandoned: no active worker processing this scan',
-              completedAt: new Date(),
-            })
-            .where(eq(scans.id, scan.id));
-
-          result.stuckScansErrored++;
-          logger.warn('Orphaned scan marked as error', {
-            scanId: scan.id,
-            previousStatus: scan.status,
-          });
-        } catch (err) {
-          result.errors.push(`Failed to error orphaned scan ${scan.id}: ${(err as Error).message}`);
-        }
+        result.stuckScansErrored++;
+        logger.warn('Orphaned scan marked as error', {
+          scanId: scan.id,
+          previousStatus: scan.status,
+        });
+      } catch (err) {
+        result.errors.push(`Failed to error orphaned scan ${scan.id}: ${(err as Error).message}`);
       }
     }
   } catch (err) {

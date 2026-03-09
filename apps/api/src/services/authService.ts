@@ -4,7 +4,7 @@ import { eq, and } from 'drizzle-orm';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../lib/db.js';
 import { jwt } from '../lib/jwt.js';
-import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
+import { HTTP400Error, HTTP401Error, HTTP403Error, HTTP409Error } from '../lib/errors.js';
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../db/schema.js';
 import type { User, Org } from '../db/schema.js';
 import { emailService } from './emailService.js';
@@ -63,12 +63,12 @@ function generateVerificationCode(): string {
  * how long comparison takes to narrow down valid codes
  */
 function secureCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  const bufA = Buffer.from(a, 'utf8');
-  const bufB = Buffer.from(b, 'utf8');
-  return timingSafeEqual(bufA, bufB);
+  const maxLen = Math.max(a.length, b.length, 1);
+  const bufA = Buffer.alloc(maxLen);
+  const bufB = Buffer.alloc(maxLen);
+  Buffer.from(a, 'utf8').copy(bufA);
+  Buffer.from(b, 'utf8').copy(bufB);
+  return a.length === b.length && timingSafeEqual(bufA, bufB);
 }
 
 // Generate URL-safe slug from org name
@@ -248,6 +248,9 @@ export const authService = {
       })
       .where(eq(users.id, user.id));
 
+    // Invalidate existing sessions so user re-authenticates with verified status
+    await refreshTokenStore.revokeAllForUser(user.id);
+
     return { success: true, message: 'Email verified successfully' };
   },
 
@@ -269,7 +272,8 @@ export const authService = {
     }
 
     if (user.emailVerified) {
-      throw new HTTP400Error('Email already verified');
+      // Return same generic message to prevent account enumeration
+      return { message: 'If an account exists with this email, a verification code will be sent.' };
     }
 
     // Generate new verification code
@@ -484,7 +488,7 @@ export const authService = {
       .limit(1);
 
     if (!membership) {
-      throw new HTTP401Error('You do not have access to this organization');
+      throw new HTTP403Error('You do not have access to this organization');
     }
 
     // Access verified - token generation is handled by the route
@@ -560,26 +564,22 @@ export const authService = {
   ): Promise<{ success: boolean; signupToken: string }> {
     const normalizedEmail = email.toLowerCase();
 
-    // Check rate limit
-    const attempts = await signupCodes.checkAttempts(normalizedEmail);
-    if (!attempts.allowed) {
-      throw new HTTP400Error('Too many attempts. Please wait 15 minutes and try again.');
-    }
-
-    // Increment attempts
-    await signupCodes.incrementAttempts(normalizedEmail);
-
-    // Get stored code
+    // Get stored code first — expired codes should not burn attempts
     const storedCode = await signupCodes.getCode(normalizedEmail);
     if (!storedCode) {
       throw new HTTP400Error('Verification code expired. Please request a new one.');
     }
 
+    // Atomic rate limit check + increment (prevents TOCTOU race)
+    const attempts = await signupCodes.checkAndIncrementAttempts(normalizedEmail);
+    if (!attempts.allowed) {
+      throw new HTTP400Error('Too many attempts. Please wait 15 minutes and try again.');
+    }
+
     // Compare codes using constant-time comparison to prevent timing attacks
     if (!secureCompare(storedCode, code)) {
-      const remaining = attempts.attemptsRemaining - 1;
       throw new HTTP400Error(
-        `Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+        `Invalid verification code. ${attempts.attemptsRemaining} attempt${attempts.attemptsRemaining !== 1 ? 's' : ''} remaining.`
       );
     }
 
@@ -880,12 +880,14 @@ export const authService = {
    * Verify OAuth state parameter
    */
   async verifyOAuthState(state: string): Promise<boolean> {
-    const exists = await redis.get(`oauth_state:${state}`);
-    if (exists) {
-      await redis.del(`oauth_state:${state}`);
-      return true;
-    }
-    return false;
+    // Atomic GET + DEL to prevent concurrent requests from both consuming the same state token (CSRF bypass)
+    const key = `oauth_state:${state}`;
+    const result = await redis.eval(
+      'local v = redis.call("GET", KEYS[1]) if v then redis.call("DEL", KEYS[1]) end return v',
+      1,
+      key,
+    ) as string | null;
+    return result !== null;
   },
 
   /**
@@ -915,7 +917,8 @@ export const authService = {
 
     // Exchange code for tokens
     const { tokens } = await googleClient.getToken(code);
-    googleClient.setCredentials(tokens);
+    // Note: Do NOT call googleClient.setCredentials(tokens) — it mutates the shared singleton
+    // and verifyIdToken does not need credentials set on the client.
 
     // Verify and decode ID token
     const ticket = await googleClient.verifyIdToken({
@@ -998,8 +1001,13 @@ export const authService = {
       .limit(1);
 
     if (existingUser.length > 0) {
-      // Link Google account to existing user
-      await this.linkGoogleAccount(existingUser[0].id, googleUser);
+      // Link Google account to existing user (catch duplicate if concurrent request already linked)
+      try {
+        await this.linkGoogleAccount(existingUser[0].id, googleUser);
+      } catch (error) {
+        if ((error as { code?: string }).code !== '23505') throw error;
+        // Already linked by concurrent request, continue to login
+      }
 
       // Mark email as verified if Google says it's verified
       if (googleUser.emailVerified && !existingUser[0].emailVerified) {
@@ -1264,8 +1272,13 @@ export const authService = {
       .limit(1);
 
     if (existingUser.length > 0) {
-      // Link GitHub account to existing user
-      await this.linkGithubAccount(existingUser[0].id, githubUser);
+      // Link GitHub account to existing user (catch duplicate if concurrent request already linked)
+      try {
+        await this.linkGithubAccount(existingUser[0].id, githubUser);
+      } catch (error) {
+        if ((error as { code?: string }).code !== '23505') throw error;
+        // Already linked by concurrent request, continue to login
+      }
 
       // Mark email as verified if GitHub says it's verified
       if (githubUser.emailVerified && !existingUser[0].emailVerified) {
@@ -1393,30 +1406,38 @@ export const authService = {
       const googleUser = data.googleUser as GoogleUserInfo;
       const normalizedEmail = googleUser.email.toLowerCase();
 
-      const newUser = await db.transaction(async (tx) => {
-        const [user] = await tx
-          .insert(users)
-          .values({
-            email: normalizedEmail,
-            passwordHash: null,
-            fullName: googleUser.fullName || '',
-            emailVerified: googleUser.emailVerified,
-          })
-          .returning({ id: users.id, email: users.email, fullName: users.fullName });
+      let newUser;
+      try {
+        newUser = await db.transaction(async (tx) => {
+          const [user] = await tx
+            .insert(users)
+            .values({
+              email: normalizedEmail,
+              passwordHash: null,
+              fullName: googleUser.fullName || '',
+              emailVerified: googleUser.emailVerified,
+            })
+            .returning({ id: users.id, email: users.email, fullName: users.fullName });
 
-        await tx.insert(userOauthAccounts).values({
-          userId: user.id,
-          provider: 'google',
-          providerUserId: googleUser.googleId,
-          providerEmail: googleUser.email,
-          accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
-          refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
-          tokenExpiresAt: googleUser.tokenExpiresAt ?? null,
-          rawProfile: googleUser.rawProfile,
+          await tx.insert(userOauthAccounts).values({
+            userId: user.id,
+            provider: 'google',
+            providerUserId: googleUser.googleId,
+            providerEmail: googleUser.email,
+            accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
+            refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
+            tokenExpiresAt: googleUser.tokenExpiresAt ?? null,
+            rawProfile: googleUser.rawProfile,
+          });
+
+          return user;
         });
-
-        return user;
-      });
+      } catch (error) {
+        if ((error as { code?: string }).code === '23505') {
+          throw new HTTP409Error('An account with this email already exists. Please sign in instead.');
+        }
+        throw error;
+      }
 
       await consentService.logConsent({
         userId: newUser.id,
@@ -1434,30 +1455,38 @@ export const authService = {
       const githubUser = data.githubUser as GitHubUserInfo;
       const normalizedEmail = githubUser.email.toLowerCase();
 
-      const newUser = await db.transaction(async (tx) => {
-        const [user] = await tx
-          .insert(users)
-          .values({
-            email: normalizedEmail,
-            passwordHash: null,
-            fullName: githubUser.fullName || '',
-            emailVerified: githubUser.emailVerified,
-          })
-          .returning({ id: users.id, email: users.email, fullName: users.fullName });
+      let newUser;
+      try {
+        newUser = await db.transaction(async (tx) => {
+          const [user] = await tx
+            .insert(users)
+            .values({
+              email: normalizedEmail,
+              passwordHash: null,
+              fullName: githubUser.fullName || '',
+              emailVerified: githubUser.emailVerified,
+            })
+            .returning({ id: users.id, email: users.email, fullName: users.fullName });
 
-        await tx.insert(userOauthAccounts).values({
-          userId: user.id,
-          provider: 'github',
-          providerUserId: githubUser.githubId,
-          providerEmail: githubUser.email,
-          accessToken: encryptOAuthTokenOptional(githubUser.accessToken),
-          refreshToken: null,
-          tokenExpiresAt: null,
-          rawProfile: githubUser.rawProfile,
+          await tx.insert(userOauthAccounts).values({
+            userId: user.id,
+            provider: 'github',
+            providerUserId: githubUser.githubId,
+            providerEmail: githubUser.email,
+            accessToken: encryptOAuthTokenOptional(githubUser.accessToken),
+            refreshToken: null,
+            tokenExpiresAt: null,
+            rawProfile: githubUser.rawProfile,
+          });
+
+          return user;
         });
-
-        return user;
-      });
+      } catch (error) {
+        if ((error as { code?: string }).code === '23505') {
+          throw new HTTP409Error('An account with this email already exists. Please sign in instead.');
+        }
+        throw error;
+      }
 
       await consentService.logConsent({
         userId: newUser.id,
@@ -1544,7 +1573,8 @@ export const authService = {
    */
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
     // Get email from Redis using token
-    const email = await passwordResetStore.getEmail(token);
+    // Atomically consume token (GET + DEL) to prevent concurrent double-use
+    const email = await passwordResetStore.consumeToken(token);
 
     if (!email) {
       authOperationsTotal.inc({ operation: 'password_reset', status: 'invalid_token' });
@@ -1559,8 +1589,6 @@ export const authService = {
       .limit(1);
 
     if (!user) {
-      // This shouldn't happen, but handle gracefully
-      await passwordResetStore.deleteToken(token);
       throw new HTTP400Error('Invalid or expired reset link. Please request a new password reset.');
     }
 
@@ -1575,9 +1603,6 @@ export const authService = {
         updatedAt: new Date(),
       })
       .where(eq(users.id, user.id));
-
-    // Delete token from Redis (single-use)
-    await passwordResetStore.deleteToken(token);
 
     // Revoke all refresh tokens for this user (logout from all devices)
     // This is a security measure - password reset should invalidate all sessions

@@ -295,8 +295,8 @@ export const orgService = {
       throw new HTTP404Error('Organization not found');
     }
 
-    // Safely get tier (handles missing column)
-    const tier = await getOrgTier(orgId);
+    // Use already-fetched tier from org query (avoids redundant DB call)
+    const tier = (org.tier || 'free') as SubscriptionTier;
     const limits = TIER_LIMITS[tier];
 
     // Determine scan status
@@ -425,9 +425,14 @@ export const orgService = {
       if (org?.stripeSubscriptionId && ['active', 'trialing'].includes(org.subscriptionStatus || '')) {
         await stripeService.cancelSubscription(orgId, userId, false);
       }
+
+      // Do NOT update tier here — rely on the webhook (consistent with switchPlan's design).
+      // The webhook will set tier to 'free' after Stripe confirms the cancellation.
+      logger.info('Subscription cancellation initiated, awaiting webhook confirmation', { orgId });
+      return { tier: 'free' as SubscriptionTier };
     }
 
-    // Update org tier
+    // Only directly update tier when Stripe is NOT configured (development/testing)
     const [updated] = await db
       .update(orgs)
       .set({

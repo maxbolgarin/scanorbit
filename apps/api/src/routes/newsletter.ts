@@ -25,7 +25,7 @@ newsletterRoute.post(
     const { email, name } = c.req.valid('json');
 
     // Fire-and-forget: always return success to prevent email enumeration
-    await listmonkService.subscribe(email, name);
+    listmonkService.subscribe(email, name).catch(() => {});
     sendImmediate({ sequenceName: 'subscribers', email, name }).catch(() => {});
 
     return c.json({

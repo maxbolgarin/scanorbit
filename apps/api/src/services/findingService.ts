@@ -85,24 +85,24 @@ export const findingService = {
       throw new HTTP404Error('Finding not found');
     }
 
-    // Get associated resource if exists
+    // Get associated resource if exists (scoped to org to prevent cross-org data leakage)
     let resource = null;
     if (finding.resourceId) {
       const [r] = await db
         .select()
         .from(resources)
-        .where(eq(resources.id, finding.resourceId))
+        .where(and(eq(resources.id, finding.resourceId), eq(resources.orgId, orgId)))
         .limit(1);
       resource = r ?? null;
     }
 
-    // Get associated certificate if exists
+    // Get associated certificate if exists (scoped to org to prevent cross-org data leakage)
     let certificate = null;
     if (finding.certificateId) {
       const [c] = await db
         .select()
         .from(certificates)
-        .where(eq(certificates.id, finding.certificateId))
+        .where(and(eq(certificates.id, finding.certificateId), eq(certificates.orgId, orgId)))
         .limit(1);
       certificate = c ?? null;
     }
@@ -222,7 +222,14 @@ export const findingService = {
         {} as Record<string, number>
       ),
       byTypeSeverity: typeSeverities.reduce(
-        (acc, item) => ({ ...acc, [item.type]: item.severity }),
+        (acc, item) => {
+          const severityPriority: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0 };
+          const current = acc[item.type];
+          if (!current || (severityPriority[item.severity] ?? 0) > (severityPriority[current] ?? 0)) {
+            acc[item.type] = item.severity;
+          }
+          return acc;
+        },
         {} as Record<string, string>
       ),
     };

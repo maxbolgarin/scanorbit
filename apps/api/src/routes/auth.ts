@@ -11,6 +11,7 @@ import { twoFactorStore, refreshTokenStore } from '../lib/redis.js';
 import { jwt } from '../lib/jwt.js';
 import { HTTP401Error } from '../lib/errors.js';
 import { getClientIP } from '../lib/ip.js';
+import { logger } from '../lib/logger.js';
 import { setAuthTokens } from '../lib/authTokens.js';
 import { listmonkService } from '../services/listmonkService.js';
 import { sendImmediate } from '../services/dripSchedulerService.js';
@@ -277,7 +278,15 @@ authRoute.post('/refresh', async (c) => {
 
     // Get user's current org membership
     const { orgs } = await authService.getMe(payload.userId);
-    const orgId = orgs[0]?.id ?? null;
+
+    // Preserve org context: use requested orgId if provided and valid, otherwise fall back to first org
+    const requestedOrgId = c.req.query('orgId');
+    let orgId: string | null;
+    if (requestedOrgId && orgs.some((o: { id: string }) => o.id === requestedOrgId)) {
+      orgId = requestedOrgId;
+    } else {
+      orgId = orgs[0]?.id ?? null;
+    }
 
     // Issue new access token only (refresh token stays the same until it expires)
     const accessToken = await jwt.signAccessToken({ userId: payload.userId, orgId });
@@ -709,8 +718,9 @@ authRoute.get('/google/callback', async (c) => {
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
     return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'oauth_failed';
-    return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
+    // Log real error for debugging but only send opaque code to frontend (prevents internal error leakage)
+    logger.warn('Google OAuth callback error', { error: err instanceof Error ? err.message : 'unknown' });
+    return c.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
   }
 });
 
@@ -770,8 +780,12 @@ authRoute.get('/github/callback', async (c) => {
 
   // User denied access or other error
   if (error) {
-    const errorMsg = error === 'access_denied' ? 'oauth_denied' : (errorDescription || 'oauth_failed');
-    return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMsg)}`);
+    // Map to opaque error codes — do not reflect raw error_description to prevent information leakage
+    const errorMsg = error === 'access_denied' ? 'oauth_denied' : 'oauth_failed';
+    if (errorDescription) {
+      logger.warn('GitHub OAuth error', { error, errorDescription });
+    }
+    return c.redirect(`${config.frontendUrl}/login?error=${errorMsg}`);
   }
 
   // Missing required parameters
@@ -803,8 +817,8 @@ authRoute.get('/github/callback', async (c) => {
     const redirectPath = result.hasOrg ? '/overview' : '/onboarding/org';
     return c.redirect(`${config.frontendUrl}${redirectPath}?oauth=success`);
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'oauth_failed';
-    return c.redirect(`${config.frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
+    logger.warn('GitHub OAuth callback error', { error: err instanceof Error ? err.message : 'unknown' });
+    return c.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
   }
 });
 
