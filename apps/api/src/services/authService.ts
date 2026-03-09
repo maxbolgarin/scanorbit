@@ -627,19 +627,29 @@ export const authService = {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     // Create user (emailVerified: true since we verified the code)
-    const [user] = await db
-      .insert(users)
-      .values({
-        email,
-        passwordHash,
-        fullName: '',
-        emailVerified: true,
-      })
-      .returning({
-        id: users.id,
-        email: users.email,
-        fullName: users.fullName,
-      });
+    let user;
+    try {
+      [user] = await db
+        .insert(users)
+        .values({
+          email,
+          passwordHash,
+          fullName: '',
+          emailVerified: true,
+        })
+        .returning({
+          id: users.id,
+          email: users.email,
+          fullName: users.fullName,
+        });
+    } catch (err: unknown) {
+      // Handle race condition: unique constraint violation on email
+      const dbError = err as { code?: string; constraint?: string };
+      if (dbError.code === '23505') {
+        throw new HTTP400Error('Unable to complete registration. Please try again or contact support.');
+      }
+      throw err;
+    }
 
     // Log consent for GDPR compliance
     await consentService.logSignupConsent({

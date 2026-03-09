@@ -154,6 +154,15 @@ export function startDripScheduler(): void {
     logger.info('[Drip] Listmonk not configured, skipping scheduler');
     return;
   }
-  setInterval(runDripScheduler, POLL_INTERVAL_MS);
+
+  const safeRunDripScheduler = async (): Promise<void> => {
+    try {
+      await runDripScheduler();
+    } catch (error) {
+      logger.error('[Drip] Unhandled error in scheduler tick', error as Error);
+    }
+  };
+
+  setInterval(safeRunDripScheduler, POLL_INTERVAL_MS);
   logger.info('[Drip] Scheduler started (checks every 60s, runs at 9 AM CET)');
 }

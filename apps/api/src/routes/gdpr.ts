@@ -17,6 +17,7 @@ import { logDataAccess } from '../middlewares/auditLog.js';
 import { consentService } from '../services/consentService.js';
 import { listmonkService } from '../services/listmonkService.js';
 import { getClientIP } from '../lib/ip.js';
+import { HTTP400Error, HTTP404Error, HTTP409Error } from '../lib/errors.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import type { Variables } from '../types/index.js';
 
@@ -44,7 +45,7 @@ gdpr.get('/export', async (c) => {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
 
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   // Get user's org memberships
@@ -87,7 +88,7 @@ gdpr.get('/export', async (c) => {
       )
     )
     .orderBy(desc(auditLogs.timestamp))
-    .limit(1000);
+    .limit(10_000);
 
   // Get billing data from user's organizations
   const billingData = await db
@@ -194,7 +195,7 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
 
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   // Check for existing pending request
@@ -209,11 +210,7 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
     );
 
   if (existingRequest.length > 0) {
-    return c.json({
-      error: 'A deletion request is already pending',
-      requestId: existingRequest[0].id,
-      requestedAt: existingRequest[0].requestedAt,
-    }, 409);
+    throw new HTTP409Error('A deletion request is already pending');
   }
 
   // Create deletion request with 30-day grace period
@@ -272,7 +269,7 @@ gdpr.delete('/delete/:requestId', async (c) => {
     );
 
   if (!request) {
-    return c.json({ error: 'Deletion request not found or already processed' }, 404);
+    throw new HTTP404Error('Deletion request not found or already processed');
   }
 
   // Cancel the request
@@ -384,7 +381,7 @@ gdpr.get('/consent/marketing', async (c) => {
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   const [latestConsent] = await db
@@ -418,7 +415,7 @@ gdpr.put('/consent/marketing', zValidator('json', marketingConsentSchema), async
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   // Log consent change (immutable record)
@@ -458,7 +455,7 @@ gdpr.get('/consent/history', async (c) => {
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   const history = await consentService.getConsentHistory(user.email);
@@ -481,7 +478,7 @@ gdpr.get('/profile', async (c) => {
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   return c.json({
@@ -505,12 +502,12 @@ gdpr.patch('/profile', zValidator('json', updateProfileSchema), async (c) => {
   const updates = c.req.valid('json');
 
   if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'No updates provided' }, 400);
+    throw new HTTP400Error('No updates provided');
   }
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   const [updated] = await db
@@ -552,7 +549,7 @@ gdpr.get('/restriction', async (c) => {
     .where(eq(users.id, userId));
 
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   return c.json({
@@ -574,7 +571,7 @@ gdpr.put('/restriction', zValidator('json', restrictionSchema), async (c) => {
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
-    return c.json({ error: 'User not found' }, 404);
+    throw new HTTP404Error('User not found');
   }
 
   await db

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
+import { requireOrgId } from '../middlewares/requireOrgId.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { awsAccountService } from '../services/awsAccountService.js';
 import { HTTP400Error } from '../lib/errors.js';
@@ -9,8 +10,9 @@ import type { Variables } from '../types/index.js';
 
 const awsAccountsRoute = new Hono<{ Variables: Variables }>();
 
-// All routes require authentication
+// All routes require authentication and org context
 awsAccountsRoute.use(requireAuth);
+awsAccountsRoute.use(requireOrgId);
 // Block write operations when GDPR processing restriction is active (Article 18)
 awsAccountsRoute.use('*', async (c, next) => {
   if (c.req.method !== 'GET') {
@@ -48,11 +50,6 @@ const updateScannersSchema = z.object({
 // GET /aws/accounts - List AWS accounts
 awsAccountsRoute.get('/', async (c) => {
   const orgId = c.get('orgId');
-
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
-
   const accounts = await awsAccountService.getAccounts(orgId);
   return c.json({ data: accounts });
 });
@@ -60,11 +57,6 @@ awsAccountsRoute.get('/', async (c) => {
 // POST /aws/accounts - Create AWS account
 awsAccountsRoute.post('/', zValidator('json', createAccountSchema), async (c) => {
   const orgId = c.get('orgId');
-
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
-
   const data = c.req.valid('json');
   const account = await awsAccountService.createAccount(orgId, data);
   return c.json({ data: account }, 201);
@@ -74,10 +66,6 @@ awsAccountsRoute.post('/', zValidator('json', createAccountSchema), async (c) =>
 awsAccountsRoute.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const accountId = c.req.param('id');
-
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');
@@ -91,10 +79,6 @@ awsAccountsRoute.get('/:id', async (c) => {
 awsAccountsRoute.delete('/:id', async (c) => {
   const orgId = c.get('orgId');
   const accountId = c.req.param('id');
-
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');
@@ -131,10 +115,6 @@ awsAccountsRoute.post('/:id/test', async (c) => {
   const orgId = c.get('orgId');
   const accountId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
-
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');
   }
@@ -148,10 +128,6 @@ awsAccountsRoute.post('/:id/scan', async (c) => {
   const orgId = c.get('orgId');
   const accountId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
-
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');
   }
@@ -164,10 +140,6 @@ awsAccountsRoute.post('/:id/scan', async (c) => {
 awsAccountsRoute.get('/:id/scans', async (c) => {
   const orgId = c.get('orgId');
   const accountId = c.req.param('id');
-
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');

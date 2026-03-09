@@ -179,12 +179,14 @@ export const dependencyService = {
 
   /**
    * Get all dependencies for an organization (for graph visualization)
+   * Limited to 10,000 records to prevent memory issues on large orgs.
    */
   async getAllDependencies(orgId: string): Promise<ResourceDependency[]> {
     return await db
       .select()
       .from(resourceDependencies)
-      .where(eq(resourceDependencies.orgId, orgId));
+      .where(eq(resourceDependencies.orgId, orgId))
+      .limit(10_000);
   },
 
   /**
