@@ -18,6 +18,10 @@ build/
 .env.*.local
 .env.production
 .env.prod
+.env.backup*
+
+# Docker secrets (production)
+deploy/secrets/
 
 .ssh
 
@@ -69,3 +73,4 @@ docker-compose.override.yml
 tmp/
 temp/
 .cache/
+
