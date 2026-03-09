@@ -27,8 +27,8 @@
     "db:reset": "pnpm --filter @scanorbit/api db:reset"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3",
-    "turbo": "^2.8.13",
+    "@types/node": "^25.4.0",
+    "turbo": "^2.8.14",
     "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@10.27.0",
