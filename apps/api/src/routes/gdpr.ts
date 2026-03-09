@@ -621,4 +621,135 @@ gdpr.put('/restriction', zValidator('json', restrictionSchema), async (c) => {
   return c.json({ restricted: updated.processingRestricted, restrictedAt: updated.processingRestrictedAt });
 });
 
+// =============================================================================
+// GET /api/gdpr/objection - Get processing objection status (GDPR Article 21)
+// =============================================================================
+gdpr.get('/objection', async (c) => {
+  const userId = c.get('userId');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    throw new HTTP404Error('User not found');
+  }
+
+  // Get the latest objection consent record
+  const [latestObjection] = await db
+    .select()
+    .from(consentLogs)
+    .where(
+      and(
+        eq(consentLogs.userId, userId),
+        eq(consentLogs.consentType, 'objection')
+      )
+    )
+    .orderBy(desc(consentLogs.consentedAt))
+    .limit(1);
+
+  return c.json({
+    objectionActive: latestObjection?.consentGiven === false,
+    reason: latestObjection?.metadata && typeof latestObjection.metadata === 'object' && 'reason' in latestObjection.metadata
+      ? (latestObjection.metadata as Record<string, unknown>).reason
+      : null,
+    lastUpdated: latestObjection?.consentedAt ?? null,
+  });
+});
+
+// =============================================================================
+// POST /api/gdpr/objection - Object to processing (GDPR Article 21)
+// =============================================================================
+const objectionSchema = z.object({
+  processingActivity: z.enum(['analytics', 'audit_logging', 'marketing']),
+  reason: z.string().min(1).max(1000),
+});
+
+gdpr.post('/objection', zValidator('json', objectionSchema), async (c) => {
+  const userId = c.get('userId');
+  const { processingActivity, reason } = c.req.valid('json');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    throw new HTTP404Error('User not found');
+  }
+
+  // Log the objection as an immutable consent record
+  await consentService.logConsent({
+    userId,
+    email: user.email,
+    consentType: 'objection',
+    consentGiven: false, // Objection = withdrawal of consent for this activity
+    ipAddress: getClientIP(c),
+    userAgent: c.req.header('user-agent'),
+    metadata: {
+      processingActivity,
+      reason,
+      action: 'objection_submitted',
+    },
+  });
+
+  // If objecting to marketing, also unsubscribe from Listmonk
+  if (processingActivity === 'marketing') {
+    await listmonkService.unsubscribe(user.email);
+  }
+
+  // Audit log
+  await logDataAccess(
+    userId,
+    'update',
+    '/gdpr/objection',
+    getClientIP(c) || null,
+    c.req.header('user-agent') || null
+  );
+
+  return c.json({
+    message: 'Objection recorded',
+    processingActivity,
+    note: 'Your objection has been logged and will be reviewed. We will respond within 30 days as required by GDPR Article 21.',
+  }, 201);
+});
+
+// =============================================================================
+// DELETE /api/gdpr/objection - Withdraw objection (GDPR Article 21)
+// =============================================================================
+const withdrawObjectionSchema = z.object({
+  processingActivity: z.enum(['analytics', 'audit_logging', 'marketing']),
+});
+
+gdpr.delete('/objection', zValidator('json', withdrawObjectionSchema), async (c) => {
+  const userId = c.get('userId');
+  const { processingActivity } = c.req.valid('json');
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) {
+    throw new HTTP404Error('User not found');
+  }
+
+  // Log withdrawal of objection
+  await consentService.logConsent({
+    userId,
+    email: user.email,
+    consentType: 'objection',
+    consentGiven: true, // Consent reinstated
+    ipAddress: getClientIP(c),
+    userAgent: c.req.header('user-agent'),
+    metadata: {
+      processingActivity,
+      action: 'objection_withdrawn',
+    },
+  });
+
+  // Audit log
+  await logDataAccess(
+    userId,
+    'update',
+    '/gdpr/objection',
+    getClientIP(c) || null,
+    c.req.header('user-agent') || null
+  );
+
+  return c.json({
+    message: 'Objection withdrawn',
+    processingActivity,
+  });
+});
+
 export default gdpr;

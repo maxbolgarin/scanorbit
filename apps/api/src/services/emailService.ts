@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { config } from '../lib/config.js';
+import { logger } from '../lib/logger.js';
 
 // Brand colors for ScanOrbit
 const BRAND = {
@@ -45,12 +46,12 @@ function getSmtpTransporter(): Transporter | null {
 
   // Check if SMTP is configured
   if (!config.email.smtp.host || !config.email.smtp.user) {
-    console.warn('SMTP not configured: missing host or user');
+    logger.warn('SMTP not configured: missing host or user');
     return null;
   }
 
   if (!config.email.smtp.pass) {
-    console.warn('SMTP not configured: missing password');
+    logger.warn('SMTP not configured: missing password');
     return null;
   }
 
@@ -86,7 +87,7 @@ function getResendClient(): Resend | null {
   if (resendClient) return resendClient;
 
   if (!config.email.resend.apiKey) {
-    console.warn('Resend not configured: missing API key');
+    logger.warn('Resend not configured: missing API key');
     return null;
   }
 
@@ -116,15 +117,15 @@ async function sendViaResend(
     });
 
     if (error) {
-      console.error('Resend API error:', error);
+      logger.error('Resend API error', error);
       return { success: false, error: error.message };
     }
 
-    console.log(`Email sent via Resend to ${maskEmail(to)}, id: ${data?.id}`);
+    logger.info(`Email sent via Resend to ${maskEmail(to)}`, { messageId: data?.id });
     return { success: true, messageId: data?.id };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Failed to send email via Resend:', errorMessage);
+    logger.error('Failed to send email via Resend', undefined, { error: errorMessage });
     return { success: false, error: errorMessage };
   }
 }
@@ -153,14 +154,12 @@ async function sendViaSmtp(
       html,
     });
 
-    console.log(`Email sent via SMTP to ${maskEmail(to)}, messageId: ${info.messageId}`);
+    logger.info(`Email sent via SMTP to ${maskEmail(to)}`, { messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = error instanceof Error ? error.stack : String(error);
-    console.error('Failed to send email via SMTP:', {
+    logger.error('Failed to send email via SMTP', undefined, {
       error: errorMessage,
-      details: errorDetails,
       smtpHost: config.email.smtp.host,
       smtpPort: config.email.smtp.port,
       smtpUser: config.email.smtp.user ? '***configured***' : 'missing',
@@ -427,12 +426,7 @@ https://scanorbit.io
 
 // Log email in development
 function logEmail(to: string, subject: string, text: string): void {
-  console.log('\n========== EMAIL (DEV MODE) ==========');
-  console.log(`To: ${to}`);
-  console.log(`Subject: ${subject}`);
-  console.log('---------------------------------------');
-  console.log(text);
-  console.log('=======================================\n');
+  logger.debug('Email (dev mode)', { to, subject, body: text });
 }
 
 // Trial ending email HTML
@@ -610,7 +604,7 @@ export const emailService = {
           provider: 'resend',
         };
       }
-      console.log('Resend API configured (API key present)');
+      logger.info('Resend API configured (API key present)');
       return { success: true, provider: 'resend' };
     }
 
@@ -626,11 +620,11 @@ export const emailService = {
 
     try {
       await transport.verify();
-      console.log('SMTP connection verified successfully');
+      logger.info('SMTP connection verified successfully');
       return { success: true, provider: 'smtp' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('SMTP connection verification failed:', {
+      logger.error('SMTP connection verification failed', undefined, {
         error: errorMessage,
         smtpHost: config.email.smtp.host,
         smtpPort: config.email.smtp.port,
