@@ -18,11 +18,11 @@ type FindingType string
 
 const (
 	// Orphan findings
-	FindingOrphanedVolume   FindingType = "orphaned_volume"
-	FindingOrphanedEIP      FindingType = "orphaned_eip"
-	FindingOrphanedSnapshot FindingType = "orphaned_snapshot"
-	FindingOrphanedENI      FindingType = "orphaned_eni"
-	FindingIdleLoadBalancer FindingType = "idle_load_balancer"
+	FindingOrphanedVolume      FindingType = "orphaned_volume"
+	FindingOrphanedEIP         FindingType = "orphaned_eip"
+	FindingOrphanedSnapshot    FindingType = "orphaned_snapshot"
+	FindingOrphanedENI         FindingType = "orphaned_eni"
+	FindingIdleLoadBalancer    FindingType = "idle_load_balancer"
 	FindingUnusedSecurityGroup FindingType = "unused_security_group"
 	// SSL findings
 	FindingSSLExpiry FindingType = "ssl_expiry"
@@ -46,23 +46,23 @@ const (
 	FindingIdleNATGateway    FindingType = "idle_nat_gateway"
 	FindingOversizedInstance FindingType = "oversized_instance"
 	// Cost optimization findings
-	FindingEBSOptimization  FindingType = "ebs_optimization"
-	FindingOldGenInstance   FindingType = "old_gen_instance"
-	FindingOversizedLambda  FindingType = "oversized_lambda"
-	FindingLogRetention     FindingType = "log_retention"
-	FindingUnusedKMSKey     FindingType = "unused_kms_key"
-	FindingRDSOptimization  FindingType = "rds_optimization"
-	FindingOldGenRDS        FindingType = "old_gen_rds"
+	FindingEBSOptimization FindingType = "ebs_optimization"
+	FindingOldGenInstance  FindingType = "old_gen_instance"
+	FindingOversizedLambda FindingType = "oversized_lambda"
+	FindingLogRetention    FindingType = "log_retention"
+	FindingUnusedKMSKey    FindingType = "unused_kms_key"
+	FindingRDSOptimization FindingType = "rds_optimization"
+	FindingOldGenRDS       FindingType = "old_gen_rds"
 	// Tagging findings
 	FindingMissingTag FindingType = "missing_tag"
 	// IAM findings
-	FindingOldAccessKey          FindingType = "old_access_key"
-	FindingUnusedAccessKey       FindingType = "unused_access_key"
-	FindingUnusedIAMRole         FindingType = "unused_iam_role"
-	FindingUserWithoutMFA        FindingType = "user_without_mfa"
-	FindingRootAccountUsage      FindingType = "root_account_usage"
+	FindingOldAccessKey           FindingType = "old_access_key"
+	FindingUnusedAccessKey        FindingType = "unused_access_key"
+	FindingUnusedIAMRole          FindingType = "unused_iam_role"
+	FindingUserWithoutMFA         FindingType = "user_without_mfa"
+	FindingRootAccountUsage       FindingType = "root_account_usage"
 	FindingOverlyPermissivePolicy FindingType = "overly_permissive_policy"
-	FindingCrossAccountTrust     FindingType = "cross_account_trust"
+	FindingCrossAccountTrust      FindingType = "cross_account_trust"
 )
 
 // FindingStatus represents the status of a finding.

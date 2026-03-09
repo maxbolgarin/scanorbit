@@ -98,7 +98,7 @@ func (s *findingScanStore) GetByScanID(ctx context.Context, scanID string) ([]*m
 	}
 	defer rows.Close()
 
-	var records []*models.FindingScan
+	var records []*models.FindingScan //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var r models.FindingScan
 		err := rows.Scan(&r.ID, &r.FindingID, &r.ScanID, &r.Status, &r.CreatedAt)
@@ -135,7 +135,7 @@ func (s *findingScanStore) GetByFindingID(ctx context.Context, findingID string)
 	}
 	defer rows.Close()
 
-	var records []*models.FindingScan
+	var records []*models.FindingScan //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var r models.FindingScan
 		err := rows.Scan(&r.ID, &r.FindingID, &r.ScanID, &r.Status, &r.CreatedAt)

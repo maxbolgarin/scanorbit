@@ -33,7 +33,7 @@ func (s *S3Scanner) ScanBuckets(ctx context.Context, cfg aws.Config) ([]*models.
 		return nil, fmt.Errorf("list buckets: %w", err)
 	}
 
-	var resources []*models.Resource
+	resources := make([]*models.Resource, 0, len(output.Buckets))
 	for _, bucket := range output.Buckets {
 		bucketName := aws.ToString(bucket.Name)
 

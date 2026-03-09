@@ -80,17 +80,17 @@ func (s *KMSScanner) ScanKeys(ctx context.Context, cfg aws.Config, region string
 
 			// Store key details in raw
 			rawData := map[string]any{
-				"key_id":             keyID,
-				"key_arn":            keyArn,
-				"description":        aws.ToString(keyMeta.Description),
-				"key_state":          string(keyMeta.KeyState),
-				"key_usage":          string(keyMeta.KeyUsage),
-				"key_spec":           string(keyMeta.KeySpec),
-				"origin":             string(keyMeta.Origin),
-				"key_manager":        string(keyMeta.KeyManager),
-				"creation_date":      keyMeta.CreationDate,
-				"enabled":            keyMeta.Enabled,
-				"multi_region":       aws.ToBool(keyMeta.MultiRegion),
+				"key_id":        keyID,
+				"key_arn":       keyArn,
+				"description":   aws.ToString(keyMeta.Description),
+				"key_state":     string(keyMeta.KeyState),
+				"key_usage":     string(keyMeta.KeyUsage),
+				"key_spec":      string(keyMeta.KeySpec),
+				"origin":        string(keyMeta.Origin),
+				"key_manager":   string(keyMeta.KeyManager),
+				"creation_date": keyMeta.CreationDate,
+				"enabled":       keyMeta.Enabled,
+				"multi_region":  aws.ToBool(keyMeta.MultiRegion),
 			}
 
 			// Check rotation status

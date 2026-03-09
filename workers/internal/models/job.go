@@ -45,15 +45,15 @@ const (
 type ScanStatus string
 
 const (
-	ScanStatusQueued          ScanStatus = "queued"
-	ScanStatusProcessing      ScanStatus = "processing"
-	ScanStatusRunning         ScanStatus = "running"
+	ScanStatusQueued           ScanStatus = "queued"
+	ScanStatusProcessing       ScanStatus = "processing"
+	ScanStatusRunning          ScanStatus = "running"
 	ScanStatusAnalyzingPending ScanStatus = "analyzing_pending" // Scan done, analyzer jobs created
-	ScanStatusAnalyzing       ScanStatus = "analyzing"
-	ScanStatusComplete        ScanStatus = "complete"
-	ScanStatusPartial         ScanStatus = "partial"
-	ScanStatusError           ScanStatus = "error"
-	ScanStatusCanceled        ScanStatus = "canceled"
+	ScanStatusAnalyzing        ScanStatus = "analyzing"
+	ScanStatusComplete         ScanStatus = "complete"
+	ScanStatusPartial          ScanStatus = "partial"
+	ScanStatusError            ScanStatus = "error"
+	ScanStatusCanceled         ScanStatus = "canceled"
 )
 
 // JobStatus represents the status of a background job.
@@ -88,8 +88,8 @@ func (s ScanStatus) IsTerminal() bool {
 
 // ScanAccountJob is the payload for a scan_account job.
 type ScanAccountJob struct {
-	JobID           string   `json:"job_id"`           // DB job record ID for status tracking
-	ScanID          string   `json:"scan_id"`          // DB scan record ID for status tracking
+	JobID           string   `json:"job_id"`  // DB job record ID for status tracking
+	ScanID          string   `json:"scan_id"` // DB scan record ID for status tracking
 	AccountID       string   `json:"account_id"`
 	OrgID           string   `json:"org_id"`
 	EnabledScanners []string `json:"enabled_scanners"` // List of enabled scanner types (e.g., ec2, rds, s3)

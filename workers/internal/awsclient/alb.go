@@ -28,19 +28,19 @@ func NewALBScanner(logger zerolog.Logger) *ALBScanner {
 // ALBWithTargetGroups represents an ALB with its target groups for JSON serialization.
 type ALBWithTargetGroups struct {
 	// Original ALB fields will be embedded via json.RawMessage
-	LoadBalancerArn       string            `json:"LoadBalancerArn"`
-	LoadBalancerName      string            `json:"LoadBalancerName"`
-	Type                  string            `json:"Type"`
-	Scheme                string            `json:"Scheme"`
-	VpcId                 string            `json:"VpcId"`
-	State                 *elbv2types.LoadBalancerState `json:"State"`
-	DNSName               string            `json:"DNSName"`
-	SecurityGroups        []string          `json:"SecurityGroups"`
-	AvailabilityZones     []elbv2types.AvailabilityZone `json:"AvailabilityZones"`
-	CreatedTime           *string           `json:"CreatedTime"`
-	IpAddressType         string            `json:"IpAddressType"`
+	LoadBalancerArn   string                        `json:"LoadBalancerArn"`
+	LoadBalancerName  string                        `json:"LoadBalancerName"`
+	Type              string                        `json:"Type"`
+	Scheme            string                        `json:"Scheme"`
+	VpcId             string                        `json:"VpcId"`
+	State             *elbv2types.LoadBalancerState `json:"State"`
+	DNSName           string                        `json:"DNSName"`
+	SecurityGroups    []string                      `json:"SecurityGroups"`
+	AvailabilityZones []elbv2types.AvailabilityZone `json:"AvailabilityZones"`
+	CreatedTime       *string                       `json:"CreatedTime"`
+	IpAddressType     string                        `json:"IpAddressType"`
 	// Extended target group information
-	TargetGroups          []TargetGroupInfo `json:"TargetGroups"`
+	TargetGroups []TargetGroupInfo `json:"TargetGroups"`
 }
 
 // TargetGroupInfo represents a target group with its targets.
@@ -132,17 +132,16 @@ func (s *ALBScanner) ScanLoadBalancers(ctx context.Context, cfg aws.Config, regi
 
 // fetchTargetGroups fetches target groups and their targets for a load balancer.
 func (s *ALBScanner) fetchTargetGroups(ctx context.Context, svc *elbv2.Client, lbArn string) []TargetGroupInfo {
-	var targetGroups []TargetGroupInfo
-
 	// Get target groups for this load balancer
 	tgOutput, err := svc.DescribeTargetGroups(ctx, &elbv2.DescribeTargetGroupsInput{
 		LoadBalancerArn: aws.String(lbArn),
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).Str("lb_arn", lbArn).Msg("failed to describe target groups")
-		return targetGroups
+		return nil
 	}
 
+	targetGroups := make([]TargetGroupInfo, 0, len(tgOutput.TargetGroups))
 	for _, tg := range tgOutput.TargetGroups {
 		tgInfo := TargetGroupInfo{
 			TargetGroupArn:  aws.ToString(tg.TargetGroupArn),

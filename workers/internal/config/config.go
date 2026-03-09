@@ -10,17 +10,17 @@ import (
 
 // Config holds all configuration for the workers.
 type Config struct {
-	DatabaseURL      string
-	DBCACert         string
-	RedisURL         string
-	RedisCACert      string
-	LogLevel         string
-	Environment      string // Environment name (e.g., production, staging, development)
-	ScanConcurrency  int
-	ScanTimeout      time.Duration // Overall timeout for scan operations
-	ShutdownTimeout  time.Duration
-	MetricsBindAddr  string // Bind address for metrics server (default: 127.0.0.1 for security)
-	EncryptionKey    string // 64-char hex string (32 bytes) for AES-256-GCM decryption of external IDs
+	DatabaseURL     string
+	DBCACert        string
+	RedisURL        string
+	RedisCACert     string
+	LogLevel        string
+	Environment     string // Environment name (e.g., production, staging, development)
+	ScanConcurrency int
+	ScanTimeout     time.Duration // Overall timeout for scan operations
+	ShutdownTimeout time.Duration
+	MetricsBindAddr string // Bind address for metrics server (default: 127.0.0.1 for security)
+	EncryptionKey   string // 64-char hex string (32 bytes) for AES-256-GCM decryption of external IDs
 }
 
 // Load reads configuration from Docker secrets (files at /run/secrets/) with
@@ -36,7 +36,7 @@ func Load() (*Config, error) {
 		ScanConcurrency: getEnvInt("SCAN_CONCURRENCY", 10),
 		ScanTimeout:     time.Duration(getEnvInt("SCAN_TIMEOUT_MINUTES", 60)) * time.Minute,
 		ShutdownTimeout: time.Duration(getEnvInt("SHUTDOWN_TIMEOUT_SECONDS", 30)) * time.Second,
-		MetricsBindAddr: getEnv("METRICS_BIND_ADDR", "127.0.0.1"), // Default to localhost for security
+		MetricsBindAddr: getEnv("METRICS_BIND_ADDR", "127.0.0.1"),                      // Default to localhost for security
 		EncryptionKey:   getSecret("OAUTH_ENCRYPTION_KEY", "oauth_encryption_key", ""), // Same key as API for decrypting external IDs
 	}
 

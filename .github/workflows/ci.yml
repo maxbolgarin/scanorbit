@@ -39,6 +39,26 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+  lint-go:
+    name: Lint Go Workers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache-dependency-path: workers/go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
+          working-directory: workers
+          args: --timeout=5m
+
   test-go:
     name: Test Go Workers
     runs-on: ubuntu-latest
@@ -110,6 +130,63 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
+
+  integration-test-go:
+    name: Integration Test Go Workers
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: scanorbit
+          POSTGRES_PASSWORD: scanorbit
+          POSTGRES_DB: scanorbit_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U scanorbit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache-dependency-path: workers/go.sum
+
+      - name: Run integration tests
+        working-directory: workers
+        env:
+          DATABASE_URL: postgres://scanorbit:scanorbit@localhost:5432/scanorbit_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+        run: |
+          go test -v -race -tags integration -coverprofile=coverage-integration.out -covermode=atomic ./internal/store/ ./internal/queue/
+          go tool cover -func=coverage-integration.out | tee coverage-integration.txt
+
+      - name: Coverage summary
+        working-directory: workers
+        run: |
+          TOTAL=$(grep '^total:' coverage-integration.txt | awk '{print $NF}')
+          echo "## Go Workers Integration Test Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Total coverage: ${TOTAL}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go test -tags integration -cover ./internal/store/ ./internal/queue/ 2>&1 | grep -E '^ok|^FAIL' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   build-check:
     name: Build Check

@@ -93,7 +93,7 @@ func (s *certificateStore) GetByAccountID(ctx context.Context, accountID string)
 	}
 	defer rows.Close()
 
-	var certs []*models.Certificate
+	var certs []*models.Certificate //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var c models.Certificate
 		var altNamesJSON []byte

@@ -112,8 +112,7 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 
 	// Persist findings with history tracking
 	persistedCount := 0
-	var detectedFindingIDs []string
-	var findingScanRecords []*models.FindingScan
+	findingScanRecords := make([]*models.FindingScan, 0, len(findings))
 
 	for _, f := range findings {
 		findingID, isNew, err := o.store.Findings.UpsertWithHistory(ctx, f, job.ScanID)
@@ -126,7 +125,6 @@ func (o *Orchestrator) HandleJob(ctx context.Context, queueJob *queue.Job) error
 		}
 
 		persistedCount++
-		detectedFindingIDs = append(detectedFindingIDs, findingID)
 
 		// Track finding-scan detection
 		findingScanRecords = append(findingScanRecords, models.NewFindingScan(

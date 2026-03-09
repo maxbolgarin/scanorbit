@@ -137,7 +137,7 @@ func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) (txErr error
 
 	if err := fn(tx); err != nil {
 		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			return fmt.Errorf("rollback failed: %v (original error: %w)", rbErr, err)
+			return fmt.Errorf("rollback failed: %w (original error: %w)", rbErr, err)
 		}
 		return err
 	}

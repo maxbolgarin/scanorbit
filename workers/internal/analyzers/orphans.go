@@ -199,7 +199,7 @@ func (a *OrphanAnalyzer) checkOrphanedSnapshot(r *models.Resource, now time.Time
 	}
 
 	// Parse raw data to get snapshot size for cost estimation
-	var estimatedCost float64 = 5.0 // Default estimate
+	var estimatedCost = 5.0 // Default estimate
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err == nil {
 		// RDS snapshot storage costs ~$0.095/GB/month
@@ -229,7 +229,7 @@ func (a *OrphanAnalyzer) checkOrphanedSnapshot(r *models.Resource, now time.Time
 }
 
 // checkIdleLoadBalancer checks if an ALB/NLB has no healthy targets.
-func (a *OrphanAnalyzer) checkIdleLoadBalancer(r *models.Resource, now time.Time) *models.Finding {
+func (a *OrphanAnalyzer) checkIdleLoadBalancer(r *models.Resource, _ time.Time) *models.Finding {
 	// Rule: ALB/NLB with no healthy targets in any target group
 	if r.State != "active" {
 		return nil
@@ -379,7 +379,7 @@ func (a *OrphanAnalyzer) checkOrphanedENI(r *models.Resource, now time.Time) *mo
 }
 
 // checkUnusedSecurityGroup checks if a security group is not used by any resources.
-func (a *OrphanAnalyzer) checkUnusedSecurityGroup(ctx context.Context, r *models.Resource, now time.Time) *models.Finding {
+func (a *OrphanAnalyzer) checkUnusedSecurityGroup(ctx context.Context, r *models.Resource, _ time.Time) *models.Finding {
 	// Skip default security groups - they can't be deleted
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err == nil {

@@ -13,14 +13,14 @@ import (
 
 // Default EU regions for GDPR compliance
 var defaultEURegions = []string{
-	"eu-west-1",     // Ireland
-	"eu-west-2",     // London
-	"eu-west-3",     // Paris
-	"eu-central-1",  // Frankfurt
-	"eu-central-2",  // Zurich
-	"eu-north-1",    // Stockholm
-	"eu-south-1",    // Milan
-	"eu-south-2",    // Spain
+	"eu-west-1",    // Ireland
+	"eu-west-2",    // London
+	"eu-west-3",    // Paris
+	"eu-central-1", // Frankfurt
+	"eu-central-2", // Zurich
+	"eu-north-1",   // Stockholm
+	"eu-south-1",   // Milan
+	"eu-south-2",   // Spain
 }
 
 // ResidencyAnalyzer detects data residency violations.
@@ -67,7 +67,7 @@ func (a *ResidencyAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob)
 		return nil, fmt.Errorf("get resources: %w", err)
 	}
 
-	var findings []*models.Finding
+	findings := make([]*models.Finding, 0, len(resources))
 
 	for _, r := range resources {
 		// Only check data-sensitive services: RDS and S3

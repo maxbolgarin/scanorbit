@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	oldAccessKeyDays  = 90 // Access key older than 90 days
-	unusedRoleDays    = 90 // Role not used in 90 days
+	oldAccessKeyDays = 90 // Access key older than 90 days
+	unusedRoleDays   = 90 // Role not used in 90 days
 )
 
 // IAMAnalyzer detects IAM security best practice violations.
@@ -133,15 +133,15 @@ func (a *IAMAnalyzer) checkAccessKey(r *models.Resource, now time.Time) []*model
 					Severity:   models.SeverityMedium,
 					Summary:    fmt.Sprintf("IAM access key '%s' for user '%s' is %d days old", r.Name, userName, keyAgeDays),
 					Details: map[string]any{
-						"resource_id":     r.ResourceID,
-						"access_key_id":   r.Name,
-						"user_name":       userName,
-						"service":         "iam_access_key",
-						"create_date":     createDateStr,
-						"key_age_days":    keyAgeDays,
-						"status":          r.State,
-						"recommendation":  "Rotate this access key. AWS recommends rotating access keys every 90 days.",
-						"doc_url":         "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
+						"resource_id":    r.ResourceID,
+						"access_key_id":  r.Name,
+						"user_name":      userName,
+						"service":        "iam_access_key",
+						"create_date":    createDateStr,
+						"key_age_days":   keyAgeDays,
+						"status":         r.State,
+						"recommendation": "Rotate this access key. AWS recommends rotating access keys every 90 days.",
+						"doc_url":        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
 					},
 					Status: models.FindingStatusOpen,
 				})
@@ -198,15 +198,15 @@ func (a *IAMAnalyzer) checkAccessKey(r *models.Resource, now time.Time) []*model
 					Severity:   models.SeverityLow,
 					Summary:    fmt.Sprintf("IAM access key '%s' for user '%s' hasn't been used in %d days", r.Name, userName, daysSinceUsed),
 					Details: map[string]any{
-						"resource_id":       r.ResourceID,
-						"access_key_id":     r.Name,
-						"user_name":         userName,
-						"service":           "iam_access_key",
-						"last_used_date":    lastUsedDateStr,
-						"days_since_used":   daysSinceUsed,
-						"status":            r.State,
-						"recommendation":    "Delete this access key if no longer needed. Long-unused access keys should be deactivated or deleted.",
-						"doc_url":           "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
+						"resource_id":     r.ResourceID,
+						"access_key_id":   r.Name,
+						"user_name":       userName,
+						"service":         "iam_access_key",
+						"last_used_date":  lastUsedDateStr,
+						"days_since_used": daysSinceUsed,
+						"status":          r.State,
+						"recommendation":  "Delete this access key if no longer needed. Long-unused access keys should be deactivated or deleted.",
+						"doc_url":         "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
 					},
 					Status: models.FindingStatusOpen,
 				})
@@ -254,13 +254,13 @@ func (a *IAMAnalyzer) checkUnusedRole(r *models.Resource, now time.Time) []*mode
 				Severity:   models.SeverityLow,
 				Summary:    fmt.Sprintf("IAM role '%s' has never been used (created %d days ago)", r.Name, daysSinceCreated),
 				Details: map[string]any{
-					"resource_id":         r.ResourceID,
-					"role_name":           r.Name,
-					"service":             "iam_role",
-					"create_date":         createDateStr,
-					"days_since_created":  daysSinceCreated,
-					"recommendation":      "Delete this role if no longer needed. Unused roles increase your security attack surface.",
-					"doc_url":             "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html",
+					"resource_id":        r.ResourceID,
+					"role_name":          r.Name,
+					"service":            "iam_role",
+					"create_date":        createDateStr,
+					"days_since_created": daysSinceCreated,
+					"recommendation":     "Delete this role if no longer needed. Unused roles increase your security attack surface.",
+					"doc_url":            "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html",
 				},
 				Status: models.FindingStatusOpen,
 			}}
@@ -283,14 +283,14 @@ func (a *IAMAnalyzer) checkUnusedRole(r *models.Resource, now time.Time) []*mode
 			Severity:   models.SeverityLow,
 			Summary:    fmt.Sprintf("IAM role '%s' hasn't been used in %d days", r.Name, daysSinceUsed),
 			Details: map[string]any{
-				"resource_id":       r.ResourceID,
-				"role_name":         r.Name,
-				"service":           "iam_role",
-				"last_used_date":    lastUsedDateStr,
-				"last_used_region":  raw["last_used_region"],
-				"days_since_used":   daysSinceUsed,
-				"recommendation":    "Delete this role if no longer needed. Unused roles increase your security attack surface.",
-				"doc_url":           "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html",
+				"resource_id":      r.ResourceID,
+				"role_name":        r.Name,
+				"service":          "iam_role",
+				"last_used_date":   lastUsedDateStr,
+				"last_used_region": raw["last_used_region"],
+				"days_since_used":  daysSinceUsed,
+				"recommendation":   "Delete this role if no longer needed. Unused roles increase your security attack surface.",
+				"doc_url":          "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html",
 			},
 			Status: models.FindingStatusOpen,
 		}}

@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	sslHighSeverityDays   = 7   // < 7 days = high
-	sslMediumSeverityDays = 30  // < 30 days = medium
-	sslLowSeverityDays    = 60  // < 60 days = low
+	sslHighSeverityDays   = 7  // < 7 days = high
+	sslMediumSeverityDays = 30 // < 30 days = medium
+	sslLowSeverityDays    = 60 // < 60 days = low
 )
 
 // SSLAnalyzer detects SSL certificate expiration issues.
@@ -48,7 +48,7 @@ func (a *SSLAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([]*m
 		return nil, fmt.Errorf("get certificates: %w", err)
 	}
 
-	var findings []*models.Finding
+	findings := make([]*models.Finding, 0, len(certs))
 	now := time.Now()
 
 	for _, cert := range certs {
@@ -88,16 +88,16 @@ func (a *SSLAnalyzer) Analyze(ctx context.Context, job *models.AnalyzeJob) ([]*m
 			Severity:      severity,
 			Summary:       summary,
 			Details: map[string]any{
-				"domain":      cert.PrimaryDomain,
-				"alt_names":   cert.AltNames,
-				"expires_at":  cert.NotAfter.Format(time.RFC3339),
-				"days_left":   int(daysUntilExpiry),
-				"issuer":      cert.Issuer,
-				"source":      string(cert.Source),
-				"identifier":  cert.Identifier,
-				"algorithm":   cert.Algorithm,
-				"action":      a.getRecommendation(cert.Source, daysUntilExpiry),
-				"doc_url":     "https://docs.aws.amazon.com/acm/latest/userguide/managed-renewal.html",
+				"domain":     cert.PrimaryDomain,
+				"alt_names":  cert.AltNames,
+				"expires_at": cert.NotAfter.Format(time.RFC3339),
+				"days_left":  int(daysUntilExpiry),
+				"issuer":     cert.Issuer,
+				"source":     string(cert.Source),
+				"identifier": cert.Identifier,
+				"algorithm":  cert.Algorithm,
+				"action":     a.getRecommendation(cert.Source, daysUntilExpiry),
+				"doc_url":    "https://docs.aws.amazon.com/acm/latest/userguide/managed-renewal.html",
 			},
 			Status: models.FindingStatusOpen,
 		}

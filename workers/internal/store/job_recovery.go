@@ -16,10 +16,10 @@ const (
 
 // OrphanedJob represents a job stuck in queued state.
 type OrphanedJob struct {
-	ID             string
-	Type           models.JobType
-	Payload        []byte
-	RecoveryCount  int
+	ID            string
+	Type          models.JobType
+	Payload       []byte
+	RecoveryCount int
 }
 
 // JobRecoveryStore defines operations for recovering orphaned jobs.
@@ -71,7 +71,7 @@ func (s *jobRecoveryStore) FindOrphanedJobs(ctx context.Context, olderThan time.
 	}
 	defer rows.Close()
 
-	var jobs []OrphanedJob
+	var jobs []OrphanedJob //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var job OrphanedJob
 		var jobType string
@@ -131,7 +131,7 @@ func (s *jobRecoveryStore) FindStuckRunningJobs(ctx context.Context, olderThan t
 	}
 	defer rows.Close()
 
-	var jobs []OrphanedJob
+	var jobs []OrphanedJob //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var job OrphanedJob
 		var jobType string
@@ -199,7 +199,7 @@ func (s *jobRecoveryStore) FindExhaustedJobs(ctx context.Context, limit int) ([]
 	}
 	defer rows.Close()
 
-	var jobs []OrphanedJob
+	var jobs []OrphanedJob //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var job OrphanedJob
 		var jobType string

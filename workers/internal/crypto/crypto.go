@@ -59,17 +59,17 @@ func (d *Decryptor) DecryptExternalID(encrypted string) (string, error) {
 	// Decode base64 parts
 	iv, err := base64.StdEncoding.DecodeString(parts[0])
 	if err != nil {
-		return encrypted, nil // Not valid base64, return as-is
+		return encrypted, nil //nolint:nilerr // Not valid base64, return as-is
 	}
 
 	authTag, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return encrypted, nil
+		return encrypted, nil //nolint:nilerr // Not valid base64, return as-is
 	}
 
 	ciphertext, err := base64.StdEncoding.DecodeString(parts[2])
 	if err != nil {
-		return encrypted, nil
+		return encrypted, nil //nolint:nilerr // Not valid base64, return as-is
 	}
 
 	// Create AES cipher
@@ -85,7 +85,9 @@ func (d *Decryptor) DecryptExternalID(encrypted string) (string, error) {
 	}
 
 	// In GCM, the auth tag is appended to ciphertext for decryption
-	ciphertextWithTag := append(ciphertext, authTag...)
+	ciphertextWithTag := make([]byte, 0, len(ciphertext)+len(authTag))
+	ciphertextWithTag = append(ciphertextWithTag, ciphertext...)
+	ciphertextWithTag = append(ciphertextWithTag, authTag...)
 
 	// Decrypt
 	plaintext, err := gcm.Open(nil, iv, ciphertextWithTag, nil)
@@ -104,7 +106,7 @@ func isBase64(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
+		if (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '+' && c != '/' && c != '=' {
 			return false
 		}
 	}

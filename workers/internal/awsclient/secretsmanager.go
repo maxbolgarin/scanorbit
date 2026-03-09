@@ -50,13 +50,13 @@ func (s *SecretsManagerScanner) ScanSecrets(ctx context.Context, cfg aws.Config,
 
 			// Store secret details in raw
 			rawData := map[string]any{
-				"name":              aws.ToString(secret.Name),
-				"arn":               arn,
-				"description":       aws.ToString(secret.Description),
-				"kms_key_id":        aws.ToString(secret.KmsKeyId),
-				"rotation_enabled":  aws.ToBool(secret.RotationEnabled),
-				"created_date":      secret.CreatedDate,
-				"primary_region":    aws.ToString(secret.PrimaryRegion),
+				"name":             aws.ToString(secret.Name),
+				"arn":              arn,
+				"description":      aws.ToString(secret.Description),
+				"kms_key_id":       aws.ToString(secret.KmsKeyId),
+				"rotation_enabled": aws.ToBool(secret.RotationEnabled),
+				"created_date":     secret.CreatedDate,
+				"primary_region":   aws.ToString(secret.PrimaryRegion),
 			}
 			if secret.LastAccessedDate != nil {
 				rawData["last_accessed_date"] = secret.LastAccessedDate

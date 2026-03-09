@@ -213,7 +213,7 @@ func TestCheckLogRetention_SmallStorage(t *testing.T) {
 
 func TestCheckUnusedKMSKey_Unused(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Dependencies.GetByTargetFn = func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error) {
+	mocks.Dependencies.GetByTargetFn = func(_ context.Context, _ string) ([]*models.ResourceDependency, error) {
 		return nil, nil
 	}
 	a := NewCostAnalyzer(st, zerolog.Nop())
@@ -241,7 +241,7 @@ func TestCheckUnusedKMSKey_AWSManaged(t *testing.T) {
 
 func TestCheckUnusedKMSKey_HasDeps(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Dependencies.GetByTargetFn = func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error) {
+	mocks.Dependencies.GetByTargetFn = func(_ context.Context, _ string) ([]*models.ResourceDependency, error) {
 		return []*models.ResourceDependency{{ID: "dep-1"}}, nil
 	}
 	a := NewCostAnalyzer(st, zerolog.Nop())
@@ -371,14 +371,14 @@ func TestCostAnalyzer_Analyze(t *testing.T) {
 	now := time.Now()
 	oldDate := now.Add(-120 * 24 * time.Hour).Format(time.RFC3339)
 
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceEC2, Name: "old-ec2", State: "running", Raw: json.RawMessage(`{"instance_type":"m4.large"}`)},
 			{ID: "2", Service: models.ServiceLambda, Name: "old-func", Raw: json.RawMessage(`{"last_modified":"` + oldDate + `","memory_size":256}`)},
 			{ID: "3", Service: models.ServiceEBS, Raw: json.RawMessage(`{"volume_type":"gp3","size":100}`)},
 		}, nil
 	}
-	mocks.Dependencies.GetByTargetFn = func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error) {
+	mocks.Dependencies.GetByTargetFn = func(_ context.Context, _ string) ([]*models.ResourceDependency, error) {
 		return nil, nil
 	}
 

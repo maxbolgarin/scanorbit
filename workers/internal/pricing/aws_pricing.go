@@ -177,7 +177,7 @@ const NLBBaseCost = 6.57 // ~$0.009/hour base
 const NATGatewayBaseCost = 32.40 // ~$0.045/hour base
 
 // CloudWatch costs
-const CloudWatchAlarmCost = 0.10         // per alarm-month (standard)
+const CloudWatchAlarmCost = 0.10          // per alarm-month (standard)
 const CloudWatchLogsIngestionPerGB = 0.50 // per GB ingested
 const CloudWatchLogsStoragePerGB = 0.03   // per GB-month stored
 
