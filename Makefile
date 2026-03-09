@@ -86,6 +86,10 @@ help:
 	@echo "  $(BLUE)tunnel-monitoring$(RESET) Open tunnels to all monitoring services"
 	@echo "  $(BLUE)tunnel-all$(RESET)        Open tunnels to all prod services"
 	@echo ""
+	@echo "$(YELLOW)Security:$(RESET)"
+	@echo "  $(BLUE)security-scan$(RESET)       Run full SAST scan (Semgrep)"
+	@echo "  $(BLUE)security-scan-quick$(RESET) Run quick scan (custom rules + secrets)"
+	@echo ""
 	@echo "$(YELLOW)Utilities:$(RESET)"
 	@echo "  $(BLUE)clean$(RESET)           Clean all build artifacts"
 	@echo "  $(BLUE)health$(RESET)          Check health of all services"
@@ -170,6 +174,29 @@ lint:
 
 typecheck:
 	pnpm typecheck
+
+# =============================================================================
+# Security
+# =============================================================================
+security-scan:
+	semgrep scan \
+		--config p/security-audit \
+		--config p/owasp-top-ten \
+		--config p/secrets \
+		--config p/typescript \
+		--config p/golang \
+		--config p/nodejs \
+		--config p/react \
+		--config p/sql-injection \
+		--config p/jwt \
+		--config .semgrep/ \
+		.
+
+security-scan-quick:
+	semgrep scan \
+		--config .semgrep/ \
+		--config p/secrets \
+		.
 
 # =============================================================================
 # Clean

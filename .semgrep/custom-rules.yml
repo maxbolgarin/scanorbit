@@ -1,0 +1,82 @@
+rules:
+  # =============================================
+  # TypeScript API Security Rules
+  # =============================================
+
+  - id: scanorbit-no-raw-sql-interpolation
+    patterns:
+      - pattern: sql(`...${$VAR}...`)
+      - pattern: sql($X + $Y)
+    message: >
+      Avoid string interpolation in sql(). Use Drizzle's parameterized sql`...` tagged template
+      to prevent SQL injection.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - /apps/api/
+
+  - id: scanorbit-no-dangerous-html
+    pattern: dangerouslySetInnerHTML={...}
+    message: >
+      Do not use dangerouslySetInnerHTML. Use safe rendering methods to prevent XSS attacks.
+    severity: ERROR
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - /apps/app/
+
+  - id: scanorbit-no-child-process-exec
+    pattern: exec($CMD, ...)
+    message: >
+      Avoid child_process.exec() which runs commands in a shell. Use execFile() or spawn()
+      with explicit arguments to prevent command injection.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - /apps/api/
+
+  - id: scanorbit-no-eval
+    patterns:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+    message: >
+      Do not use eval() or new Function(). These can lead to code injection vulnerabilities.
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # =============================================
+  # Go Worker Security Rules
+  # =============================================
+
+  - id: scanorbit-no-hardcoded-aws-credentials
+    patterns:
+      - pattern: |
+          aws.Credentials{..., AccessKeyID: "...", ...}
+      - pattern: |
+          $X = "AKIA..."
+    message: >
+      Never hardcode AWS credentials. Use IAM roles or environment-based credential providers.
+    severity: ERROR
+    languages: [go]
+
+  - id: scanorbit-no-sql-string-format
+    patterns:
+      - pattern: fmt.Sprintf("...SELECT...", ...)
+      - pattern: fmt.Sprintf("...INSERT...", ...)
+      - pattern: fmt.Sprintf("...UPDATE...", ...)
+      - pattern: fmt.Sprintf("...DELETE...", ...)
+    message: >
+      Use parameterized queries ($1, $2) instead of fmt.Sprintf for SQL statements
+      to prevent SQL injection.
+    severity: ERROR
+    languages: [go]
+
+  - id: scanorbit-no-md5-for-security
+    pattern: md5.New()
+    message: >
+      MD5 is cryptographically broken. Use SHA-256 or stronger hash functions
+      for security-sensitive operations.
+    severity: WARNING
+    languages: [go]

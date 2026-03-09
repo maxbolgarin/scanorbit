@@ -62,6 +62,41 @@ jobs:
           go build -o scanner ./cmd/scanner
           go build -o analyzer ./cmd/analyzer
 
+  security-scan:
+    name: Security Scan (SAST)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --config p/secrets \
+            --config p/typescript \
+            --config p/golang \
+            --config p/nodejs \
+            --config p/react \
+            --config p/sql-injection \
+            --config p/jwt \
+            --config .semgrep/ \
+            --sarif --output semgrep.sarif \
+            .
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
   build-check:
     name: Build Check
     runs-on: ubuntu-latest
