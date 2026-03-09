@@ -25,7 +25,7 @@ interface ConsentMetadata {
 interface LogConsentParams {
   userId?: string;
   email: string;
-  consentType: 'terms_and_privacy' | 'marketing' | 'processing_restriction';
+  consentType: 'terms_and_privacy' | 'marketing' | 'processing_restriction' | 'objection';
   consentGiven: boolean;
   ipAddress?: string;
   userAgent?: string;

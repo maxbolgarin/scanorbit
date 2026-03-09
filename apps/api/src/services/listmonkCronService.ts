@@ -96,7 +96,7 @@ async function processFirstScanCompletions(): Promise<void> {
       };
 
       await listmonkService.updateAttribsByEmail(email, scanData);
-      sendImmediate({ sequenceName: 'free-scanned', email, data: scanData }).catch(() => {});
+      sendImmediate({ sequenceName: 'free-scanned', email, data: scanData }).catch((err) => logger.warn('listmonk: failed sendImmediate for free-scanned', { error: (err as Error).message }));
     } catch (attribErr) {
       logger.warn('[ListmonkCron] Failed to store scan stats or send drip', {
         error: (attribErr as Error).message,

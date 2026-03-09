@@ -185,4 +185,152 @@ describe('GDPR Routes', () => {
       expect(body.requests).toBeDefined();
     });
   });
+
+  describe('GET /gdpr/objection', () => {
+    it('returns objection status when no objection exists', async () => {
+      const user = createUser({ id: 'test-user-id' });
+      let selectCalls = 0;
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCalls++;
+        if (selectCalls === 1) return createChain([user]) as any;
+        return createChain([]) as any; // No objection records
+      });
+
+      const res = await app.request('/gdpr/objection');
+      expect(res.status).toBe(200);
+      const body = await jsonBody(res);
+      expect(body.objectionActive).toBe(false);
+      expect(body.lastUpdated).toBeNull();
+    });
+
+    it('returns active objection when one exists', async () => {
+      const user = createUser({ id: 'test-user-id' });
+      const objection = {
+        consentGiven: false,
+        consentedAt: new Date().toISOString(),
+        metadata: { reason: 'Privacy concerns', processingActivity: 'analytics' },
+      };
+      let selectCalls = 0;
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCalls++;
+        if (selectCalls === 1) return createChain([user]) as any;
+        return createChain([objection]) as any;
+      });
+
+      const res = await app.request('/gdpr/objection');
+      expect(res.status).toBe(200);
+      const body = await jsonBody(res);
+      expect(body.objectionActive).toBe(true);
+      expect(body.reason).toBe('Privacy concerns');
+    });
+
+    it('returns 404 when user not found', async () => {
+      dbSelectResult = [];
+
+      const res = await app.request('/gdpr/objection');
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('POST /gdpr/objection', () => {
+    it('creates an objection', async () => {
+      const user = createUser({ id: 'test-user-id' });
+      dbSelectResult = [user];
+
+      const res = await app.request('/gdpr/objection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingActivity: 'analytics',
+          reason: 'I do not want analytics tracking',
+        }),
+      });
+      expect(res.status).toBe(201);
+      const body = await jsonBody(res);
+      expect(body.message).toBe('Objection recorded');
+      expect(body.processingActivity).toBe('analytics');
+    });
+
+    it('unsubscribes from marketing when objecting to marketing', async () => {
+      const user = createUser({ id: 'test-user-id' });
+      dbSelectResult = [user];
+
+      const { listmonkService } = await import('../../services/listmonkService.js');
+
+      const res = await app.request('/gdpr/objection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingActivity: 'marketing',
+          reason: 'No marketing emails',
+        }),
+      });
+      expect(res.status).toBe(201);
+      expect(listmonkService.unsubscribe).toHaveBeenCalledWith(user.email);
+    });
+
+    it('returns 404 when user not found', async () => {
+      dbSelectResult = [];
+
+      const res = await app.request('/gdpr/objection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingActivity: 'analytics',
+          reason: 'Privacy concerns',
+        }),
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it('validates required fields', async () => {
+      const res = await app.request('/gdpr/objection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('validates processing activity enum', async () => {
+      const res = await app.request('/gdpr/objection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingActivity: 'invalid',
+          reason: 'test',
+        }),
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('DELETE /gdpr/objection', () => {
+    it('withdraws an objection', async () => {
+      const user = createUser({ id: 'test-user-id' });
+      dbSelectResult = [user];
+
+      const res = await app.request('/gdpr/objection', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processingActivity: 'analytics' }),
+      });
+      expect(res.status).toBe(200);
+      const body = await jsonBody(res);
+      expect(body.message).toBe('Objection withdrawn');
+    });
+
+    it('returns 404 when user not found', async () => {
+      dbSelectResult = [];
+
+      const res = await app.request('/gdpr/objection', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processingActivity: 'analytics' }),
+      });
+      expect(res.status).toBe(404);
+    });
+  });
 });

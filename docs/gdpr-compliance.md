@@ -14,6 +14,7 @@ ScanOrbit implements comprehensive GDPR compliance measures to protect user data
 | Right to Access (Art. 15) | Data export API endpoint | ✅ |
 | Right to Erasure (Art. 17) | Account deletion with 30-day grace | ✅ |
 | Right to Portability (Art. 20) | JSON data export | ✅ |
+| Right to Object (Art. 21) | Objection API endpoints | ✅ |
 | EU Data Residency | Amsterdam (nl-ams) region | ✅ |
 
 ## Architecture
@@ -235,6 +236,46 @@ GET /api/gdpr/deletion-status
 GET /api/gdpr/audit-logs?limit=50&offset=0&startDate=2024-01-01T00:00:00Z
 ```
 
+### Right to Object (Article 21)
+
+```bash
+# Check objection status
+GET /api/gdpr/objection
+
+# Submit objection to processing
+POST /api/gdpr/objection
+Content-Type: application/json
+
+{
+  "processingActivity": "analytics",  // "analytics", "audit_logging", "marketing"
+  "reason": "I do not want analytics tracking"
+}
+
+# Withdraw objection
+DELETE /api/gdpr/objection
+Content-Type: application/json
+
+{
+  "processingActivity": "analytics"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Objection recorded",
+  "processingActivity": "analytics",
+  "note": "Your objection has been logged and will be reviewed. We will respond within 30 days as required by GDPR Article 21."
+}
+```
+
+Users can object to the following processing activities:
+- **analytics** - Website and usage analytics
+- **audit_logging** - Activity logging based on legitimate interest
+- **marketing** - Marketing communications (also unsubscribes from Listmonk)
+
+All objections are logged as immutable consent records with IP address and timestamp.
+
 ## 6. User Deletion Process
 
 When a user requests account deletion:
@@ -323,18 +364,139 @@ docker compose logs retention-cleanup --tail 100
 SELECT count(*) FROM data_deletion_requests WHERE status = 'pending';
 ```
 
-## 11. Incident Response
+## 11. Incident Response & Breach Notification
 
-### Data Breach Procedure
+### Definitions
 
-1. **Identify**: Detect and assess the breach
-2. **Contain**: Limit further data exposure
-3. **Notify**: Inform supervisory authority within 72 hours (GDPR Article 33)
-4. **Document**: Record all breach details in audit logs
-5. **Remediate**: Fix the vulnerability
-6. **Review**: Update security measures
+- **Personal Data Breach** (GDPR Article 4(12)): A breach of security leading to accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to, personal data.
+- **Severity Levels**:
+  - **Critical**: Breach involves unencrypted PII of many users (passwords, financial data, AWS credentials)
+  - **High**: Breach involves encrypted PII or limited unencrypted PII
+  - **Medium**: Unauthorized access to non-sensitive data or audit logs
+  - **Low**: Attempted breach with no actual data exposure
 
-### Data Subject Request
+### Phase 1: Detection & Identification (0–1 hour)
+
+**Detection Sources:**
+- Application error logs and alerts
+- Unusual audit log patterns (mass data access, failed auth spikes)
+- Third-party vulnerability disclosures
+- User reports via dpa@scanorbit.cloud
+- Infrastructure monitoring (Caddy, PostgreSQL, Redis logs)
+
+**Initial Assessment Checklist:**
+- [ ] What data was affected? (PII, scan data, credentials, tokens)
+- [ ] How many users/records are impacted?
+- [ ] Is the breach ongoing or contained?
+- [ ] What was the attack vector? (application, infrastructure, social engineering)
+- [ ] Are backups or encrypted data affected?
+
+**Immediate Actions:**
+1. Assign an Incident Lead
+2. Create incident channel/document for real-time coordination
+3. Preserve evidence (do NOT delete logs or restart services yet)
+4. Begin incident timeline documentation
+
+### Phase 2: Containment (1–4 hours)
+
+**Technical Containment:**
+- Revoke compromised access tokens (clear Redis token store)
+- Rotate affected secrets (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `TOTP_ENCRYPTION_KEY`, `OAUTH_ENCRYPTION_KEY`)
+- Block suspicious IP addresses at Caddy/firewall level
+- Disable compromised user accounts if needed
+- If database compromised: take read-only snapshot, rotate `DATABASE_URL` credentials
+
+**Communication:**
+- Notify all team members
+- Do NOT make public statements until assessment is complete
+
+### Phase 3: Assessment & Notification (4–72 hours)
+
+**Risk Assessment (GDPR Article 33(1)):**
+Determine if notification is required. Notification is NOT required if the breach is unlikely to result in a risk to rights and freedoms (e.g., all data was encrypted).
+
+**Notification to Supervisory Authority (Article 33) — within 72 hours:**
+
+Contact the Dutch Data Protection Authority (Autoriteit Persoonsgegevens):
+- **Online**: https://autoriteitpersoonsgegevens.nl/en/breach-notification
+- **Email**: For questions, info@autoriteitpersoonsgegevens.nl
+
+Notification must include:
+1. Nature of the breach (categories and approximate number of data subjects)
+2. Name and contact details of DPO or contact point (dpa@scanorbit.cloud)
+3. Likely consequences of the breach
+4. Measures taken or proposed to address the breach
+
+**Notification to Data Subjects (Article 34) — without undue delay:**
+
+Required when breach is likely to result in **high risk** to rights and freedoms.
+
+Notification method: Direct email to affected users.
+
+Template:
+```
+Subject: Important Security Notice from ScanOrbit
+
+Dear [User],
+
+We are writing to inform you of a security incident that may have affected your personal data.
+
+What happened: [Brief description]
+When it happened: [Date/time]
+What data was affected: [Specific data types]
+What we are doing: [Remediation steps]
+What you should do: [User actions - change password, enable 2FA, etc.]
+
+If you have questions, contact our Data Protection team at dpa@scanorbit.cloud.
+
+ScanOrbit Team
+```
+
+### Phase 4: Remediation (1–30 days)
+
+- Fix the root cause vulnerability
+- Deploy patches and security updates
+- Force password resets if credentials were exposed
+- Re-encrypt affected data with new keys if encryption keys were compromised
+- Verify fix with security testing
+
+### Phase 5: Post-Incident Review (within 14 days)
+
+**Document:**
+- Complete incident timeline
+- Root cause analysis
+- Data categories and number of subjects affected
+- Containment and remediation actions taken
+- Notification details (authority, users, dates)
+- Lessons learned
+
+**Improve:**
+- Update security measures based on findings
+- Add monitoring/alerting for the attack vector
+- Update this incident response procedure if gaps found
+- Schedule follow-up review in 90 days
+
+### Breach Record (Article 33(5))
+
+All breaches must be documented regardless of notification requirement. Store records in:
+- Internal incident log (retained indefinitely)
+- Audit logs (retained per retention policy)
+
+Record format:
+| Field | Description |
+|-------|-------------|
+| Incident ID | Unique identifier |
+| Date detected | When the breach was discovered |
+| Date contained | When the breach was stopped |
+| Description | Nature of the breach |
+| Data affected | Categories of personal data |
+| Subjects affected | Number and categories of data subjects |
+| Consequences | Likely consequences |
+| Measures taken | Remediation and mitigation steps |
+| Authority notified | Yes/No, date, reference number |
+| Subjects notified | Yes/No, date, method |
+
+### Data Subject Request Handling
 
 1. **Verify Identity**: Confirm requester is the data subject
 2. **Process Request**: Execute within 30 days (GDPR Article 12)

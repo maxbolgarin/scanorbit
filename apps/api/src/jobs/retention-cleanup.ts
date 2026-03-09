@@ -17,38 +17,35 @@ import { runRetentionCleanup, getRetentionStats } from '../services/retentionSer
 import { recoverStuckJobs } from '../services/stuckJobService.js';
 import { db } from '../lib/db.js';
 import { auditLogs } from '../db/schema.js';
+import { logger } from '../lib/logger.js';
+
+const jobLogger = logger.child({ job: 'retention-cleanup' });
 
 async function main() {
-  console.log('='.repeat(60));
-  console.log('GDPR Data Retention Cleanup & Stuck Job Recovery');
-  console.log(`Started at: ${new Date().toISOString()}`);
-  console.log('='.repeat(60));
+  jobLogger.info('GDPR Data Retention Cleanup & Stuck Job Recovery started');
 
   let hasErrors = false;
 
   try {
     // 1. Recover stuck jobs first (time-sensitive)
-    console.log('\n[Recovery] Recovering stuck jobs and orphaned scans...');
+    jobLogger.info('Recovering stuck jobs and orphaned scans...');
     const recoveryResult = await recoverStuckJobs();
-    console.log(JSON.stringify(recoveryResult, null, 2));
+    jobLogger.info('Recovery result', { result: recoveryResult });
     if (recoveryResult.errors.length > 0) {
-      console.error('[Recovery] Errors:');
-      recoveryResult.errors.forEach((err) => console.error(`  - ${err}`));
+      jobLogger.error('Recovery errors', undefined, { errors: recoveryResult.errors });
       hasErrors = true;
     }
 
     // 2. Get stats before cleanup
-    console.log('\n[Stats] Before cleanup:');
     const beforeStats = await getRetentionStats();
-    console.log(JSON.stringify(beforeStats, null, 2));
+    jobLogger.info('Stats before cleanup', { stats: beforeStats });
 
     // 3. Run retention cleanup
-    console.log('\n[Cleanup] Running retention cleanup...');
+    jobLogger.info('Running retention cleanup...');
     const result = await runRetentionCleanup();
 
     // Log results
-    console.log('\n[Results] Cleanup completed:');
-    console.log(JSON.stringify(result, null, 2));
+    jobLogger.info('Cleanup completed', { result });
 
     // Log to audit table
     await db.insert(auditLogs).values({
@@ -56,24 +53,19 @@ async function main() {
     });
 
     // Get stats after cleanup
-    console.log('\n[Stats] After cleanup:');
     const afterStats = await getRetentionStats();
-    console.log(JSON.stringify(afterStats, null, 2));
+    jobLogger.info('Stats after cleanup', { stats: afterStats });
 
     if (result.errors.length > 0) {
-      console.error('\n[Errors] Some errors occurred:');
-      result.errors.forEach((err) => console.error(`  - ${err}`));
+      jobLogger.error('Cleanup errors', undefined, { errors: result.errors });
       hasErrors = true;
     }
 
-    console.log(`\n${  '='.repeat(60)}`);
-    console.log(hasErrors ? 'Job completed with errors' : 'Job completed successfully');
-    console.log(`Finished at: ${new Date().toISOString()}`);
-    console.log('='.repeat(60));
+    jobLogger.info(hasErrors ? 'Job completed with errors' : 'Job completed successfully');
 
     process.exit(hasErrors ? 1 : 0);
   } catch (err) {
-    console.error('\n[Fatal] Job failed with error:', err);
+    jobLogger.fatal('Job failed with error', err);
     process.exit(1);
   }
 }
