@@ -72,7 +72,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26.1'
           cache-dependency-path: workers/go.sum
 
       - name: Install govulncheck
@@ -92,13 +92,13 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26.1'
           cache-dependency-path: workers/go.sum
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1
+          version: v2.11
           working-directory: workers
           args: --timeout=5m
 
@@ -112,7 +112,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26.1'
           cache-dependency-path: workers/go.sum
 
       - name: Test with coverage
@@ -172,7 +172,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26.1'
           cache-dependency-path: workers/go.sum
 
       - name: Run integration tests
