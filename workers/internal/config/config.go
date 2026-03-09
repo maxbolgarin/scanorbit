@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,12 +23,13 @@ type Config struct {
 	EncryptionKey    string // 64-char hex string (32 bytes) for AES-256-GCM decryption of external IDs
 }
 
-// Load reads configuration from environment variables.
+// Load reads configuration from Docker secrets (files at /run/secrets/) with
+// environment variable fallback. In development, secrets don't exist as files.
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL:     getEnv("DATABASE_URL", ""),
+		DatabaseURL:     getSecret("DATABASE_URL", "database_url", ""),
 		DBCACert:        getEnv("DB_CA_CERT", ""),
-		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
+		RedisURL:        getSecret("REDIS_URL", "redis_url", "redis://localhost:6379"),
 		RedisCACert:     getEnv("REDIS_CA_CERT", ""),
 		LogLevel:        getEnv("LOG_LEVEL", "info"),
 		Environment:     getEnv("ENVIRONMENT", "development"),
@@ -35,7 +37,7 @@ func Load() (*Config, error) {
 		ScanTimeout:     time.Duration(getEnvInt("SCAN_TIMEOUT_MINUTES", 60)) * time.Minute,
 		ShutdownTimeout: time.Duration(getEnvInt("SHUTDOWN_TIMEOUT_SECONDS", 30)) * time.Second,
 		MetricsBindAddr: getEnv("METRICS_BIND_ADDR", "127.0.0.1"), // Default to localhost for security
-		EncryptionKey:   getEnv("OAUTH_ENCRYPTION_KEY", ""),       // Same key as API for decrypting external IDs
+		EncryptionKey:   getSecret("OAUTH_ENCRYPTION_KEY", "oauth_encryption_key", ""), // Same key as API for decrypting external IDs
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -73,4 +75,14 @@ func getEnvInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// getSecret reads a Docker secret from /run/secrets/<secretName>, falling back to
+// the environment variable. In development, secret files don't exist.
+func getSecret(envKey, secretName, defaultValue string) string {
+	data, err := os.ReadFile("/run/secrets/" + secretName)
+	if err == nil {
+		return strings.TrimSpace(string(data))
+	}
+	return getEnv(envKey, defaultValue)
 }
