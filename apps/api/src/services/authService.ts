@@ -42,7 +42,7 @@ function minimizeOAuthProfile(raw: Record<string, unknown>, provider: 'google' |
 }
 
 const SALT_ROUNDS = 10;
-const VERIFICATION_CODE_EXPIRY_HOURS = 24;
+const VERIFICATION_CODE_EXPIRY_HOURS = 2;
 const OAUTH_STATE_EXPIRY_SECONDS = 600; // 10 minutes
 
 // Initialize Google OAuth client
