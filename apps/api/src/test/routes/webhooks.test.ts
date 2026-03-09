@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 
 vi.mock('../../lib/config.js', () => ({
@@ -40,7 +41,7 @@ describe('webhooks route', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.received).toBe(true);
       expect(mockFetch).toHaveBeenCalled();
     });
@@ -53,7 +54,7 @@ describe('webhooks route', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.ignored).toBe(true);
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -69,7 +70,7 @@ describe('webhooks route', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.error).toBe('missing rcpt_to');
     });
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createChain } from '../helpers/mockDb.js';
@@ -86,7 +87,7 @@ describe('GDPR Routes', () => {
 
       const res = await app.request('/gdpr/export');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.personalData).toBeDefined();
       expect(body.gdprInfo).toBeDefined();
     });
@@ -120,7 +121,7 @@ describe('GDPR Routes', () => {
         body: JSON.stringify({}),
       });
       expect(res.status).toBe(201);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.requestId).toBe('req-1');
       expect(body.gracePeriodDays).toBe(30);
     });
@@ -132,7 +133,7 @@ describe('GDPR Routes', () => {
 
       const res = await app.request('/gdpr/restriction');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.restricted).toBe(false);
     });
   });
@@ -149,7 +150,7 @@ describe('GDPR Routes', () => {
         body: JSON.stringify({ restricted: true }),
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.restricted).toBe(true);
     });
   });
@@ -161,7 +162,7 @@ describe('GDPR Routes', () => {
 
       const res = await app.request('/gdpr/profile');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.email).toBe(user.email);
       expect(body.fullName).toBe(user.fullName);
     });
@@ -180,7 +181,7 @@ describe('GDPR Routes', () => {
 
       const res = await app.request('/gdpr/deletion-status');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.requests).toBeDefined();
     });
   });

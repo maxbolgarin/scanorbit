@@ -1,5 +1,11 @@
 import { vi, beforeEach } from 'vitest';
 
+/** Typed JSON body from Response - use in tests to avoid 'body is of type unknown' */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function jsonBody<T = any>(res: Response): Promise<T> {
+  return (await res.json()) as T;
+}
+
 // Set test environment variables BEFORE any module imports
 process.env.NODE_ENV = 'test';
 process.env.PORT = '4000';

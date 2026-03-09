@@ -493,8 +493,8 @@ export const refreshTokenStore = {
    * Also tracks user's active tokens in a set for bulk revocation
    */
   async store(tokenId: string, userId: string): Promise<void> {
-    const tokenLog = tokenId.slice(0, 8) + '...';
-    const userLog = userId.slice(0, 8) + '...';
+    const tokenLog = `${tokenId.slice(0, 8)  }...`;
+    const userLog = `${userId.slice(0, 8)  }...`;
 
     logger.debug('[RefreshToken] Storing token', { tokenId: tokenLog, userId: userLog });
 

@@ -57,9 +57,9 @@ webhooksRoute.post('/scaleway-bounce', async (c) => {
 
   // Forward to Listmonk bounce webhook (fire-and-forget, always return 200)
   try {
-    const auth = 'Basic ' + Buffer.from(
+    const auth = `Basic ${  Buffer.from(
       `${listmonkConfig.apiUser}:${listmonkConfig.apiPassword}`
-    ).toString('base64');
+    ).toString('base64')}`;
 
     const res = await fetch(`${listmonkConfig.apiUrl}/api/webhooks/bounce`, {
       method: 'POST',

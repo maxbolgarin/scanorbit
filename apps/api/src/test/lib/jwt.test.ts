@@ -21,7 +21,7 @@ describe('jwt', () => {
 
     it('rejects tampered token', async () => {
       const token = await jwt.signAccessToken({ userId: 'user-1', orgId: null });
-      const tampered = token.slice(0, -5) + 'XXXXX';
+      const tampered = `${token.slice(0, -5)  }XXXXX`;
       await expect(jwt.verifyAccessToken(tampered)).rejects.toThrow();
     });
 

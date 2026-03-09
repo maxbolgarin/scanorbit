@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createOrg } from '../helpers/factories.js';
@@ -72,7 +73,7 @@ describe('Orgs Routes', () => {
 
       const res = await app.request('/orgs');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toHaveLength(2);
     });
   });
@@ -88,7 +89,7 @@ describe('Orgs Routes', () => {
         body: JSON.stringify({ orgName: 'New Org' }),
       });
       expect(res.status).toBe(201);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toBeDefined();
       expect(body.accessToken).toBe('mock-token');
     });
@@ -155,7 +156,7 @@ describe('Orgs Routes', () => {
 
       const res = await app.request('/orgs/org-1/settings');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data.requiredTags).toEqual(['env']);
     });
   });

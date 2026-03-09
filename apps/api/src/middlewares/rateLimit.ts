@@ -16,6 +16,13 @@ interface RateLimitOptions {
   keyExtractor?: (c: Context<{ Variables: Variables }>) => string;
   /** Custom error message */
   message?: string;
+  /**
+   * When true, allow requests through if Redis is unavailable (circuit breaker open).
+   * Use for non-security-critical endpoints (e.g., general API rate limiting)
+   * where the user is already authenticated via JWT.
+   * Default: false (fail-closed for security-critical endpoints like login/signup).
+   */
+  failOpen?: boolean;
 }
 
 // Circuit breaker state for Redis failures
@@ -116,11 +123,21 @@ export function rateLimit(options: RateLimitOptions) {
     windowSeconds,
     keyExtractor,
     message = 'Too many requests. Please try again later.',
+    failOpen = false,
   } = options;
 
   return async (c: Context<{ Variables: Variables }>, next: Next) => {
-    // Check circuit breaker first - if Redis has been failing, fail-closed for security
+    // Check circuit breaker first - if Redis has been failing, either fail-closed or fail-open
     if (isCircuitOpen()) {
+      if (failOpen) {
+        // Non-security-critical endpoint: allow request through without rate limiting
+        logger.warn('Circuit breaker open - Redis unavailable, failing open (non-critical)', {
+          keyPrefix,
+          failures: circuitBreaker.failures,
+        });
+        await next();
+        return;
+      }
       logger.error('Circuit breaker open - Redis unavailable, failing closed', undefined, {
         keyPrefix,
         failures: circuitBreaker.failures,
@@ -176,7 +193,14 @@ export function rateLimit(options: RateLimitOptions) {
         threshold: circuitBreaker.threshold,
       });
 
-      // Always fail closed — never bypass rate limiting on Redis errors
+      if (failOpen) {
+        // Non-security-critical endpoint: allow request through
+        logger.warn('Redis rate limit failed, failing open (non-critical)', { keyPrefix });
+        await next();
+        return;
+      }
+
+      // Fail closed — never bypass rate limiting on Redis errors for security-critical endpoints
       throw new HTTP503Error('Service temporarily unavailable. Please try again later.');
     }
   };
@@ -324,20 +348,22 @@ export const rateLimiters = {
     message: 'Too many verification attempts. Please wait 15 minutes.',
   }),
 
-  /** General API: 100 requests per minute per IP */
+  /** General API: 100 requests per minute per IP (fail-open: users already authenticated via JWT) */
   api: rateLimit({
     keyPrefix: 'api',
     maxRequests: 100,
     windowSeconds: 60,
     message: 'Too many requests. Please slow down.',
+    failOpen: true,
   }),
 
-  /** Newsletter subscribe: 3 per 10 minutes per IP */
+  /** Newsletter subscribe: 3 per 10 minutes per IP (fail-open: low-risk endpoint) */
   newsletter: rateLimit({
     keyPrefix: 'newsletter',
     maxRequests: 3,
     windowSeconds: 10 * 60,
     message: 'Too many subscription attempts.',
+    failOpen: true,
   }),
 
   /** Password reset: 3 per hour per IP */

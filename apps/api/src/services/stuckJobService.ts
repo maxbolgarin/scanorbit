@@ -35,107 +35,114 @@ export async function recoverStuckJobs(): Promise<StuckJobResult> {
   const cutoff = new Date(Date.now() - STUCK_JOB_TIMEOUT_MINUTES * 60 * 1000);
 
   try {
-    // 1. Find jobs stuck in "running" state past the timeout
-    const stuckRunningJobs = await db
-      .select({
-        id: jobs.id,
-        scanId: jobs.scanId,
-        type: jobs.type,
-        payload: jobs.payload,
-        recoveryCount: jobs.recoveryCount,
-        startedAt: jobs.startedAt,
-      })
-      .from(jobs)
-      .where(
-        and(
-          eq(jobs.status, 'running'),
-          lt(jobs.startedAt, cutoff)
+    // 1. Find and lock jobs stuck in "running" state past the timeout.
+    //    Uses a transaction with FOR UPDATE SKIP LOCKED to prevent concurrent
+    //    recovery runs from processing the same job twice.
+    await db.transaction(async (tx) => {
+      const locked = await tx
+        .select({
+          id: jobs.id,
+          scanId: jobs.scanId,
+          type: jobs.type,
+          payload: jobs.payload,
+          recoveryCount: jobs.recoveryCount,
+          startedAt: jobs.startedAt,
+        })
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.status, 'running'),
+            lt(jobs.startedAt, cutoff)
+          )
         )
-      );
+        .for('update', { skipLocked: true });
 
-    for (const job of stuckRunningJobs) {
-      try {
-        if (job.recoveryCount >= MAX_RECOVERY_COUNT) {
-          // Move to dead letter queue - this job has failed too many times
-          await db.insert(deadLetterJobs).values({
-            jobId: job.id,
-            jobType: job.type,
-            payload: job.payload as Record<string, unknown>,
-            error: `Job stuck in running state ${job.recoveryCount + 1} times. Last started at ${job.startedAt?.toISOString()}`,
-            retries: job.recoveryCount,
-          });
+      for (const job of locked) {
+        try {
+          if (job.recoveryCount >= MAX_RECOVERY_COUNT) {
+            // Move to dead letter queue - this job has failed too many times
+            await tx.insert(deadLetterJobs).values({
+              jobId: job.id,
+              jobType: job.type,
+              payload: job.payload as Record<string, unknown>,
+              error: `Job stuck in running state ${job.recoveryCount + 1} times. Last started at ${job.startedAt?.toISOString()}`,
+              retries: job.recoveryCount,
+            });
 
-          // Mark the job as error
-          await db
-            .update(jobs)
-            .set({
-              status: 'error',
-              error: `Moved to dead letter queue after ${job.recoveryCount} recovery attempts`,
-              completedAt: new Date(),
-            })
-            .where(eq(jobs.id, job.id));
-
-          // Mark the associated scan as error
-          if (job.scanId) {
-            await db
-              .update(scans)
+            // Mark the job as error
+            await tx
+              .update(jobs)
               .set({
-                status: ScanStatus.ERROR,
-                errorMessage: 'Scan failed: worker processing timed out after multiple retries',
+                status: 'error',
+                error: `Moved to dead letter queue after ${job.recoveryCount} recovery attempts`,
                 completedAt: new Date(),
               })
-              .where(
-                and(
-                  eq(scans.id, job.scanId),
-                  inArray(scans.status, ACTIVE_SCAN_STATUSES)
-                )
-              );
-            result.stuckScansErrored++;
-          }
+              .where(eq(jobs.id, job.id));
 
-          result.jobsMovedToDLQ++;
-          logger.warn('Job moved to dead letter queue', {
-            jobId: job.id,
-            jobType: job.type,
-            recoveryCount: job.recoveryCount,
-          });
-        } else {
-          // Reset to queued for retry, increment recovery count
-          await db
-            .update(jobs)
-            .set({
-              status: 'queued',
-              startedAt: null,
-              error: null,
+            // Mark the associated scan as error
+            if (job.scanId) {
+              await tx
+                .update(scans)
+                .set({
+                  status: ScanStatus.ERROR,
+                  errorMessage: 'Scan failed: worker processing timed out after multiple retries',
+                  completedAt: new Date(),
+                })
+                .where(
+                  and(
+                    eq(scans.id, job.scanId),
+                    inArray(scans.status, ACTIVE_SCAN_STATUSES)
+                  )
+                );
+              result.stuckScansErrored++;
+            }
+
+            result.jobsMovedToDLQ++;
+            logger.warn('Job moved to dead letter queue', {
+              jobId: job.id,
+              jobType: job.type,
+              recoveryCount: job.recoveryCount,
+            });
+          } else {
+            // Reset to queued for retry, increment recovery count
+            await tx
+              .update(jobs)
+              .set({
+                status: 'queued',
+                startedAt: null,
+                error: null,
+                recoveryCount: job.recoveryCount + 1,
+              })
+              .where(eq(jobs.id, job.id));
+
+            // Reset scan status to queued as well
+            if (job.scanId) {
+              await tx
+                .update(scans)
+                .set({ status: ScanStatus.QUEUED })
+                .where(
+                  and(
+                    eq(scans.id, job.scanId),
+                    inArray(scans.status, ACTIVE_SCAN_STATUSES)
+                  )
+                );
+            }
+
+            result.stuckJobsRecovered++;
+            logger.info('Stuck job recovered', {
+              jobId: job.id,
+              jobType: job.type,
               recoveryCount: job.recoveryCount + 1,
-            })
-            .where(eq(jobs.id, job.id));
-
-          // Reset scan status to queued as well
-          if (job.scanId) {
-            await db
-              .update(scans)
-              .set({ status: ScanStatus.QUEUED })
-              .where(
-                and(
-                  eq(scans.id, job.scanId),
-                  inArray(scans.status, ACTIVE_SCAN_STATUSES)
-                )
-              );
+            });
           }
-
-          result.stuckJobsRecovered++;
-          logger.info('Stuck job recovered', {
-            jobId: job.id,
-            jobType: job.type,
-            recoveryCount: job.recoveryCount + 1,
-          });
+        } catch (err) {
+          result.errors.push(`Failed to recover job ${job.id}: ${(err as Error).message}`);
+          logger.error('Failed to recover stuck job', err as Error, { jobId: job.id });
         }
-      } catch (err) {
-        result.errors.push(`Failed to recover job ${job.id}: ${(err as Error).message}`);
-        logger.error('Failed to recover stuck job', err as Error, { jobId: job.id });
       }
-    }
+
+      return locked;
+    });
 
     // 2. Find scans stuck in active state with no corresponding active job
     //    (orphaned scans where job was already completed/errored or deleted)

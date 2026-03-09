@@ -66,10 +66,10 @@ vi.mock('../../lib/redis.js', () => ({
 vi.mock('../../lib/jwt.js', () => ({
   jwt: {
     signAccessToken: vi.fn().mockResolvedValue('access-token'),
-    signRefreshToken: vi.fn().mockResolvedValue('refresh-token'),
+    signRefreshToken: vi.fn().mockResolvedValue({ token: 'refresh-token', tokenId: 'tid-1' }),
     signSignupToken: vi.fn().mockResolvedValue('signup-token'),
-    verifySignupToken: vi.fn().mockResolvedValue({ email: 'user@test.com' }),
-    verifyRefreshToken: vi.fn().mockResolvedValue({ userId: 'user-1', tokenId: 'tid-1' }),
+    verifySignupToken: vi.fn().mockResolvedValue({ email: 'user@test.com', type: 'signup' as const }),
+    verifyRefreshToken: vi.fn().mockResolvedValue({ userId: 'user-1', tokenId: 'tid-1', type: 'refresh' as const }),
   },
 }));
 
@@ -137,10 +137,10 @@ describe('authService', () => {
     mockSignupCodes.checkAttempts.mockResolvedValue({ allowed: true, attemptsRemaining: 5 });
     mockSignupCodes.checkAndIncrementAttempts.mockResolvedValue({ allowed: true, attemptsRemaining: 4 });
     const { jwt } = await import('../../lib/jwt.js');
-    vi.mocked(jwt.verifySignupToken).mockResolvedValue({ email: 'user@test.com' });
-    vi.mocked(jwt.verifyRefreshToken).mockResolvedValue({ userId: 'user-1', tokenId: 'tid-1' });
+    vi.mocked(jwt.verifySignupToken).mockResolvedValue({ email: 'user@test.com', type: 'signup' });
+    vi.mocked(jwt.verifyRefreshToken).mockResolvedValue({ userId: 'user-1', tokenId: 'tid-1', type: 'refresh' });
     vi.mocked(jwt.signAccessToken).mockResolvedValue('access-token');
-    vi.mocked(jwt.signRefreshToken).mockResolvedValue('refresh-token');
+    vi.mocked(jwt.signRefreshToken).mockResolvedValue({ token: 'refresh-token', tokenId: 'tid-1' });
     vi.mocked(jwt.signSignupToken).mockResolvedValue('signup-token');
   });
 

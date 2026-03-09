@@ -48,9 +48,17 @@ export function createMockDb() {
 }
 
 /**
- * Creates a mock pool object
+ * Creates a mock pool object (matches pg.Pool interface for tests)
  */
-export function createMockPool() {
+export function createMockPool(): {
+  query: ReturnType<typeof vi.fn>;
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+  connect: ReturnType<typeof vi.fn>;
+  end: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+} {
   return {
     query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
     totalCount: 20,

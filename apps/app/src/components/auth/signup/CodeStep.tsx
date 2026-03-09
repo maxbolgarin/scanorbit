@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, KeyboardEvent, ClipboardEvent } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent, type ClipboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -148,7 +148,7 @@ export function CodeStep({ email, onNext, onBack }: CodeStepProps) {
         {code.map((digit, index) => (
           <Input
             key={index}
-            ref={(el) => {inputRefs.current[index] = el}}
+            ref={(el: HTMLInputElement | null) => { inputRefs.current[index] = el; }}
             type="text"
             inputMode="numeric"
             maxLength={1}

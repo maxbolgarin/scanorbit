@@ -7,8 +7,7 @@ export interface CheckboxProps
   label?: React.ReactNode;
 }
 
-const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, id, checked: controlledChecked, ...props }, ref) => {
+const Checkbox = ({ ref, className, label, id, checked: controlledChecked, ...props }: CheckboxProps & { ref?: React.RefObject<HTMLInputElement | null> }) => {
     // Use internal state only for uncontrolled mode
     const [internalChecked, setInternalChecked] = React.useState(
       controlledChecked ?? props.defaultChecked ?? false
@@ -63,8 +62,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         )}
       </label>
     );
-  }
-);
+  };
 Checkbox.displayName = "Checkbox";
 
 export { Checkbox };

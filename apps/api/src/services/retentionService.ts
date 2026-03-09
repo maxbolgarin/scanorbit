@@ -71,7 +71,7 @@ export async function runRetentionCleanup(): Promise<RetentionResult> {
     logger.info('[Retention] Deleted stale resources', { count: result.resourcesDeleted });
   } catch (err) {
     const message = `Failed to delete stale resources: ${err}`;
-    logger.error('[Retention] ' + message);
+    logger.error(`[Retention] ${  message}`);
     result.errors.push(message);
   }
 
@@ -81,7 +81,7 @@ export async function runRetentionCleanup(): Promise<RetentionResult> {
     logger.info('[Retention] Deleted old resolved findings', { count: result.findingsDeleted });
   } catch (err) {
     const message = `Failed to delete old findings: ${err}`;
-    logger.error('[Retention] ' + message);
+    logger.error(`[Retention] ${  message}`);
     result.errors.push(message);
   }
 
@@ -91,7 +91,7 @@ export async function runRetentionCleanup(): Promise<RetentionResult> {
     logger.info('[Retention] Deleted old scan records', { count: result.scansDeleted });
   } catch (err) {
     const message = `Failed to delete old scans: ${err}`;
-    logger.error('[Retention] ' + message);
+    logger.error(`[Retention] ${  message}`);
     result.errors.push(message);
   }
 
@@ -101,7 +101,7 @@ export async function runRetentionCleanup(): Promise<RetentionResult> {
     logger.info('[Retention] Archived old audit logs', { count: result.auditLogsArchived });
   } catch (err) {
     const message = `Failed to archive audit logs: ${err}`;
-    logger.error('[Retention] ' + message);
+    logger.error(`[Retention] ${  message}`);
     result.errors.push(message);
   }
 
@@ -111,7 +111,7 @@ export async function runRetentionCleanup(): Promise<RetentionResult> {
     logger.info('[Retention] Processed deletion requests', { count: result.deletionRequestsProcessed });
   } catch (err) {
     const message = `Failed to process deletion requests: ${err}`;
-    logger.error('[Retention] ' + message);
+    logger.error(`[Retention] ${  message}`);
     result.errors.push(message);
   }
 

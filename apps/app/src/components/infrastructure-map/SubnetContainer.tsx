@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { type NodeProps } from '@xyflow/react';
+import type { NodeProps } from '@xyflow/react';
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SubnetContainerNode, SubnetContainerNodeData } from '@/types/graph';

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createAwsAccount } from '../helpers/factories.js';
@@ -66,7 +67,7 @@ describe('AWS Accounts Routes', () => {
 
       const res = await app.request('/aws/accounts');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toHaveLength(1);
     });
   });

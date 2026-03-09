@@ -164,13 +164,13 @@ function App() {
             <Route path="accounts/:accountId/scans" element={<ErrorBoundary fallback={<PageError />}><AccountScans /></ErrorBoundary>} />
 
             {/* Account management page */}
-            <Route path="accounts" element={<Accounts />} />
+            <Route path="accounts" element={<ErrorBoundary fallback={<PageError />}><Accounts /></ErrorBoundary>} />
 
             {/* Global routes */}
-            <Route path="settings" element={<Settings />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="docs" element={<Docs />} />
-            <Route path="docs/:articleId" element={<Docs />} />
+            <Route path="settings" element={<ErrorBoundary fallback={<PageError />}><Settings /></ErrorBoundary>} />
+            <Route path="profile" element={<ErrorBoundary fallback={<PageError />}><Profile /></ErrorBoundary>} />
+            <Route path="docs" element={<ErrorBoundary fallback={<PageError />}><Docs /></ErrorBoundary>} />
+            <Route path="docs/:articleId" element={<ErrorBoundary fallback={<PageError />}><Docs /></ErrorBoundary>} />
 
             {/* Legacy redirects for backward compatibility */}
             <Route path="dashboard" element={<Navigate to="/overview" replace />} />

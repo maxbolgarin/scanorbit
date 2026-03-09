@@ -44,6 +44,7 @@ export function useAllResources(filters?: Omit<ResourceFilters, 'page' | 'limit'
 
       return {
         data: allResources,
+        truncated: page > 50,
         pagination: {
           total: allResources.length,
           page: 1,

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createFinding } from '../helpers/factories.js';
@@ -74,7 +75,7 @@ describe('Findings Routes', () => {
 
       const res = await app.request('/findings');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toHaveLength(2);
       expect(body.pagination.total).toBe(2);
     });
@@ -113,7 +114,7 @@ describe('Findings Routes', () => {
 
       const res = await app.request('/findings/stats');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toEqual(stats);
     });
   });
@@ -125,7 +126,7 @@ describe('Findings Routes', () => {
 
       const res = await app.request('/findings/some-id');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toBeDefined();
     });
   });
@@ -173,7 +174,7 @@ describe('Findings Routes', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data.updatedCount).toBe(3);
     });
 
@@ -203,7 +204,7 @@ describe('Findings Routes', () => {
 
       const res = await app.request('/findings/some-id/history');
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = await jsonBody(res);
       expect(body.data).toEqual(history);
     });
   });

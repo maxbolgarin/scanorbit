@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { requireOrgId } from '../../middlewares/requireOrgId.js';
@@ -19,7 +20,7 @@ describe('requireOrgId', () => {
     const app = createApp();
     const res = await app.request('/test');
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.error).toBe('No organization selected');
   });
 
@@ -51,7 +52,7 @@ describe('requireOrgId', () => {
 
     const res = await app.request('/test');
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await jsonBody(res);
     expect(body.orgId).toBe('org-123');
   });
 });

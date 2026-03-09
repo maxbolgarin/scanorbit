@@ -56,6 +56,9 @@ export function useAccountContext() {
     // Only run if we have accounts loaded and a current account selected
     if (accounts.length === 0 || !currentAccountId) return;
 
+    // Skip if the Accounts page already handled the redirect after deletion
+    if (location.pathname === '/accounts' || location.pathname === '/overview') return;
+
     const accountExists = accounts.some(a => a.id === currentAccountId);
 
     if (!accountExists) {
@@ -69,7 +72,7 @@ export function useAccountContext() {
         navigate(`/accounts/${accounts[0].id}`, { replace: true });
       }
     }
-  }, [accounts, currentAccountId, clearAccountContext, setCurrentAccount, navigate, canViewOrgOverview]);
+  }, [accounts, currentAccountId, clearAccountContext, setCurrentAccount, navigate, canViewOrgOverview, location.pathname]);
 
   /**
    * Switch to a different account or overview mode.

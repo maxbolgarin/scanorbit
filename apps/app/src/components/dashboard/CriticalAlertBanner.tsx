@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { X, AlertCircle, ShieldAlert, Clock } from "lucide-react";
+import { X, type AlertCircle, ShieldAlert, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { EnhancedDashboardSummary } from "@/types";

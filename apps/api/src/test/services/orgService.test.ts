@@ -210,14 +210,14 @@ describe('orgService', () => {
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) return createChain([{ role: 'admin' }]) as any; // membership
-        if (callCount === 2) return createChain([{
+        if (callCount === 2) {return createChain([{
           tier: 'team',
           tierUpgradedAt: new Date(),
           subscriptionStatus: 'active',
           trialEndsAt: null,
           subscriptionEndsAt: null,
           stripeCustomerId: 'cus_123',
-        }]) as any; // org
+        }]) as any;} // org
         // getOrgTier
         return createChain([{ tier: 'team' }]) as any;
       });
@@ -233,14 +233,14 @@ describe('orgService', () => {
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) return createChain([{ role: 'member' }]) as any; // membership
-        if (callCount === 2) return createChain([{
+        if (callCount === 2) {return createChain([{
           tier: 'free',
           tierUpgradedAt: null,
           subscriptionStatus: null,
           trialEndsAt: null,
           subscriptionEndsAt: null,
           stripeCustomerId: null,
-        }]) as any; // org
+        }]) as any;} // org
         if (callCount === 3) return createChain([{ tier: 'free' }]) as any; // getOrgTier
         // successful scan check
         return createChain([{ id: 'scan-1' }]) as any;

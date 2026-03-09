@@ -62,9 +62,9 @@ describe('resourceService', () => {
 
   describe('getResource', () => {
     it('finds by UUID', async () => {
-      selectResult = [{ id: 'c0a80001-0000-0000-0000-000000000001', arn: 'arn:...' }];
+      selectResult = [{ id: 'c0a80001-0000-0000-0000-000000000001', resourceId: 'arn:...' }];
       const result = await resourceService.getResource('org-1', 'c0a80001-0000-0000-0000-000000000001');
-      expect(result.arn).toBe('arn:...');
+      expect(result.resourceId).toBe('arn:...');
     });
 
     it('falls back to resource ID lookup', async () => {

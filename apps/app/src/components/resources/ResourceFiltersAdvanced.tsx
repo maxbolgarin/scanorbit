@@ -203,7 +203,7 @@ export function ResourceFiltersAdvanced({
           <div className="flex flex-wrap gap-1.5 ml-2">
             {searchQuery && (
               <Badge variant="secondary" className="gap-1 pr-1">
-                Search: "{searchQuery.length > 15 ? searchQuery.slice(0, 15) + "..." : searchQuery}"
+                Search: "{searchQuery.length > 15 ? `${searchQuery.slice(0, 15)  }...` : searchQuery}"
                 <button
                   onClick={() => onSearchChange("")}
                   className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
