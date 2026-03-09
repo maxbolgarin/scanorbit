@@ -90,41 +90,12 @@ Push to `main` or trigger the Release workflow manually. This builds and pushes 
 - `ghcr.io/<org>/scanorbit/analyzer:latest`
 
 
-## Step 3: Authenticate Docker on the VM
-
-SSH into the VM and authenticate with GHCR so Docker can pull private images:
-
-```bash
-ssh deploy@scanorbit.cloud
-
-# Create a GitHub Personal Access Token (PAT) with read:packages scope
-# Then login:
-echo "ghp_YOUR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-```
-
-
-## Step 4: Generate TLS Certificates
-
-Internal TLS certificates for PostgreSQL and Redis (not public-facing — Caddy handles public TLS):
-
-```bash
-# On the VM:
-cd /opt/scanorbit/deploy
-chmod +x scripts/generate-certs.sh
-./scripts/generate-certs.sh
-```
-
-This creates `certs/postgres/` and `certs/redis/` with CA, server cert, and key.
-
-> Certificates are valid for 365 days. Set a reminder to regenerate.
-
-
-## Step 5: Deploy Configuration Files
+## Step 3: Deploy Configuration Files
 
 From your local machine:
 
 ```bash
-# Send all deploy files
+# Send all deploy files to the VM
 make send-deploy-files
 
 # This runs:
@@ -141,43 +112,59 @@ make send-env             # just .env
 ```
 
 
-## Step 6: Set Up Docker Secrets
+## Step 4: Bootstrap
 
-Secrets are stored as individual files in `deploy/secrets/`, mounted into containers at `/run/secrets/`.
-
-### Option A: From a secrets file (recommended)
+The bootstrap script sets up everything needed before starting services: Docker secrets, TLS certificates, GHCR authentication, and file permissions.
 
 ```bash
 ssh deploy@scanorbit.cloud
 cd /opt/scanorbit/deploy
 
-# Copy the template and fill in your values
+# Prepare secrets file
 cp secrets.env.example secrets.env
-nano secrets.env
+nano secrets.env   # fill in all values
 
-# Run the setup script
-chmod +x scripts/setup-secrets.sh
-./scripts/setup-secrets.sh secrets.env
+# Run bootstrap (secrets + certs + GHCR login + permissions)
+./scripts/bootstrap.sh secrets.env
 
-# DELETE the secrets file immediately
+# DELETE the secrets file
 rm -f secrets.env
 ```
 
-### Option B: Interactive mode
+The bootstrap script:
+1. Creates Docker secret files from `secrets.env`
+2. Generates internal TLS certificates (PostgreSQL + Redis)
+3. Authenticates with GHCR (prompts for GitHub username + PAT)
+4. Sets file permissions (`chmod 600/700`)
 
-```bash
-./scripts/setup-secrets.sh
-# Prompts for each secret value
-```
+You can also set `GITHUB_USERNAME` and `GITHUB_TOKEN` environment variables to skip the interactive prompt.
 
 ### Secrets reference
 
 Generate strong values with `openssl rand -hex 32`.
 
+**Database (admin + per-service users):**
+
 | Secret | How to get it |
 |---|---|
-| `POSTGRES_PASSWORD` | `openssl rand -hex 32` |
-| `DATABASE_URL` | `postgresql://scanorbit:<POSTGRES_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 32` (admin user, used by init scripts) |
+| `SO_API_PASSWORD` | `openssl rand -hex 32` |
+| `SO_API_DATABASE_URL` | `postgresql://so_api:<SO_API_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_MIGRATE_PASSWORD` | `openssl rand -hex 32` |
+| `SO_MIGRATE_DATABASE_URL` | `postgresql://so_migrate:<SO_MIGRATE_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_SCANNER_PASSWORD` | `openssl rand -hex 32` |
+| `SO_SCANNER_DATABASE_URL` | `postgresql://so_scanner:<SO_SCANNER_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_ANALYZER_PASSWORD` | `openssl rand -hex 32` |
+| `SO_ANALYZER_DATABASE_URL` | `postgresql://so_analyzer:<SO_ANALYZER_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_BACKUP_PASSWORD` | `openssl rand -hex 32` |
+| `SO_EXPORTER_PASSWORD` | `openssl rand -hex 32` |
+| `SO_UMAMI_PASSWORD` | `openssl rand -hex 32` |
+| `SO_LISTMONK_PASSWORD` | `openssl rand -hex 32` |
+
+**Other secrets:**
+
+| Secret | How to get it |
+|---|---|
 | `REDIS_PASSWORD` | `openssl rand -hex 32` |
 | `REDIS_URL` | `rediss://:<REDIS_PASSWORD>@redis:6379` |
 | `JWT_SECRET` | `openssl rand -hex 32` |
@@ -195,36 +182,10 @@ Generate strong values with `openssl rand -hex 32`.
 | `SCW_ACCESS_KEY` | `terraform output backup_access_key` |
 | `SCW_SECRET_KEY` | `terraform output -raw backup_secret_key` |
 
-### Verify secrets
+
+## Step 5: Start Services
 
 ```bash
-ls -la /opt/scanorbit/deploy/secrets/
-# Should show 18 files, all with 600 permissions
-```
-
-
-## Step 7: Set File Permissions
-
-```bash
-ssh deploy@scanorbit.cloud
-cd /opt/scanorbit/deploy
-
-# .env should not be world-readable
-chmod 600 .env
-
-# Secrets directory
-chmod 700 secrets/
-chmod 600 secrets/*
-
-# Helper and entrypoint scripts must be executable
-chmod +x scripts/*.sh entrypoints/*.sh
-```
-
-
-## Step 8: Start Services
-
-```bash
-ssh deploy@scanorbit.cloud
 cd /opt/scanorbit/deploy
 
 # Pull images and start everything
@@ -237,21 +198,36 @@ docker compose logs -f --tail=50
 docker compose ps
 ```
 
+### What happens on startup
+
+The `init-db` service runs automatically before any application service, creating databases, users, schema, and grants:
+
+| User | Service(s) | Access |
+|---|---|---|
+| `so_migrate` | migrate | DB owner, full DDL |
+| `so_api` | api, retention-cleanup | Full DML on all tables |
+| `so_scanner` | scanner | RW scan tables, RO user/org tables |
+| `so_analyzer` | analyzer | RW findings/jobs, RO scan/resource tables |
+| `so_backup` | postgres-backup | Read-only (pg_dump) |
+| `so_exporter` | postgres-exporter | pg_monitor role (statistics only) |
+| `so_umami` | umami | Owner of `umami` database |
+| `so_listmonk` | listmonk | Owner of `listmonk` database |
+
 ### Startup order (handled automatically by `depends_on`):
 
 1. `postgres` → healthy
 2. `redis` → healthy
-3. `umami-db-init`, `listmonk-db-init` → create databases
-4. `migrate` → run DB migrations
-5. `listmonk-init` → install schema
+3. `init-db` → creates databases, users, schema, grants (idempotent)
+4. `migrate` → applies any pending Drizzle migrations
+5. `listmonk-init` → install Listmonk schema
 6. `api`, `scanner`, `analyzer` → start
 7. `caddy` → start (auto-provisions TLS certificates)
 8. `app`, `landing` → start
-9. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
-10. `watchtower` + `docker-socket-proxy` → start
+9. `umami`, `listmonk` → start
+10. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
+11. `watchtower` + `docker-socket-proxy` → start
 
-
-## Step 9: Verify Deployment
+### Verify
 
 ```bash
 # Health checks
@@ -270,6 +246,8 @@ docker exec api cat /run/secrets/jwt_secret
 # Check all services are healthy
 docker compose ps
 ```
+
+> After adding new tables via migrations, re-run `docker compose up -d` — the `init-db` service re-runs automatically and grants access to `so_scanner`/`so_analyzer` for new tables. `so_api` and `so_backup` get automatic grants via `ALTER DEFAULT PRIVILEGES`.
 
 
 ## Day-to-Day Operations
@@ -407,7 +385,7 @@ GDPR data retention cleanup runs daily at 03:00 UTC:
 - **Docker**: Socket proxy for Watchtower (no direct socket access), isolated internal network
 - **Secrets**: Docker secret files (`/run/secrets/`), never in env vars or process listings
 - **TLS**: Caddy auto-TLS for public, self-signed certs for internal PostgreSQL/Redis
-- **DB**: Password auth + TLS required, no public port exposure
+- **DB**: Per-service users with least-privilege grants, password auth + TLS required, no public port exposure
 - **Monitoring**: All dashboards on `127.0.0.1` only, accessed via SSH tunnel
 
 
@@ -415,6 +393,7 @@ GDPR data retention cleanup runs daily at 03:00 UTC:
 
 ### Services won't start
 ```bash
+docker compose logs init-db    # check DB initialization
 docker compose logs migrate    # check migration errors
 docker compose logs postgres   # check DB startup
 docker compose logs redis      # check Redis startup
@@ -468,7 +447,10 @@ deploy/
 ├── grafana/provisioning/      # Grafana datasource/dashboard provisioning
 ├── prometheus/rules/          # Alerting rules
 ├── scripts/
+│   ├── bootstrap.sh           # One-time setup (secrets + certs + GHCR + permissions)
 │   ├── setup-secrets.sh       # Create secret files from template
+│   ├── init-db.sh             # DB init entrypoint (runs as Docker Compose service)
+│   ├── init-db.sql            # SQL: databases, users, schema, grants
 │   ├── generate-certs.sh      # Generate internal TLS certs
 │   ├── backup.sh              # Encrypted PostgreSQL backup
 │   ├── restore.sh             # Restore from encrypted backup
@@ -476,7 +458,6 @@ deploy/
 └── entrypoints/
     ├── secret-entrypoint.sh   # Generic: export secrets as env vars
     ├── pg-exporter-entrypoint.sh
-    ├── pg-init-entrypoint.sh
     ├── umami-entrypoint.sh
     ├── listmonk-entrypoint.sh
     ├── backup-entrypoint.sh

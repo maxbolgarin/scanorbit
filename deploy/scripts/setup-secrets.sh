@@ -23,8 +23,19 @@ SECRETS_DIR="$(cd "$(dirname "$0")/.." && pwd)/secrets"
 
 # All secrets to create
 SECRETS="
-postgres_password:POSTGRES_PASSWORD:PostgreSQL password
-database_url:DATABASE_URL:Database connection URL (postgresql://user:pass@postgres:5432/scanorbit)
+postgres_password:POSTGRES_PASSWORD:PostgreSQL admin password
+so_api_password:SO_API_PASSWORD:so_api user password (openssl rand -hex 32)
+so_api_database_url:SO_API_DATABASE_URL:API database URL (postgresql://so_api:PASS@postgres:5432/scanorbit?sslmode=require)
+so_migrate_password:SO_MIGRATE_PASSWORD:so_migrate user password (openssl rand -hex 32)
+so_migrate_database_url:SO_MIGRATE_DATABASE_URL:Migrate database URL (postgresql://so_migrate:PASS@postgres:5432/scanorbit?sslmode=require)
+so_scanner_password:SO_SCANNER_PASSWORD:so_scanner user password (openssl rand -hex 32)
+so_scanner_database_url:SO_SCANNER_DATABASE_URL:Scanner database URL (postgresql://so_scanner:PASS@postgres:5432/scanorbit?sslmode=require)
+so_analyzer_password:SO_ANALYZER_PASSWORD:so_analyzer user password (openssl rand -hex 32)
+so_analyzer_database_url:SO_ANALYZER_DATABASE_URL:Analyzer database URL (postgresql://so_analyzer:PASS@postgres:5432/scanorbit?sslmode=require)
+so_backup_password:SO_BACKUP_PASSWORD:so_backup user password (openssl rand -hex 32)
+so_exporter_password:SO_EXPORTER_PASSWORD:so_exporter user password (openssl rand -hex 32)
+so_umami_password:SO_UMAMI_PASSWORD:so_umami user password (openssl rand -hex 32)
+so_listmonk_password:SO_LISTMONK_PASSWORD:so_listmonk user password (openssl rand -hex 32)
 redis_password:REDIS_PASSWORD:Redis password
 redis_url:REDIS_URL:Redis connection URL (rediss://:pass@redis:6379)
 jwt_secret:JWT_SECRET:JWT access token secret (openssl rand -hex 32)
