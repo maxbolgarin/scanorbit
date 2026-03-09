@@ -27,7 +27,17 @@ dev-analyzer:
 
 # Test & Lint
 test:
-	go test -v ./...
+	go test -race -v ./...
+
+test-cover:
+	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -func=coverage.out | tail -1
+	@echo "Per-package coverage:"
+	@go test -cover ./... 2>&1 | grep -E '^ok|^FAIL'
+
+test-cover-html: test-cover
+	go tool cover -html=coverage.out -o coverage.html
+	open coverage.html
 
 lint:
 	golangci-lint run
