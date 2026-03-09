@@ -14,6 +14,8 @@ const mockAccount = (overrides: Partial<AwsAccount> = {}): AwsAccount => ({
   lastError: null,
   lastScanAt: null,
   enabledScanners: ['ec2', 's3'],
+  createdAt: '2024-01-01T00:00:00Z',
+  updatedAt: '2024-01-01T00:00:00Z',
   ...overrides,
 });
 
