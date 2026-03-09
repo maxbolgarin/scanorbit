@@ -14,7 +14,10 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:migrate:kit": "drizzle-kit migrate --config=drizzle.config.cjs",
     "db:reset": "tsx src/db/reset.ts",
-    "db:studio": "drizzle-kit studio --config=drizzle.config.cjs"
+    "db:studio": "drizzle-kit studio --config=drizzle.config.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@aws-sdk/client-sts": "^3.1002.0",
@@ -42,10 +45,12 @@
     "@types/pg": "^8.18.0",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "dotenv": "^17.3.1",
     "drizzle-kit": "^0.31.9",
     "eslint": "^10.0.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

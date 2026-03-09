@@ -89,118 +89,118 @@ export const awsAccountService = {
     orgId: string,
     data: CreateAccountData
   ): Promise<AwsAccount> {
-    // Check if account already exists for this org (by AWS account ID)
-    const existingById = await db
-      .select({ id: awsAccounts.id })
-      .from(awsAccounts)
-      .where(
-        and(
-          eq(awsAccounts.orgId, orgId),
-          eq(awsAccounts.awsAccountId, data.awsAccountId)
-        )
-      )
-      .limit(1);
-
-    if (existingById.length > 0) {
-      throw new HTTP400Error('AWS account already connected to this organization');
-    }
-
-    // Check if account name already exists for this org
-    const existingByName = await db
-      .select({ id: awsAccounts.id })
-      .from(awsAccounts)
-      .where(
-        and(
-          eq(awsAccounts.orgId, orgId),
-          eq(awsAccounts.name, data.name)
-        )
-      )
-      .limit(1);
-
-    if (existingByName.length > 0) {
-      throw new HTTP400Error('An account with this name already exists');
-    }
-
-    // Validate AWS account ID format
+    // Validate formats before transaction
     if (!/^\d{12}$/.test(data.awsAccountId)) {
       throw new HTTP400Error('Invalid AWS account ID format (must be 12 digits)');
     }
-
-    // Validate role ARN format
     if (!data.roleArn.startsWith('arn:aws:iam::')) {
       throw new HTTP400Error('Invalid role ARN format');
     }
 
-    // Encrypt external ID before storing
     const encryptedExternalId = encryptExternalIdOptional(data.externalId);
 
-    const [account] = await db
-      .insert(awsAccounts)
-      .values({
-        orgId,
-        name: data.name,
-        awsAccountId: data.awsAccountId,
-        roleArn: data.roleArn,
-        externalId: encryptedExternalId,
-        status: 'pending',
-        enabledScanners: data.enabledScanners ?? ALL_SCANNER_TYPES,
-      } satisfies NewAwsAccount)
-      .returning();
+    // Use transaction to prevent duplicate check race condition
+    const account = await db.transaction(async (tx) => {
+      const existingById = await tx
+        .select({ id: awsAccounts.id })
+        .from(awsAccounts)
+        .where(
+          and(
+            eq(awsAccounts.orgId, orgId),
+            eq(awsAccounts.awsAccountId, data.awsAccountId)
+          )
+        )
+        .limit(1);
 
-    // Track AWS account connection
+      if (existingById.length > 0) {
+        throw new HTTP400Error('AWS account already connected to this organization');
+      }
+
+      const existingByName = await tx
+        .select({ id: awsAccounts.id })
+        .from(awsAccounts)
+        .where(
+          and(
+            eq(awsAccounts.orgId, orgId),
+            eq(awsAccounts.name, data.name)
+          )
+        )
+        .limit(1);
+
+      if (existingByName.length > 0) {
+        throw new HTTP400Error('An account with this name already exists');
+      }
+
+      const [created] = await tx
+        .insert(awsAccounts)
+        .values({
+          orgId,
+          name: data.name,
+          awsAccountId: data.awsAccountId,
+          roleArn: data.roleArn,
+          externalId: encryptedExternalId,
+          status: 'pending',
+          enabledScanners: data.enabledScanners ?? ALL_SCANNER_TYPES,
+        } satisfies NewAwsAccount)
+        .returning();
+
+      return created;
+    });
+
     awsAccountsConnected.inc();
-
-    // Return account with decrypted external ID for API response
     return decryptAccountExternalId(account);
   },
 
   async deleteAccount(orgId: string, accountId: string): Promise<void> {
-    // Verify account exists before deletion
-    const [account] = await db
-      .select({ id: awsAccounts.id })
-      .from(awsAccounts)
-      .where(
-        and(
-          eq(awsAccounts.id, accountId),
-          eq(awsAccounts.orgId, orgId)
+    // Use transaction for atomic deletion of account and related scan updates
+    await db.transaction(async (tx) => {
+      // Verify account exists before deletion
+      const [account] = await tx
+        .select({ id: awsAccounts.id })
+        .from(awsAccounts)
+        .where(
+          and(
+            eq(awsAccounts.id, accountId),
+            eq(awsAccounts.orgId, orgId)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!account) {
-      throw new HTTP404Error('AWS account not found');
-    }
+      if (!account) {
+        throw new HTTP404Error('AWS account not found');
+      }
 
-    // 1. Cancel active scans (queued, processing, running, analyzing)
-    await db
-      .update(scans)
-      .set({
-        status: ScanStatus.CANCELED,
-        completedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(scans.awsAccountId, accountId),
-          inArray(scans.status, ACTIVE_SCAN_STATUSES)
-        )
-      );
+      // 1. Cancel active scans (queued, processing, running, analyzing)
+      await tx
+        .update(scans)
+        .set({
+          status: ScanStatus.CANCELED,
+          completedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(scans.awsAccountId, accountId),
+            inArray(scans.status, ACTIVE_SCAN_STATUSES)
+          )
+        );
 
-    // 2. Mark terminal scans (complete, partial, error) as having no key
-    await db
-      .update(scans)
-      .set({ hasKey: false })
-      .where(
-        and(
-          eq(scans.awsAccountId, accountId),
-          inArray(scans.status, TERMINAL_SCAN_STATUSES),
-          not(eq(scans.status, ScanStatus.CANCELED)) // Don't update canceled ones again
-        )
-      );
+      // 2. Mark terminal scans (complete, partial, error) as having no key
+      await tx
+        .update(scans)
+        .set({ hasKey: false })
+        .where(
+          and(
+            eq(scans.awsAccountId, accountId),
+            inArray(scans.status, TERMINAL_SCAN_STATUSES),
+            not(eq(scans.status, ScanStatus.CANCELED)) // Don't update canceled ones again
+          )
+        );
 
-    // 3. Delete the account (scans FK will be set to NULL due to SET NULL constraint)
-    await db
-      .delete(awsAccounts)
-      .where(eq(awsAccounts.id, accountId));
+      // 3. Delete the account (scans FK will be set to NULL due to SET NULL constraint)
+      await tx
+        .delete(awsAccounts)
+        .where(eq(awsAccounts.id, accountId));
+    });
 
     // Track AWS account disconnection
     awsAccountsConnected.dec();
@@ -272,6 +272,13 @@ export const awsAccountService = {
       // Verify the assumed identity
       const identityCommand = new GetCallerIdentityCommand({});
       const identityResponse = await assumedClient.send(identityCommand);
+
+      // Verify the assumed role points to the correct AWS account
+      if (identityResponse.Account && identityResponse.Account !== account.awsAccountId) {
+        throw new HTTP400Error(
+          `AWS account ID mismatch: expected ${account.awsAccountId} but got ${identityResponse.Account}. Verify the role ARN points to the correct account.`
+        );
+      }
 
       // Update account status to OK
       await db

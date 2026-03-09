@@ -198,38 +198,50 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
     throw new HTTP404Error('User not found');
   }
 
-  // Check for existing pending request
-  const existingRequest = await db
-    .select()
-    .from(dataDeletionRequests)
-    .where(
-      and(
-        eq(dataDeletionRequests.userId, userId),
-        eq(dataDeletionRequests.status, 'pending')
-      )
-    );
-
-  if (existingRequest.length > 0) {
-    throw new HTTP409Error('A deletion request is already pending');
-  }
-
   // Create deletion request with 30-day grace period
+  // Use try/catch for unique constraint to handle race condition
+  // where two concurrent requests pass the check simultaneously
   const scheduledDeletionAt = new Date();
   scheduledDeletionAt.setDate(scheduledDeletionAt.getDate() + 30);
 
-  const [request] = await db
-    .insert(dataDeletionRequests)
-    .values({
-      userId,
-      email: user.email,
-      requestType: 'full_deletion',
-      status: 'pending',
-      reason,
-      scheduledDeletionAt,
-      ipAddress: getClientIP(c),
-      userAgent: c.req.header('user-agent'),
-    })
-    .returning();
+  let request;
+  try {
+    // Check for existing pending request
+    const existingRequest = await db
+      .select()
+      .from(dataDeletionRequests)
+      .where(
+        and(
+          eq(dataDeletionRequests.userId, userId),
+          eq(dataDeletionRequests.status, 'pending')
+        )
+      );
+
+    if (existingRequest.length > 0) {
+      throw new HTTP409Error('A deletion request is already pending');
+    }
+
+    [request] = await db
+      .insert(dataDeletionRequests)
+      .values({
+        userId,
+        email: user.email,
+        requestType: 'full_deletion',
+        status: 'pending',
+        reason,
+        scheduledDeletionAt,
+        ipAddress: getClientIP(c),
+        userAgent: c.req.header('user-agent'),
+      })
+      .returning();
+  } catch (err) {
+    if (err instanceof HTTP409Error) throw err;
+    const pgErr = err as { code?: string };
+    if (pgErr.code === '23505') {
+      throw new HTTP409Error('A deletion request is already pending');
+    }
+    throw err;
+  }
 
   // Log this sensitive operation
   await logDataAccess(
@@ -574,14 +586,18 @@ gdpr.put('/restriction', zValidator('json', restrictionSchema), async (c) => {
     throw new HTTP404Error('User not found');
   }
 
-  await db
+  const [updated] = await db
     .update(users)
     .set({
       processingRestricted: restricted,
       processingRestrictedAt: restricted ? new Date() : null,
       updatedAt: new Date(),
     })
-    .where(eq(users.id, userId));
+    .where(eq(users.id, userId))
+    .returning({
+      processingRestricted: users.processingRestricted,
+      processingRestrictedAt: users.processingRestrictedAt,
+    });
 
   // Log consent change
   await consentService.logConsent({
@@ -602,7 +618,7 @@ gdpr.put('/restriction', zValidator('json', restrictionSchema), async (c) => {
     c.req.header('user-agent') || null
   );
 
-  return c.json({ restricted, restrictedAt: restricted ? new Date() : null });
+  return c.json({ restricted: updated.processingRestricted, restrictedAt: updated.processingRestrictedAt });
 });
 
 export default gdpr;

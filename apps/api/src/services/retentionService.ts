@@ -14,9 +14,10 @@ import {
 import { listmonkService } from './listmonkService.js';
 import { stripeService } from './stripeService.js';
 import { refreshTokenStore } from '../lib/redis.js';
-import { eq, and, lt, lte, isNotNull, sql, count } from 'drizzle-orm';
+import { eq, and, lt, lte, isNotNull, notInArray, sql, count } from 'drizzle-orm';
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
+import { ACTIVE_SCAN_STATUSES } from '../types/index.js';
 
 /**
  * GDPR Compliance - Data Retention Service
@@ -168,10 +169,13 @@ async function deleteOldScans(): Promise<number> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - RETENTION_SCANS_DAYS);
 
-  // Delete old scans
+  // Delete old scans (exclude active scans that are still being processed)
   const deleted = await db
     .delete(scans)
-    .where(lt(scans.createdAt, cutoffDate))
+    .where(and(
+      lt(scans.createdAt, cutoffDate),
+      notInArray(scans.status, ACTIVE_SCAN_STATUSES)
+    ))
     .returning({ id: scans.id });
 
   return deleted.length;
@@ -307,6 +311,19 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
 
   // Use a transaction for atomic deletion
   await db.transaction(async (tx) => {
+    // Lock user row to prevent concurrent deletion processing
+    const [lockedUser] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update')
+      .limit(1);
+
+    if (!lockedUser) {
+      // User already deleted by concurrent process
+      return;
+    }
+
     // 1. Remove user from all organizations
     await tx
       .delete(userOrgMembers)

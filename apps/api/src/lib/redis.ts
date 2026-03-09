@@ -108,6 +108,24 @@ export const signupCodes = {
   },
 
   /**
+   * Atomic check + increment: increments first, then checks if within limit.
+   * Prevents TOCTOU race where concurrent requests both pass the check before either increments.
+   */
+  async checkAndIncrementAttempts(email: string): Promise<{ allowed: boolean; attemptsRemaining: number }> {
+    const key = signupAttemptsKey(email);
+    const count = await redis.eval(
+      'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c',
+      1,
+      key,
+      SIGNUP_ATTEMPTS_TTL,
+    ) as number;
+    return {
+      allowed: count <= MAX_SIGNUP_ATTEMPTS,
+      attemptsRemaining: Math.max(0, MAX_SIGNUP_ATTEMPTS - count),
+    };
+  },
+
+  /**
    * Reset attempt count (after successful signup)
    */
   async resetAttempts(email: string): Promise<void> {
@@ -313,6 +331,24 @@ export const twoFactorStore = {
   },
 
   /**
+   * Atomic check + increment: increments first, then checks if within limit.
+   * Prevents TOCTOU race where concurrent requests both pass the check before either increments.
+   */
+  async checkAndIncrementVerifyAttempts(identifier: string): Promise<{ allowed: boolean; attemptsRemaining: number }> {
+    const key = twoFactorVerifyAttemptsKey(identifier);
+    const count = await redis.eval(
+      'local c = redis.call("INCR", KEYS[1]) if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end return c',
+      1,
+      key,
+      TWO_FACTOR_VERIFY_ATTEMPTS_TTL,
+    ) as number;
+    return {
+      allowed: count <= MAX_TWO_FACTOR_VERIFY_ATTEMPTS,
+      attemptsRemaining: Math.max(0, MAX_TWO_FACTOR_VERIFY_ATTEMPTS - count),
+    };
+  },
+
+  /**
    * Reset verification attempts (after successful verification)
    */
   async resetVerifyAttempts(identifier: string): Promise<void> {
@@ -419,6 +455,19 @@ export const passwordResetStore = {
    */
   async deleteToken(token: string): Promise<void> {
     await redis.del(passwordResetTokenKey(token));
+  },
+
+  /**
+   * Atomically consume a password reset token (GET + DEL in one Lua call).
+   * Prevents race condition where two concurrent requests both read the token before either deletes it.
+   */
+  async consumeToken(token: string): Promise<string | null> {
+    const key = passwordResetTokenKey(token);
+    return redis.eval(
+      'local v = redis.call("GET", KEYS[1]) if v then redis.call("DEL", KEYS[1]) end return v',
+      1,
+      key,
+    ) as Promise<string | null>;
   },
 };
 

@@ -198,7 +198,8 @@ stripeRoute.post('/webhook', async (c) => {
   // Check if Stripe is configured
   if (!stripeService.isConfigured()) {
     logger.warn('Stripe webhook received but Stripe is not configured');
-    return c.json({ received: true });
+    // Return 503 so Stripe retries — returning 200 would mark the event as delivered permanently
+    return c.json({ error: 'Stripe not configured' }, 503);
   }
 
   // Get raw body for signature verification
@@ -354,7 +355,8 @@ stripeRoute.post('/webhook', async (c) => {
 
         // Send payment failed email to org admin
         try {
-          const subscriptionId = invoice.parent?.subscription_details?.subscription as string;
+          const parentSub = invoice.parent?.subscription_details?.subscription;
+          const subscriptionId = typeof parentSub === 'string' ? parentSub : (parentSub as { id?: string } | null | undefined)?.id;
           if (subscriptionId) {
             const subscription = await stripeService.getSubscription(subscriptionId);
             const orgId = subscription?.metadata?.orgId;

@@ -102,21 +102,18 @@ export const twoFactorService = {
       throw new HTTP400Error('2FA setup session expired. Please start setup again.');
     }
 
-    // Rate limiting
-    const attempts = await twoFactorStore.checkVerifyAttempts(`setup:${userId}`);
+    // Atomic rate limit check + increment (prevents TOCTOU race)
+    const attempts = await twoFactorStore.checkAndIncrementVerifyAttempts(`setup:${userId}`);
     if (!attempts.allowed) {
       throw new HTTP400Error('Too many verification attempts. Please try again later.');
     }
-
-    await twoFactorStore.incrementVerifyAttempts(`setup:${userId}`);
 
     // Verify the TOTP code against the temporary secret
     const isValid = verifyTotpCode(setupData.secret, code);
 
     if (!isValid) {
-      const remaining = attempts.attemptsRemaining - 1;
       throw new HTTP400Error(
-        `Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+        `Invalid verification code. ${attempts.attemptsRemaining} attempt${attempts.attemptsRemaining !== 1 ? 's' : ''} remaining.`
       );
     }
 
@@ -171,6 +168,12 @@ export const twoFactorService = {
       throw new HTTP400Error('Two-factor authentication is not enabled');
     }
 
+    // Rate limiting FIRST (before password check to prevent brute force on expensive bcrypt)
+    const attempts = await twoFactorStore.checkAndIncrementVerifyAttempts(`disable:${userId}`);
+    if (!attempts.allowed) {
+      throw new HTTP400Error('Too many attempts. Please try again later.');
+    }
+
     // Verify password (if user has one - OAuth-only users may not)
     if (user.passwordHash) {
       const passwordValid = await bcrypt.compare(password, user.passwordHash);
@@ -179,22 +182,13 @@ export const twoFactorService = {
       }
     }
 
-    // Rate limiting
-    const attempts = await twoFactorStore.checkVerifyAttempts(`disable:${userId}`);
-    if (!attempts.allowed) {
-      throw new HTTP400Error('Too many attempts. Please try again later.');
-    }
-
-    await twoFactorStore.incrementVerifyAttempts(`disable:${userId}`);
-
     // Verify TOTP code
     const decryptedSecret = decryptSecret(user.twoFactorSecret);
     const isValid = verifyTotpCode(decryptedSecret, code);
 
     if (!isValid) {
-      const remaining = attempts.attemptsRemaining - 1;
       throw new HTTP400Error(
-        `Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+        `Invalid verification code. ${attempts.attemptsRemaining} attempt${attempts.attemptsRemaining !== 1 ? 's' : ''} remaining.`
       );
     }
 
@@ -258,42 +252,46 @@ export const twoFactorService = {
    */
   async verifyRecoveryCode(userId: string, recoveryCode: string): Promise<boolean> {
     // Get user's 2FA data
-    const [user] = await db
-      .select({
-        twoFactorEnabled: users.twoFactorEnabled,
-        twoFactorRecoveryCodes: users.twoFactorRecoveryCodes,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    // Use transaction with row lock to prevent concurrent double-use of the same recovery code
+    return db.transaction(async (tx) => {
+      const [user] = await tx
+        .select({
+          twoFactorEnabled: users.twoFactorEnabled,
+          twoFactorRecoveryCodes: users.twoFactorRecoveryCodes,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .for('update')
+        .limit(1);
 
-    if (!user) {
-      throw new HTTP401Error('User not found');
-    }
+      if (!user) {
+        throw new HTTP401Error('User not found');
+      }
 
-    if (!user.twoFactorEnabled || !user.twoFactorRecoveryCodes) {
-      throw new HTTP400Error('Two-factor authentication is not enabled');
-    }
+      if (!user.twoFactorEnabled || !user.twoFactorRecoveryCodes) {
+        throw new HTTP400Error('Two-factor authentication is not enabled');
+      }
 
-    // Verify recovery code
-    const result = await verifyRecoveryCode(recoveryCode, user.twoFactorRecoveryCodes);
+      // Verify recovery code
+      const result = await verifyRecoveryCode(recoveryCode, user.twoFactorRecoveryCodes);
 
-    if (!result.valid) {
-      return false;
-    }
+      if (!result.valid) {
+        return false;
+      }
 
-    // Remove used recovery code
-    const updatedCodes = removeRecoveryCodeAtIndex(user.twoFactorRecoveryCodes, result.index);
+      // Remove used recovery code
+      const updatedCodes = removeRecoveryCodeAtIndex(user.twoFactorRecoveryCodes, result.index);
 
-    await db
-      .update(users)
-      .set({
-        twoFactorRecoveryCodes: updatedCodes,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userId));
+      await tx
+        .update(users)
+        .set({
+          twoFactorRecoveryCodes: updatedCodes,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
 
-    return true;
+      return true;
+    });
   },
 
   /**
@@ -345,6 +343,12 @@ export const twoFactorService = {
       throw new HTTP400Error('Two-factor authentication is not enabled');
     }
 
+    // Rate limiting FIRST (before password check to prevent brute force on expensive bcrypt)
+    const attempts = await twoFactorStore.checkAndIncrementVerifyAttempts(`regen:${userId}`);
+    if (!attempts.allowed) {
+      throw new HTTP400Error('Too many attempts. Please try again later.');
+    }
+
     // Verify password (if user has one)
     if (user.passwordHash) {
       const passwordValid = await bcrypt.compare(password, user.passwordHash);
@@ -353,22 +357,13 @@ export const twoFactorService = {
       }
     }
 
-    // Rate limiting
-    const attempts = await twoFactorStore.checkVerifyAttempts(`regen:${userId}`);
-    if (!attempts.allowed) {
-      throw new HTTP400Error('Too many attempts. Please try again later.');
-    }
-
-    await twoFactorStore.incrementVerifyAttempts(`regen:${userId}`);
-
     // Verify TOTP code
     const decryptedSecret = decryptSecret(user.twoFactorSecret);
     const isValid = verifyTotpCode(decryptedSecret, code);
 
     if (!isValid) {
-      const remaining = attempts.attemptsRemaining - 1;
       throw new HTTP400Error(
-        `Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+        `Invalid verification code. ${attempts.attemptsRemaining} attempt${attempts.attemptsRemaining !== 1 ? 's' : ''} remaining.`
       );
     }
 

@@ -7,7 +7,7 @@ import { requireOrgId } from '../middlewares/requireOrgId.js';
 import { resourceService } from '../services/resourceService.js';
 import { dependencyService } from '../services/dependencyService.js';
 import { findingService } from '../services/findingService.js';
-import { HTTP403Error } from '../lib/errors.js';
+import { HTTP400Error, HTTP403Error } from '../lib/errors.js';
 import { db } from '../lib/db.js';
 import { resourceScans, scans, resources } from '../db/schema.js';
 import { TIER_LIMITS, type Variables } from '../types/index.js';
@@ -134,6 +134,9 @@ resourcesRoute.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
+  if (!z.string().uuid().safeParse(resourceId).success) {
+    throw new HTTP400Error('Invalid resource ID format');
+  }
 
   const resource = await resourceService.getResource(orgId, resourceId);
   return c.json({ data: resource });
