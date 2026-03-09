@@ -68,9 +68,27 @@ fi
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
 
 # =============================================================================
-# 4. Set file permissions
+# 4. Prepare PostgreSQL data directory on host
 # =============================================================================
-log "Step 4/4: Setting file permissions..."
+log "Step 4/5: Preparing PostgreSQL data directory..."
+
+# Source .env to get POSTGRES_DATA_DIR if set
+if [ -f "$DEPLOY_DIR/.env" ]; then
+  POSTGRES_DATA_DIR=$(grep -E "^POSTGRES_DATA_DIR=" "$DEPLOY_DIR/.env" 2>/dev/null | cut -d'=' -f2- || true)
+fi
+POSTGRES_DATA_DIR="${POSTGRES_DATA_DIR:-/var/lib/scanorbit/postgres}"
+
+mkdir -p "$POSTGRES_DATA_DIR"
+# UID 70 = postgres user inside postgres:17-alpine
+chown 70:70 "$POSTGRES_DATA_DIR"
+chmod 700 "$POSTGRES_DATA_DIR"
+
+echo "  PostgreSQL data → ${POSTGRES_DATA_DIR} (owner=70:70, mode=700)"
+
+# =============================================================================
+# 5. Set file permissions
+# =============================================================================
+log "Step 5/5: Setting file permissions..."
 
 chmod 600 "$DEPLOY_DIR/.env"
 

@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createChain } from '../helpers/mockDb.js';
+import { createChain } from '../../helpers/mockDb.js';
 
 let selectResult: unknown[] = [];
 let insertResult: unknown[] = [];
 let updateResult: unknown[] = [];
 const mockTransaction = vi.fn();
 
-vi.mock('../../lib/db.js', () => ({
+vi.mock('../../../lib/db.js', () => ({
   db: {
     select: vi.fn(() => createChain(selectResult)),
     insert: vi.fn(() => createChain(insertResult)),
@@ -17,23 +17,11 @@ vi.mock('../../lib/db.js', () => ({
   pool: {},
 }));
 
-const { mockAccountLockoutStore, mockSignupCodes, mockTwoFactorStore, mockRefreshTokenStore } = vi.hoisted(() => ({
+const { mockAccountLockoutStore, mockTwoFactorStore, mockRefreshTokenStore } = vi.hoisted(() => ({
   mockAccountLockoutStore: {
     checkLockout: vi.fn().mockResolvedValue({ locked: false }),
     recordFailedAttempt: vi.fn().mockResolvedValue(undefined),
     clearLockout: vi.fn().mockResolvedValue(undefined),
-  },
-  mockSignupCodes: {
-    checkResendCooldown: vi.fn().mockResolvedValue({ allowed: true }),
-    setCode: vi.fn().mockResolvedValue(undefined),
-    setResendCooldown: vi.fn().mockResolvedValue(undefined),
-    getCode: vi.fn().mockResolvedValue('123456'),
-    deleteCode: vi.fn().mockResolvedValue(undefined),
-    checkAttempts: vi.fn().mockResolvedValue({ allowed: true, attemptsRemaining: 5 }),
-    checkAndIncrementAttempts: vi.fn().mockResolvedValue({ allowed: true, attemptsRemaining: 4 }),
-    incrementAttempts: vi.fn().mockResolvedValue(undefined),
-    resetAttempts: vi.fn().mockResolvedValue(undefined),
-    cleanup: vi.fn().mockResolvedValue(undefined),
   },
   mockTwoFactorStore: {
     createChallenge: vi.fn().mockResolvedValue('challenge-token-123'),
@@ -45,10 +33,21 @@ const { mockAccountLockoutStore, mockSignupCodes, mockTwoFactorStore, mockRefres
   },
 }));
 
-vi.mock('../../lib/redis.js', () => ({
+vi.mock('../../../lib/redis.js', () => ({
   redis: { on: vi.fn(), eval: vi.fn() },
   accountLockoutStore: mockAccountLockoutStore,
-  signupCodes: mockSignupCodes,
+  signupCodes: {
+    checkResendCooldown: vi.fn().mockResolvedValue({ allowed: true }),
+    setCode: vi.fn().mockResolvedValue(undefined),
+    setResendCooldown: vi.fn().mockResolvedValue(undefined),
+    getCode: vi.fn().mockResolvedValue('123456'),
+    deleteCode: vi.fn().mockResolvedValue(undefined),
+    checkAttempts: vi.fn().mockResolvedValue({ allowed: true, attemptsRemaining: 5 }),
+    checkAndIncrementAttempts: vi.fn().mockResolvedValue({ allowed: true, attemptsRemaining: 4 }),
+    incrementAttempts: vi.fn().mockResolvedValue(undefined),
+    resetAttempts: vi.fn().mockResolvedValue(undefined),
+    cleanup: vi.fn().mockResolvedValue(undefined),
+  },
   twoFactorStore: mockTwoFactorStore,
   refreshTokenStore: mockRefreshTokenStore,
   passwordResetStore: {
@@ -63,7 +62,7 @@ vi.mock('../../lib/redis.js', () => ({
   },
 }));
 
-vi.mock('../../lib/jwt.js', () => ({
+vi.mock('../../../lib/jwt.js', () => ({
   jwt: {
     signAccessToken: vi.fn().mockResolvedValue('access-token'),
     signRefreshToken: vi.fn().mockResolvedValue({ token: 'refresh-token', tokenId: 'tid-1' }),
@@ -73,25 +72,25 @@ vi.mock('../../lib/jwt.js', () => ({
   },
 }));
 
-vi.mock('../../services/emailService.js', () => ({
+vi.mock('../../../services/emailService.js', () => ({
   emailService: {
     sendVerificationEmail: vi.fn().mockResolvedValue({ success: true }),
     sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-vi.mock('../../services/consentService.js', () => ({
+vi.mock('../../../services/consentService.js', () => ({
   consentService: {
     logSignupConsent: vi.fn().mockResolvedValue(undefined),
     logConsent: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-vi.mock('../../lib/metrics.js', () => ({
+vi.mock('../../../lib/metrics.js', () => ({
   authOperationsTotal: { inc: vi.fn() },
 }));
 
-vi.mock('../../lib/config.js', () => ({
+vi.mock('../../../lib/config.js', () => ({
   config: {
     frontendUrl: 'http://localhost:3000',
     oauthEncryptionKey: 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
@@ -100,11 +99,11 @@ vi.mock('../../lib/config.js', () => ({
   },
 }));
 
-vi.mock('../../lib/logger.js', () => ({
+vi.mock('../../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('../../lib/crypto.js', () => ({
+vi.mock('../../../lib/crypto.js', () => ({
   encryptOAuthTokenOptional: vi.fn().mockReturnValue('encrypted-token'),
 }));
 
@@ -119,24 +118,20 @@ vi.mock('google-auth-library', () => {
   return { OAuth2Client: MockOAuth2Client };
 });
 
-import { authService } from '../../services/authService.js';
+import { authService } from '../../../services/auth/index.js';
 
-describe('authService', () => {
+describe('authService - core', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     selectResult = [];
     insertResult = [];
     updateResult = [];
-    const { db } = await import('../../lib/db.js');
+    const { db } = await import('../../../lib/db.js');
     vi.mocked(db.select).mockImplementation(() => createChain(selectResult) as any);
     vi.mocked(db.insert).mockImplementation(() => createChain(insertResult) as any);
     vi.mocked(db.update).mockImplementation(() => createChain(updateResult) as any);
     mockAccountLockoutStore.checkLockout.mockResolvedValue({ locked: false });
-    mockSignupCodes.checkResendCooldown.mockResolvedValue({ allowed: true });
-    mockSignupCodes.getCode.mockResolvedValue('123456');
-    mockSignupCodes.checkAttempts.mockResolvedValue({ allowed: true, attemptsRemaining: 5 });
-    mockSignupCodes.checkAndIncrementAttempts.mockResolvedValue({ allowed: true, attemptsRemaining: 4 });
-    const { jwt } = await import('../../lib/jwt.js');
+    const { jwt } = await import('../../../lib/jwt.js');
     vi.mocked(jwt.verifySignupToken).mockResolvedValue({ email: 'user@test.com', type: 'signup' });
     vi.mocked(jwt.verifyRefreshToken).mockResolvedValue({ userId: 'user-1', tokenId: 'tid-1', type: 'refresh' });
     vi.mocked(jwt.signAccessToken).mockResolvedValue('access-token');
@@ -146,12 +141,11 @@ describe('authService', () => {
 
   describe('login', () => {
     it('returns user and orgs on successful login', async () => {
-      // bcrypt.compare needs real hash
       const bcrypt = await import('bcrypt');
       const hash = await bcrypt.hash('password123', 10);
 
       let callCount = 0;
-      const { db } = await import('../../lib/db.js');
+      const { db } = await import('../../../lib/db.js');
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
@@ -225,7 +219,7 @@ describe('authService', () => {
   describe('getMe', () => {
     it('returns user without password hash', async () => {
       let callCount = 0;
-      const { db } = await import('../../lib/db.js');
+      const { db } = await import('../../../lib/db.js');
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
@@ -266,55 +260,6 @@ describe('authService', () => {
     });
   });
 
-  describe('sendVerificationCode', () => {
-    it('sends code to new email', async () => {
-      selectResult = []; // no existing user
-      await expect(authService.sendVerificationCode('new@test.com'))
-        .resolves.toEqual({ success: true, message: expect.any(String) });
-      expect(mockSignupCodes.setCode).toHaveBeenCalled();
-    });
-
-    it('throws 400 for already verified email', async () => {
-      selectResult = [{ id: 'user-1', emailVerified: true }];
-      await expect(authService.sendVerificationCode('verified@test.com'))
-        .rejects.toThrow('already exists');
-    });
-
-    it('throws 400 when on cooldown', async () => {
-      selectResult = [];
-      mockSignupCodes.checkResendCooldown.mockResolvedValue({ allowed: false, waitSeconds: 30 });
-      await expect(authService.sendVerificationCode('new@test.com'))
-        .rejects.toThrow('Please wait');
-    });
-  });
-
-  describe('verifySignupCode', () => {
-    it('returns signup token on valid code', async () => {
-      const result = await authService.verifySignupCode('user@test.com', '123456');
-      expect(result.success).toBe(true);
-      expect(result.signupToken).toBe('signup-token');
-      expect(mockSignupCodes.deleteCode).toHaveBeenCalled();
-    });
-
-    it('throws 400 for expired code', async () => {
-      mockSignupCodes.getCode.mockResolvedValue(null);
-      await expect(authService.verifySignupCode('user@test.com', '123456'))
-        .rejects.toThrow('expired');
-    });
-
-    it('throws 400 for wrong code', async () => {
-      mockSignupCodes.getCode.mockResolvedValue('654321');
-      await expect(authService.verifySignupCode('user@test.com', '123456'))
-        .rejects.toThrow('Invalid verification code');
-    });
-
-    it('throws 400 when rate limited', async () => {
-      mockSignupCodes.checkAndIncrementAttempts.mockResolvedValue({ allowed: false, attemptsRemaining: 0 });
-      await expect(authService.verifySignupCode('user@test.com', '123456'))
-        .rejects.toThrow('Too many attempts');
-    });
-  });
-
   describe('completeSignup', () => {
     it('creates user with verified email', async () => {
       selectResult = []; // no existing user
@@ -325,7 +270,7 @@ describe('authService', () => {
     });
 
     it('throws 400 for invalid signup token', async () => {
-      const { jwt } = await import('../../lib/jwt.js');
+      const { jwt } = await import('../../../lib/jwt.js');
       vi.mocked(jwt.verifySignupToken).mockRejectedValue(new Error('Invalid'));
 
       await expect(authService.completeSignup('bad-token', 'Password123!'))
@@ -339,59 +284,10 @@ describe('authService', () => {
     });
   });
 
-  describe('verifyEmail', () => {
-    it('verifies email with correct code', async () => {
-      selectResult = [{
-        id: 'user-1',
-        emailVerified: false,
-        emailVerificationCode: '123456',
-        emailVerificationExpiresAt: new Date(Date.now() + 3600000),
-      }];
-
-      const result = await authService.verifyEmail('user@test.com', '123456');
-      expect(result.success).toBe(true);
-    });
-
-    it('returns success for already verified email', async () => {
-      selectResult = [{
-        id: 'user-1',
-        emailVerified: true,
-      }];
-
-      const result = await authService.verifyEmail('user@test.com', '000000');
-      expect(result.success).toBe(true);
-      expect(result.message).toContain('already verified');
-    });
-
-    it('throws 400 for expired code', async () => {
-      selectResult = [{
-        id: 'user-1',
-        emailVerified: false,
-        emailVerificationCode: '123456',
-        emailVerificationExpiresAt: new Date(Date.now() - 3600000),
-      }];
-
-      await expect(authService.verifyEmail('user@test.com', '123456'))
-        .rejects.toThrow('expired');
-    });
-
-    it('throws 400 for wrong code', async () => {
-      selectResult = [{
-        id: 'user-1',
-        emailVerified: false,
-        emailVerificationCode: '654321',
-        emailVerificationExpiresAt: new Date(Date.now() + 3600000),
-      }];
-
-      await expect(authService.verifyEmail('user@test.com', '123456'))
-        .rejects.toThrow('Invalid verification code');
-    });
-  });
-
   describe('completeLoginAfter2FA', () => {
     it('returns user and orgs', async () => {
       let callCount = 0;
-      const { db } = await import('../../lib/db.js');
+      const { db } = await import('../../../lib/db.js');
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
@@ -418,67 +314,10 @@ describe('authService', () => {
     });
   });
 
-  describe('changePassword', () => {
-    it('changes password successfully', async () => {
-      const bcrypt = await import('bcrypt');
-      const hash = await bcrypt.hash('oldpass123', 10);
-
-      selectResult = [{ id: 'user-1', passwordHash: hash }];
-
-      const result = await authService.changePassword('user-1', 'oldpass123', 'Newpass123!');
-      expect(result.success).toBe(true);
-      expect(result.message).toContain('changed successfully');
-      expect(mockRefreshTokenStore.revokeAllForUser).toHaveBeenCalledWith('user-1');
-    });
-
-    it('throws 401 when user not found', async () => {
-      selectResult = [];
-      await expect(authService.changePassword('missing', 'old', 'new'))
-        .rejects.toThrow('User not found');
-    });
-
-    it('throws 400 for OAuth-only user', async () => {
-      selectResult = [{ id: 'user-1', passwordHash: null }];
-      await expect(authService.changePassword('user-1', 'old', 'new'))
-        .rejects.toThrow('social sign-in');
-    });
-
-    it('throws 400 for wrong current password', async () => {
-      const bcrypt = await import('bcrypt');
-      const hash = await bcrypt.hash('correctpass', 10);
-
-      selectResult = [{ id: 'user-1', passwordHash: hash }];
-      await expect(authService.changePassword('user-1', 'wrongpass', 'newpass'))
-        .rejects.toThrow('Current password is incorrect');
-    });
-  });
-
-  describe('setPassword', () => {
-    it('sets password for OAuth-only user', async () => {
-      selectResult = [{ id: 'user-1', passwordHash: null }];
-
-      const result = await authService.setPassword('user-1', 'Newpass123!');
-      expect(result.success).toBe(true);
-      expect(result.message).toContain('set successfully');
-    });
-
-    it('throws 401 when user not found', async () => {
-      selectResult = [];
-      await expect(authService.setPassword('missing', 'pass'))
-        .rejects.toThrow('User not found');
-    });
-
-    it('throws 400 when user already has password', async () => {
-      selectResult = [{ id: 'user-1', passwordHash: '$2b$10$somehash' }];
-      await expect(authService.setPassword('user-1', 'pass'))
-        .rejects.toThrow('already have a password');
-    });
-  });
-
   describe('updateProfile', () => {
     it('updates full name', async () => {
       let callCount = 0;
-      const { db } = await import('../../lib/db.js');
+      const { db } = await import('../../../lib/db.js');
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
@@ -504,61 +343,6 @@ describe('authService', () => {
       updateResult = [];
       await expect(authService.updateProfile('missing', { fullName: 'X' }))
         .rejects.toThrow('User not found');
-    });
-  });
-
-  describe('resendSignupCode', () => {
-    it('resends code to new email', async () => {
-      selectResult = [];
-      const result = await authService.resendSignupCode('new@test.com');
-      expect(result.success).toBe(true);
-      expect(mockSignupCodes.setCode).toHaveBeenCalled();
-    });
-
-    it('throws 400 for already verified email', async () => {
-      selectResult = [{ id: 'user-1', emailVerified: true }];
-      await expect(authService.resendSignupCode('verified@test.com'))
-        .rejects.toThrow('already exists');
-    });
-
-    it('throws 400 when on cooldown', async () => {
-      selectResult = [];
-      mockSignupCodes.checkResendCooldown.mockResolvedValue({ allowed: false, waitSeconds: 30 });
-      await expect(authService.resendSignupCode('new@test.com'))
-        .rejects.toThrow('Please wait');
-    });
-  });
-
-  describe('generateOAuthState', () => {
-    it('returns a state string', async () => {
-      const { redis: mockRedis } = await import('../../lib/redis.js');
-      vi.mocked(mockRedis as any).set = vi.fn().mockResolvedValue('OK');
-      const state = await authService.generateOAuthState();
-      expect(state).toBeTruthy();
-      expect(typeof state).toBe('string');
-    });
-  });
-
-  describe('verifyOAuthState', () => {
-    it('returns true for valid state', async () => {
-      const { redis: mockRedis } = await import('../../lib/redis.js');
-      vi.mocked(mockRedis as any).eval = vi.fn().mockResolvedValue('1');
-      const result = await authService.verifyOAuthState('valid-state');
-      expect(result).toBe(true);
-    });
-
-    it('returns false for invalid state', async () => {
-      const { redis: mockRedis } = await import('../../lib/redis.js');
-      vi.mocked(mockRedis as any).eval = vi.fn().mockResolvedValue(null);
-      const result = await authService.verifyOAuthState('invalid-state');
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('getGoogleAuthUrl', () => {
-    it('returns a URL string', () => {
-      const url = authService.getGoogleAuthUrl('test-state');
-      expect(url).toContain('https://accounts.google.com');
     });
   });
 });

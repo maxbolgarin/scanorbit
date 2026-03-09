@@ -3,7 +3,9 @@
 # PostgreSQL Restore Script
 # =============================================================================
 # Restores encrypted backup from Scaleway Object Storage
-# Usage: ./restore.sh <backup_file_name> or ./restore.sh --list
+# Usage: ./restore.sh <backup_type/backup_file_name>
+#        ./restore.sh --list
+#        ./restore.sh --verify <backup_type/backup_file_name>
 # =============================================================================
 
 set -eu
@@ -12,6 +14,14 @@ BACKUP_DIR="/tmp/restore"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Load secrets from Docker secret files
+load_secrets() {
+    [ -f /run/secrets/postgres_password ] && export PGPASSWORD=$(cat /run/secrets/postgres_password | tr -d '\n')
+    [ -f /run/secrets/backup_encryption_key ] && export BACKUP_ENCRYPTION_KEY=$(cat /run/secrets/backup_encryption_key | tr -d '\n')
+    [ -f /run/secrets/scw_access_key ] && export SCW_ACCESS_KEY=$(cat /run/secrets/scw_access_key | tr -d '\n')
+    [ -f /run/secrets/scw_secret_key ] && export SCW_SECRET_KEY=$(cat /run/secrets/scw_secret_key | tr -d '\n')
 }
 
 # Configure AWS CLI for Scaleway
@@ -36,7 +46,7 @@ list_backups() {
     aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/monthly/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No monthly backups found"
 }
 
-# Download and decrypt backup
+# Download backup from S3
 download_backup() {
     BACKUP_PATH="$1"
     BACKUP_NAME=$(basename "${BACKUP_PATH}")
@@ -61,9 +71,9 @@ download_backup() {
         if sha256sum -c "${BACKUP_NAME}.sha256" >/dev/null 2>&1; then
             log "Checksum verified successfully"
         else
-            log "WARNING: Checksum verification failed!"
-            read -p "Continue anyway? (y/N) " confirm
-            [ "$confirm" != "y" ] && exit 1
+            log "ERROR: Checksum verification failed! Aborting."
+            cd - >/dev/null
+            return 1
         fi
         cd - >/dev/null
     fi
@@ -71,8 +81,8 @@ download_backup() {
     log "Download complete"
 }
 
-# Decrypt and restore
-restore_backup() {
+# Decrypt backup to SQL
+decrypt_backup() {
     BACKUP_NAME="$1"
 
     log "Decrypting backup..."
@@ -81,14 +91,56 @@ restore_backup() {
         "${BACKUP_DIR}/${BACKUP_NAME}" | \
         gunzip > "${BACKUP_DIR}/restore.sql"
 
-    log "Restoring database..."
-    log "WARNING: This will overwrite the existing database!"
-    read -p "Are you sure you want to continue? (y/N) " confirm
-    [ "$confirm" != "y" ] && exit 1
+    SQL_SIZE=$(du -h "${BACKUP_DIR}/restore.sql" | cut -f1)
+    log "Decrypted SQL dump: ${SQL_SIZE}"
 
-    # Restore to PostgreSQL
-    PGPASSWORD="${PGPASSWORD}" psql -h "${PGHOST}" -U "${PGUSER}" -d "${PGDATABASE}" \
-        -f "${BACKUP_DIR}/restore.sql"
+    # Validate it's a real pg dump
+    if ! head -5 "${BACKUP_DIR}/restore.sql" | grep -q "PostgreSQL database dump"; then
+        log "ERROR: Decrypted file does not look like a PostgreSQL dump!"
+        return 1
+    fi
+}
+
+# Verify backup without restoring
+verify_only() {
+    BACKUP_PATH="$1"
+    BACKUP_NAME=$(basename "${BACKUP_PATH}")
+
+    log "=============================================="
+    log "PostgreSQL Backup Verification"
+    log "=============================================="
+
+    download_backup "${BACKUP_PATH}"
+    decrypt_backup "${BACKUP_NAME}"
+
+    # Count tables and statements
+    TABLE_COUNT=$(grep -c "^CREATE TABLE" "${BACKUP_DIR}/restore.sql" 2>/dev/null || echo "0")
+    INSERT_COUNT=$(grep -c "^INSERT INTO\|^COPY .* FROM stdin" "${BACKUP_DIR}/restore.sql" 2>/dev/null || echo "0")
+
+    log "Backup content summary:"
+    log "  Tables: ${TABLE_COUNT}"
+    log "  Data statements: ${INSERT_COUNT}"
+    log "Backup is valid and can be restored."
+
+    cleanup
+    log "=============================================="
+}
+
+# Restore backup to database
+restore_backup() {
+    BACKUP_NAME="$1"
+
+    log "Restoring database..."
+    log "Target: ${PGHOST}:${PGDATABASE} as ${PGUSER}"
+
+    # Build psql connection args
+    PSQL_ARGS="-h ${PGHOST} -U ${PGUSER} -d ${PGDATABASE}"
+    if [ "${PGSSLMODE:-}" = "require" ] && [ -n "${PGSSLROOTCERT:-}" ]; then
+        PSQL_ARGS="${PSQL_ARGS} --set=sslmode=require --set=sslrootcert=${PGSSLROOTCERT}"
+    fi
+
+    # Use --single-transaction for atomic restore (all or nothing)
+    psql ${PSQL_ARGS} --single-transaction -f "${BACKUP_DIR}/restore.sql"
 
     log "Restore complete!"
 }
@@ -101,22 +153,28 @@ cleanup() {
 
 # Print usage
 usage() {
-    echo "Usage: $0 [--list | <backup_type>/<backup_filename>]"
+    echo "Usage: $0 [--list | --verify <path> | <backup_type>/<backup_filename>]"
     echo ""
     echo "Options:"
     echo "  --list                     List available backups"
+    echo "  --verify <path>            Verify a backup can be decrypted without restoring"
     echo "  daily/<filename>           Restore a daily backup"
     echo "  weekly/<filename>          Restore a weekly backup"
     echo "  monthly/<filename>         Restore a monthly backup"
     echo ""
-    echo "Example:"
+    echo "Examples:"
     echo "  $0 --list"
+    echo "  $0 --verify daily/scanorbit_20240115_020000.sql.gz.gpg"
     echo "  $0 daily/scanorbit_20240115_020000.sql.gz.gpg"
     echo ""
-    echo "Required environment variables:"
-    echo "  PGHOST, PGUSER, PGPASSWORD, PGDATABASE"
-    echo "  SCW_ACCESS_KEY, SCW_SECRET_KEY, SCW_BUCKET_NAME, SCW_REGION"
-    echo "  BACKUP_ENCRYPTION_KEY"
+    echo "Required environment variables (or Docker secrets):"
+    echo "  PGHOST, PGUSER, PGDATABASE"
+    echo "  SCW_BUCKET_NAME, SCW_REGION"
+    echo ""
+    echo "Run inside Docker:"
+    echo "  docker compose -f docker-compose.prod.yml run --rm db-restore --list"
+    echo "  docker compose -f docker-compose.prod.yml run --rm db-restore --verify daily/<file>"
+    echo "  docker compose -f docker-compose.prod.yml run --rm db-restore daily/<file>"
 }
 
 # Main
@@ -126,6 +184,7 @@ main() {
         apk add --no-cache gnupg aws-cli
     fi
 
+    load_secrets
     setup_aws
 
     if [ $# -eq 0 ]; then
@@ -137,6 +196,10 @@ main() {
         --list|-l)
             list_backups
             ;;
+        --verify|-v)
+            [ $# -lt 2 ] && { echo "Error: --verify requires a backup path"; usage; exit 1; }
+            verify_only "$2"
+            ;;
         --help|-h)
             usage
             ;;
@@ -145,6 +208,7 @@ main() {
             log "PostgreSQL Restore"
             log "=============================================="
             download_backup "$1"
+            decrypt_backup "$(basename "$1")"
             restore_backup "$(basename "$1")"
             cleanup
             log "=============================================="
