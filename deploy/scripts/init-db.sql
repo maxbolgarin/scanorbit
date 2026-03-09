@@ -1,0 +1,679 @@
+-- =============================================================================
+-- ScanOrbit — Unified Database Initialization
+-- =============================================================================
+-- Creates databases, per-service users, schema, grants, and migration tracking.
+-- Run once on a fresh PostgreSQL instance. Idempotent — safe to re-run.
+--
+-- This file is executed by init-db.sh, which substitutes password placeholders
+-- and computes Drizzle migration hashes.
+--
+-- Usage:
+--   ./scripts/init-db.sh          (recommended — handles passwords & hashes)
+--
+-- Manual (for debugging):
+--   docker compose exec -T postgres psql -U scanorbit -d postgres < scripts/init-db.sql
+--   (requires manual password substitution first)
+-- =============================================================================
+
+\set ON_ERROR_STOP on
+
+-- =============================================================================
+-- 1. CREATE DATABASES
+-- =============================================================================
+
+SELECT 'Creating databases...' AS status;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'scanorbit') THEN
+    CREATE DATABASE scanorbit;
+    RAISE NOTICE 'Created database: scanorbit';
+  ELSE
+    RAISE NOTICE 'Database exists: scanorbit';
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'umami') THEN
+    CREATE DATABASE umami;
+    RAISE NOTICE 'Created database: umami';
+  ELSE
+    RAISE NOTICE 'Database exists: umami';
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'listmonk') THEN
+    CREATE DATABASE listmonk;
+    RAISE NOTICE 'Created database: listmonk';
+  ELSE
+    RAISE NOTICE 'Database exists: listmonk';
+  END IF;
+END $$;
+
+-- =============================================================================
+-- 2. CREATE PER-SERVICE USERS
+-- =============================================================================
+-- Passwords are substituted by init-db.sh before execution.
+-- Placeholders: __SO_MIGRATE_PASS__, __SO_API_PASS__, etc.
+-- =============================================================================
+
+SELECT 'Creating database users...' AS status;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_migrate') THEN
+    CREATE ROLE so_migrate LOGIN PASSWORD '__SO_MIGRATE_PASS__';
+    RAISE NOTICE 'Created user: so_migrate';
+  ELSE
+    ALTER ROLE so_migrate PASSWORD '__SO_MIGRATE_PASS__';
+    RAISE NOTICE 'Updated password: so_migrate';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_api') THEN
+    CREATE ROLE so_api LOGIN PASSWORD '__SO_API_PASS__';
+    RAISE NOTICE 'Created user: so_api';
+  ELSE
+    ALTER ROLE so_api PASSWORD '__SO_API_PASS__';
+    RAISE NOTICE 'Updated password: so_api';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_scanner') THEN
+    CREATE ROLE so_scanner LOGIN PASSWORD '__SO_SCANNER_PASS__';
+    RAISE NOTICE 'Created user: so_scanner';
+  ELSE
+    ALTER ROLE so_scanner PASSWORD '__SO_SCANNER_PASS__';
+    RAISE NOTICE 'Updated password: so_scanner';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_analyzer') THEN
+    CREATE ROLE so_analyzer LOGIN PASSWORD '__SO_ANALYZER_PASS__';
+    RAISE NOTICE 'Created user: so_analyzer';
+  ELSE
+    ALTER ROLE so_analyzer PASSWORD '__SO_ANALYZER_PASS__';
+    RAISE NOTICE 'Updated password: so_analyzer';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_backup') THEN
+    CREATE ROLE so_backup LOGIN PASSWORD '__SO_BACKUP_PASS__';
+    RAISE NOTICE 'Created user: so_backup';
+  ELSE
+    ALTER ROLE so_backup PASSWORD '__SO_BACKUP_PASS__';
+    RAISE NOTICE 'Updated password: so_backup';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_exporter') THEN
+    CREATE ROLE so_exporter LOGIN PASSWORD '__SO_EXPORTER_PASS__';
+    RAISE NOTICE 'Created user: so_exporter';
+  ELSE
+    ALTER ROLE so_exporter PASSWORD '__SO_EXPORTER_PASS__';
+    RAISE NOTICE 'Updated password: so_exporter';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_umami') THEN
+    CREATE ROLE so_umami LOGIN PASSWORD '__SO_UMAMI_PASS__';
+    RAISE NOTICE 'Created user: so_umami';
+  ELSE
+    ALTER ROLE so_umami PASSWORD '__SO_UMAMI_PASS__';
+    RAISE NOTICE 'Updated password: so_umami';
+  END IF;
+
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_listmonk') THEN
+    CREATE ROLE so_listmonk LOGIN PASSWORD '__SO_LISTMONK_PASS__';
+    RAISE NOTICE 'Created user: so_listmonk';
+  ELSE
+    ALTER ROLE so_listmonk PASSWORD '__SO_LISTMONK_PASS__';
+    RAISE NOTICE 'Updated password: so_listmonk';
+  END IF;
+END $$;
+
+-- so_migrate needs CREATEDB for ensureDatabaseExists() in migrate.ts
+ALTER ROLE so_migrate CREATEDB;
+GRANT CONNECT ON DATABASE postgres TO so_migrate;
+
+-- =============================================================================
+-- 3. SCANORBIT SCHEMA (squashed from migrations 0000 + 0001 + 0002)
+-- =============================================================================
+-- Switch to scanorbit database for schema creation
+
+\connect scanorbit
+
+SELECT 'Creating scanorbit schema...' AS status;
+
+-- ---------------------------------------------------------------------------
+-- Tables
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS "users" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"email" varchar(255) NOT NULL,
+	"password_hash" varchar(255),
+	"full_name" varchar(255),
+	"email_verified" boolean DEFAULT false NOT NULL,
+	"email_verification_code" varchar(6),
+	"email_verification_expires_at" timestamp,
+	"two_factor_enabled" boolean DEFAULT false NOT NULL,
+	"two_factor_secret" varchar(255),
+	"two_factor_recovery_codes" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "users_email_unique" UNIQUE("email")
+);
+
+CREATE TABLE IF NOT EXISTS "orgs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"slug" varchar(255) NOT NULL,
+	"logo_url" varchar(255),
+	"tier" varchar(20) DEFAULT 'free' NOT NULL,
+	"tier_upgraded_at" timestamp,
+	"stripe_customer_id" varchar(255),
+	"stripe_subscription_id" varchar(255),
+	"subscription_status" varchar(50) DEFAULT 'none',
+	"trial_ends_at" timestamp,
+	"subscription_ends_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "orgs_slug_unique" UNIQUE("slug")
+);
+
+CREATE TABLE IF NOT EXISTS "user_org_members" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"org_id" uuid NOT NULL,
+	"role" varchar(50) DEFAULT 'member' NOT NULL,
+	"title" varchar(50),
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "user_oauth_accounts" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"provider" varchar(50) NOT NULL,
+	"provider_user_id" varchar(255) NOT NULL,
+	"provider_email" varchar(255),
+	"access_token" text,
+	"refresh_token" text,
+	"token_expires_at" timestamp,
+	"raw_profile" jsonb,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "org_settings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"required_tags" jsonb DEFAULT '["Environment","Owner","CostCenter"]'::jsonb NOT NULL,
+	"hidden_finding_types" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"hide_trivial" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "org_settings_org_id_unique" UNIQUE("org_id")
+);
+
+CREATE TABLE IF NOT EXISTS "aws_accounts" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"aws_account_id" varchar(12) NOT NULL,
+	"role_arn" varchar(255) NOT NULL,
+	"external_id" varchar(255),
+	"status" varchar(50) DEFAULT 'pending' NOT NULL,
+	"last_error" text,
+	"last_scan_at" timestamp,
+	"enabled_scanners" jsonb DEFAULT '["ec2","rds","s3","alb","acm","lambda","cloudwatch","iam","security_groups","secrets_manager","kms"]'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "scans" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"aws_account_id" uuid,
+	"status" varchar(50) DEFAULT 'queued' NOT NULL,
+	"has_key" boolean DEFAULT true NOT NULL,
+	"started_at" timestamp,
+	"completed_at" timestamp,
+	"resources_discovered" integer DEFAULT 0 NOT NULL,
+	"resources_delta" integer DEFAULT 0 NOT NULL,
+	"findings_new" integer DEFAULT 0 NOT NULL,
+	"findings_resolved" integer DEFAULT 0 NOT NULL,
+	"error_message" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "resources" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"aws_account_id" uuid NOT NULL,
+	"resource_id" varchar(255) NOT NULL,
+	"service" varchar(50) NOT NULL,
+	"region" varchar(50),
+	"name" varchar(255),
+	"state" varchar(50),
+	"tags" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"cost_estimate_monthly" numeric(10, 2),
+	"last_seen_at" timestamp DEFAULT now() NOT NULL,
+	"raw" jsonb,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "resource_scans" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"resource_id" uuid NOT NULL,
+	"scan_id" uuid NOT NULL,
+	"status" varchar(20) NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "resource_dependencies" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"source_resource_id" uuid NOT NULL,
+	"target_resource_id" varchar(512) NOT NULL,
+	"target_service" varchar(50) NOT NULL,
+	"relationship_type" varchar(50) NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "certificates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"aws_account_id" uuid NOT NULL,
+	"identifier" varchar(255) NOT NULL,
+	"source" varchar(50) NOT NULL,
+	"primary_domain" varchar(255),
+	"alt_names" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"not_before" timestamp,
+	"not_after" timestamp,
+	"issuer" varchar(255),
+	"algorithm" varchar(50),
+	"last_seen_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "findings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"aws_account_id" uuid NOT NULL,
+	"resource_id" uuid,
+	"certificate_id" uuid,
+	"type" varchar(50) NOT NULL,
+	"severity" varchar(50) NOT NULL,
+	"summary" text NOT NULL,
+	"details" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"status" varchar(50) DEFAULT 'open' NOT NULL,
+	"resolved_at" timestamp,
+	"snoozed_until" timestamp,
+	"first_detected_at" timestamp,
+	"last_detected_at" timestamp,
+	"detection_count" integer DEFAULT 1 NOT NULL,
+	"last_scan_id" uuid,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "finding_scans" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"finding_id" uuid NOT NULL,
+	"scan_id" uuid NOT NULL,
+	"status" varchar(20) NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "jobs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"scan_id" uuid,
+	"type" varchar(50) NOT NULL,
+	"payload" jsonb NOT NULL,
+	"status" varchar(50) DEFAULT 'queued' NOT NULL,
+	"result" jsonb,
+	"error" text,
+	"recovery_count" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"started_at" timestamp,
+	"completed_at" timestamp
+);
+
+CREATE TABLE IF NOT EXISTS "dead_letter_jobs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"job_id" uuid,
+	"job_type" varchar(50) NOT NULL,
+	"payload" jsonb NOT NULL,
+	"error" text NOT NULL,
+	"retries" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "consent_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid,
+	"email" varchar(255) NOT NULL,
+	"consent_type" varchar(50) NOT NULL,
+	"consent_version" varchar(50) NOT NULL,
+	"consent_given" boolean NOT NULL,
+	"ip_address" varchar(45),
+	"user_agent" text,
+	"consented_at" timestamp DEFAULT now() NOT NULL,
+	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "audit_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"timestamp" timestamp DEFAULT now() NOT NULL,
+	"user_id" uuid,
+	"action" varchar(50) NOT NULL,
+	"method" varchar(10),
+	"path" varchar(500),
+	"status_code" integer,
+	"ip_address" varchar(45),
+	"user_agent" text,
+	"duration_ms" integer
+);
+
+-- data_deletion_requests: user_id is nullable (migration 0002)
+CREATE TABLE IF NOT EXISTS "data_deletion_requests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid,
+	"email" varchar(255) NOT NULL,
+	"request_type" varchar(50) NOT NULL,
+	"status" varchar(50) DEFAULT 'pending' NOT NULL,
+	"reason" text,
+	"requested_at" timestamp DEFAULT now() NOT NULL,
+	"processed_at" timestamp,
+	"scheduled_deletion_at" timestamp,
+	"ip_address" varchar(45),
+	"user_agent" text,
+	"processed_by" uuid,
+	"notes" text
+);
+
+CREATE TABLE IF NOT EXISTS "retention_policies" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid,
+	"data_type" varchar(50) NOT NULL,
+	"retention_days" integer DEFAULT 365 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+-- drip_log (migration 0001)
+CREATE TABLE IF NOT EXISTS "drip_log" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"subscriber_email" varchar(255) NOT NULL,
+	"sequence_name" varchar(100) NOT NULL,
+	"email_day" integer NOT NULL,
+	"sent_at" timestamp DEFAULT now() NOT NULL
+);
+
+-- ---------------------------------------------------------------------------
+-- Foreign Keys
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "aws_accounts" ADD CONSTRAINT "aws_accounts_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "certificates" ADD CONSTRAINT "certificates_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "certificates" ADD CONSTRAINT "certificates_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "consent_logs" ADD CONSTRAINT "consent_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+-- data_deletion_requests: user_id ON DELETE set null (migration 0002 changed from cascade to set null)
+ALTER TABLE "data_deletion_requests" ADD CONSTRAINT "data_deletion_requests_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "data_deletion_requests" ADD CONSTRAINT "data_deletion_requests_processed_by_users_id_fk" FOREIGN KEY ("processed_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "dead_letter_jobs" ADD CONSTRAINT "dead_letter_jobs_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "finding_scans" ADD CONSTRAINT "finding_scans_finding_id_findings_id_fk" FOREIGN KEY ("finding_id") REFERENCES "public"."findings"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "finding_scans" ADD CONSTRAINT "finding_scans_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "findings" ADD CONSTRAINT "findings_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "findings" ADD CONSTRAINT "findings_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "findings" ADD CONSTRAINT "findings_resource_id_resources_id_fk" FOREIGN KEY ("resource_id") REFERENCES "public"."resources"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "findings" ADD CONSTRAINT "findings_certificate_id_certificates_id_fk" FOREIGN KEY ("certificate_id") REFERENCES "public"."certificates"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "findings" ADD CONSTRAINT "findings_last_scan_id_scans_id_fk" FOREIGN KEY ("last_scan_id") REFERENCES "public"."scans"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "jobs" ADD CONSTRAINT "jobs_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "org_settings" ADD CONSTRAINT "org_settings_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "resource_dependencies" ADD CONSTRAINT "resource_dependencies_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "resource_dependencies" ADD CONSTRAINT "resource_dependencies_source_resource_id_resources_id_fk" FOREIGN KEY ("source_resource_id") REFERENCES "public"."resources"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "resource_scans" ADD CONSTRAINT "resource_scans_resource_id_resources_id_fk" FOREIGN KEY ("resource_id") REFERENCES "public"."resources"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "resource_scans" ADD CONSTRAINT "resource_scans_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "resources" ADD CONSTRAINT "resources_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "resources" ADD CONSTRAINT "resources_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "retention_policies" ADD CONSTRAINT "retention_policies_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "scans" ADD CONSTRAINT "scans_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "scans" ADD CONSTRAINT "scans_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "user_oauth_accounts" ADD CONSTRAINT "user_oauth_accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+
+-- ---------------------------------------------------------------------------
+-- Indexes (from migrations 0000 + 0002)
+-- ---------------------------------------------------------------------------
+
+CREATE INDEX "audit_logs_timestamp_idx" ON "audit_logs" USING btree ("timestamp");
+CREATE INDEX "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");
+CREATE INDEX "audit_logs_action_idx" ON "audit_logs" USING btree ("action");
+CREATE UNIQUE INDEX "aws_accounts_org_account_idx" ON "aws_accounts" USING btree ("org_id","aws_account_id");
+CREATE INDEX "aws_accounts_org_id_idx" ON "aws_accounts" USING btree ("org_id");
+CREATE UNIQUE INDEX "certificates_org_account_identifier_idx" ON "certificates" USING btree ("org_id","aws_account_id","identifier");
+CREATE INDEX "certificates_org_id_idx" ON "certificates" USING btree ("org_id");
+CREATE INDEX "consent_logs_user_id_idx" ON "consent_logs" USING btree ("user_id");
+CREATE INDEX "consent_logs_email_idx" ON "consent_logs" USING btree ("email");
+CREATE INDEX "consent_logs_consent_type_idx" ON "consent_logs" USING btree ("consent_type");
+CREATE INDEX "consent_logs_consented_at_idx" ON "consent_logs" USING btree ("consented_at");
+CREATE INDEX "data_deletion_requests_user_id_idx" ON "data_deletion_requests" USING btree ("user_id");
+CREATE INDEX "data_deletion_requests_status_idx" ON "data_deletion_requests" USING btree ("status");
+CREATE INDEX "data_deletion_requests_requested_at_idx" ON "data_deletion_requests" USING btree ("requested_at");
+CREATE INDEX "dead_letter_jobs_job_type_idx" ON "dead_letter_jobs" USING btree ("job_type");
+CREATE INDEX "dead_letter_jobs_created_at_idx" ON "dead_letter_jobs" USING btree ("created_at");
+CREATE INDEX "dead_letter_jobs_job_id_idx" ON "dead_letter_jobs" USING btree ("job_id");
+CREATE UNIQUE INDEX "finding_scans_finding_scan_idx" ON "finding_scans" USING btree ("finding_id","scan_id");
+CREATE INDEX "finding_scans_scan_id_idx" ON "finding_scans" USING btree ("scan_id");
+CREATE INDEX "finding_scans_finding_id_idx" ON "finding_scans" USING btree ("finding_id");
+CREATE INDEX "findings_org_id_idx" ON "findings" USING btree ("org_id");
+CREATE INDEX "findings_type_idx" ON "findings" USING btree ("type");
+CREATE INDEX "findings_severity_idx" ON "findings" USING btree ("severity");
+CREATE INDEX "findings_status_idx" ON "findings" USING btree ("status");
+CREATE INDEX "findings_last_scan_id_idx" ON "findings" USING btree ("last_scan_id");
+-- Composite indexes (migration 0002)
+CREATE INDEX "findings_org_status_idx" ON "findings" USING btree ("org_id","status");
+CREATE INDEX "scans_org_status_idx" ON "scans" USING btree ("org_id","status");
+CREATE INDEX "jobs_status_idx" ON "jobs" USING btree ("status");
+CREATE INDEX "jobs_type_idx" ON "jobs" USING btree ("type");
+CREATE INDEX "jobs_scan_id_idx" ON "jobs" USING btree ("scan_id");
+CREATE INDEX "jobs_recovery_count_idx" ON "jobs" USING btree ("recovery_count");
+CREATE INDEX "orgs_tier_idx" ON "orgs" USING btree ("tier");
+CREATE INDEX "orgs_stripe_customer_id_idx" ON "orgs" USING btree ("stripe_customer_id");
+CREATE INDEX "orgs_subscription_status_idx" ON "orgs" USING btree ("subscription_status");
+CREATE UNIQUE INDEX "resource_dependencies_unique_idx" ON "resource_dependencies" USING btree ("org_id","source_resource_id","target_resource_id","relationship_type");
+CREATE INDEX "resource_dependencies_org_id_idx" ON "resource_dependencies" USING btree ("org_id");
+CREATE INDEX "resource_dependencies_source_resource_id_idx" ON "resource_dependencies" USING btree ("source_resource_id");
+CREATE INDEX "resource_dependencies_target_resource_id_idx" ON "resource_dependencies" USING btree ("target_resource_id");
+CREATE INDEX "resource_dependencies_relationship_type_idx" ON "resource_dependencies" USING btree ("relationship_type");
+CREATE UNIQUE INDEX "resource_scans_resource_scan_idx" ON "resource_scans" USING btree ("resource_id","scan_id");
+CREATE INDEX "resource_scans_scan_id_idx" ON "resource_scans" USING btree ("scan_id");
+CREATE INDEX "resource_scans_resource_id_idx" ON "resource_scans" USING btree ("resource_id");
+CREATE UNIQUE INDEX "resources_org_account_resource_idx" ON "resources" USING btree ("org_id","aws_account_id","resource_id");
+CREATE INDEX "resources_org_id_idx" ON "resources" USING btree ("org_id");
+CREATE INDEX "resources_aws_account_id_idx" ON "resources" USING btree ("aws_account_id");
+CREATE INDEX "resources_service_idx" ON "resources" USING btree ("service");
+CREATE UNIQUE INDEX "retention_policies_org_data_type_idx" ON "retention_policies" USING btree ("org_id","data_type");
+CREATE INDEX "scans_org_id_idx" ON "scans" USING btree ("org_id");
+CREATE INDEX "scans_aws_account_id_idx" ON "scans" USING btree ("aws_account_id");
+CREATE INDEX "scans_has_key_idx" ON "scans" USING btree ("has_key");
+CREATE UNIQUE INDEX "user_oauth_accounts_provider_user_idx" ON "user_oauth_accounts" USING btree ("provider","provider_user_id");
+CREATE INDEX "user_oauth_accounts_user_id_idx" ON "user_oauth_accounts" USING btree ("user_id");
+CREATE UNIQUE INDEX "user_org_members_user_org_idx" ON "user_org_members" USING btree ("user_id","org_id");
+CREATE INDEX "user_org_members_user_id_idx" ON "user_org_members" USING btree ("user_id");
+CREATE INDEX "user_org_members_org_id_idx" ON "user_org_members" USING btree ("org_id");
+-- drip_log indexes (migration 0001)
+CREATE UNIQUE INDEX "drip_log_email_seq_day_idx" ON "drip_log" USING btree ("subscriber_email","sequence_name","email_day");
+CREATE INDEX "drip_log_subscriber_email_idx" ON "drip_log" USING btree ("subscriber_email");
+
+-- =============================================================================
+-- 4. OWNERSHIP & GRANTS (scanorbit database)
+-- =============================================================================
+
+SELECT 'Configuring scanorbit database privileges...' AS status;
+
+-- Transfer database ownership to so_migrate (for DDL)
+ALTER DATABASE scanorbit OWNER TO so_migrate;
+
+-- Transfer ownership of all existing tables and sequences
+DO $$ DECLARE r RECORD; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO so_migrate';
+  END LOOP;
+  FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public' LOOP
+    EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO so_migrate';
+  END LOOP;
+END $$;
+
+-- Grant schema usage to all app users
+GRANT ALL PRIVILEGES ON SCHEMA public TO so_migrate;
+GRANT USAGE ON SCHEMA public TO so_api, so_scanner, so_analyzer, so_backup, so_exporter;
+
+-- ---------------------------------------------------------------------------
+-- so_api: full DML on all tables
+-- ---------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE scanorbit TO so_api;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO so_api;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO so_api;
+
+-- Future tables created by so_migrate auto-grant to so_api
+ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO so_api;
+ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO so_api;
+
+-- ---------------------------------------------------------------------------
+-- so_scanner: targeted table access
+-- ---------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE scanorbit TO so_scanner;
+
+-- Read-only tables
+GRANT SELECT ON
+  users, orgs, user_org_members, org_settings
+  TO so_scanner;
+
+-- Read-write tables
+GRANT SELECT, INSERT, UPDATE ON
+  aws_accounts, scans, resources, findings, resource_scans,
+  finding_scans, certificates, jobs, dead_letter_jobs, resource_dependencies
+  TO so_scanner;
+
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO so_scanner;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO so_scanner;
+
+-- ---------------------------------------------------------------------------
+-- so_analyzer: targeted table access
+-- ---------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE scanorbit TO so_analyzer;
+
+-- Read-only tables
+GRANT SELECT ON
+  scans, resources, users, orgs, user_org_members, org_settings
+  TO so_analyzer;
+
+-- Read-write tables
+GRANT SELECT, INSERT, UPDATE ON
+  findings, finding_scans, jobs
+  TO so_analyzer;
+
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO so_analyzer;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO so_analyzer;
+
+-- ---------------------------------------------------------------------------
+-- so_backup: read-only on all tables (for pg_dump)
+-- ---------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE scanorbit TO so_backup;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO so_backup;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
+  GRANT SELECT ON TABLES TO so_backup;
+
+-- ---------------------------------------------------------------------------
+-- so_exporter: pg_monitor role (statistics views only)
+-- ---------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE scanorbit TO so_exporter;
+GRANT pg_monitor TO so_exporter;
+
+-- ---------------------------------------------------------------------------
+-- Revoke public access (defense in depth)
+-- ---------------------------------------------------------------------------
+REVOKE ALL ON DATABASE scanorbit FROM PUBLIC;
+
+-- =============================================================================
+-- 5. DRIZZLE MIGRATION TRACKING
+-- =============================================================================
+-- The __drizzle_migrations table and hash inserts are handled by init-db.sh
+-- because hashes must be computed from the actual migration files at runtime.
+
+-- =============================================================================
+-- 6. UMAMI DATABASE SETUP
+-- =============================================================================
+
+\connect postgres
+
+SELECT 'Configuring umami database...' AS status;
+
+ALTER DATABASE umami OWNER TO so_umami;
+REVOKE ALL ON DATABASE umami FROM PUBLIC;
+GRANT CONNECT ON DATABASE umami TO so_umami;
+
+\connect umami
+
+-- Transfer existing tables (if any) to so_umami
+DO $$ DECLARE r RECORD; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO so_umami';
+  END LOOP;
+  FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public' LOOP
+    EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO so_umami';
+  END LOOP;
+END $$;
+
+GRANT ALL PRIVILEGES ON SCHEMA public TO so_umami;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO so_umami;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO so_umami;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO so_umami;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO so_umami;
+
+-- =============================================================================
+-- 7. LISTMONK DATABASE SETUP
+-- =============================================================================
+
+\connect postgres
+
+SELECT 'Configuring listmonk database...' AS status;
+
+ALTER DATABASE listmonk OWNER TO so_listmonk;
+REVOKE ALL ON DATABASE listmonk FROM PUBLIC;
+GRANT CONNECT ON DATABASE listmonk TO so_listmonk;
+
+\connect listmonk
+
+-- Transfer existing tables (if any) to so_listmonk
+DO $$ DECLARE r RECORD; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO so_listmonk';
+  END LOOP;
+  FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public' LOOP
+    EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO so_listmonk';
+  END LOOP;
+END $$;
+
+GRANT ALL PRIVILEGES ON SCHEMA public TO so_listmonk;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO so_listmonk;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO so_listmonk;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO so_listmonk;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO so_listmonk;
+
+-- =============================================================================
+-- Done
+-- =============================================================================
+
+\connect postgres
+
+SELECT '==============================================' AS status;
+SELECT 'Database initialization completed!' AS status;
+SELECT '==============================================' AS status;

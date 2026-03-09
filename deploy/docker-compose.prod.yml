@@ -7,10 +7,35 @@
 # They never appear in `docker inspect` or process environment listings.
 # =============================================================================
 secrets:
+  # Admin superuser (for init scripts and db-init containers only)
   postgres_password:
     file: ./secrets/postgres_password
-  database_url:
-    file: ./secrets/database_url
+  # Per-service database URLs (least-privilege users)
+  so_api_database_url:
+    file: ./secrets/so_api_database_url
+  so_migrate_database_url:
+    file: ./secrets/so_migrate_database_url
+  so_scanner_database_url:
+    file: ./secrets/so_scanner_database_url
+  so_analyzer_database_url:
+    file: ./secrets/so_analyzer_database_url
+  # Per-service passwords (for init-db and third-party containers)
+  so_api_password:
+    file: ./secrets/so_api_password
+  so_migrate_password:
+    file: ./secrets/so_migrate_password
+  so_scanner_password:
+    file: ./secrets/so_scanner_password
+  so_analyzer_password:
+    file: ./secrets/so_analyzer_password
+  so_backup_password:
+    file: ./secrets/so_backup_password
+  so_exporter_password:
+    file: ./secrets/so_exporter_password
+  so_umami_password:
+    file: ./secrets/so_umami_password
+  so_listmonk_password:
+    file: ./secrets/so_listmonk_password
   redis_password:
     file: ./secrets/redis_password
   redis_url:
@@ -76,7 +101,39 @@ services:
     networks:
       - scanorbit
 
+  # Database Initialization (creates databases, users, schema, grants)
+  # Idempotent — safe to re-run on every `docker compose up`
+  init-db:
+    image: postgres:17-alpine
+    restart: "no"
+    entrypoint: ["/bin/sh", "/scripts/init-db.sh"]
+    environment:
+      - PGHOST=postgres
+      - PGUSER=${POSTGRES_USER:-scanorbit}
+      - PGSSLMODE=require
+      - PGSSLROOTCERT=/certs/ca.crt
+    secrets:
+      - postgres_password
+      - so_migrate_password
+      - so_api_password
+      - so_scanner_password
+      - so_analyzer_password
+      - so_backup_password
+      - so_exporter_password
+      - so_umami_password
+      - so_listmonk_password
+    volumes:
+      - ./scripts/init-db.sh:/scripts/init-db.sh:ro
+      - ./scripts/init-db.sql:/scripts/init-db.sql:ro
+      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
   # Database Migrations (runs before API starts)
+  # Uses so_migrate user — DB owner with full DDL access
   migrate:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
     restart: "no"
@@ -84,7 +141,8 @@ services:
       - NODE_ENV=production
       - DB_CA_CERT=/certs/postgres-ca.crt
     secrets:
-      - database_url
+      - source: so_migrate_database_url
+        target: database_url
       - redis_url
       - jwt_secret
       - jwt_refresh_secret
@@ -95,8 +153,8 @@ services:
     working_dir: /app/apps/api
     command: node dist/db/migrate.js
     depends_on:
-      postgres:
-        condition: service_healthy
+      init-db:
+        condition: service_completed_successfully
     networks:
       - scanorbit
     labels:
@@ -105,6 +163,7 @@ services:
     # and Docker Compose treats non-enabled profile services as undefined.
 
   # Node.js API
+  # Uses so_api user — full DML on all tables, no DDL
   api:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -160,7 +219,8 @@ services:
       # Scaleway bounce webhook secret
       - SCALEWAY_WEBHOOK_SECRET=${SCALEWAY_WEBHOOK_SECRET:-}
     secrets:
-      - database_url
+      - source: so_api_database_url
+        target: database_url
       - redis_url
       - jwt_secret
       - jwt_refresh_secret
@@ -213,9 +273,8 @@ services:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Scanner Worker
-  # Uses entrypoints/secret-entrypoint.sh to export AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-  # from Docker secrets into env vars (required by AWS SDK credential chain).
-  # DATABASE_URL, REDIS_URL, OAUTH_ENCRYPTION_KEY are read from /run/secrets/ directly by Go code.
+  # Uses so_scanner user — RW on scan tables, RO on user/org tables
+  # Uses entrypoints/secret-entrypoint.sh to export AWS credentials as env vars.
   scanner:
     image: ghcr.io/${GITHUB_REPOSITORY}/scanner:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -233,7 +292,8 @@ services:
       - REQUIRED_TAGS=${REQUIRED_TAGS:-}
       - METRICS_BIND_ADDR=0.0.0.0  # Bind to all interfaces for Docker network access
     secrets:
-      - database_url
+      - source: so_scanner_database_url
+        target: database_url
       - redis_url
       - oauth_encryption_key
       - aws_access_key_id
@@ -263,8 +323,7 @@ services:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Analyzer Worker
-  # Uses entrypoints/secret-entrypoint.sh to export secrets as env vars for AWS SDK.
-  # DATABASE_URL, REDIS_URL, OAUTH_ENCRYPTION_KEY are read from /run/secrets/ directly by Go code.
+  # Uses so_analyzer user — RW on findings/jobs, RO on scans/resources
   analyzer:
     image: ghcr.io/${GITHUB_REPOSITORY}/analyzer:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -278,7 +337,8 @@ services:
       - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
       - METRICS_BIND_ADDR=0.0.0.0  # Bind to all interfaces for Docker network access
     secrets:
-      - database_url
+      - source: so_analyzer_database_url
+        target: database_url
       - redis_url
       - oauth_encryption_key
     volumes:
@@ -389,20 +449,21 @@ services:
       - scanorbit
 
   # PostgreSQL Backup Service (GDPR Compliance)
-  # Uses entrypoints/backup-entrypoint.sh to load secrets before starting crond
+  # Uses so_backup user — read-only access for pg_dump
   postgres-backup:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
       - PGHOST=postgres
-      - PGUSER=${POSTGRES_USER:-scanorbit}
+      - PGUSER=so_backup
       - PGDATABASE=${POSTGRES_DB:-scanorbit}
       - PGSSLMODE=require
       - PGSSLROOTCERT=/certs/ca.crt
       - SCW_BUCKET_NAME=${SCW_BUCKET_NAME:-scanorbit-backups}
       - SCW_REGION=${SCW_REGION:-nl-ams}
     secrets:
-      - postgres_password
+      - source: so_backup_password
+        target: postgres_password
       - backup_encryption_key
       - scw_access_key
       - scw_secret_key
@@ -421,7 +482,7 @@ services:
       - scanorbit
 
   # GDPR Data Retention Cleanup (runs daily at 03:00 UTC)
-  # Uses API image which reads DATABASE_URL from Docker secret natively
+  # Uses so_api user — same as API (needs DELETE on retention tables)
   retention-cleanup:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -433,7 +494,8 @@ services:
       - RETENTION_SCANS_DAYS=${RETENTION_SCANS_DAYS:-365}
       - RETENTION_AUDIT_LOGS_DAYS=${RETENTION_AUDIT_LOGS_DAYS:-730}
     secrets:
-      - database_url
+      - source: so_api_database_url
+        target: database_url
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
     working_dir: /app/apps/api
@@ -610,15 +672,16 @@ services:
       - scanorbit
 
   # PostgreSQL Exporter - Database metrics
-  # Uses entrypoints/pg-exporter-entrypoint.sh to construct DATA_SOURCE_NAME from secret
+  # Uses so_exporter user — pg_monitor role (statistics views only)
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-scanorbit}
+      - POSTGRES_USER=so_exporter
       - POSTGRES_DB=${POSTGRES_DB:-scanorbit}
     secrets:
-      - postgres_password
+      - source: so_exporter_password
+        target: postgres_password
     volumes:
       - ./certs/postgres/ca.crt:/certs/ca.crt:ro
       - ./entrypoints/pg-exporter-entrypoint.sh:/entrypoint/pg-exporter-entrypoint.sh:ro
@@ -687,42 +750,19 @@ services:
     networks:
       - scanorbit
 
-  # Umami Analytics - Database initialization
-  # Uses entrypoints/pg-init-entrypoint.sh to export PGPASSWORD from secret
-  umami-db-init:
-    image: postgres:17-alpine
-    restart: "no"
-    environment:
-      - PGHOST=postgres
-      - PGUSER=${POSTGRES_USER:-scanorbit}
-      - PGSSLMODE=require
-      - PGSSLROOTCERT=/certs/ca.crt
-    secrets:
-      - postgres_password
-    volumes:
-      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
-      - ./entrypoints/pg-init-entrypoint.sh:/entrypoint/pg-init-entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/entrypoint/pg-init-entrypoint.sh"]
-    command: >
-      sh -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'umami'\" | grep -q 1 || psql -c 'CREATE DATABASE umami'"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - scanorbit
-
   # Umami Analytics - Privacy-first self-hosted web analytics
-  # Uses entrypoints/umami-entrypoint.sh to construct DATABASE_URL from secret
+  # Uses so_umami user — owner of umami database
   umami:
     image: docker.umami.is/umami-software/umami:postgresql-latest
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-scanorbit}
+      - POSTGRES_USER=so_umami
       - APP_SECRET=${UMAMI_APP_SECRET}
       - TRACKER_SCRIPT_NAME=t.js
       - COLLECT_API_ENDPOINT=/collect
     secrets:
-      - postgres_password
+      - source: so_umami_password
+        target: postgres_password
     volumes:
       - ./entrypoints/umami-entrypoint.sh:/entrypoint/umami-entrypoint.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint/umami-entrypoint.sh"]
@@ -735,37 +775,13 @@ services:
       retries: 3
       start_period: 30s
     depends_on:
-      umami-db-init:
+      init-db:
         condition: service_completed_successfully
     networks:
       - scanorbit
 
-  # Listmonk Newsletter - Database initialization
-  # Uses entrypoints/pg-init-entrypoint.sh to export PGPASSWORD from secret
-  listmonk-db-init:
-    image: postgres:17-alpine
-    restart: "no"
-    environment:
-      - PGHOST=postgres
-      - PGUSER=${POSTGRES_USER:-scanorbit}
-      - PGSSLMODE=require
-      - PGSSLROOTCERT=/certs/ca.crt
-    secrets:
-      - postgres_password
-    volumes:
-      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
-      - ./entrypoints/pg-init-entrypoint.sh:/entrypoint/pg-init-entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/entrypoint/pg-init-entrypoint.sh"]
-    command: >
-      sh -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'listmonk'\" | grep -q 1 || psql -c 'CREATE DATABASE listmonk'"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - scanorbit
-
   # Listmonk Newsletter - Schema installation (idempotent)
-  # Uses entrypoints/listmonk-entrypoint.sh to load DB password from secret
+  # Uses so_listmonk user — owner of listmonk database
   listmonk-init:
     image: listmonk/listmonk:latest
     restart: "no"
@@ -775,23 +791,24 @@ services:
       - LISTMONK_app__admin_password=${LISTMONK_ADMIN_PASSWORD}
       - LISTMONK_db__host=postgres
       - LISTMONK_db__port=5432
-      - LISTMONK_db__user=${POSTGRES_USER:-scanorbit}
+      - LISTMONK_db__user=so_listmonk
       - LISTMONK_db__database=listmonk
       - LISTMONK_db__ssl_mode=require
     secrets:
-      - postgres_password
+      - source: so_listmonk_password
+        target: postgres_password
     volumes:
       - ./entrypoints/listmonk-entrypoint.sh:/entrypoint/listmonk-entrypoint.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint/listmonk-entrypoint.sh"]
     command: ["./listmonk", "--install", "--idempotent", "--yes", "--config", ""]
     depends_on:
-      listmonk-db-init:
+      init-db:
         condition: service_completed_successfully
     networks:
       - scanorbit
 
   # Listmonk Newsletter - Admin UI & API (localhost only, access via SSH tunnel)
-  # Uses entrypoints/listmonk-entrypoint.sh to load DB password from secret
+  # Uses so_listmonk user — owner of listmonk database
   listmonk:
     image: listmonk/listmonk:latest
     restart: unless-stopped
@@ -801,11 +818,12 @@ services:
       - LISTMONK_app__admin_password=${LISTMONK_ADMIN_PASSWORD}
       - LISTMONK_db__host=postgres
       - LISTMONK_db__port=5432
-      - LISTMONK_db__user=${POSTGRES_USER:-scanorbit}
+      - LISTMONK_db__user=so_listmonk
       - LISTMONK_db__database=listmonk
       - LISTMONK_db__ssl_mode=require
     secrets:
-      - postgres_password
+      - source: so_listmonk_password
+        target: postgres_password
     volumes:
       - ./entrypoints/listmonk-entrypoint.sh:/entrypoint/listmonk-entrypoint.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint/listmonk-entrypoint.sh"]
