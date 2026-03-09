@@ -64,7 +64,7 @@ func TestFindMissingTags_NilTags(t *testing.T) {
 
 func TestTaggingAnalyzer_Analyze_WithJobTags(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{
 				ID: "1", Service: models.ServiceEC2, Name: "my-ec2",
@@ -110,7 +110,7 @@ func TestTaggingAnalyzer_Analyze_NoRequiredTags(t *testing.T) {
 
 func TestTaggingAnalyzer_Analyze_SkipsNonTaggable(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceIAMUser, Tags: map[string]string{}},
 			{ID: "2", Service: models.ServiceIAMRole, Tags: map[string]string{}},
@@ -140,7 +140,7 @@ func TestTaggingAnalyzer_Analyze_AllTaggableServices(t *testing.T) {
 		models.ServiceCloudWatchLogs, models.ServiceCloudWatchAlarm,
 	}
 
-	var resources []*models.Resource
+	resources := make([]*models.Resource, 0, len(taggableServices))
 	for i, svc := range taggableServices {
 		resources = append(resources, &models.Resource{
 			ID: string(rune('a' + i)), Service: svc, Name: "test",
@@ -148,7 +148,7 @@ func TestTaggingAnalyzer_Analyze_AllTaggableServices(t *testing.T) {
 		})
 	}
 
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return resources, nil
 	}
 

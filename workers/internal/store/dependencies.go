@@ -148,7 +148,7 @@ func (s *dependencyStore) GetBySourceResourceID(ctx context.Context, sourceResou
 	}
 	defer rows.Close()
 
-	var deps []*models.ResourceDependency
+	var deps []*models.ResourceDependency //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var d models.ResourceDependency
 		err := rows.Scan(
@@ -193,7 +193,7 @@ func (s *dependencyStore) GetByTarget(ctx context.Context, targetResourceID stri
 	}
 	defer rows.Close()
 
-	var deps []*models.ResourceDependency
+	var deps []*models.ResourceDependency //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var d models.ResourceDependency
 		err := rows.Scan(

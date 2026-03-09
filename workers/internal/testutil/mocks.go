@@ -57,10 +57,10 @@ func NewMockStore() (*store.Store, *Mocks) {
 // --- AccountStore ---
 
 type MockAccountStore struct {
-	GetByIDFn        func(ctx context.Context, id string) (*store.AWSAccount, error)
-	ExistsFn         func(ctx context.Context, id string) (bool, error)
+	GetByIDFn          func(ctx context.Context, id string) (*store.AWSAccount, error)
+	ExistsFn           func(ctx context.Context, id string) (bool, error)
 	UpdateLastScanAtFn func(ctx context.Context, id string, scannedAt time.Time) error
-	UpdateStatusFn   func(ctx context.Context, id string, status string, lastError string) error
+	UpdateStatusFn     func(ctx context.Context, id string, status string, lastError string) error
 }
 
 func (m *MockAccountStore) GetByID(ctx context.Context, id string) (*store.AWSAccount, error) {
@@ -84,7 +84,7 @@ func (m *MockAccountStore) UpdateLastScanAt(ctx context.Context, id string, scan
 	return nil
 }
 
-func (m *MockAccountStore) UpdateStatus(ctx context.Context, id string, status string, lastError string) error {
+func (m *MockAccountStore) UpdateStatus(ctx context.Context, id, status, lastError string) error {
 	if m.UpdateStatusFn != nil {
 		return m.UpdateStatusFn(ctx, id, status, lastError)
 	}
@@ -94,11 +94,11 @@ func (m *MockAccountStore) UpdateStatus(ctx context.Context, id string, status s
 // --- ScanStore ---
 
 type MockScanStore struct {
-	CreateFn              func(ctx context.Context, scan *store.Scan) error
-	UpdateStatusFn        func(ctx context.Context, id string, status string, resourceCount int, errorMsg string) error
-	UpdateStatusOnlyFn    func(ctx context.Context, id string, status string) error
+	CreateFn                func(ctx context.Context, scan *store.Scan) error
+	UpdateStatusFn          func(ctx context.Context, id string, status string, resourceCount int, errorMsg string) error
+	UpdateStatusOnlyFn      func(ctx context.Context, id string, status string) error
 	UpdateStatusWithStartFn func(ctx context.Context, id string, status string) error
-	GetByIDFn             func(ctx context.Context, id string) (*store.Scan, error)
+	GetByIDFn               func(ctx context.Context, id string) (*store.Scan, error)
 }
 
 func (m *MockScanStore) Create(ctx context.Context, scan *store.Scan) error {
@@ -108,21 +108,21 @@ func (m *MockScanStore) Create(ctx context.Context, scan *store.Scan) error {
 	return nil
 }
 
-func (m *MockScanStore) UpdateStatus(ctx context.Context, id string, status string, resourceCount int, errorMsg string) error {
+func (m *MockScanStore) UpdateStatus(ctx context.Context, id, status string, resourceCount int, errorMsg string) error {
 	if m.UpdateStatusFn != nil {
 		return m.UpdateStatusFn(ctx, id, status, resourceCount, errorMsg)
 	}
 	return nil
 }
 
-func (m *MockScanStore) UpdateStatusOnly(ctx context.Context, id string, status string) error {
+func (m *MockScanStore) UpdateStatusOnly(ctx context.Context, id, status string) error {
 	if m.UpdateStatusOnlyFn != nil {
 		return m.UpdateStatusOnlyFn(ctx, id, status)
 	}
 	return nil
 }
 
-func (m *MockScanStore) UpdateStatusWithStart(ctx context.Context, id string, status string) error {
+func (m *MockScanStore) UpdateStatusWithStart(ctx context.Context, id, status string) error {
 	if m.UpdateStatusWithStartFn != nil {
 		return m.UpdateStatusWithStartFn(ctx, id, status)
 	}
@@ -152,6 +152,7 @@ func (m *MockResourceStore) Upsert(ctx context.Context, resource *models.Resourc
 	return nil
 }
 
+//nolint:gocritic // mock method
 func (m *MockResourceStore) UpsertWithStatus(ctx context.Context, resource *models.Resource) (string, bool, error) {
 	if m.UpsertWithStatusFn != nil {
 		return m.UpsertWithStatusFn(ctx, resource)
@@ -197,11 +198,11 @@ func (m *MockCertificateStore) GetByAccountID(ctx context.Context, accountID str
 // --- FindingStore ---
 
 type MockFindingStore struct {
-	UpsertFn                    func(ctx context.Context, finding *models.Finding) error
-	UpsertWithHistoryFn         func(ctx context.Context, finding *models.Finding, scanID string) (string, bool, error)
-	GetByAccountIDFn            func(ctx context.Context, accountID string) ([]*models.Finding, error)
+	UpsertFn                     func(ctx context.Context, finding *models.Finding) error
+	UpsertWithHistoryFn          func(ctx context.Context, finding *models.Finding, scanID string) (string, bool, error)
+	GetByAccountIDFn             func(ctx context.Context, accountID string) ([]*models.Finding, error)
 	AutoResolveMissingFindingsFn func(ctx context.Context, scanID, accountID string, detectedFindingIDs []string) (int64, error)
-	AutoResolveByScanIDFn       func(ctx context.Context, scanID, accountID string) (int64, error)
+	AutoResolveByScanIDFn        func(ctx context.Context, scanID, accountID string) (int64, error)
 }
 
 func (m *MockFindingStore) Upsert(ctx context.Context, finding *models.Finding) error {
@@ -211,6 +212,7 @@ func (m *MockFindingStore) Upsert(ctx context.Context, finding *models.Finding) 
 	return nil
 }
 
+//nolint:gocritic // mock method
 func (m *MockFindingStore) UpsertWithHistory(ctx context.Context, finding *models.Finding, scanID string) (string, bool, error) {
 	if m.UpsertWithHistoryFn != nil {
 		return m.UpsertWithHistoryFn(ctx, finding, scanID)
@@ -279,12 +281,12 @@ func (m *MockFindingScanStore) GetByFindingID(ctx context.Context, findingID str
 // --- DependencyStore ---
 
 type MockDependencyStore struct {
-	UpsertFn                  func(ctx context.Context, dep *models.ResourceDependency) error
-	BulkUpsertFn              func(ctx context.Context, deps []*models.ResourceDependency) error
+	UpsertFn                   func(ctx context.Context, dep *models.ResourceDependency) error
+	BulkUpsertFn               func(ctx context.Context, deps []*models.ResourceDependency) error
 	DeleteBySourceResourceIDFn func(ctx context.Context, sourceResourceID string) error
-	DeleteByAccountIDFn       func(ctx context.Context, accountID string) error
-	GetBySourceResourceIDFn   func(ctx context.Context, sourceResourceID string) ([]*models.ResourceDependency, error)
-	GetByTargetFn             func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error)
+	DeleteByAccountIDFn        func(ctx context.Context, accountID string) error
+	GetBySourceResourceIDFn    func(ctx context.Context, sourceResourceID string) ([]*models.ResourceDependency, error)
+	GetByTargetFn              func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error)
 }
 
 func (m *MockDependencyStore) Upsert(ctx context.Context, dep *models.ResourceDependency) error {
@@ -332,11 +334,11 @@ func (m *MockDependencyStore) GetByTarget(ctx context.Context, targetResourceID 
 // --- ResourceScanStore ---
 
 type MockResourceScanStore struct {
-	BulkUpsertFn            func(ctx context.Context, records []*models.ResourceScan) error
-	MarkRemovedResourcesFn  func(ctx context.Context, scanID, accountID string, foundResourceIDs []string) error
-	DeleteStaleResourcesFn  func(ctx context.Context, accountID string, minScansRemoved int) (int64, error)
-	GetByScanIDFn           func(ctx context.Context, scanID string) ([]*models.ResourceScan, error)
-	GetByResourceIDFn       func(ctx context.Context, resourceID string) ([]*models.ResourceScan, error)
+	BulkUpsertFn           func(ctx context.Context, records []*models.ResourceScan) error
+	MarkRemovedResourcesFn func(ctx context.Context, scanID, accountID string, foundResourceIDs []string) error
+	DeleteStaleResourcesFn func(ctx context.Context, accountID string, minScansRemoved int) (int64, error)
+	GetByScanIDFn          func(ctx context.Context, scanID string) ([]*models.ResourceScan, error)
+	GetByResourceIDFn      func(ctx context.Context, resourceID string) ([]*models.ResourceScan, error)
 }
 
 func (m *MockResourceScanStore) BulkUpsert(ctx context.Context, records []*models.ResourceScan) error {
@@ -377,11 +379,11 @@ func (m *MockResourceScanStore) GetByResourceID(ctx context.Context, resourceID 
 // --- JobStore ---
 
 type MockJobStore struct {
-	CreateFn                            func(ctx context.Context, job *store.Job) (string, error)
-	UpdateStatusFn                      func(ctx context.Context, id string, status models.JobStatus, errorMsg string) error
-	MarkRunningFn                       func(ctx context.Context, id string) error
-	MarkCompleteFn                      func(ctx context.Context, id string) error
-	MarkErrorFn                         func(ctx context.Context, id, errorMsg string) error
+	CreateFn                             func(ctx context.Context, job *store.Job) (string, error)
+	UpdateStatusFn                       func(ctx context.Context, id string, status models.JobStatus, errorMsg string) error
+	MarkRunningFn                        func(ctx context.Context, id string) error
+	MarkCompleteFn                       func(ctx context.Context, id string) error
+	MarkErrorFn                          func(ctx context.Context, id, errorMsg string) error
 	CountIncompleteAnalyzerJobsForScanFn func(ctx context.Context, scanID string) (int, error)
 }
 

@@ -261,7 +261,7 @@ func TestCheckOrphanedENI_InUse(t *testing.T) {
 
 func TestCheckUnusedSecurityGroup_NoDeps(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Dependencies.GetByTargetFn = func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error) {
+	mocks.Dependencies.GetByTargetFn = func(_ context.Context, _ string) ([]*models.ResourceDependency, error) {
 		return nil, nil
 	}
 	a := NewOrphanAnalyzer(st, zerolog.Nop())
@@ -282,7 +282,7 @@ func TestCheckUnusedSecurityGroup_NoDeps(t *testing.T) {
 
 func TestCheckUnusedSecurityGroup_HasDeps(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Dependencies.GetByTargetFn = func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error) {
+	mocks.Dependencies.GetByTargetFn = func(_ context.Context, _ string) ([]*models.ResourceDependency, error) {
 		return []*models.ResourceDependency{{ID: "dep-1"}}, nil
 	}
 	a := NewOrphanAnalyzer(st, zerolog.Nop())
@@ -347,14 +347,14 @@ func TestOrphanAnalyzer_Analyze(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
 	now := time.Now()
 
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceEBS, State: "unattached", CreatedAt: now.Add(-30 * 24 * time.Hour), Raw: json.RawMessage(`{}`)},
 			{ID: "2", Service: models.ServiceEC2, State: "running", Raw: json.RawMessage(`{}`)},
 			{ID: "3", Service: models.ServiceEIP, State: "unassociated", CreatedAt: now.Add(-10 * 24 * time.Hour)},
 		}, nil
 	}
-	mocks.Dependencies.GetByTargetFn = func(ctx context.Context, targetResourceID string) ([]*models.ResourceDependency, error) {
+	mocks.Dependencies.GetByTargetFn = func(_ context.Context, _ string) ([]*models.ResourceDependency, error) {
 		return nil, nil
 	}
 

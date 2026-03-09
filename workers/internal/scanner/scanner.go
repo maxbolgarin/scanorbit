@@ -252,8 +252,8 @@ func (s *Scanner) ScanAccount(ctx context.Context, job *models.ScanAccountJob) e
 	var partialFailures int
 
 	// Track resource-scan history
-	var resourceScanRecords []*models.ResourceScan
-	var foundResourceIDs []string
+	resourceScanRecords := make([]*models.ResourceScan, 0, len(regions))
+	foundResourceIDs := make([]string, 0, len(regions))
 
 	for result := range resultsChan {
 		if result.Error != nil {

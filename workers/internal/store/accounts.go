@@ -99,7 +99,7 @@ func (s *accountStore) UpdateLastScanAt(ctx context.Context, id string, scannedA
 }
 
 // UpdateStatus updates the status and error message for an account.
-func (s *accountStore) UpdateStatus(ctx context.Context, id string, status string, lastError string) error {
+func (s *accountStore) UpdateStatus(ctx context.Context, id, status, lastError string) error {
 	finish := metrics.TrackDBQuery("update", "aws_accounts")
 
 	// Sanitize error message before storing

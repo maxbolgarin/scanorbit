@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -139,7 +140,7 @@ func (q *RedisQueue) Consume(ctx context.Context, jobTypes []models.JobType, han
 		// BLPOP with timeout
 		finish := metrics.TrackRedisOperation("blpop")
 		result, err := q.client.BLPop(ctx, blpopTimeout, keys...).Result()
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			finish("timeout")
 			// Timeout, no job available, retry
 			continue

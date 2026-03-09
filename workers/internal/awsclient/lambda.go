@@ -72,23 +72,23 @@ func (s *LambdaScanner) ScanFunctions(ctx context.Context, cfg aws.Config, regio
 
 			// Store function details in raw (including dependency-related fields)
 			raw, _ := json.Marshal(map[string]any{
-				"function_name":      aws.ToString(fn.FunctionName),
-				"function_arn":       aws.ToString(fn.FunctionArn),
-				"runtime":            string(fn.Runtime),
-				"handler":            aws.ToString(fn.Handler),
-				"code_size":          fn.CodeSize,
-				"memory_size":        aws.ToInt32(fn.MemorySize),
-				"timeout":            aws.ToInt32(fn.Timeout),
-				"last_modified":      aws.ToString(fn.LastModified),
-				"description":        aws.ToString(fn.Description),
-				"architectures":      fn.Architectures,
-				"package_type":       string(fn.PackageType),
-				"ephemeral_storage":  fn.EphemeralStorage,
+				"function_name":     aws.ToString(fn.FunctionName),
+				"function_arn":      aws.ToString(fn.FunctionArn),
+				"runtime":           string(fn.Runtime),
+				"handler":           aws.ToString(fn.Handler),
+				"code_size":         fn.CodeSize,
+				"memory_size":       aws.ToInt32(fn.MemorySize),
+				"timeout":           aws.ToInt32(fn.Timeout),
+				"last_modified":     aws.ToString(fn.LastModified),
+				"description":       aws.ToString(fn.Description),
+				"architectures":     fn.Architectures,
+				"package_type":      string(fn.PackageType),
+				"ephemeral_storage": fn.EphemeralStorage,
 				// Dependency-related fields
-				"Role":       aws.ToString(fn.Role),
-				"VpcConfig":  vpcConfig,
-				"Layers":     layers,
-				"KMSKeyArn":  aws.ToString(fn.KMSKeyArn),
+				"Role":      aws.ToString(fn.Role),
+				"VpcConfig": vpcConfig,
+				"Layers":    layers,
+				"KMSKeyArn": aws.ToString(fn.KMSKeyArn),
 			})
 			r.Raw = raw
 

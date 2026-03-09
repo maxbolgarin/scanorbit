@@ -15,7 +15,7 @@ var (
 	postgresURLPattern  = regexp.MustCompile(`postgresql://[^@]+@`)
 	redisURLPattern     = regexp.MustCompile(`redis://[^@]+@`)
 	redissURLPattern    = regexp.MustCompile(`rediss://[^@]+@`)
-	pemPattern          = regexp.MustCompile(`(?i)-----BEGIN[^-]+-----[\s\S]*?-----END`)
+	pemPattern          = regexp.MustCompile(`(?i)-{5}BEGIN[^-]+-{5}[\s\S]*?-{5}END`)
 	filePathPattern     = regexp.MustCompile(`(/[a-zA-Z0-9_\-./]+){3,}`)
 	ipAddressPattern    = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
 
@@ -59,33 +59,33 @@ func SanitizeErrorMessage(err string) string {
 
 	// Map common internal errors to user-friendly messages
 	errorMappings := map[string]string{
-		"connection refused":             "service temporarily unavailable",
-		"no such host":                   "service temporarily unavailable",
-		"i/o timeout":                    "operation timed out",
-		"context deadline exceeded":      "operation timed out",
-		"context canceled":               "operation was cancelled",
-		"too many open files":            "service temporarily unavailable",
-		"connection reset by peer":       "connection interrupted",
-		"broken pipe":                    "connection interrupted",
-		"invalid memory address":         "internal error occurred",
-		"runtime error":                  "internal error occurred",
-		"panic":                          "internal error occurred",
-		"stack trace":                    "internal error occurred",
-		"goroutine":                      "internal error occurred",
-		"permission denied":              "access denied",
-		"access denied":                  "access denied",
-		"unauthorized":                   "authentication failed",
-		"forbidden":                      "access denied",
-		"expired token":                  "authentication expired",
-		"invalid token":                  "authentication failed",
-		"assume role":                    "AWS role assumption failed",
-		"accessdenied":                   "AWS access denied - check IAM permissions",
-		"invalidclienttokenid":           "AWS credentials invalid",
-		"expiredtoken":                   "AWS session expired",
-		"throttling":                     "AWS rate limit exceeded",
-		"serviceunavailable":             "AWS service temporarily unavailable",
-		"internalerror":                  "AWS internal error",
-		"requestlimitexceeded":           "AWS request limit exceeded",
+		"connection refused":        "service temporarily unavailable",
+		"no such host":              "service temporarily unavailable",
+		"i/o timeout":               "operation timed out",
+		"context deadline exceeded": "operation timed out",
+		"context canceled":          "operation was cancelled",
+		"too many open files":       "service temporarily unavailable",
+		"connection reset by peer":  "connection interrupted",
+		"broken pipe":               "connection interrupted",
+		"invalid memory address":    "internal error occurred",
+		"runtime error":             "internal error occurred",
+		"panic":                     "internal error occurred",
+		"stack trace":               "internal error occurred",
+		"goroutine":                 "internal error occurred",
+		"permission denied":         "access denied",
+		"access denied":             "access denied",
+		"unauthorized":              "authentication failed",
+		"forbidden":                 "access denied",
+		"expired token":             "authentication expired",
+		"invalid token":             "authentication failed",
+		"assume role":               "AWS role assumption failed",
+		"accessdenied":              "AWS access denied - check IAM permissions",
+		"invalidclienttokenid":      "AWS credentials invalid",
+		"expiredtoken":              "AWS session expired",
+		"throttling":                "AWS rate limit exceeded",
+		"serviceunavailable":        "AWS service temporarily unavailable",
+		"internalerror":             "AWS internal error",
+		"requestlimitexceeded":      "AWS request limit exceeded",
 	}
 
 	lowerSanitized := strings.ToLower(sanitized)

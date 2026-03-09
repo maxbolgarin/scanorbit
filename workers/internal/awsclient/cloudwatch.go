@@ -55,14 +55,14 @@ func (s *CloudWatchScanner) ScanLogGroups(ctx context.Context, cfg aws.Config, r
 
 			// Store log group details in raw
 			raw, _ := json.Marshal(map[string]any{
-				"log_group_name":    aws.ToString(lg.LogGroupName),
-				"arn":               arn,
-				"creation_time":     lg.CreationTime,
-				"retention_days":    lg.RetentionInDays,
-				"stored_bytes":      lg.StoredBytes,
+				"log_group_name":      aws.ToString(lg.LogGroupName),
+				"arn":                 arn,
+				"creation_time":       lg.CreationTime,
+				"retention_days":      lg.RetentionInDays,
+				"stored_bytes":        lg.StoredBytes,
 				"metric_filter_count": lg.MetricFilterCount,
-				"kms_key_id":        aws.ToString(lg.KmsKeyId),
-				"data_protection":   lg.DataProtectionStatus,
+				"kms_key_id":          aws.ToString(lg.KmsKeyId),
+				"data_protection":     lg.DataProtectionStatus,
 			})
 			r.Raw = raw
 

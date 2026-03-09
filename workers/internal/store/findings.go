@@ -231,7 +231,7 @@ func (s *findingStore) UpsertWithHistory(ctx context.Context, finding *models.Fi
 // AutoResolveMissingFindings marks open findings as resolved if they were not detected in this scan.
 // Uses the detectedFindingIDs list to determine which findings to preserve.
 // Returns the number of findings that were auto-resolved.
-func (s *findingStore) AutoResolveMissingFindings(ctx context.Context, scanID, accountID string, detectedFindingIDs []string) (int64, error) {
+func (s *findingStore) AutoResolveMissingFindings(ctx context.Context, _, accountID string, detectedFindingIDs []string) (int64, error) {
 	finish := metrics.TrackDBQuery("auto_resolve", "findings")
 
 	query := `
@@ -303,7 +303,7 @@ func (s *findingStore) GetByAccountID(ctx context.Context, accountID string) ([]
 	}
 	defer rows.Close()
 
-	var findings []*models.Finding
+	var findings []*models.Finding //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var f models.Finding
 		var detailsJSON []byte

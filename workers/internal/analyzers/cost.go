@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	unusedLambdaDays     = 90 // Lambda not invoked in 90 days
-	unusedSecretDays     = 90 // Secret not accessed in 90 days
-	stoppedInstanceDays  = 7  // EC2 stopped for 7 days
-	unusedLogGroupDays   = 30 // Log group with no recent logs
-	unusedLogGroupBytes  = 100 * 1024 * 1024 // 100MB threshold for unused log group cost
+	unusedLambdaDays    = 90                // Lambda not invoked in 90 days
+	unusedSecretDays    = 90                // Secret not accessed in 90 days
+	stoppedInstanceDays = 7                 // EC2 stopped for 7 days
+	unusedLogGroupDays  = 30                // Log group with no recent logs
+	unusedLogGroupBytes = 100 * 1024 * 1024 // 100MB threshold for unused log group cost
 )
 
 // CostAnalyzer detects cost optimization opportunities.
@@ -241,7 +241,7 @@ func (a *CostAnalyzer) checkStoppedInstance(r *models.Resource, now time.Time) [
 	}
 
 	// Estimate EBS storage cost for attached volumes (~$0.10/GB/month for gp2)
-	var estimatedCost float64 = 10.0 // Default estimate
+	var estimatedCost = 10.0 // Default estimate
 	if blockDevices, ok := raw["BlockDeviceMappings"].([]any); ok {
 		var totalGB float64
 		for _, bd := range blockDevices {
@@ -348,7 +348,7 @@ func (a *CostAnalyzer) checkUnusedLogGroup(r *models.Resource, now time.Time) []
 }
 
 // checkGP2toGP3Migration checks if an EBS volume could benefit from migrating to gp3.
-func (a *CostAnalyzer) checkGP2toGP3Migration(r *models.Resource, now time.Time) []*models.Finding {
+func (a *CostAnalyzer) checkGP2toGP3Migration(r *models.Resource, _ time.Time) []*models.Finding {
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err != nil {
 		return nil
@@ -486,7 +486,7 @@ var rdsOldGenUpgrade = map[string]string{
 var rdsOldGenPrefixes = []string{"db.m4.", "db.r4.", "db.t2.", "db.m3.", "db.r3."}
 
 // checkOldGenInstance checks if an EC2 instance uses an old generation instance type.
-func (a *CostAnalyzer) checkOldGenInstance(r *models.Resource, now time.Time) []*models.Finding {
+func (a *CostAnalyzer) checkOldGenInstance(r *models.Resource, _ time.Time) []*models.Finding {
 	if r.State != "running" {
 		return nil
 	}
@@ -577,7 +577,7 @@ func (a *CostAnalyzer) checkOversizedLambda(r *models.Resource, now time.Time) [
 	// Estimate potential savings from right-sizing
 	// Lambda costs $0.0000166667 per GB-second
 	// If memory is 2x what's needed, potential savings are significant
-	excessMemoryMB := memorySize - 512 // Assuming 512MB might be sufficient
+	excessMemoryMB := memorySize - 512                                         // Assuming 512MB might be sufficient
 	potentialSavings := (excessMemoryMB / 1024) * 0.0000166667 * 1000000 * 0.1 // Rough estimate
 
 	resourceID := r.ID
@@ -603,7 +603,7 @@ func (a *CostAnalyzer) checkOversizedLambda(r *models.Resource, now time.Time) [
 }
 
 // checkLogRetention checks if a CloudWatch log group has no retention policy.
-func (a *CostAnalyzer) checkLogRetention(r *models.Resource, now time.Time) []*models.Finding {
+func (a *CostAnalyzer) checkLogRetention(r *models.Resource, _ time.Time) []*models.Finding {
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err != nil {
 		return nil
@@ -649,7 +649,7 @@ func (a *CostAnalyzer) checkLogRetention(r *models.Resource, now time.Time) []*m
 }
 
 // checkUnusedKMSKey checks if a KMS key is not being used.
-func (a *CostAnalyzer) checkUnusedKMSKey(ctx context.Context, r *models.Resource, now time.Time) []*models.Finding {
+func (a *CostAnalyzer) checkUnusedKMSKey(ctx context.Context, r *models.Resource, _ time.Time) []*models.Finding {
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err != nil {
 		return nil
@@ -702,7 +702,7 @@ func (a *CostAnalyzer) checkUnusedKMSKey(ctx context.Context, r *models.Resource
 }
 
 // checkRDSOptimization checks for RDS optimization opportunities.
-func (a *CostAnalyzer) checkRDSOptimization(r *models.Resource, now time.Time) []*models.Finding {
+func (a *CostAnalyzer) checkRDSOptimization(r *models.Resource, _ time.Time) []*models.Finding {
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err != nil {
 		return nil
@@ -759,7 +759,7 @@ func (a *CostAnalyzer) checkRDSOptimization(r *models.Resource, now time.Time) [
 }
 
 // checkOldGenRDS checks if an RDS instance uses an old generation instance type.
-func (a *CostAnalyzer) checkOldGenRDS(r *models.Resource, now time.Time) []*models.Finding {
+func (a *CostAnalyzer) checkOldGenRDS(r *models.Resource, _ time.Time) []*models.Finding {
 	var raw map[string]any
 	if err := json.Unmarshal(r.Raw, &raw); err != nil {
 		return nil

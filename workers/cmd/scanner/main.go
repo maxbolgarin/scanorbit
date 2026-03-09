@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -59,7 +60,7 @@ func main() {
 	// Start metrics server (binds to localhost by default for security)
 	metricsServer := metrics.NewServer(metricsPort, cfg.MetricsBindAddr, serviceName, serviceVersion, cfg.Environment, logger)
 	go func() {
-		if err := metricsServer.Start(); err != nil && err != http.ErrServerClosed {
+		if err := metricsServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error().Err(err).Msg("metrics server error")
 		}
 	}()
@@ -320,10 +321,9 @@ func main() {
 
 		done("success")
 		return nil
-
 	}, deadLetterHandler)
 
-	if err != nil && err != context.Canceled {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		logger.Fatal().Err(err).Msg("queue consumer error")
 	}
 

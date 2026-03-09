@@ -12,7 +12,7 @@ import (
 
 func TestSSLAnalyzer_Expired(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Certificates.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	mocks.Certificates.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Certificate, error) {
 		return []*models.Certificate{
 			testutil.MakeCertificate(-5, models.CertificateSourceACM), // expired 5 days ago
 		}, nil
@@ -33,7 +33,7 @@ func TestSSLAnalyzer_Expired(t *testing.T) {
 
 func TestSSLAnalyzer_Under7Days(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Certificates.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	mocks.Certificates.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Certificate, error) {
 		return []*models.Certificate{
 			testutil.MakeCertificate(3, models.CertificateSourceACM),
 		}, nil
@@ -54,7 +54,7 @@ func TestSSLAnalyzer_Under7Days(t *testing.T) {
 
 func TestSSLAnalyzer_Under30Days(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Certificates.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	mocks.Certificates.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Certificate, error) {
 		return []*models.Certificate{
 			testutil.MakeCertificate(20, models.CertificateSourceEndpointScan),
 		}, nil
@@ -75,7 +75,7 @@ func TestSSLAnalyzer_Under30Days(t *testing.T) {
 
 func TestSSLAnalyzer_Under60Days(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Certificates.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	mocks.Certificates.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Certificate, error) {
 		return []*models.Certificate{
 			testutil.MakeCertificate(45, models.CertificateSourceACM),
 		}, nil
@@ -96,7 +96,7 @@ func TestSSLAnalyzer_Under60Days(t *testing.T) {
 
 func TestSSLAnalyzer_Over60Days(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Certificates.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	mocks.Certificates.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Certificate, error) {
 		return []*models.Certificate{
 			testutil.MakeCertificate(90, models.CertificateSourceACM),
 		}, nil
@@ -154,7 +154,7 @@ func TestSSLAnalyzer_GetRecommendation(t *testing.T) {
 func TestSSLAnalyzer_MultipleCerts(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
 	now := time.Now()
-	mocks.Certificates.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Certificate, error) {
+	mocks.Certificates.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Certificate, error) {
 		return []*models.Certificate{
 			{ID: "cert-1", PrimaryDomain: "expired.com", NotAfter: now.Add(-1 * 24 * time.Hour), Source: models.CertificateSourceACM},
 			{ID: "cert-2", PrimaryDomain: "fine.com", NotAfter: now.Add(120 * 24 * time.Hour), Source: models.CertificateSourceACM},

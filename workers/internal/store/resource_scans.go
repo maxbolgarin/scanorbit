@@ -146,7 +146,7 @@ func (s *resourceScanStore) GetByScanID(ctx context.Context, scanID string) ([]*
 	}
 	defer rows.Close()
 
-	var records []*models.ResourceScan
+	var records []*models.ResourceScan //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var r models.ResourceScan
 		err := rows.Scan(&r.ID, &r.ResourceID, &r.ScanID, &r.Status, &r.CreatedAt)
@@ -183,7 +183,7 @@ func (s *resourceScanStore) GetByResourceID(ctx context.Context, resourceID stri
 	}
 	defer rows.Close()
 
-	var records []*models.ResourceScan
+	var records []*models.ResourceScan //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var r models.ResourceScan
 		err := rows.Scan(&r.ID, &r.ResourceID, &r.ScanID, &r.Status, &r.CreatedAt)

@@ -259,7 +259,7 @@ func TestCheckSecurityGroup_NoIngressRules(t *testing.T) {
 
 func TestSecurityAnalyzer_Analyze(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceEBS, Raw: json.RawMessage(`{"encrypted": false}`)},
 			{ID: "2", Service: models.ServiceEBS, Raw: json.RawMessage(`{"encrypted": true}`)},

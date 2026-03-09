@@ -75,7 +75,7 @@ func (s *resourceStore) Upsert(ctx context.Context, resource *models.Resource) e
 
 // UpsertWithStatus inserts or updates a resource and returns whether it was new.
 // Returns the resource ID and a boolean indicating if the resource was newly inserted.
-func (s *resourceStore) UpsertWithStatus(ctx context.Context, resource *models.Resource) (string, bool, error) {
+func (s *resourceStore) UpsertWithStatus(ctx context.Context, resource *models.Resource) (resourceID string, isNew bool, err error) {
 	finish := metrics.TrackDBQuery("upsert_with_status", "resources")
 
 	// Generate ID if not set
@@ -110,8 +110,6 @@ func (s *resourceStore) UpsertWithStatus(ctx context.Context, resource *models.R
 		RETURNING id, (xmax = 0) as is_new
 	`
 
-	var resourceID string
-	var isNew bool
 	err = s.db.Pool().QueryRow(ctx, query,
 		resource.ID,
 		resource.OrgID,
@@ -152,7 +150,7 @@ func (s *resourceStore) GetByAccountID(ctx context.Context, accountID string) ([
 	}
 	defer rows.Close()
 
-	var resources []*models.Resource
+	var resources []*models.Resource //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var r models.Resource
 		var tagsJSON []byte
@@ -213,7 +211,7 @@ func (s *resourceStore) GetByService(ctx context.Context, accountID string, serv
 	}
 	defer rows.Close()
 
-	var resources []*models.Resource
+	var resources []*models.Resource //nolint:prealloc // rows count unknown
 	for rows.Next() {
 		var r models.Resource
 		var tagsJSON []byte

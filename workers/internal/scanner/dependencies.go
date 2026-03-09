@@ -53,9 +53,9 @@ func (e *DependencyExtractor) extractEC2Dependencies(resource *models.Resource) 
 	var deps []*models.ResourceDependency
 
 	var raw struct {
-		VpcId             string `json:"VpcId"`
-		SubnetId          string `json:"SubnetId"`
-		SecurityGroups    []struct {
+		VpcId          string `json:"VpcId"`
+		SubnetId       string `json:"SubnetId"`
+		SecurityGroups []struct {
 			GroupId   string `json:"GroupId"`
 			GroupName string `json:"GroupName"`
 		} `json:"SecurityGroups"`
@@ -432,9 +432,9 @@ func (e *DependencyExtractor) extractENIDependencies(resource *models.Resource) 
 	var deps []*models.ResourceDependency
 
 	var raw struct {
-		VpcId          string `json:"vpc_id"`
-		SubnetId       string `json:"subnet_id"`
-		Attachment     *struct {
+		VpcId      string `json:"vpc_id"`
+		SubnetId   string `json:"subnet_id"`
+		Attachment *struct {
 			InstanceId string `json:"instance_id"`
 		} `json:"attachment"`
 		SecurityGroups []struct {
@@ -497,8 +497,8 @@ func (e *DependencyExtractor) extractNATGatewayDependencies(resource *models.Res
 	var deps []*models.ResourceDependency
 
 	var raw struct {
-		VpcId    string `json:"vpc_id"`
-		SubnetId string `json:"subnet_id"`
+		VpcId     string `json:"vpc_id"`
+		SubnetId  string `json:"subnet_id"`
 		Addresses []struct {
 			AllocationId       string `json:"allocation_id"`
 			NetworkInterfaceId string `json:"network_interface_id"`

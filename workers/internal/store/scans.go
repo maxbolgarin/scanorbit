@@ -42,7 +42,7 @@ func (s *scanStore) Create(ctx context.Context, scan *Scan) error {
 }
 
 // UpdateStatus updates the status of a scan.
-func (s *scanStore) UpdateStatus(ctx context.Context, id string, status string, resourceCount int, errorMsg string) error {
+func (s *scanStore) UpdateStatus(ctx context.Context, id, status string, resourceCount int, errorMsg string) error {
 	finish := metrics.TrackDBQuery("update", "scans")
 
 	// Get previous scan's resource count for delta calculation
@@ -83,7 +83,7 @@ func (s *scanStore) UpdateStatus(ctx context.Context, id string, status string, 
 }
 
 // UpdateStatusOnly updates only the status of a scan without modifying other fields.
-func (s *scanStore) UpdateStatusOnly(ctx context.Context, id string, status string) error {
+func (s *scanStore) UpdateStatusOnly(ctx context.Context, id, status string) error {
 	finish := metrics.TrackDBQuery("update", "scans")
 
 	query := `
@@ -104,7 +104,7 @@ func (s *scanStore) UpdateStatusOnly(ctx context.Context, id string, status stri
 
 // UpdateStatusWithStart updates status and sets started_at timestamp.
 // Use this when transitioning to "processing" status to record when the scan actually started.
-func (s *scanStore) UpdateStatusWithStart(ctx context.Context, id string, status string) error {
+func (s *scanStore) UpdateStatusWithStart(ctx context.Context, id, status string) error {
 	finish := metrics.TrackDBQuery("update", "scans")
 
 	query := `

@@ -134,7 +134,7 @@ func (a *TaggingAnalyzer) findMissingTagsWithList(r *models.Resource, requiredTa
 }
 
 // createTaggingFindingWithList creates a finding for a resource with missing tags.
-func (a *TaggingAnalyzer) createTaggingFindingWithList(r *models.Resource, missingTags []string, requiredTags []string) *models.Finding {
+func (a *TaggingAnalyzer) createTaggingFindingWithList(r *models.Resource, missingTags, requiredTags []string) *models.Finding {
 	serviceUpper := strings.ToUpper(string(r.Service))
 	resourceName := r.Name
 	if resourceName == "" {

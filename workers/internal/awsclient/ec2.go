@@ -148,7 +148,7 @@ func (s *EC2Scanner) ScanEIPs(ctx context.Context, cfg aws.Config, region string
 		return nil, fmt.Errorf("describe addresses: %w", err)
 	}
 
-	var resources []*models.Resource
+	resources := make([]*models.Resource, 0, len(output.Addresses))
 	for _, address := range output.Addresses {
 		// Determine state based on association
 		state := "associated"
@@ -159,13 +159,13 @@ func (s *EC2Scanner) ScanEIPs(ctx context.Context, cfg aws.Config, region string
 
 		// Build raw data with additional metadata for orphan detection
 		rawData := map[string]any{
-			"allocation_id":   aws.ToString(address.AllocationId),
-			"public_ip":       aws.ToString(address.PublicIp),
-			"domain":          string(address.Domain),
-			"association_id":  address.AssociationId,
-			"instance_id":     address.InstanceId,
+			"allocation_id":        aws.ToString(address.AllocationId),
+			"public_ip":            aws.ToString(address.PublicIp),
+			"domain":               string(address.Domain),
+			"association_id":       address.AssociationId,
+			"instance_id":          address.InstanceId,
 			"network_interface_id": address.NetworkInterfaceId,
-			"private_ip":      address.PrivateIpAddress,
+			"private_ip":           address.PrivateIpAddress,
 		}
 
 		// Note: AWS doesn't provide an allocation timestamp for EIPs.
@@ -302,13 +302,13 @@ func (s *EC2Scanner) ScanNATGateways(ctx context.Context, cfg aws.Config, region
 		for _, ngw := range output.NatGateways {
 			// Build raw data
 			rawData := map[string]any{
-				"nat_gateway_id":       aws.ToString(ngw.NatGatewayId),
-				"state":                string(ngw.State),
-				"connectivity_type":    string(ngw.ConnectivityType),
-				"vpc_id":               aws.ToString(ngw.VpcId),
-				"subnet_id":            aws.ToString(ngw.SubnetId),
-				"failure_code":         aws.ToString(ngw.FailureCode),
-				"failure_message":      aws.ToString(ngw.FailureMessage),
+				"nat_gateway_id":    aws.ToString(ngw.NatGatewayId),
+				"state":             string(ngw.State),
+				"connectivity_type": string(ngw.ConnectivityType),
+				"vpc_id":            aws.ToString(ngw.VpcId),
+				"subnet_id":         aws.ToString(ngw.SubnetId),
+				"failure_code":      aws.ToString(ngw.FailureCode),
+				"failure_message":   aws.ToString(ngw.FailureMessage),
 			}
 
 			// Add creation time

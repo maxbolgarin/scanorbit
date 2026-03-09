@@ -1,4 +1,4 @@
-.PHONY: build build-scanner build-analyzer run-scanner run-analyzer test clean lint
+.PHONY: build build-scanner build-analyzer run-scanner run-analyzer test test-cover test-integration test-integration-cover clean lint lint-fix
 
 BUILD_DIR=./bin
 
@@ -39,8 +39,20 @@ test-cover-html: test-cover
 	go tool cover -html=coverage.out -o coverage.html
 	open coverage.html
 
+test-integration:
+	go test -race -v -tags integration ./internal/store/ ./internal/queue/
+
+test-integration-cover:
+	go test -race -tags integration -coverprofile=coverage-integration.out -covermode=atomic ./internal/store/ ./internal/queue/
+	go tool cover -func=coverage-integration.out | tail -1
+	@echo "Per-package coverage:"
+	@go test -tags integration -cover ./internal/store/ ./internal/queue/ 2>&1 | grep -E '^ok|^FAIL'
+
 lint:
 	golangci-lint run
+
+lint-fix:
+	golangci-lint run --fix
 
 # Clean
 clean:

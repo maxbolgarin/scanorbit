@@ -64,12 +64,12 @@ func (s *IAMScanner) ScanUsers(ctx context.Context, cfg aws.Config) ([]*models.R
 
 			// Store user details in raw
 			rawData := map[string]any{
-				"user_name":          aws.ToString(user.UserName),
-				"user_id":            aws.ToString(user.UserId),
-				"arn":                arn,
-				"path":               aws.ToString(user.Path),
-				"create_date":        user.CreateDate,
-				"mfa_enabled":        mfaEnabled,
+				"user_name":   aws.ToString(user.UserName),
+				"user_id":     aws.ToString(user.UserId),
+				"arn":         arn,
+				"path":        aws.ToString(user.Path),
+				"create_date": user.CreateDate,
+				"mfa_enabled": mfaEnabled,
 			}
 			if user.PasswordLastUsed != nil {
 				rawData["password_last_used"] = user.PasswordLastUsed
@@ -124,13 +124,13 @@ func (s *IAMScanner) ScanRoles(ctx context.Context, cfg aws.Config) ([]*models.R
 			})
 
 			rawData := map[string]any{
-				"role_name":           aws.ToString(role.RoleName),
-				"role_id":             aws.ToString(role.RoleId),
-				"arn":                 arn,
-				"path":                aws.ToString(role.Path),
-				"create_date":         role.CreateDate,
+				"role_name":            aws.ToString(role.RoleName),
+				"role_id":              aws.ToString(role.RoleId),
+				"arn":                  arn,
+				"path":                 aws.ToString(role.Path),
+				"create_date":          role.CreateDate,
 				"max_session_duration": aws.ToInt32(role.MaxSessionDuration),
-				"description":         aws.ToString(role.Description),
+				"description":          aws.ToString(role.Description),
 			}
 			if err == nil && roleOutput.Role != nil && roleOutput.Role.RoleLastUsed != nil {
 				if roleOutput.Role.RoleLastUsed.LastUsedDate != nil {
@@ -213,7 +213,7 @@ func (s *IAMScanner) scanUserAccessKeys(ctx context.Context, client *iam.Client,
 		return nil
 	}
 
-	var resources []*models.Resource
+	resources := make([]*models.Resource, 0, len(keysOutput.AccessKeyMetadata))
 	for _, key := range keysOutput.AccessKeyMetadata {
 		keyID := aws.ToString(key.AccessKeyId)
 		r := models.NewResource(keyID, models.ServiceIAMAccessKey, "global")

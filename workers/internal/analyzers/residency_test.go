@@ -12,7 +12,7 @@ import (
 
 func TestResidencyAnalyzer_DefaultEURegions(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceRDS, Region: "us-east-1", Name: "mydb", Raw: json.RawMessage(`{}`)},
 			{ID: "2", Service: models.ServiceRDS, Region: "eu-west-1", Name: "eudb", Raw: json.RawMessage(`{}`)},
@@ -40,7 +40,7 @@ func TestResidencyAnalyzer_DefaultEURegions(t *testing.T) {
 
 func TestResidencyAnalyzer_CustomPolicy(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceS3, Region: "us-west-2", Name: "us-bucket"},
 			{ID: "2", Service: models.ServiceS3, Region: "ap-southeast-1", Name: "sg-bucket"},
@@ -63,7 +63,7 @@ func TestResidencyAnalyzer_CustomPolicy(t *testing.T) {
 
 func TestResidencyAnalyzer_OnlyRDSAndS3(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceEC2, Region: "us-east-1", Name: "my-ec2"},
 			{ID: "2", Service: models.ServiceLambda, Region: "us-east-1", Name: "my-func"},
@@ -83,7 +83,7 @@ func TestResidencyAnalyzer_OnlyRDSAndS3(t *testing.T) {
 
 func TestResidencyAnalyzer_EmptyRegion(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceRDS, Region: "", Name: "no-region"},
 		}, nil
@@ -101,7 +101,7 @@ func TestResidencyAnalyzer_EmptyRegion(t *testing.T) {
 
 func TestResidencyAnalyzer_AllCompliant(t *testing.T) {
 	st, mocks := testutil.NewMockStore()
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceRDS, Region: "eu-central-1"},
 			{ID: "2", Service: models.ServiceS3, Region: "eu-west-2"},

@@ -229,7 +229,7 @@ func TestIAMAnalyzer_Analyze(t *testing.T) {
 	now := time.Now()
 	oldCreate := now.Add(-120 * 24 * time.Hour).Format(time.RFC3339)
 
-	mocks.Resources.GetByAccountIDFn = func(ctx context.Context, accountID string) ([]*models.Resource, error) {
+	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
 			{ID: "1", Service: models.ServiceIAMUser, Name: "no-mfa", Raw: json.RawMessage(`{"mfa_enabled": false}`)},
 			{ID: "2", Service: models.ServiceIAMUser, Name: "has-mfa", Raw: json.RawMessage(`{"mfa_enabled": true}`)},

@@ -36,11 +36,11 @@ type StatusResponse struct {
 
 // MemoryInfo represents memory usage information
 type MemoryInfo struct {
-	AllocMB      int64 `json:"alloc_mb"`
-	SysMB        int64 `json:"sys_mb"`
-	HeapAllocMB  int64 `json:"heap_alloc_mb"`
-	HeapSysMB    int64 `json:"heap_sys_mb"`
-	NumGC        uint32 `json:"num_gc"`
+	AllocMB     int64  `json:"alloc_mb"`
+	SysMB       int64  `json:"sys_mb"`
+	HeapAllocMB int64  `json:"heap_alloc_mb"`
+	HeapSysMB   int64  `json:"heap_sys_mb"`
+	NumGC       uint32 `json:"num_gc"`
 }
 
 // NewServer creates a new metrics server
@@ -91,17 +91,17 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"service":   s.serviceName,
 	})
 }
 
-func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -115,20 +115,20 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		UptimeSeconds: time.Since(startTime).Seconds(),
 		Goroutines:    runtime.NumGoroutine(),
 		Memory: MemoryInfo{
-			AllocMB:     int64(m.Alloc / 1024 / 1024),
-			SysMB:       int64(m.Sys / 1024 / 1024),
-			HeapAllocMB: int64(m.HeapAlloc / 1024 / 1024),
-			HeapSysMB:   int64(m.HeapSys / 1024 / 1024),
+			AllocMB:     int64(m.Alloc / 1024 / 1024),     //nolint:gosec // memory stats won't overflow int64
+			SysMB:       int64(m.Sys / 1024 / 1024),       //nolint:gosec // memory stats won't overflow int64
+			HeapAllocMB: int64(m.HeapAlloc / 1024 / 1024), //nolint:gosec // memory stats won't overflow int64
+			HeapSysMB:   int64(m.HeapSys / 1024 / 1024),   //nolint:gosec // memory stats won't overflow int64
 			NumGC:       m.NumGC,
 		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(status)
+	_ = json.NewEncoder(w).Encode(status)
 }
 
 // SetConfigInfo allows setting additional config info to be displayed in status
-func (s *Server) SetConfigInfo(config map[string]string) {
+func (s *Server) SetConfigInfo(_ map[string]string) {
 	// This could be stored and shown in status responses
 }

@@ -46,8 +46,8 @@ func TestSanitizeErrorMessage_AWSCredentials(t *testing.T) {
 
 func TestSanitizeErrorMessage_DatabaseURLs(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
+		name       string
+		input      string
 		notContain string
 	}{
 		{"postgres URL", "connect to postgresql://user:pass@host:5432/db failed", "user:pass"},
