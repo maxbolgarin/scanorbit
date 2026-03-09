@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.turbo/
+.astro/
+coverage/
+workers/bin/
+terraform/
+deploy/
+*.min.js
+pnpm-lock.yaml
