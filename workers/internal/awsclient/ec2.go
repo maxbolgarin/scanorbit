@@ -43,7 +43,7 @@ func (s *EC2Scanner) ScanInstances(ctx context.Context, cfg aws.Config, region s
 
 		for _, reservation := range output.Reservations {
 			for _, instance := range reservation.Instances {
-				raw, _ := json.Marshal(instance)
+				raw, _ := json.Marshal(instance) //nolint:gosec // G117: ClientToken is an AWS EC2 idempotency token, not a secret
 
 				// Calculate cost - only running instances incur compute cost
 				var cost float64

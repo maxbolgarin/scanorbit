@@ -58,7 +58,7 @@ func SanitizeErrorMessage(err string) string {
 	sanitized = ipAddressPattern.ReplaceAllString(sanitized, "[IP]")
 
 	// Map common internal errors to user-friendly messages
-	errorMappings := map[string]string{
+	errorMappings := map[string]string{ //nolint:gosec // G101: false positive, these are error message patterns not credentials
 		"connection refused":        "service temporarily unavailable",
 		"no such host":              "service temporarily unavailable",
 		"i/o timeout":               "operation timed out",
