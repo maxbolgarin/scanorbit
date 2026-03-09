@@ -150,6 +150,9 @@ async function processListTransitions(): Promise<void> {
   }
 }
 
+const REDIS_LOCK_KEY = 'listmonk:cron:lock';
+const LOCK_TTL_SECONDS = 55; // Slightly less than poll interval to prevent overlap
+
 /** Start the Listmonk polling cron job */
 export function startListmonkCron(): void {
   if (!listmonkService.listsConfigured()) {
@@ -157,8 +160,21 @@ export function startListmonkCron(): void {
     return;
   }
 
+  // Wrapper with distributed lock and error handling
+  const safeProcessListTransitions = async (): Promise<void> => {
+    try {
+      // Acquire distributed lock to prevent duplicate execution across instances
+      const acquired = await redis.set(REDIS_LOCK_KEY, '1', 'EX', LOCK_TTL_SECONDS, 'NX');
+      if (!acquired) return;
+
+      await processListTransitions();
+    } catch (error) {
+      logger.error('[ListmonkCron] Unhandled error in cron tick', error as Error);
+    }
+  };
+
   // Run once immediately, then on interval
-  processListTransitions();
-  setInterval(processListTransitions, POLL_INTERVAL_MS);
+  safeProcessListTransitions();
+  setInterval(safeProcessListTransitions, POLL_INTERVAL_MS);
   logger.info('[ListmonkCron] Started (60s interval)');
 }

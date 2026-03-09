@@ -122,7 +122,7 @@ func (db *DB) BeginTx(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
 // WithTx executes a function within a transaction.
 // If the function returns an error, the transaction is rolled back.
 // If the function succeeds, the transaction is committed.
-func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) (txErr error) {
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -131,7 +131,7 @@ func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback(ctx)
-			panic(p)
+			txErr = fmt.Errorf("panic in transaction: %v", p)
 		}
 	}()
 

@@ -3,10 +3,11 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { requireAuth } from '../middlewares/auth.js';
+import { requireOrgId } from '../middlewares/requireOrgId.js';
 import { resourceService } from '../services/resourceService.js';
 import { dependencyService } from '../services/dependencyService.js';
 import { findingService } from '../services/findingService.js';
-import { HTTP400Error, HTTP403Error } from '../lib/errors.js';
+import { HTTP403Error } from '../lib/errors.js';
 import { db } from '../lib/db.js';
 import { resourceScans, scans, resources } from '../db/schema.js';
 import { TIER_LIMITS, type Variables } from '../types/index.js';
@@ -14,8 +15,9 @@ import { getOrgTier } from '../services/orgService.js';
 
 const resourcesRoute = new Hono<{ Variables: Variables }>();
 
-// All routes require authentication
+// All routes require authentication and org context
 resourcesRoute.use(requireAuth);
+resourcesRoute.use(requireOrgId);
 
 // Validation schemas
 const querySchema = z.object({
@@ -53,9 +55,6 @@ const updateTagsSchema = z.object({
 resourcesRoute.get('/', zValidator('query', querySchema), async (c) => {
   const orgId = c.get('orgId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   // Check tier-based access (safely handles missing column)
   const tier = await getOrgTier(orgId);
@@ -72,9 +71,6 @@ resourcesRoute.get('/', zValidator('query', querySchema), async (c) => {
 resourcesRoute.get('/stats', async (c) => {
   const orgId = c.get('orgId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const stats = await resourceService.getResourceStats(orgId);
   return c.json({ data: stats });
@@ -86,9 +82,6 @@ resourcesRoute.get('/health', async (c) => {
   const orgId = c.get('orgId');
   const awsAccountId = c.req.query('awsAccountId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const health = await findingService.getResourceHealth(orgId, awsAccountId);
   return c.json({ data: health });
@@ -98,9 +91,6 @@ resourcesRoute.get('/health', async (c) => {
 resourcesRoute.get('/regions', async (c) => {
   const orgId = c.get('orgId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const regions = await resourceService.getDistinctRegions(orgId);
   return c.json({ data: regions });
@@ -110,9 +100,6 @@ resourcesRoute.get('/regions', async (c) => {
 resourcesRoute.get('/services', async (c) => {
   const orgId = c.get('orgId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const services = await resourceService.getDistinctServices(orgId);
   return c.json({ data: services });
@@ -122,9 +109,6 @@ resourcesRoute.get('/services', async (c) => {
 resourcesRoute.get('/dependencies/all', async (c) => {
   const orgId = c.get('orgId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   // Check tier-based access (infrastructure map) - safely handles missing column
   const tier = await getOrgTier(orgId);
@@ -140,9 +124,6 @@ resourcesRoute.get('/dependencies/all', async (c) => {
 resourcesRoute.get('/dependencies/stats', async (c) => {
   const orgId = c.get('orgId');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const stats = await dependencyService.getDependencyStats(orgId);
   return c.json({ data: stats });
@@ -153,9 +134,6 @@ resourcesRoute.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const resource = await resourceService.getResource(orgId, resourceId);
   return c.json({ data: resource });
@@ -168,10 +146,6 @@ resourcesRoute.patch(
   async (c) => {
     const orgId = c.get('orgId');
     const resourceId = c.req.param('id');
-
-    if (!orgId) {
-      throw new HTTP400Error('No organization selected');
-    }
 
     const data = c.req.valid('json');
     const resource = await resourceService.updateResourceTags(
@@ -188,9 +162,6 @@ resourcesRoute.get('/:id/dependencies', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const dependencies = await dependencyService.getDependencies(orgId, resourceId);
   return c.json({ data: dependencies });
@@ -201,9 +172,6 @@ resourcesRoute.get('/:id/dependents', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const dependents = await dependencyService.getDependents(orgId, resourceId);
   return c.json({ data: dependents });
@@ -214,9 +182,6 @@ resourcesRoute.get('/:id/scan-history', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   // Verify resource belongs to org and get scan history
   const history = await db
@@ -249,9 +214,6 @@ resourcesRoute.get('/:id/finding-timeline', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
-  if (!orgId) {
-    throw new HTTP400Error('No organization selected');
-  }
 
   const timeline = await findingService.getResourceFindingTimeline(orgId, resourceId);
   return c.json({ data: timeline });

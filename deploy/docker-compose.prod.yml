@@ -385,11 +385,42 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
+  # Docker Socket Proxy - Restricts Docker API access for Watchtower
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - NETWORKS=0
+      - VOLUMES=0
+      - POST=1
+      - BUILD=0
+      - COMMIT=0
+      - CONFIGS=0
+      - DISTRIBUTION=0
+      - EXEC=0
+      - GRPC=0
+      - INFO=1
+      - NODES=0
+      - PLUGINS=0
+      - SECRETS=0
+      - SERVICES=0
+      - SESSION=0
+      - SWARM=0
+      - SYSTEM=0
+      - TASKS=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - watchtower-internal
+
   # Watchtower - Auto-update containers from GHCR
   watchtower:
     image: containrrr/watchtower:latest
     restart: unless-stopped
     environment:
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
       # Required: Docker 27+ requires API version 1.44+
       - DOCKER_API_VERSION=1.47
       # Tell Watchtower where to find Docker credentials
@@ -405,13 +436,14 @@ services:
       - WATCHTOWER_NOTIFICATIONS=shoutrrr
       - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       # Mount Docker config directory for GHCR authentication
       # Set DOCKER_CONFIG_PATH in .env (e.g., /root/.docker or /home/deploy/.docker)
       - ${DOCKER_CONFIG_PATH:-/root/.docker}:/config:ro
     command: --interval 300
+    depends_on:
+      - docker-socket-proxy
     networks:
-      - scanorbit
+      - watchtower-internal
 
   # Prometheus - Metrics collection
   prometheus:
@@ -712,3 +744,6 @@ networks:
     ipam:
       config:
         - subnet: 172.21.0.0/16
+  watchtower-internal:
+    driver: bridge
+    internal: true
