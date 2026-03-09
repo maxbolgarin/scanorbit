@@ -274,6 +274,8 @@ send-caddyfile:
 send-env:
 	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
 
+send-deploy-simple: send-docker-compose send-caddyfile send-env
+
 send-ssh-key:
 	scp deploy/.ssh/id_ed25519_github.pub deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github.pub
 	scp deploy/.ssh/id_ed25519_github deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github

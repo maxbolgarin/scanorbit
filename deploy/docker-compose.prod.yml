@@ -1,3 +1,49 @@
+# =============================================================================
+# Docker Secrets
+# =============================================================================
+# Sensitive values are stored in files under ./secrets/ (not in .env.prod).
+# Create them with: ./scripts/setup-secrets.sh
+# Secrets are mounted into containers at /run/secrets/<name> (in-memory tmpfs).
+# They never appear in `docker inspect` or process environment listings.
+# =============================================================================
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  database_url:
+    file: ./secrets/database_url
+  redis_password:
+    file: ./secrets/redis_password
+  redis_url:
+    file: ./secrets/redis_url
+  jwt_secret:
+    file: ./secrets/jwt_secret
+  jwt_refresh_secret:
+    file: ./secrets/jwt_refresh_secret
+  totp_encryption_key:
+    file: ./secrets/totp_encryption_key
+  oauth_encryption_key:
+    file: ./secrets/oauth_encryption_key
+  google_client_secret:
+    file: ./secrets/google_client_secret
+  github_client_secret:
+    file: ./secrets/github_client_secret
+  stripe_secret_key:
+    file: ./secrets/stripe_secret_key
+  stripe_webhook_secret:
+    file: ./secrets/stripe_webhook_secret
+  aws_access_key_id:
+    file: ./secrets/aws_access_key_id
+  aws_secret_access_key:
+    file: ./secrets/aws_secret_access_key
+  backup_encryption_key:
+    file: ./secrets/backup_encryption_key
+  scw_access_key:
+    file: ./secrets/scw_access_key
+  scw_secret_key:
+    file: ./secrets/scw_secret_key
+  smtp_pass:
+    file: ./secrets/smtp_pass
+
 services:
   # Reverse proxy with automatic TLS
   caddy:
@@ -36,14 +82,14 @@ services:
     restart: "no"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
       - DB_CA_CERT=/certs/postgres-ca.crt
-      # Required by config.js even though migrations don't use them
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - REDIS_URL=${REDIS_URL}
-      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}
-      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
+    secrets:
+      - database_url
+      - redis_url
+      - jwt_secret
+      - jwt_refresh_secret
+      - totp_encryption_key
+      - oauth_encryption_key
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
     working_dir: /app/apps/api
@@ -66,32 +112,20 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - DATABASE_URL=${DATABASE_URL}
       - DB_CA_CERT=/certs/postgres-ca.crt
-      - REDIS_URL=${REDIS_URL}
       - REDIS_CA_CERT=/certs/redis-ca.crt
-      # JWT Configuration (access tokens: 5min, refresh tokens: 7d - hardcoded)
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      # Encryption Keys (required for 2FA and OAuth)
-      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}
-      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
-      # Google OAuth
+      # Google OAuth (client ID is not secret)
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-}
-      # GitHub OAuth
+      # GitHub OAuth (client ID is not secret)
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL:-}
       # Frontend & CORS
       - FRONTEND_URL=${FRONTEND_URL}
       # Cookie domain for cross-subdomain auth (e.g., .scanorbit.cloud)
       - COOKIE_DOMAIN=${COOKIE_DOMAIN}
-      # AWS (credentials needed for STS AssumeRole)
+      # AWS region (credentials via secrets)
       - AWS_REGION=${AWS_REGION:-eu-central-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       # Network/Security
       # Include Docker bridge subnet (172.21.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.21.0.0/16}
@@ -99,17 +133,14 @@ services:
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
       - EMAIL_FROM=${EMAIL_FROM:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
-      # SMTP Configuration (used when EMAIL_PROVIDER=smtp)
+      # SMTP Configuration (password via secrets)
       - SMTP_ENABLED=${SMTP_ENABLED:-true}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_SECURE=${SMTP_SECURE:-true}
       - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      # Stripe Configuration (optional)
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      # Stripe Configuration (secrets via Docker secrets)
       - STRIPE_PRO_PRICE_ID=${STRIPE_PRO_PRICE_ID:-}
       - STRIPE_TEAM_PRICE_ID=${STRIPE_TEAM_PRICE_ID:-}
       - STRIPE_TRIAL_DAYS=${STRIPE_TRIAL_DAYS:-7}
@@ -128,6 +159,20 @@ services:
       - LISTMONK_LIST_PAID_TEAM=${LISTMONK_LIST_PAID_TEAM:-0}
       # Scaleway bounce webhook secret
       - SCALEWAY_WEBHOOK_SECRET=${SCALEWAY_WEBHOOK_SECRET:-}
+    secrets:
+      - database_url
+      - redis_url
+      - jwt_secret
+      - jwt_refresh_secret
+      - totp_encryption_key
+      - oauth_encryption_key
+      - google_client_secret
+      - github_client_secret
+      - stripe_secret_key
+      - stripe_webhook_secret
+      - aws_access_key_id
+      - aws_secret_access_key
+      - smtp_pass
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -168,28 +213,35 @@ services:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Scanner Worker
+  # Uses entrypoints/secret-entrypoint.sh to export AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+  # from Docker secrets into env vars (required by AWS SDK credential chain).
+  # DATABASE_URL, REDIS_URL, OAUTH_ENCRYPTION_KEY are read from /run/secrets/ directly by Go code.
   scanner:
     image: ghcr.io/${GITHUB_REPOSITORY}/scanner:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint/secret-entrypoint.sh"]
+    command: ["./scanner"]
     environment:
-      - DATABASE_URL=${DATABASE_URL}
       - DB_CA_CERT=/certs/postgres-ca.crt
-      - REDIS_URL=${REDIS_URL}
       - REDIS_CA_CERT=/certs/redis-ca.crt
       - AWS_REGION=${AWS_REGION:-eu-central-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SCAN_CONCURRENCY=${SCAN_CONCURRENCY:-10}
       - SCAN_TIMEOUT_MINUTES=${SCAN_TIMEOUT_MINUTES:-60}
       - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
       - REQUIRED_TAGS=${REQUIRED_TAGS:-}
-      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
       - METRICS_BIND_ADDR=0.0.0.0  # Bind to all interfaces for Docker network access
+    secrets:
+      - database_url
+      - redis_url
+      - oauth_encryption_key
+      - aws_access_key_id
+      - aws_secret_access_key
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
+      - ./entrypoints/secret-entrypoint.sh:/entrypoint/secret-entrypoint.sh:ro
     ports:
       - "127.0.0.1:9090:9090"  # Metrics endpoint (localhost only)
     healthcheck:
@@ -211,22 +263,28 @@ services:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Analyzer Worker
+  # Uses entrypoints/secret-entrypoint.sh to export secrets as env vars for AWS SDK.
+  # DATABASE_URL, REDIS_URL, OAUTH_ENCRYPTION_KEY are read from /run/secrets/ directly by Go code.
   analyzer:
     image: ghcr.io/${GITHUB_REPOSITORY}/analyzer:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint/secret-entrypoint.sh"]
+    command: ["./analyzer"]
     environment:
-      - DATABASE_URL=${DATABASE_URL}
       - DB_CA_CERT=/certs/postgres-ca.crt
-      - REDIS_URL=${REDIS_URL}
       - REDIS_CA_CERT=/certs/redis-ca.crt
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SHUTDOWN_TIMEOUT_SECONDS=${SHUTDOWN_TIMEOUT_SECONDS:-30}
-      - OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}
       - METRICS_BIND_ADDR=0.0.0.0  # Bind to all interfaces for Docker network access
+    secrets:
+      - database_url
+      - redis_url
+      - oauth_encryption_key
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
+      - ./entrypoints/secret-entrypoint.sh:/entrypoint/secret-entrypoint.sh:ro
     ports:
       - "127.0.0.1:9091:9091"  # Metrics endpoint (localhost only)
     healthcheck:
@@ -248,6 +306,7 @@ services:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # PostgreSQL Database (with SSL/TLS)
+  # Uses built-in POSTGRES_PASSWORD_FILE support
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -273,8 +332,10 @@ services:
           -c log_disconnections=on
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-scanorbit}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
       - POSTGRES_DB=${POSTGRES_DB:-scanorbit}
+    secrets:
+      - postgres_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./certs/postgres:/certs-source:ro
@@ -287,6 +348,7 @@ services:
       - scanorbit
 
   # Redis Cache & Queue (with TLS + Password + Production Config)
+  # Reads password from Docker secret file in entrypoint
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -294,6 +356,8 @@ services:
       - /bin/sh
       - -c
       - |
+        # Read password from Docker secret
+        REDIS_PASSWORD=$(cat /run/secrets/redis_password | tr -d '\n')
         # Copy certs to local dir and fix permissions for redis user
         mkdir -p /data/certs
         cp /tls-source/* /data/certs/
@@ -302,7 +366,7 @@ services:
         chmod 644 /data/certs/redis.crt /data/certs/ca.crt
         # Start Redis with production config and TLS
         exec redis-server /etc/redis/redis.conf \
-          --requirepass "${REDIS_PASSWORD}" \
+          --requirepass "$REDIS_PASSWORD" \
           --tls-port 6379 \
           --port 0 \
           --tls-cert-file /data/certs/redis.crt \
@@ -310,14 +374,14 @@ services:
           --tls-ca-cert-file /data/certs/ca.crt \
           --tls-auth-clients no \
           --tls-protocols "TLSv1.3"
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    secrets:
+      - redis_password
     volumes:
       - redis_data:/data
       - ./certs/redis:/tls-source:ro
       - ./redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD", "redis-cli", "--tls", "--cert", "/data/certs/redis.crt", "--key", "/data/certs/redis.key", "--cacert", "/data/certs/ca.crt", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "redis-cli --tls --cert /data/certs/redis.crt --key /data/certs/redis.key --cacert /data/certs/ca.crt -a $(cat /run/secrets/redis_password) ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -325,27 +389,31 @@ services:
       - scanorbit
 
   # PostgreSQL Backup Service (GDPR Compliance)
+  # Uses entrypoints/backup-entrypoint.sh to load secrets before starting crond
   postgres-backup:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
       - PGHOST=postgres
       - PGUSER=${POSTGRES_USER:-scanorbit}
-      - PGPASSWORD=${POSTGRES_PASSWORD}
       - PGDATABASE=${POSTGRES_DB:-scanorbit}
       - PGSSLMODE=require
       - PGSSLROOTCERT=/certs/ca.crt
-      - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
-      - SCW_ACCESS_KEY=${SCW_ACCESS_KEY}
-      - SCW_SECRET_KEY=${SCW_SECRET_KEY}
       - SCW_BUCKET_NAME=${SCW_BUCKET_NAME:-scanorbit-backups}
       - SCW_REGION=${SCW_REGION:-nl-ams}
+    secrets:
+      - postgres_password
+      - backup_encryption_key
+      - scw_access_key
+      - scw_secret_key
     volumes:
       - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
       - ./scripts/crontab:/etc/crontabs/root:ro
+      - ./entrypoints/backup-entrypoint.sh:/entrypoint/backup-entrypoint.sh:ro
       - ./certs/postgres:/certs:ro
       - backup_temp:/backups
-    entrypoint: ["crond", "-f", "-l", "2"]
+    entrypoint: ["/bin/sh", "/entrypoint/backup-entrypoint.sh"]
+    command: ["crond", "-f", "-l", "2"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -353,17 +421,19 @@ services:
       - scanorbit
 
   # GDPR Data Retention Cleanup (runs daily at 03:00 UTC)
+  # Uses API image which reads DATABASE_URL from Docker secret natively
   retention-cleanup:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
       - DB_CA_CERT=/certs/postgres-ca.crt
       - RETENTION_RESOURCES_DAYS=${RETENTION_RESOURCES_DAYS:-90}
       - RETENTION_FINDINGS_RESOLVED_DAYS=${RETENTION_FINDINGS_RESOLVED_DAYS:-180}
       - RETENTION_SCANS_DAYS=${RETENTION_SCANS_DAYS:-365}
       - RETENTION_AUDIT_LOGS_DAYS=${RETENTION_AUDIT_LOGS_DAYS:-730}
+    secrets:
+      - database_url
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
     working_dir: /app/apps/api
@@ -540,13 +610,19 @@ services:
       - scanorbit
 
   # PostgreSQL Exporter - Database metrics
+  # Uses entrypoints/pg-exporter-entrypoint.sh to construct DATA_SOURCE_NAME from secret
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
     restart: unless-stopped
     environment:
-      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-scanorbit}?sslmode=require&sslrootcert=/certs/ca.crt
+      - POSTGRES_USER=${POSTGRES_USER:-scanorbit}
+      - POSTGRES_DB=${POSTGRES_DB:-scanorbit}
+    secrets:
+      - postgres_password
     volumes:
       - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+      - ./entrypoints/pg-exporter-entrypoint.sh:/entrypoint/pg-exporter-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint/pg-exporter-entrypoint.sh"]
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9187/metrics"]
       interval: 30s
@@ -560,15 +636,20 @@ services:
       - scanorbit
 
   # Redis Exporter - Cache/Queue metrics
+  # Uses entrypoints/secret-entrypoint.sh to export REDIS_PASSWORD from secret
   redis-exporter:
     image: oliver006/redis_exporter:v1.58.0-alpine
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint/secret-entrypoint.sh"]
+    command: ["/redis_exporter"]
     environment:
       - REDIS_ADDR=rediss://redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_EXPORTER_TLS_CA_CERT_FILE=/certs/ca.crt
+    secrets:
+      - redis_password
     volumes:
       - ./certs/redis/ca.crt:/certs/ca.crt:ro
+      - ./entrypoints/secret-entrypoint.sh:/entrypoint/secret-entrypoint.sh:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9121/metrics"]
       interval: 30s
@@ -592,7 +673,7 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
-      - ./scripts/alertmanager-entrypoint.sh:/entrypoint.sh:ro
+      - ./entrypoints/alertmanager-entrypoint.sh:/entrypoint.sh:ro
       - alertmanager_data:/alertmanager
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
@@ -607,17 +688,21 @@ services:
       - scanorbit
 
   # Umami Analytics - Database initialization
+  # Uses entrypoints/pg-init-entrypoint.sh to export PGPASSWORD from secret
   umami-db-init:
     image: postgres:17-alpine
     restart: "no"
     environment:
       - PGHOST=postgres
       - PGUSER=${POSTGRES_USER:-scanorbit}
-      - PGPASSWORD=${POSTGRES_PASSWORD}
       - PGSSLMODE=require
       - PGSSLROOTCERT=/certs/ca.crt
+    secrets:
+      - postgres_password
     volumes:
       - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+      - ./entrypoints/pg-init-entrypoint.sh:/entrypoint/pg-init-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint/pg-init-entrypoint.sh"]
     command: >
       sh -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'umami'\" | grep -q 1 || psql -c 'CREATE DATABASE umami'"
     depends_on:
@@ -627,14 +712,20 @@ services:
       - scanorbit
 
   # Umami Analytics - Privacy-first self-hosted web analytics
+  # Uses entrypoints/umami-entrypoint.sh to construct DATABASE_URL from secret
   umami:
     image: docker.umami.is/umami-software/umami:postgresql-latest
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD}@postgres:5432/umami?sslmode=require
+      - POSTGRES_USER=${POSTGRES_USER:-scanorbit}
       - APP_SECRET=${UMAMI_APP_SECRET}
       - TRACKER_SCRIPT_NAME=t.js
       - COLLECT_API_ENDPOINT=/collect
+    secrets:
+      - postgres_password
+    volumes:
+      - ./entrypoints/umami-entrypoint.sh:/entrypoint/umami-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint/umami-entrypoint.sh"]
     ports:
       - "127.0.0.1:3002:3000"  # Umami UI (localhost only, access via SSH tunnel)
     healthcheck:
@@ -650,17 +741,21 @@ services:
       - scanorbit
 
   # Listmonk Newsletter - Database initialization
+  # Uses entrypoints/pg-init-entrypoint.sh to export PGPASSWORD from secret
   listmonk-db-init:
     image: postgres:17-alpine
     restart: "no"
     environment:
       - PGHOST=postgres
       - PGUSER=${POSTGRES_USER:-scanorbit}
-      - PGPASSWORD=${POSTGRES_PASSWORD}
       - PGSSLMODE=require
       - PGSSLROOTCERT=/certs/ca.crt
+    secrets:
+      - postgres_password
     volumes:
       - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+      - ./entrypoints/pg-init-entrypoint.sh:/entrypoint/pg-init-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint/pg-init-entrypoint.sh"]
     command: >
       sh -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = 'listmonk'\" | grep -q 1 || psql -c 'CREATE DATABASE listmonk'"
     depends_on:
@@ -670,10 +765,10 @@ services:
       - scanorbit
 
   # Listmonk Newsletter - Schema installation (idempotent)
+  # Uses entrypoints/listmonk-entrypoint.sh to load DB password from secret
   listmonk-init:
     image: listmonk/listmonk:latest
     restart: "no"
-    command: ["./listmonk", "--install", "--idempotent", "--yes", "--config", ""]
     environment:
       - LISTMONK_app__address=0.0.0.0:9000
       - LISTMONK_app__admin_username=${LISTMONK_ADMIN_USER:-admin}
@@ -681,9 +776,14 @@ services:
       - LISTMONK_db__host=postgres
       - LISTMONK_db__port=5432
       - LISTMONK_db__user=${POSTGRES_USER:-scanorbit}
-      - LISTMONK_db__password=${POSTGRES_PASSWORD}
       - LISTMONK_db__database=listmonk
       - LISTMONK_db__ssl_mode=require
+    secrets:
+      - postgres_password
+    volumes:
+      - ./entrypoints/listmonk-entrypoint.sh:/entrypoint/listmonk-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint/listmonk-entrypoint.sh"]
+    command: ["./listmonk", "--install", "--idempotent", "--yes", "--config", ""]
     depends_on:
       listmonk-db-init:
         condition: service_completed_successfully
@@ -691,10 +791,10 @@ services:
       - scanorbit
 
   # Listmonk Newsletter - Admin UI & API (localhost only, access via SSH tunnel)
+  # Uses entrypoints/listmonk-entrypoint.sh to load DB password from secret
   listmonk:
     image: listmonk/listmonk:latest
     restart: unless-stopped
-    command: ["./listmonk", "--config", ""]
     environment:
       - LISTMONK_app__address=0.0.0.0:9000
       - LISTMONK_app__admin_username=${LISTMONK_ADMIN_USER:-admin}
@@ -702,9 +802,14 @@ services:
       - LISTMONK_db__host=postgres
       - LISTMONK_db__port=5432
       - LISTMONK_db__user=${POSTGRES_USER:-scanorbit}
-      - LISTMONK_db__password=${POSTGRES_PASSWORD}
       - LISTMONK_db__database=listmonk
       - LISTMONK_db__ssl_mode=require
+    secrets:
+      - postgres_password
+    volumes:
+      - ./entrypoints/listmonk-entrypoint.sh:/entrypoint/listmonk-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint/listmonk-entrypoint.sh"]
+    command: ["./listmonk", "--config", ""]
     ports:
       - "127.0.0.1:9000:9000"  # Listmonk UI (localhost only, access via SSH tunnel)
     healthcheck:
