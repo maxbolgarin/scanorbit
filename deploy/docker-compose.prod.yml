@@ -367,6 +367,7 @@ services:
 
   # PostgreSQL Database (with SSL/TLS)
   # Uses built-in POSTGRES_PASSWORD_FILE support
+  # Data stored on host filesystem at POSTGRES_DATA_DIR for durability
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -397,7 +398,7 @@ services:
     secrets:
       - postgres_password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_DIR:-/var/lib/scanorbit/postgres}:/var/lib/postgresql/data
       - ./certs/postgres:/certs-source:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scanorbit} -d ${POSTGRES_DB:-scanorbit}"]
@@ -475,6 +476,40 @@ services:
       - backup_temp:/backups
     entrypoint: ["/bin/sh", "/entrypoint/backup-entrypoint.sh"]
     command: ["crond", "-f", "-l", "2"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
+  # PostgreSQL Restore (on-demand, not auto-started)
+  # Usage:
+  #   docker compose -f docker-compose.prod.yml run --rm db-restore --list
+  #   docker compose -f docker-compose.prod.yml run --rm db-restore --verify daily/<file>
+  #   docker compose -f docker-compose.prod.yml run --rm db-restore daily/<file>
+  # Uses so_migrate user — DB owner with full DDL access (needed for DROP/CREATE)
+  db-restore:
+    image: postgres:17-alpine
+    profiles: ["restore"]
+    restart: "no"
+    environment:
+      - PGHOST=postgres
+      - PGUSER=so_migrate
+      - PGDATABASE=${POSTGRES_DB:-scanorbit}
+      - PGSSLMODE=require
+      - PGSSLROOTCERT=/certs/ca.crt
+      - SCW_BUCKET_NAME=${SCW_BUCKET_NAME:-scanorbit-backups}
+      - SCW_REGION=${SCW_REGION:-nl-ams}
+    secrets:
+      - source: so_migrate_password
+        target: postgres_password
+      - backup_encryption_key
+      - scw_access_key
+      - scw_secret_key
+    volumes:
+      - ./scripts/restore.sh:/usr/local/bin/restore.sh:ro
+      - ./certs/postgres/ca.crt:/certs/ca.crt:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/restore.sh"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -851,7 +886,6 @@ services:
       - "com.centurylinklabs.watchtower.scope=scanorbit"
 
 volumes:
-  postgres_data:
   redis_data:
   caddy_data:
   caddy_config:

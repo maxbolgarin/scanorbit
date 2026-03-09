@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CERTS_DIR="${SCRIPT_DIR}/../certs"
-VALIDITY_DAYS=365
+VALIDITY_DAYS=730
 
 # Colors for output
 RED='\033[0;31m'
@@ -148,9 +148,10 @@ echo "  - Key:    ${REDIS_DIR}/redis.key"
 echo "  - DH:     ${REDIS_DIR}/redis.dh"
 echo ""
 log_warn "Certificates are valid for ${VALIDITY_DAYS} days."
-log_warn "Add a reminder to regenerate before expiration."
+log_warn "Run ./check-certs.sh periodically to monitor expiry."
 echo ""
 log_info "Next steps:"
 echo "  1. Copy certs to production server"
 echo "  2. Update docker-compose.prod.yml"
 echo "  3. Restart services"
+echo "  4. Set up a cron job or monitoring check with ./check-certs.sh"

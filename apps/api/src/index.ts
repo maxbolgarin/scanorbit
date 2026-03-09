@@ -38,7 +38,7 @@ app.use(
     referrerPolicy: 'strict-origin-when-cross-origin',
     // Cross-Origin policies
     crossOriginOpenerPolicy: 'same-origin',
-    crossOriginResourcePolicy: 'same-origin',
+    crossOriginResourcePolicy: 'same-site',
     // Content Security Policy
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],

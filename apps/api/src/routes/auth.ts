@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { deleteCookie, getCookie } from 'hono/cookie';
-import { authService } from '../services/authService.js';
+import { authService } from '../services/auth/index.js';
 import { twoFactorService } from '../services/twoFactorService.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';

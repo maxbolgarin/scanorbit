@@ -77,7 +77,7 @@ const { mockAuthService, mockTwoFactorService } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../../services/authService.js', () => ({
+vi.mock('../../services/auth/index.js', () => ({
   authService: mockAuthService,
 }));
 
