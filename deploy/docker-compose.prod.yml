@@ -893,7 +893,7 @@ services:
     ports:
       - "127.0.0.1:9000:9000"  # Listmonk UI (localhost only, access via SSH tunnel)
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9000/api/health || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost 9000 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
