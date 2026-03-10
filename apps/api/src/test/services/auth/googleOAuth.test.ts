@@ -161,8 +161,8 @@ describe('googleOAuth', () => {
         return createChain([]) as any;
       });
 
-      const dupError = new Error('duplicate') as Error & { code: string };
-      dupError.code = '23505';
+      const dupError = new Error('duplicate') as Error & { cause: { code: string } };
+      dupError.cause = { code: '23505' };
       vi.mocked(db.insert).mockImplementation(() => { throw dupError; });
 
       // Should NOT throw, should continue to login

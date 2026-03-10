@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from '../../lib/db.js';
-import { HTTP400Error, HTTP409Error } from '../../lib/errors.js';
+import { HTTP400Error, HTTP409Error, getPgErrorCode } from '../../lib/errors.js';
 import { users, userOauthAccounts } from '../../db/schema.js';
 import { redis, oauthConsentStore } from '../../lib/redis.js';
 import { consentService } from '../consentService.js';
@@ -75,19 +75,24 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
         return user;
       });
     } catch (error) {
-      if ((error as { code?: string }).code === '23505') {
+      if (getPgErrorCode(error) === '23505') {
         throw new HTTP409Error('An account with this email already exists. Please sign in instead.');
       }
+      await oauthConsentStore.restore(consentToken, data);
       throw error;
     }
 
-    await consentService.logConsent({
-      userId: newUser.id,
-      email: newUser.email,
-      consentType: 'terms_and_privacy',
-      consentGiven: true,
-      metadata: { source: 'google_oauth', explicit_consent: true },
-    });
+    try {
+      await consentService.logConsent({
+        userId: newUser.id,
+        email: newUser.email,
+        consentType: 'terms_and_privacy',
+        consentGiven: true,
+        metadata: { source: 'google_oauth', explicit_consent: true },
+      });
+    } catch {
+      // User was created successfully; consent log failure is non-fatal
+    }
 
     authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
     return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
@@ -124,19 +129,24 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
         return user;
       });
     } catch (error) {
-      if ((error as { code?: string }).code === '23505') {
+      if (getPgErrorCode(error) === '23505') {
         throw new HTTP409Error('An account with this email already exists. Please sign in instead.');
       }
+      await oauthConsentStore.restore(consentToken, data);
       throw error;
     }
 
-    await consentService.logConsent({
-      userId: newUser.id,
-      email: newUser.email,
-      consentType: 'terms_and_privacy',
-      consentGiven: true,
-      metadata: { source: 'github_oauth', explicit_consent: true },
-    });
+    try {
+      await consentService.logConsent({
+        userId: newUser.id,
+        email: newUser.email,
+        consentType: 'terms_and_privacy',
+        consentGiven: true,
+        metadata: { source: 'github_oauth', explicit_consent: true },
+      });
+    } catch {
+      // User was created successfully; consent log failure is non-fatal
+    }
 
     authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
     return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };

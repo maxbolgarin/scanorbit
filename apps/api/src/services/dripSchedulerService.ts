@@ -6,6 +6,7 @@
  * - Dedup: drip_log table prevents duplicate sends.
  */
 
+import { createHmac } from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
@@ -13,6 +14,13 @@ import { dripLog } from '../db/schema.js';
 import { listmonkService } from './listmonkService.js';
 import { SEQUENCES, type DripSequence, type DripStep } from './dripConfig.js';
 import { logger } from '../lib/logger.js';
+
+export function buildUnsubscribeUrl(email: string): string {
+  const secret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? 'default-secret';
+  const token = createHmac('sha256', secret).update(email.toLowerCase()).digest('hex');
+  const base = process.env.API_PUBLIC_URL ?? 'https://scanorbit.cloud';
+  return `${base}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+}
 
 const POLL_INTERVAL_MS = 60_000;
 const TARGET_HOUR_UTC = 8; // 9 AM CET = 8 AM UTC
@@ -74,7 +82,8 @@ async function processSequence(seq: DripSequence): Promise<void> {
         email: sub.email,
         templateId: step.templateId,
         data: {
-          first_name: sub.name?.split(' ')[0] || '',
+          first_name: sub.name?.split(' ')[0] || 'there',
+          unsubscribe_url: buildUnsubscribeUrl(sub.email),
           ...sub.attribs as Record<string, unknown>,
         },
         fromEmail: step.fromEmail,
@@ -136,7 +145,8 @@ export async function sendImmediate(params: {
       email: params.email,
       templateId: step.templateId,
       data: {
-        first_name: params.name?.split(' ')[0] || '',
+        first_name: params.name?.split(' ')[0] || 'there',
+        unsubscribe_url: buildUnsubscribeUrl(params.email),
         ...(params.data ?? {}),
       },
       fromEmail: step.fromEmail,

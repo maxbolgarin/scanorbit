@@ -642,4 +642,12 @@ export const oauthConsentStore = {
     if (!data) return null;
     return JSON.parse(data);
   },
+
+  /**
+   * Re-store a previously consumed token so the caller can retry.
+   * Used when account creation fails after the token was consumed.
+   */
+  async restore(token: string, data: Record<string, unknown>): Promise<void> {
+    await redis.setex(oauthConsentKey(token), OAUTH_CONSENT_TTL, JSON.stringify(data));
+  },
 };

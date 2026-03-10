@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
@@ -38,5 +39,26 @@ newsletterRoute.post(
     });
   },
 );
+
+// GET /newsletter/unsubscribe?email=...&token=...
+newsletterRoute.get('/unsubscribe', async (c) => {
+  const email = c.req.query('email');
+  const token = c.req.query('token');
+  if (!email || !token) {
+    return c.json({ message: 'Invalid unsubscribe link.' }, 400);
+  }
+
+  const secret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? 'default-secret';
+  const expected = createHmac('sha256', secret).update(email.toLowerCase()).digest('hex');
+  if (token !== expected) {
+    return c.json({ message: 'Invalid unsubscribe link.' }, 400);
+  }
+
+  listmonkService.unsubscribe(email).catch((err) =>
+    logger.warn('listmonk: unsubscribe failed', { error: (err as Error).message }),
+  );
+
+  return c.json({ message: 'You have been unsubscribed.' });
+});
 
 export default newsletterRoute;
