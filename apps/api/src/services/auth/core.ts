@@ -383,7 +383,7 @@ async function completeSignup(
 async function updateProfile(
   userId: string,
   updates: { fullName?: string }
-): Promise<{ user: Pick<User, 'id' | 'email' | 'fullName'> }> {
+): Promise<{ user: Pick<User, 'id' | 'email' | 'fullName' | 'createdAt' | 'emailVerified' | 'twoFactorEnabled'> & { hasPassword: boolean } }> {
   // Check if user has an active subscription — name changes are restricted
   if (updates.fullName !== undefined) {
     const [membership] = await db
@@ -416,13 +416,18 @@ async function updateProfile(
       id: users.id,
       email: users.email,
       fullName: users.fullName,
+      createdAt: users.createdAt,
+      emailVerified: users.emailVerified,
+      twoFactorEnabled: users.twoFactorEnabled,
+      passwordHash: users.passwordHash,
     });
 
   if (!updatedUser) {
     throw new HTTP401Error('User not found');
   }
 
-  return { user: updatedUser };
+  const { passwordHash, ...userWithoutHash } = updatedUser;
+  return { user: { ...userWithoutHash, hasPassword: !!passwordHash } };
 }
 
 export const coreAuthMethods = {

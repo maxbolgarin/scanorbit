@@ -251,7 +251,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       updateUser: (user: User) => {
-        set({ user });
+        set((state) => ({ user: { ...state.user, ...user } as User }));
       },
 
       clearError: () => {
