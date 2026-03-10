@@ -822,11 +822,13 @@ services:
       - APP_SECRET=${UMAMI_APP_SECRET}
       - TRACKER_SCRIPT_NAME=t.js
       - COLLECT_API_ENDPOINT=/collect
+      - NODE_EXTRA_CA_CERTS=/certs/postgres-ca.crt
     secrets:
       - source: so_umami_password
         target: postgres_password
     volumes:
       - ./entrypoints/umami-entrypoint.sh:/entrypoint/umami-entrypoint.sh:ro
+      - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
     entrypoint: ["/bin/sh", "/entrypoint/umami-entrypoint.sh"]
     ports:
       - "127.0.0.1:3002:3000"  # Umami UI (localhost only, access via SSH tunnel)
