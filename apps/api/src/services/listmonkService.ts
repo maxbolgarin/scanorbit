@@ -6,6 +6,7 @@ interface ListmonkSubscriber {
   email: string;
   name: string;
   status: 'enabled' | 'disabled' | 'blocklisted';
+  attribs: Record<string, unknown>;
 }
 
 function getAuthHeader(): string {
@@ -70,20 +71,20 @@ async function apiRequest<T>(
   }
 }
 
-/** Look up a subscriber by email. Returns subscriber ID or null. */
-async function getSubscriberByEmail(email: string): Promise<number | null> {
+/** Look up a subscriber by email. Returns subscriber or null. */
+async function getSubscriberByEmail(email: string): Promise<ListmonkSubscriber | null> {
   const search = await apiRequest<{ data: { results: ListmonkSubscriber[] } }>(
     'GET',
-    `/api/subscribers?query=subscribers.email='${encodeURIComponent(email)}'&page=1&per_page=1`,
+    `/api/subscribers?search=${encodeURIComponent(email)}&page=1&per_page=10`,
   );
 
-  return search?.data?.results?.[0]?.id ?? null;
+  return search?.data?.results?.find(s => s.email === email) ?? null;
 }
 
 /** Ensure a subscriber exists in Listmonk. Creates if missing. Returns subscriber ID or null. */
 async function ensureSubscriber(email: string, name?: string | null): Promise<number | null> {
   const existing = await getSubscriberByEmail(email);
-  if (existing) return existing;
+  if (existing) return existing.id;
 
   // Create subscriber without any lists — lists are managed separately
   const result = await apiRequest<{ data: ListmonkSubscriber }>(
@@ -156,30 +157,25 @@ export const listmonkService = {
     const targetLists = validListIds(listIds ?? [lists.subscribers]);
 
     // Check if subscriber already exists (e.g. re-consent after unsubscribe)
-    const existingId = await getSubscriberByEmail(email);
-    if (existingId) {
-      const sub = await apiRequest<{ data: { email: string; name: string; status: string; attribs: Record<string, unknown> } }>(
-        'GET', `/api/subscribers/${existingId}`
-      );
-      if (!sub) return false;
-
+    const existing = await getSubscriberByEmail(email);
+    if (existing) {
       // Re-enable if blocklisted
-      if (sub.data.status !== 'enabled') {
+      if (existing.status !== 'enabled') {
         const updated = await apiRequest<unknown>(
           'PUT',
-          `/api/subscribers/${existingId}`,
+          `/api/subscribers/${existing.id}`,
           {
-            email: sub.data.email,
-            name: name || sub.data.name,
+            email: existing.email,
+            name: name || existing.name,
             status: 'enabled',
-            attribs: sub.data.attribs,
+            attribs: existing.attribs,
           },
         );
         if (!updated) return false;
       }
 
       if (targetLists.length > 0) {
-        await addToLists(existingId, targetLists);
+        await addToLists(existing.id, targetLists);
       }
       logger.info(`[Listmonk] Re-subscribed ${maskEmail(email)}`);
       return true;
@@ -210,23 +206,17 @@ export const listmonkService = {
    * Blocklists the subscriber while preserving their name and attributes.
    */
   async unsubscribe(email: string): Promise<boolean> {
-    const subscriberId = await getSubscriberByEmail(email);
-    if (!subscriberId) return false;
-
-    // Fetch full subscriber to preserve data in the PUT
-    const sub = await apiRequest<{ data: { email: string; name: string; status: string; attribs: Record<string, unknown> } }>(
-      'GET', `/api/subscribers/${subscriberId}`
-    );
-    if (!sub) return false;
+    const subscriber = await getSubscriberByEmail(email);
+    if (!subscriber) return false;
 
     const result = await apiRequest<unknown>(
       'PUT',
-      `/api/subscribers/${subscriberId}`,
+      `/api/subscribers/${subscriber.id}`,
       {
-        email: sub.data.email,
-        name: sub.data.name,
+        email: subscriber.email,
+        name: subscriber.name,
         status: 'blocklisted',
-        attribs: sub.data.attribs,
+        attribs: subscriber.attribs,
       },
     );
 
@@ -241,12 +231,12 @@ export const listmonkService = {
    * Delete a subscriber from Listmonk entirely (for GDPR account deletion)
    */
   async deleteSubscriber(email: string): Promise<boolean> {
-    const subscriberId = await getSubscriberByEmail(email);
-    if (!subscriberId) return false;
+    const subscriber = await getSubscriberByEmail(email);
+    if (!subscriber) return false;
 
     const result = await apiRequest<unknown>(
       'DELETE',
-      `/api/subscribers/${subscriberId}`,
+      `/api/subscribers/${subscriber.id}`,
     );
 
     if (result !== null) {
@@ -283,10 +273,10 @@ export const listmonkService = {
   async onFirstScanComplete(email: string): Promise<void> {
     if (!listsConfigured()) return;
     try {
-      const subscriberId = await getSubscriberByEmail(email);
-      if (!subscriberId) return;
+      const subscriber = await getSubscriberByEmail(email);
+      if (!subscriber) return;
 
-      await moveSubscriber(subscriberId, [lists.freeNew], [lists.freeScanned]);
+      await moveSubscriber(subscriber.id, [lists.freeNew], [lists.freeScanned]);
       logger.info(`[Listmonk] onFirstScanComplete: ${maskEmail(email)} → free-scanned`);
     } catch (error) {
       logger.error('[Listmonk] onFirstScanComplete failed', error as Error);
@@ -300,11 +290,11 @@ export const listmonkService = {
   async onTrialStart(email: string): Promise<void> {
     if (!listsConfigured()) return;
     try {
-      const subscriberId = await getSubscriberByEmail(email);
-      if (!subscriberId) return;
+      const subscriber = await getSubscriberByEmail(email);
+      if (!subscriber) return;
 
       await moveSubscriber(
-        subscriberId,
+        subscriber.id,
         [lists.freeNew, lists.freeScanned],
         [lists.trialNew],
       );
@@ -321,10 +311,10 @@ export const listmonkService = {
   async onTrialActive(email: string): Promise<void> {
     if (!listsConfigured()) return;
     try {
-      const subscriberId = await getSubscriberByEmail(email);
-      if (!subscriberId) return;
+      const subscriber = await getSubscriberByEmail(email);
+      if (!subscriber) return;
 
-      await moveSubscriber(subscriberId, [lists.trialNew], [lists.trialActive]);
+      await moveSubscriber(subscriber.id, [lists.trialNew], [lists.trialActive]);
       logger.info(`[Listmonk] onTrialActive: ${maskEmail(email)} → trial-active`);
     } catch (error) {
       logger.error('[Listmonk] onTrialActive failed', error as Error);
@@ -338,12 +328,12 @@ export const listmonkService = {
   async onPayment(email: string, tier: 'pro' | 'team'): Promise<void> {
     if (!listsConfigured()) return;
     try {
-      const subscriberId = await getSubscriberByEmail(email);
-      if (!subscriberId) return;
+      const subscriber = await getSubscriberByEmail(email);
+      if (!subscriber) return;
 
       const targetList = tier === 'team' ? lists.paidTeam : lists.paidPro;
       await moveSubscriber(
-        subscriberId,
+        subscriber.id,
         [lists.trialNew, lists.trialActive],
         [targetList],
       );
@@ -359,12 +349,12 @@ export const listmonkService = {
   async onPlanChange(email: string, fromTier: 'pro' | 'team', toTier: 'pro' | 'team'): Promise<void> {
     if (!listsConfigured() || fromTier === toTier) return;
     try {
-      const subscriberId = await getSubscriberByEmail(email);
-      if (!subscriberId) return;
+      const subscriber = await getSubscriberByEmail(email);
+      if (!subscriber) return;
 
       const fromList = fromTier === 'team' ? lists.paidTeam : lists.paidPro;
       const toList = toTier === 'team' ? lists.paidTeam : lists.paidPro;
-      await moveSubscriber(subscriberId, [fromList], [toList]);
+      await moveSubscriber(subscriber.id, [fromList], [toList]);
       logger.info(`[Listmonk] onPlanChange: ${maskEmail(email)} paid-${fromTier} → paid-${toTier}`);
     } catch (error) {
       logger.error('[Listmonk] onPlanChange failed', error as Error);
@@ -378,11 +368,11 @@ export const listmonkService = {
   async onChurn(email: string): Promise<void> {
     if (!listsConfigured()) return;
     try {
-      const subscriberId = await getSubscriberByEmail(email);
-      if (!subscriberId) return;
+      const subscriber = await getSubscriberByEmail(email);
+      if (!subscriber) return;
 
       await moveSubscriber(
-        subscriberId,
+        subscriber.id,
         [lists.paidPro, lists.paidTeam, lists.trialNew, lists.trialActive],
         [lists.subscribers],
       );
@@ -445,22 +435,17 @@ export const listmonkService = {
    * Update subscriber attributes by email (merges with existing).
    */
   async updateAttribsByEmail(email: string, attribs: Record<string, unknown>): Promise<boolean> {
-    const subscriberId = await getSubscriberByEmail(email);
-    if (!subscriberId) return false;
-
-    const sub = await apiRequest<{ data: { email: string; name: string; status: string; attribs: Record<string, unknown> } }>(
-      'GET', `/api/subscribers/${subscriberId}`
-    );
-    if (!sub) return false;
+    const subscriber = await getSubscriberByEmail(email);
+    if (!subscriber) return false;
 
     const result = await apiRequest<unknown>(
       'PUT',
-      `/api/subscribers/${subscriberId}`,
+      `/api/subscribers/${subscriber.id}`,
       {
-        email: sub.data.email,
-        name: sub.data.name,
-        status: sub.data.status,
-        attribs: { ...sub.data.attribs, ...attribs },
+        email: subscriber.email,
+        name: subscriber.name,
+        status: subscriber.status,
+        attribs: { ...subscriber.attribs, ...attribs },
       },
     );
     return result !== null;
