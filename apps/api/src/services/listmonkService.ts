@@ -145,6 +145,7 @@ const lists = listmonkConfig.lists;
 export const listmonkService = {
   /**
    * Subscribe an email to the default newsletter list.
+   * Idempotent — re-enables blocklisted subscribers and adds to lists.
    * Fire-and-forget safe — never throws, returns boolean success.
    */
   async subscribe(
@@ -154,6 +155,37 @@ export const listmonkService = {
   ): Promise<boolean> {
     const targetLists = validListIds(listIds ?? [listmonkConfig.defaultListId]);
 
+    // Check if subscriber already exists (e.g. re-consent after unsubscribe)
+    const existingId = await getSubscriberByEmail(email);
+    if (existingId) {
+      const sub = await apiRequest<{ data: { email: string; name: string; status: string; attribs: Record<string, unknown> } }>(
+        'GET', `/api/subscribers/${existingId}`
+      );
+      if (!sub) return false;
+
+      // Re-enable if blocklisted
+      if (sub.data.status !== 'enabled') {
+        const updated = await apiRequest<unknown>(
+          'PUT',
+          `/api/subscribers/${existingId}`,
+          {
+            email: sub.data.email,
+            name: name || sub.data.name,
+            status: 'enabled',
+            attribs: sub.data.attribs,
+          },
+        );
+        if (!updated) return false;
+      }
+
+      if (targetLists.length > 0) {
+        await addToLists(existingId, targetLists);
+      }
+      logger.info(`[Listmonk] Re-subscribed ${maskEmail(email)}`);
+      return true;
+    }
+
+    // New subscriber — create
     const result = await apiRequest<{ data: ListmonkSubscriber }>(
       'POST',
       '/api/subscribers',
@@ -174,16 +206,28 @@ export const listmonkService = {
   },
 
   /**
-   * Unsubscribe by email (e.g., for GDPR deletion requests).
+   * Unsubscribe by email (e.g., for GDPR opt-out or deletion requests).
+   * Blocklists the subscriber while preserving their name and attributes.
    */
   async unsubscribe(email: string): Promise<boolean> {
     const subscriberId = await getSubscriberByEmail(email);
     if (!subscriberId) return false;
 
+    // Fetch full subscriber to preserve data in the PUT
+    const sub = await apiRequest<{ data: { email: string; name: string; status: string; attribs: Record<string, unknown> } }>(
+      'GET', `/api/subscribers/${subscriberId}`
+    );
+    if (!sub) return false;
+
     const result = await apiRequest<unknown>(
       'PUT',
       `/api/subscribers/${subscriberId}`,
-      { status: 'blocklisted' },
+      {
+        email: sub.data.email,
+        name: sub.data.name,
+        status: 'blocklisted',
+        attribs: sub.data.attribs,
+      },
     );
 
     if (result !== null) {
