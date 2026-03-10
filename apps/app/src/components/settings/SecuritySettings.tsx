@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { TwoFactorSetup } from "./TwoFactorSetup";
-import { Shield, Smartphone, Key, AlertCircle, CheckCircle2, Check, X } from "lucide-react";
+import { Shield, Smartphone, Key, AlertCircle, CheckCircle2, Check, X, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -67,6 +67,7 @@ export function SecuritySettings() {
   const [isDisabling, setIsDisabling] = useState(false);
   const [disableError, setDisableError] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
 
   const {
     register,
@@ -160,6 +161,7 @@ export function SecuritySettings() {
         type: "success",
       });
       passwordForm.reset();
+      setIsEditingPassword(false);
       // Refresh user data to update hasPassword state
       await refreshAuth();
     } catch (err) {
@@ -233,16 +235,24 @@ export function SecuritySettings() {
 
       {/* Change/Set Password */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            {hasPassword ? "Change Password" : "Set Password"}
-          </CardTitle>
-          <CardDescription>
-            {hasPassword
-              ? "Update your password"
-              : "Add a password to enable email/password login"}
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              {hasPassword ? "Change Password" : "Set Password"}
+            </CardTitle>
+            <CardDescription>
+              {hasPassword
+                ? "Update your password"
+                : "Add a password to enable email/password login"}
+            </CardDescription>
+          </div>
+          {!isEditingPassword && (
+            <Button variant="outline" size="sm" onClick={() => setIsEditingPassword(true)} className="gap-2">
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <form
@@ -257,7 +267,7 @@ export function SecuritySettings() {
                   type="password"
                   autoComplete="current-password"
                   {...passwordForm.register("currentPassword")}
-                  disabled={isUpdatingPassword}
+                  disabled={!isEditingPassword || isUpdatingPassword}
                 />
                 {passwordForm.formState.errors.currentPassword && (
                   <p className="text-sm text-red-500">
@@ -275,9 +285,9 @@ export function SecuritySettings() {
                 type="password"
                 autoComplete="new-password"
                 {...passwordForm.register("newPassword")}
-                disabled={isUpdatingPassword}
+                disabled={!isEditingPassword || isUpdatingPassword}
               />
-              {newPassword && (
+              {newPassword && isEditingPassword && (
                 <div className="mt-2 space-y-1">
                   {passwordRequirements.map((req, i) => (
                     <div
@@ -305,7 +315,7 @@ export function SecuritySettings() {
                 type="password"
                 autoComplete="new-password"
                 {...passwordForm.register("confirmPassword")}
-                disabled={isUpdatingPassword}
+                disabled={!isEditingPassword || isUpdatingPassword}
               />
               {passwordForm.formState.errors.confirmPassword && (
                 <p className="text-sm text-red-500">
@@ -313,12 +323,27 @@ export function SecuritySettings() {
                 </p>
               )}
             </div>
-            <Button type="submit" disabled={isUpdatingPassword}>
-              {isUpdatingPassword && (
-                <LoadingSpinner size="sm" className="mr-2" />
-              )}
-              {hasPassword ? "Change Password" : "Set Password"}
-            </Button>
+            {isEditingPassword && (
+              <div className="flex gap-2">
+                <Button type="submit" disabled={isUpdatingPassword}>
+                  {isUpdatingPassword && (
+                    <LoadingSpinner size="sm" className="mr-2" />
+                  )}
+                  {hasPassword ? "Change Password" : "Set Password"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    passwordForm.reset();
+                    setIsEditingPassword(false);
+                  }}
+                  disabled={isUpdatingPassword}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
