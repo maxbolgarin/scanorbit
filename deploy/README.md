@@ -12,7 +12,7 @@ Internet
   │                  ├── app.scanorbit.cloud   ──► App (React SPA/nginx)
   │                  └── api.scanorbit.cloud   ──► API (Node.js/Hono)
   │
-  └── Internal Docker network (172.21.0.0/16)
+  └── Internal Docker network (172.22.0.0/16)
        ├── PostgreSQL 17 (TLS, encrypted backups to Scaleway S3)
        ├── Redis 7 (TLS + password)
        ├── Scanner Worker (Go) — scans AWS accounts
@@ -125,17 +125,24 @@ cp secrets.env.example secrets.env
 nano secrets.env   # fill in all values
 
 # Run bootstrap (secrets + certs + GHCR login + permissions)
-./scripts/bootstrap.sh secrets.env
+sudo ./scripts/bootstrap.sh --secrets secrets.env --tls --github
 
 # DELETE the secrets file
 rm -f secrets.env
+
+# Or run individual steps:
+# sudo ./scripts/bootstrap.sh --secrets secrets.env   # Secrets only
+# sudo ./scripts/bootstrap.sh --tls                   # TLS certs only
+# sudo ./scripts/bootstrap.sh --github                # GHCR auth only
+# sudo ./scripts/bootstrap.sh --force --tls           # Force regenerate certs
 ```
 
-The bootstrap script:
-1. Creates Docker secret files from `secrets.env`
-2. Generates internal TLS certificates (PostgreSQL + Redis)
-3. Authenticates with GHCR (prompts for GitHub username + PAT)
-4. Sets file permissions (`chmod 600/700`)
+The bootstrap script (idempotent, skips steps already done):
+1. `--secrets <file>` — creates Docker secret files from the provided file
+2. `--tls` — generates internal TLS certificates (PostgreSQL + Redis, skips if < 30d old)
+3. `--github` — authenticates with GHCR (skips if already logged in)
+4. `--force` — skip all freshness checks, redo everything requested
+5. Always prepares PostgreSQL data dir and sets file permissions
 
 You can also set `GITHUB_USERNAME` and `GITHUB_TOKEN` environment variables to skip the interactive prompt.
 

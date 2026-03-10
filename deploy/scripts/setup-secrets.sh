@@ -77,7 +77,7 @@ if [ -n "$INPUT_FILE" ] && [ -f "$INPUT_FILE" ]; then
 
     if [ -n "$value" ]; then
       printf '%s' "$value" > "$SECRETS_DIR/$file_name"
-      chmod 600 "$SECRETS_DIR/$file_name"
+      chmod 644 "$SECRETS_DIR/$file_name"
       log "  Created: $file_name"
     else
       log "  SKIPPED: $file_name (not found in input file)"
@@ -96,7 +96,7 @@ else
 
     if [ -n "$value" ]; then
       printf '%s' "$value" > "$SECRETS_DIR/$file_name"
-      chmod 600 "$SECRETS_DIR/$file_name"
+      chmod 644 "$SECRETS_DIR/$file_name"
       log "  Created: $file_name"
     else
       log "  SKIPPED: $file_name"

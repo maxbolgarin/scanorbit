@@ -9,6 +9,13 @@ import { createHash } from 'crypto';
 
 const { Pool } = pg;
 
+// SSL config for self-signed PostgreSQL certificates (same as db.ts)
+const useSSL = config.databaseUrl.includes('sslmode=require');
+const caCert = process.env.DB_CA_CERT
+  ? readFileSync(process.env.DB_CA_CERT)
+  : undefined;
+const sslConfig = useSSL ? { ssl: { rejectUnauthorized: true, ca: caCert, minVersion: 'TLSv1.3' as const } } : {};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -30,6 +37,7 @@ async function ensureDatabaseExists(): Promise<void> {
   const adminPool = new Pool({
     connectionString: dbUrl.toString(),
     max: 1,
+    ...sslConfig,
   });
 
   try {
@@ -217,6 +225,7 @@ async function runMigrations() {
   const pool = new Pool({
     connectionString: config.databaseUrl,
     max: 1, // Use single connection for migrations
+    ...sslConfig,
   });
 
   try {

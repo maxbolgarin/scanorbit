@@ -4,6 +4,9 @@
 # =============================================================================
 # Generates self-signed certificates for PostgreSQL and Redis internal TLS
 # These are for internal Docker network encryption, not public-facing
+#
+# Skips generation if existing certificates were issued within the last 30 days.
+# Use --force to regenerate regardless.
 # =============================================================================
 
 set -euo pipefail
@@ -11,6 +14,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CERTS_DIR="${SCRIPT_DIR}/../certs"
 VALIDITY_DAYS=730
+SKIP_IF_YOUNGER_THAN_DAYS=30
+FORCE=false
+
+if [ "${1:-}" = "--force" ]; then
+    FORCE=true
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -22,8 +31,51 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Create directories
+# ---------------------------------------------------------------------------
+# Skip if certificates are fresh (issued < 30 days ago)
+# ---------------------------------------------------------------------------
+REFERENCE_CERT="${CERTS_DIR}/postgres/server.crt"
+
+if [ "$FORCE" = false ] && [ -f "$REFERENCE_CERT" ]; then
+    # Read the certificate's notBefore date
+    NOT_BEFORE=$(openssl x509 -startdate -noout -in "$REFERENCE_CERT" 2>/dev/null | cut -d= -f2)
+
+    if [ -n "$NOT_BEFORE" ]; then
+        NOW=$(date +%s)
+        # Parse date: GNU date first, then macOS
+        if date --version >/dev/null 2>&1; then
+            ISSUED_EPOCH=$(date -d "$NOT_BEFORE" +%s 2>/dev/null || echo 0)
+        else
+            ISSUED_EPOCH=$(date -jf "%b %d %T %Y %Z" "$NOT_BEFORE" +%s 2>/dev/null || echo 0)
+        fi
+
+        AGE_DAYS=$(( (NOW - ISSUED_EPOCH) / 86400 ))
+
+        if [ "$AGE_DAYS" -lt "$SKIP_IF_YOUNGER_THAN_DAYS" ]; then
+            log_info "Certificates are ${AGE_DAYS}d old (< ${SKIP_IF_YOUNGER_THAN_DAYS}d) — skipping generation."
+            log_info "Use --force to regenerate."
+            exit 0
+        fi
+
+        log_info "Certificates are ${AGE_DAYS}d old — regenerating."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Create directories and ensure writability
+# ---------------------------------------------------------------------------
 mkdir -p "${CERTS_DIR}/postgres" "${CERTS_DIR}/redis"
+
+for dir in "${CERTS_DIR}" "${CERTS_DIR}/postgres" "${CERTS_DIR}/redis"; do
+    if [ ! -w "$dir" ]; then
+        log_warn "Directory ${dir} is not writable, fixing permissions..."
+        chmod u+rwx "$dir" 2>/dev/null || {
+            log_error "Cannot write to ${dir}"
+            log_error "Run: sudo chown -R \$(whoami) ${CERTS_DIR}"
+            exit 1
+        }
+    fi
+done
 
 # =============================================================================
 # PostgreSQL Certificates
