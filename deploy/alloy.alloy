@@ -1,0 +1,177 @@
+// Grafana Alloy configuration for ScanOrbit
+// Collects logs from Docker containers and sends them to Loki
+
+// Docker container discovery
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// Relabel: extract container name, service, compose labels, image, container_id
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/scanorbit[-_]?(.*?)[-_]?[0-9]*"
+    target_label  = "service"
+    replacement   = "$1"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_image"]
+    target_label  = "image"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_id"]
+    target_label  = "container_id"
+  }
+}
+
+// Collect Docker logs
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.pipeline.receiver]
+}
+
+// Log processing pipeline
+loki.process "pipeline" {
+
+  // Parse JSON logs from Go workers (zerolog format)
+  stage.match {
+    selector = "{service=~\"scanner|analyzer\"}"
+
+    stage.json {
+      expressions = {
+        level            = "level",
+        message          = "message",
+        time             = "time",
+        error            = "error",
+        component        = "component",
+        job_type         = "job_type",
+        account_id       = "account_id",
+        org_id           = "org_id",
+        analyzer         = "analyzer",
+        duration_seconds = "duration_seconds",
+        trace_id         = "trace_id",
+        scan_id          = "scan_id",
+        job_id           = "job_id",
+      }
+    }
+
+    stage.labels {
+      values = {
+        level     = "",
+        component = "",
+        job_type  = "",
+        trace_id  = "",
+      }
+    }
+
+    stage.timestamp {
+      source = "time"
+      format = "RFC3339"
+    }
+
+    stage.output {
+      source = "message"
+    }
+  }
+
+  // Parse JSON logs from API service
+  stage.match {
+    selector = "{service=\"api\"}"
+
+    stage.json {
+      expressions = {
+        level      = "level",
+        msg        = "msg",
+        message    = "message",
+        method     = "method",
+        path       = "path",
+        status     = "status",
+        latency    = "latency",
+        error      = "error",
+        request_id = "request_id",
+        trace_id   = "trace_id",
+        span_id    = "span_id",
+      }
+    }
+
+    stage.labels {
+      values = {
+        level    = "",
+        method   = "",
+        status   = "",
+        trace_id = "",
+      }
+    }
+
+    stage.output {
+      source = "msg"
+    }
+  }
+
+  // Detect log levels from plain text logs
+  stage.match {
+    selector = "{level=\"\"}"
+
+    stage.regex {
+      expression = "(?P<level>(ERROR|WARN|INFO|DEBUG|FATAL|PANIC))"
+    }
+
+    stage.labels {
+      values = {
+        level = "",
+      }
+    }
+  }
+
+  // Add static labels for ScanOrbit
+  stage.static_labels {
+    values = {
+      app = "scanorbit",
+      env = "production",
+    }
+  }
+
+  // Drop health check logs to reduce noise
+  stage.match {
+    selector            = "{service=\"api\"} |~ \"/health|/metrics\""
+    action              = "drop"
+    drop_counter_reason = "health_check"
+  }
+
+  // Rate limit to prevent log explosion
+  stage.limit {
+    rate  = 100
+    burst = 200
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}
+
+// Send logs to Loki
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
