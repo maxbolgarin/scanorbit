@@ -640,7 +640,11 @@ export const oauthConsentStore = {
       key,
     ) as string | null;
     if (!data) return null;
-    return JSON.parse(data);
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
   },
 
   /**
