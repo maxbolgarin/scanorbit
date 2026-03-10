@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.24.0](https://github.com/maxbolgarin/scanorbit/compare/v1.23.0...v1.24.0) (2026-03-10)
+
+### Features
+
+* 9~y ([5686f27](https://github.com/maxbolgarin/scanorbit/commit/5686f2795a8feaf7de759d7a8caf940c5b7701e0))
+* **api:** add gdpr compliance with data retention cleanup, consent management, and automated job recovery ([f4f591c](https://github.com/maxbolgarin/scanorbit/commit/f4f591cecde820bda53dad38d3067e0d60e8a8da))
+* **api:** add gdpr data export with billing and email marketing history ([a0bb62e](https://github.com/maxbolgarin/scanorbit/commit/a0bb62e169632351e78e331463b4276158155a9f))
+* **api:** add gdpr right to restriction of processing with improved graceful shutdown and connection cleanup ([75a94eb](https://github.com/maxbolgarin/scanorbit/commit/75a94eb798721cd108fc888abeb694550d60bd9b))
+* **api:** add request body size limit, improve webhook security, and enhance retention service with trusted proxy configuration ([7c6e552](https://github.com/maxbolgarin/scanorbit/commit/7c6e5525af969a25ea77f17e934c5c9a3a4e79e2))
+* **api:** add totp replay attack prevention with redis-backed code tracking and improve two-factor authentication security ([4b1a945](https://github.com/maxbolgarin/scanorbit/commit/4b1a945029a9b08cca8b2ccba71e083dc18a2333))
+* **api:** improve graceful shutdown with connection cleanup error handling and atomic redis lockout checks ([9814b2b](https://github.com/maxbolgarin/scanorbit/commit/9814b2be32ee1087a3dc4544e46ce7a3747d1c4e))
+* **auth:** add oauth consent flow with redis-backed temporary token storage and rate limit improvements ([9ec32cc](https://github.com/maxbolgarin/scanorbit/commit/9ec32ccc6a36a9388c6f0cb118992ccc63ce1de4))
+* **db:** add data deletion cascade handling and optimize scan/finding queries with indices ([f5574e3](https://github.com/maxbolgarin/scanorbit/commit/f5574e3948bfb52e7c73f9103283b5dec9dc705a))
+* **jobs:** add stuck job recovery to retention cleanup with orphaned scan handling ([7330de6](https://github.com/maxbolgarin/scanorbit/commit/7330de676988957b30d190a2b22baf5eee737b8e))
+* **landing:** add blog section with sitemap, robots.txt, and seo improvements ([1fa1495](https://github.com/maxbolgarin/scanorbit/commit/1fa1495617e9bb8d16f36744f4c73e0bf7332a8e))
+
+### Bug Fixes
+
+* **api:** use arrayBuffer for stripe webhook signature verification and add logging ([a0f832a](https://github.com/maxbolgarin/scanorbit/commit/a0f832ac714c30bc69f83b6f4e0bfecf03dedf23))
+
+### Code Refactoring
+
+* **api:** extract org id validation into reusable middleware to reduce duplication across routes ([fa30141](https://github.com/maxbolgarin/scanorbit/commit/fa301411f78f1cfedd682f7b96d515bf032a8804))
+* **api:** modularize authentication service into specialized modules for oauth, password, and verification flows ([7d6509f](https://github.com/maxbolgarin/scanorbit/commit/7d6509f2715f511d0466063c6ad6352d6bca662a))
+* **components/settings:** improve data privacy settings list styling and clarity ([8d8e329](https://github.com/maxbolgarin/scanorbit/commit/8d8e329447836bc6368f62bfe180f41f3e3d92cf))
+* **components/settings:** remove unused icon imports from data privacy settings ([3578d82](https://github.com/maxbolgarin/scanorbit/commit/3578d823c77b4323fa02064082811bc5e144e71b))
+* **workers:** add linter directives to suppress false positive security warnings ([68bef81](https://github.com/maxbolgarin/scanorbit/commit/68bef81642e0ef603b245eb2d4e305cea2db4c48))
+
+### Tests
+
+* **api:** add comprehensive test suite for authentication, services, and utilities with vitest ([2eb91e7](https://github.com/maxbolgarin/scanorbit/commit/2eb91e7927b02fb9bc0dd99dfbcae1e80888695b))
+* **api:** add comprehensive test suite with vitest integration and mock helpers ([4f2051f](https://github.com/maxbolgarin/scanorbit/commit/4f2051f1c7d966438d6392afa9f132d8c6fd6219))
+* **app:** add createdAt and updatedAt fields to aws account mock and update dependencies ([eae508f](https://github.com/maxbolgarin/scanorbit/commit/eae508fb8ab5458b80b4e28b09816bf0ff876911))
+* **workers:** add comprehensive test suite for analyzers, models, scanner, and crypto packages ([66ae47b](https://github.com/maxbolgarin/scanorbit/commit/66ae47ba1cc3bca1fedc9aca6bf3a60dbcb17011))
+
+### Build System
+
+* **deploy:** restructure deployment documentation and scripts with automated database initialization and secrets management ([8ddb0de](https://github.com/maxbolgarin/scanorbit/commit/8ddb0de77d7e46ace44dff5f2c959fc7b176a7e7))
+* **deploy:** restructure environment configuration with production deployment docs, entrypoint scripts, and secret management setup ([cb50f8a](https://github.com/maxbolgarin/scanorbit/commit/cb50f8a8cb32503a55f454860e3dfbc60d6bd4bb))
+
+### Continuous Integration
+
+* **.github/workflows:** update force-build workflow with default tag and disable all service builds by default ([3a2e5f6](https://github.com/maxbolgarin/scanorbit/commit/3a2e5f6627f9566517e91d0ee0506514a1e90d72))
+* **.github:** add go test coverage tracking with race detection and summary reporting ([9f73183](https://github.com/maxbolgarin/scanorbit/commit/9f73183cd8bf074d629f20bbedc2ad9cfb56b0b1))
+* **.github:** add pull request event types to build and lint workflows ([ed0db42](https://github.com/maxbolgarin/scanorbit/commit/ed0db4234a9ab4262b8b5aaf8333dcf08b1de167))
+* **.github:** add semgrep sast security scanning with owasp and secrets detection rules ([e46873f](https://github.com/maxbolgarin/scanorbit/commit/e46873f8de2b57f909ba71153e019dee26aacea2))
+* **.github:** remove semgrep security scanning workflow job and update golangci configuration ([6bc6a63](https://github.com/maxbolgarin/scanorbit/commit/6bc6a63dd2097d99a602e923a129e439568b9a17))
+* rename workflows to build and lint, update branch targets to main ([0e15bdf](https://github.com/maxbolgarin/scanorbit/commit/0e15bdf4504700341fdac3dc52e060c925ce7417))
+* **workers:** add golangci-lint integration and postgres service for go testing ([06cd2d3](https://github.com/maxbolgarin/scanorbit/commit/06cd2d367a5b08ecd05c161a92aecac595407ab7))
+* **workers:** upgrade go version to 1.26.1 and golangci-lint to v2.11 ([962e243](https://github.com/maxbolgarin/scanorbit/commit/962e2438767612d0af84686ee8a9891d3323d2d9))
+
 ## [1.23.0](https://github.com/maxbolgarin/scanorbit/compare/v1.22.0...v1.23.0) (2026-03-07)
 
 ### Features
