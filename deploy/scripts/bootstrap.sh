@@ -213,9 +213,12 @@ fi
 
 if [ -d "$DEPLOY_DIR/certs" ]; then
   chmod 700 "$DEPLOY_DIR/certs/" "$DEPLOY_DIR/certs/postgres" "$DEPLOY_DIR/certs/redis"
-  chmod 600 "$DEPLOY_DIR/certs/postgres/"* "$DEPLOY_DIR/certs/redis/"*
+  # Keys must be 600, certs/CA/DH are public and need 644 for Docker container access
+  chmod 600 "$DEPLOY_DIR/certs/postgres/"*.key "$DEPLOY_DIR/certs/redis/"*.key
+  chmod 644 "$DEPLOY_DIR/certs/postgres/"*.crt "$DEPLOY_DIR/certs/redis/"*.crt "$DEPLOY_DIR/certs/redis/"*.dh
   echo "  certs/         → 700"
-  echo "  certs/**       → 600"
+  echo "  certs/**/*.key → 600"
+  echo "  certs/**/*.crt → 644"
 fi
 
 chmod +x "$DEPLOY_DIR/scripts/"*.sh
