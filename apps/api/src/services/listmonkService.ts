@@ -91,7 +91,7 @@ async function ensureSubscriber(email: string, name?: string | null): Promise<nu
     '/api/subscribers',
     {
       email,
-      name: name || '',
+      name: name || email.split('@')[0] || '',
       status: 'enabled',
       lists: [],
       preconfirm_subscriptions: true,
@@ -153,7 +153,7 @@ export const listmonkService = {
     name?: string | null,
     listIds?: number[],
   ): Promise<boolean> {
-    const targetLists = validListIds(listIds ?? [listmonkConfig.defaultListId]);
+    const targetLists = validListIds(listIds ?? [lists.subscribers]);
 
     // Check if subscriber already exists (e.g. re-consent after unsubscribe)
     const existingId = await getSubscriberByEmail(email);
@@ -191,7 +191,7 @@ export const listmonkService = {
       '/api/subscribers',
       {
         email,
-        name: name || '',
+        name: name || email.split('@')[0] || '',
         status: 'enabled',
         lists: targetLists,
         preconfirm_subscriptions: true,

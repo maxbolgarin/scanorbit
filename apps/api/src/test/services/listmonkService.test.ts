@@ -9,7 +9,6 @@ vi.mock('../../lib/config.js', () => ({
     apiUrl: 'http://localhost:9000',
     apiUser: 'admin',
     apiPassword: 'testpass',
-    defaultListId: 1,
     lists: {
       coldLeads: 1,
       subscribers: 2,
@@ -131,7 +130,7 @@ describe('listmonkService', () => {
       expect(result).toBe(false);
     });
 
-    it('uses default list when no listIds provided', async () => {
+    it('uses subscribers list when no listIds provided', async () => {
       // getSubscriberByEmail → not found
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [] } }));
       // POST create
@@ -139,7 +138,7 @@ describe('listmonkService', () => {
 
       await listmonkService.subscribe('user@test.com');
       const body = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(body.lists).toEqual([1]);
+      expect(body.lists).toEqual([2]); // lists.subscribers
     });
 
     it('uses custom listIds when provided', async () => {

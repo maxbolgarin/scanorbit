@@ -43,7 +43,6 @@ vi.mock('../../lib/config.js', () => ({
     apiUrl: 'http://localhost:9000',
     apiUser: 'admin',
     apiPassword: 'testpass',
-    defaultListId: 1,
     lists: {
       coldLeads: 1, subscribers: 2, freeNew: 3, freeScanned: 4,
       trialNew: 5, trialActive: 6, paidPro: 7, paidTeam: 8,
