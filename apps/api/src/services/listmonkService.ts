@@ -152,7 +152,7 @@ export const listmonkService = {
     name?: string | null,
     listIds?: number[],
   ): Promise<boolean> {
-    const targetLists = (listIds ?? [listmonkConfig.defaultListId]).map(id => ({ id }));
+    const targetLists = validListIds(listIds ?? [listmonkConfig.defaultListId]);
 
     const result = await apiRequest<{ data: ListmonkSubscriber }>(
       'POST',
