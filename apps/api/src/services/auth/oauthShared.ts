@@ -68,7 +68,7 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
           providerEmail: googleUser.email,
           accessToken: encryptOAuthTokenOptional(googleUser.accessToken),
           refreshToken: encryptOAuthTokenOptional(googleUser.refreshToken),
-          tokenExpiresAt: googleUser.tokenExpiresAt ? new Date(googleUser.tokenExpiresAt) : null,
+          tokenExpiresAt: null, // Tokens are not stored in consent data
           rawProfile: googleUser.rawProfile,
         });
 

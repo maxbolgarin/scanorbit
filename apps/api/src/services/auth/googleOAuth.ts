@@ -148,6 +148,7 @@ async function processGoogleAuth(googleUser: GoogleUserInfo): Promise<GoogleAuth
       ...googleUser,
       accessToken: undefined, // Don't store raw tokens in Redis
       refreshToken: undefined,
+      tokenExpiresAt: undefined, // Meaningless without tokens; avoids Date→string serialization issue
     },
   });
 
