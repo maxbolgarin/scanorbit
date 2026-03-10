@@ -50,7 +50,7 @@ async function api(method: string, path: string, body?: any): Promise<any> {
 
 // ─── Lists ───────────────────────────────────────────────────────────
 
-const LISTS_TO_CREATE = [
+const LISTS_TO_CREATE: ListDef[] = [
   { name: 'cold-leads',    type: 'private', optin: 'single', description: 'Manually imported prospects' },
   { name: 'subscribers',   type: 'public',  optin: 'double', description: 'Opted in via website, blog, lead magnets' },
   { name: 'free-new',      type: 'private', optin: 'single', description: 'Signed up, haven\'t scanned yet' },
@@ -82,6 +82,23 @@ interface TemplateDef {
   subject: string;
   sequence: string;
   day: number;
+}
+
+interface ListDef {
+  name: string;
+  type: 'private' | 'public';
+  optin: 'single' | 'double';
+  description: string;
+}
+
+interface ExistingList {
+  id: number;
+  name: string;
+}
+
+interface ExistingTemplate {
+  id: number;
+  name: string;
 }
 
 const TEMPLATES_TO_CREATE: TemplateDef[] = [
@@ -118,47 +135,104 @@ const TEMPLATES_TO_CREATE: TemplateDef[] = [
   { filename: '24-paid-team-day0-welcome.html',        name: 'paid-team-day0-welcome',        subject: 'Your Team plan is active',                                   sequence: 'paid-team', day: 0 },
 ];
 
+async function fetchExistingLists(): Promise<Map<string, ExistingList>> {
+  const res = await api('GET', '/api/lists?per_page=all');
+  const lists = Array.isArray(res?.data?.results) ? res.data.results : [];
+
+  return new Map(
+    lists
+      .filter((list: any) => typeof list?.name === 'string' && typeof list?.id === 'number')
+      .map((list: any) => [list.name, { id: list.id, name: list.name }]),
+  );
+}
+
+async function fetchExistingTemplates(): Promise<Map<string, ExistingTemplate>> {
+  const res = await api('GET', '/api/templates');
+  const templates = Array.isArray(res?.data) ? res.data : [];
+
+  return new Map(
+    templates
+      .filter((template: any) => typeof template?.name === 'string' && typeof template?.id === 'number')
+      .map((template: any) => [template.name, { id: template.id, name: template.name }]),
+  );
+}
+
+async function upsertList(list: ListDef, existingLists: Map<string, ExistingList>): Promise<number> {
+  const payload = {
+    name: list.name,
+    type: list.type,
+    optin: list.optin,
+    status: 'active',
+    description: list.description,
+    tags: ['scanorbit', 'auto-created'],
+  };
+
+  const existing = existingLists.get(list.name);
+
+  if (existing) {
+    await api('PUT', `/api/lists/${existing.id}`, payload);
+    return existing.id;
+  }
+
+  const res = await api('POST', '/api/lists', payload);
+  const id = res.data.id;
+  existingLists.set(list.name, { id, name: list.name });
+  return id;
+}
+
+async function upsertTemplate(
+  tpl: TemplateDef,
+  body: string,
+  existingTemplates: Map<string, ExistingTemplate>,
+): Promise<number> {
+  const payload = {
+    name: tpl.name,
+    type: 'tx',
+    subject: tpl.subject,
+    body,
+  };
+
+  const existing = existingTemplates.get(tpl.name);
+
+  if (existing) {
+    await api('PUT', `/api/templates/${existing.id}`, payload);
+    return existing.id;
+  }
+
+  const res = await api('POST', '/api/templates', payload);
+  const id = res.data.id;
+  existingTemplates.set(tpl.name, { id, name: tpl.name });
+  return id;
+}
+
 // ─── Main ────────────────────────────────────────────────────────────
 
 async function main() {
   console.log(`Connecting to Listmonk at ${BASE_URL}...\n`);
+  const [existingLists, existingTemplates] = await Promise.all([
+    fetchExistingLists(),
+    fetchExistingTemplates(),
+  ]);
 
   // ── Create lists ───────────────────────────────────────────────────
 
-  console.log('=== Creating Lists ===\n');
+  console.log('=== Syncing Lists ===\n');
   const listIds: Record<string, number> = {};
 
   for (const list of LISTS_TO_CREATE) {
     try {
-      const res = await api('POST', '/api/lists', {
-        name: list.name,
-        type: list.type,
-        optin: list.optin,
-        description: list.description,
-        tags: ['scanorbit', 'auto-created'],
-      });
-      const id = res.data.id;
+      const existed = existingLists.has(list.name);
+      const id = await upsertList(list, existingLists);
       listIds[list.name] = id;
-      console.log(`  ✓ List "${list.name}" → ID ${id}`);
+      console.log(`  ${existed ? '↻' : '✓'} List "${list.name}" → ID ${id}`);
     } catch (err: any) {
-      // List might already exist
-      if (err.message.includes('duplicate') || err.message.includes('exists')) {
-        console.log(`  ⊘ List "${list.name}" already exists, fetching ID...`);
-        const all = await api('GET', '/api/lists?per_page=50');
-        const found = all.data.results.find((l: any) => l.name === list.name);
-        if (found) {
-          listIds[list.name] = found.id;
-          console.log(`    → ID ${found.id}`);
-        }
-      } else {
-        console.error(`  ✗ Failed to create list "${list.name}":`, err.message);
-      }
+      console.error(`  ✗ Failed to sync list "${list.name}":`, err.message);
     }
   }
 
   // ── Create transactional templates ─────────────────────────────────
 
-  console.log('\n=== Creating Transactional Templates ===\n');
+  console.log('\n=== Syncing Transactional Templates ===\n');
   const templateIds: Record<string, number> = {};
 
   for (const tpl of TEMPLATES_TO_CREATE) {
@@ -172,21 +246,12 @@ async function main() {
     const body = fs.readFileSync(filepath, 'utf-8');
 
     try {
-      const res = await api('POST', '/api/templates', {
-        name: tpl.name,
-        type: 'tx',
-        subject: tpl.subject,
-        body: body,
-      });
-      const id = res.data.id;
+      const existed = existingTemplates.has(tpl.name);
+      const id = await upsertTemplate(tpl, body, existingTemplates);
       templateIds[tpl.name] = id;
-      console.log(`  ✓ Template "${tpl.name}" → ID ${id}`);
+      console.log(`  ${existed ? '↻' : '✓'} Template "${tpl.name}" → ID ${id}`);
     } catch (err: any) {
-      if (err.message.includes('duplicate') || err.message.includes('exists')) {
-        console.log(`  ⊘ Template "${tpl.name}" already exists, skipping`);
-      } else {
-        console.error(`  ✗ Failed to create template "${tpl.name}":`, err.message);
-      }
+      console.error(`  ✗ Failed to sync template "${tpl.name}":`, err.message);
     }
   }
 
