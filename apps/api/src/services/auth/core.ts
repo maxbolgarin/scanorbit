@@ -271,6 +271,7 @@ async function getMe(userId: string) {
       slug: orgs.slug,
       logoUrl: orgs.logoUrl,
       tier: orgs.tier,
+      createdAt: orgs.createdAt,
       role: userOrgMembers.role,
     })
     .from(orgs)
