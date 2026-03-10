@@ -361,18 +361,11 @@ async function runMigrations() {
         console.warn('   This usually means the migration was applied manually.');
         console.warn('   Attempting to sync migration tracking...\n');
 
-        // Only sync migrations that were already tracked (known to be applied).
-        // Do NOT sync all journal entries — that would mark unapplied migrations as applied.
-        const trackedCount = (await getAppliedMigrations(pool)).length;
-        const pendingCount = journal.entries.length - trackedCount;
-
+        // The "already exists" error proves the failing migration's SQL was applied to the DB.
+        // Sync ALL journal entries so Drizzle's tracking catches up with the actual schema state.
         try {
-          await syncMigrationTracking(pool, migrationsFolder, journal, trackedCount);
+          await syncMigrationTracking(pool, migrationsFolder, journal);
           console.log('✅ Migration tracking synced after error!\n');
-
-          if (pendingCount > 0) {
-            console.log(`🔄 Retrying with ${pendingCount} pending migration(s)...\n`);
-          }
 
           // Try running migrations again after sync
           await migrate(db, {
