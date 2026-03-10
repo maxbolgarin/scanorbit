@@ -904,6 +904,21 @@ services:
     networks:
       - scanorbit
 
+  # Listmonk Newsletter - Seed lists and transactional templates
+  # Runs after Listmonk is healthy and exits when setup is complete.
+  listmonk-setup:
+    image: ghcr.io/${GITHUB_REPOSITORY}/listmonk-setup:${IMAGE_TAG:-latest}
+    restart: "no"
+    environment:
+      - LISTMONK_URL=http://listmonk:9000
+      - LISTMONK_USER=${LISTMONK_ADMIN_USER:-admin}
+      - LISTMONK_TOKEN=${LISTMONK_ADMIN_PASSWORD}
+    depends_on:
+      listmonk:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
   maxbolgarin:
     image: ghcr.io/maxbolgarin/maxbolgarin-web:latest
     restart: unless-stopped
