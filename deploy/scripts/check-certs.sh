@@ -72,7 +72,7 @@ echo "================================================================"
 
 if [ "${HAS_EXPIRING}" -eq 1 ]; then
   echo -e "${RED}Some certificates need attention!${NC}"
-  echo "Regenerate with: ./generate-certs.sh"
+  echo "Regenerate with: ./generate-certs.sh --force"
   exit 1
 else
   echo -e "${GREEN}All certificates are valid for more than ${WARN_DAYS} days.${NC}"

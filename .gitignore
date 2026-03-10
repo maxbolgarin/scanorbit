@@ -19,6 +19,7 @@ build/
 .env.production
 .env.prod
 .env.backup*
+secrets.env
 
 # Docker secrets (production)
 deploy/secrets/

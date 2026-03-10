@@ -23,32 +23,15 @@
 
 SELECT 'Creating databases...' AS status;
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'scanorbit') THEN
-    CREATE DATABASE scanorbit;
-    RAISE NOTICE 'Created database: scanorbit';
-  ELSE
-    RAISE NOTICE 'Database exists: scanorbit';
-  END IF;
-END $$;
+-- CREATE DATABASE cannot run inside DO blocks; use \gexec for conditional creation
+SELECT 'CREATE DATABASE scanorbit'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'scanorbit') \gexec
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'umami') THEN
-    CREATE DATABASE umami;
-    RAISE NOTICE 'Created database: umami';
-  ELSE
-    RAISE NOTICE 'Database exists: umami';
-  END IF;
-END $$;
+SELECT 'CREATE DATABASE umami'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'umami') \gexec
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'listmonk') THEN
-    CREATE DATABASE listmonk;
-    RAISE NOTICE 'Created database: listmonk';
-  ELSE
-    RAISE NOTICE 'Database exists: listmonk';
-  END IF;
-END $$;
+SELECT 'CREATE DATABASE listmonk'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'listmonk') \gexec
 
 -- =============================================================================
 -- 2. CREATE PER-SERVICE USERS
@@ -407,103 +390,134 @@ CREATE TABLE IF NOT EXISTS "drip_log" (
 );
 
 -- ---------------------------------------------------------------------------
--- Foreign Keys
+-- Foreign Keys (idempotent: drop if exists, then add)
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "aws_accounts" ADD CONSTRAINT "aws_accounts_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "certificates" ADD CONSTRAINT "certificates_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "certificates" ADD CONSTRAINT "certificates_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "consent_logs" ADD CONSTRAINT "consent_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
--- data_deletion_requests: user_id ON DELETE set null (migration 0002 changed from cascade to set null)
-ALTER TABLE "data_deletion_requests" ADD CONSTRAINT "data_deletion_requests_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "data_deletion_requests" ADD CONSTRAINT "data_deletion_requests_processed_by_users_id_fk" FOREIGN KEY ("processed_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "dead_letter_jobs" ADD CONSTRAINT "dead_letter_jobs_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "finding_scans" ADD CONSTRAINT "finding_scans_finding_id_findings_id_fk" FOREIGN KEY ("finding_id") REFERENCES "public"."findings"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "finding_scans" ADD CONSTRAINT "finding_scans_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "findings" ADD CONSTRAINT "findings_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "findings" ADD CONSTRAINT "findings_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "findings" ADD CONSTRAINT "findings_resource_id_resources_id_fk" FOREIGN KEY ("resource_id") REFERENCES "public"."resources"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "findings" ADD CONSTRAINT "findings_certificate_id_certificates_id_fk" FOREIGN KEY ("certificate_id") REFERENCES "public"."certificates"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "findings" ADD CONSTRAINT "findings_last_scan_id_scans_id_fk" FOREIGN KEY ("last_scan_id") REFERENCES "public"."scans"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "jobs" ADD CONSTRAINT "jobs_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "org_settings" ADD CONSTRAINT "org_settings_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "resource_dependencies" ADD CONSTRAINT "resource_dependencies_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "resource_dependencies" ADD CONSTRAINT "resource_dependencies_source_resource_id_resources_id_fk" FOREIGN KEY ("source_resource_id") REFERENCES "public"."resources"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "resource_scans" ADD CONSTRAINT "resource_scans_resource_id_resources_id_fk" FOREIGN KEY ("resource_id") REFERENCES "public"."resources"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "resource_scans" ADD CONSTRAINT "resource_scans_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "resources" ADD CONSTRAINT "resources_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "resources" ADD CONSTRAINT "resources_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "retention_policies" ADD CONSTRAINT "retention_policies_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "scans" ADD CONSTRAINT "scans_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "scans" ADD CONSTRAINT "scans_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "user_oauth_accounts" ADD CONSTRAINT "user_oauth_accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "audit_logs" DROP CONSTRAINT IF EXISTS "audit_logs_user_id_users_id_fk";
+  ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "aws_accounts" DROP CONSTRAINT IF EXISTS "aws_accounts_org_id_orgs_id_fk";
+  ALTER TABLE "aws_accounts" ADD CONSTRAINT "aws_accounts_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "certificates" DROP CONSTRAINT IF EXISTS "certificates_org_id_orgs_id_fk";
+  ALTER TABLE "certificates" ADD CONSTRAINT "certificates_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "certificates" DROP CONSTRAINT IF EXISTS "certificates_aws_account_id_aws_accounts_id_fk";
+  ALTER TABLE "certificates" ADD CONSTRAINT "certificates_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "consent_logs" DROP CONSTRAINT IF EXISTS "consent_logs_user_id_users_id_fk";
+  ALTER TABLE "consent_logs" ADD CONSTRAINT "consent_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  -- data_deletion_requests: user_id ON DELETE set null (migration 0002 changed from cascade to set null)
+  ALTER TABLE "data_deletion_requests" DROP CONSTRAINT IF EXISTS "data_deletion_requests_user_id_users_id_fk";
+  ALTER TABLE "data_deletion_requests" ADD CONSTRAINT "data_deletion_requests_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "data_deletion_requests" DROP CONSTRAINT IF EXISTS "data_deletion_requests_processed_by_users_id_fk";
+  ALTER TABLE "data_deletion_requests" ADD CONSTRAINT "data_deletion_requests_processed_by_users_id_fk" FOREIGN KEY ("processed_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "dead_letter_jobs" DROP CONSTRAINT IF EXISTS "dead_letter_jobs_job_id_jobs_id_fk";
+  ALTER TABLE "dead_letter_jobs" ADD CONSTRAINT "dead_letter_jobs_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "finding_scans" DROP CONSTRAINT IF EXISTS "finding_scans_finding_id_findings_id_fk";
+  ALTER TABLE "finding_scans" ADD CONSTRAINT "finding_scans_finding_id_findings_id_fk" FOREIGN KEY ("finding_id") REFERENCES "public"."findings"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "finding_scans" DROP CONSTRAINT IF EXISTS "finding_scans_scan_id_scans_id_fk";
+  ALTER TABLE "finding_scans" ADD CONSTRAINT "finding_scans_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "findings" DROP CONSTRAINT IF EXISTS "findings_org_id_orgs_id_fk";
+  ALTER TABLE "findings" ADD CONSTRAINT "findings_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "findings" DROP CONSTRAINT IF EXISTS "findings_aws_account_id_aws_accounts_id_fk";
+  ALTER TABLE "findings" ADD CONSTRAINT "findings_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "findings" DROP CONSTRAINT IF EXISTS "findings_resource_id_resources_id_fk";
+  ALTER TABLE "findings" ADD CONSTRAINT "findings_resource_id_resources_id_fk" FOREIGN KEY ("resource_id") REFERENCES "public"."resources"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "findings" DROP CONSTRAINT IF EXISTS "findings_certificate_id_certificates_id_fk";
+  ALTER TABLE "findings" ADD CONSTRAINT "findings_certificate_id_certificates_id_fk" FOREIGN KEY ("certificate_id") REFERENCES "public"."certificates"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "findings" DROP CONSTRAINT IF EXISTS "findings_last_scan_id_scans_id_fk";
+  ALTER TABLE "findings" ADD CONSTRAINT "findings_last_scan_id_scans_id_fk" FOREIGN KEY ("last_scan_id") REFERENCES "public"."scans"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "jobs" DROP CONSTRAINT IF EXISTS "jobs_scan_id_scans_id_fk";
+  ALTER TABLE "jobs" ADD CONSTRAINT "jobs_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "org_settings" DROP CONSTRAINT IF EXISTS "org_settings_org_id_orgs_id_fk";
+  ALTER TABLE "org_settings" ADD CONSTRAINT "org_settings_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "resource_dependencies" DROP CONSTRAINT IF EXISTS "resource_dependencies_org_id_orgs_id_fk";
+  ALTER TABLE "resource_dependencies" ADD CONSTRAINT "resource_dependencies_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "resource_dependencies" DROP CONSTRAINT IF EXISTS "resource_dependencies_source_resource_id_resources_id_fk";
+  ALTER TABLE "resource_dependencies" ADD CONSTRAINT "resource_dependencies_source_resource_id_resources_id_fk" FOREIGN KEY ("source_resource_id") REFERENCES "public"."resources"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "resource_scans" DROP CONSTRAINT IF EXISTS "resource_scans_resource_id_resources_id_fk";
+  ALTER TABLE "resource_scans" ADD CONSTRAINT "resource_scans_resource_id_resources_id_fk" FOREIGN KEY ("resource_id") REFERENCES "public"."resources"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "resource_scans" DROP CONSTRAINT IF EXISTS "resource_scans_scan_id_scans_id_fk";
+  ALTER TABLE "resource_scans" ADD CONSTRAINT "resource_scans_scan_id_scans_id_fk" FOREIGN KEY ("scan_id") REFERENCES "public"."scans"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "resources" DROP CONSTRAINT IF EXISTS "resources_org_id_orgs_id_fk";
+  ALTER TABLE "resources" ADD CONSTRAINT "resources_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "resources" DROP CONSTRAINT IF EXISTS "resources_aws_account_id_aws_accounts_id_fk";
+  ALTER TABLE "resources" ADD CONSTRAINT "resources_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "retention_policies" DROP CONSTRAINT IF EXISTS "retention_policies_org_id_orgs_id_fk";
+  ALTER TABLE "retention_policies" ADD CONSTRAINT "retention_policies_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "scans" DROP CONSTRAINT IF EXISTS "scans_org_id_orgs_id_fk";
+  ALTER TABLE "scans" ADD CONSTRAINT "scans_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "scans" DROP CONSTRAINT IF EXISTS "scans_aws_account_id_aws_accounts_id_fk";
+  ALTER TABLE "scans" ADD CONSTRAINT "scans_aws_account_id_aws_accounts_id_fk" FOREIGN KEY ("aws_account_id") REFERENCES "public"."aws_accounts"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "user_oauth_accounts" DROP CONSTRAINT IF EXISTS "user_oauth_accounts_user_id_users_id_fk";
+  ALTER TABLE "user_oauth_accounts" ADD CONSTRAINT "user_oauth_accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "user_org_members" DROP CONSTRAINT IF EXISTS "user_org_members_user_id_users_id_fk";
+  ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "user_org_members" DROP CONSTRAINT IF EXISTS "user_org_members_org_id_orgs_id_fk";
+  ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Indexes (from migrations 0000 + 0002)
 -- ---------------------------------------------------------------------------
 
-CREATE INDEX "audit_logs_timestamp_idx" ON "audit_logs" USING btree ("timestamp");
-CREATE INDEX "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");
-CREATE INDEX "audit_logs_action_idx" ON "audit_logs" USING btree ("action");
-CREATE UNIQUE INDEX "aws_accounts_org_account_idx" ON "aws_accounts" USING btree ("org_id","aws_account_id");
-CREATE INDEX "aws_accounts_org_id_idx" ON "aws_accounts" USING btree ("org_id");
-CREATE UNIQUE INDEX "certificates_org_account_identifier_idx" ON "certificates" USING btree ("org_id","aws_account_id","identifier");
-CREATE INDEX "certificates_org_id_idx" ON "certificates" USING btree ("org_id");
-CREATE INDEX "consent_logs_user_id_idx" ON "consent_logs" USING btree ("user_id");
-CREATE INDEX "consent_logs_email_idx" ON "consent_logs" USING btree ("email");
-CREATE INDEX "consent_logs_consent_type_idx" ON "consent_logs" USING btree ("consent_type");
-CREATE INDEX "consent_logs_consented_at_idx" ON "consent_logs" USING btree ("consented_at");
-CREATE INDEX "data_deletion_requests_user_id_idx" ON "data_deletion_requests" USING btree ("user_id");
-CREATE INDEX "data_deletion_requests_status_idx" ON "data_deletion_requests" USING btree ("status");
-CREATE INDEX "data_deletion_requests_requested_at_idx" ON "data_deletion_requests" USING btree ("requested_at");
-CREATE INDEX "dead_letter_jobs_job_type_idx" ON "dead_letter_jobs" USING btree ("job_type");
-CREATE INDEX "dead_letter_jobs_created_at_idx" ON "dead_letter_jobs" USING btree ("created_at");
-CREATE INDEX "dead_letter_jobs_job_id_idx" ON "dead_letter_jobs" USING btree ("job_id");
-CREATE UNIQUE INDEX "finding_scans_finding_scan_idx" ON "finding_scans" USING btree ("finding_id","scan_id");
-CREATE INDEX "finding_scans_scan_id_idx" ON "finding_scans" USING btree ("scan_id");
-CREATE INDEX "finding_scans_finding_id_idx" ON "finding_scans" USING btree ("finding_id");
-CREATE INDEX "findings_org_id_idx" ON "findings" USING btree ("org_id");
-CREATE INDEX "findings_type_idx" ON "findings" USING btree ("type");
-CREATE INDEX "findings_severity_idx" ON "findings" USING btree ("severity");
-CREATE INDEX "findings_status_idx" ON "findings" USING btree ("status");
-CREATE INDEX "findings_last_scan_id_idx" ON "findings" USING btree ("last_scan_id");
+CREATE INDEX IF NOT EXISTS "audit_logs_timestamp_idx" ON "audit_logs" USING btree ("timestamp");
+CREATE INDEX IF NOT EXISTS "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");
+CREATE INDEX IF NOT EXISTS "audit_logs_action_idx" ON "audit_logs" USING btree ("action");
+CREATE UNIQUE INDEX IF NOT EXISTS "aws_accounts_org_account_idx" ON "aws_accounts" USING btree ("org_id","aws_account_id");
+CREATE INDEX IF NOT EXISTS "aws_accounts_org_id_idx" ON "aws_accounts" USING btree ("org_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "certificates_org_account_identifier_idx" ON "certificates" USING btree ("org_id","aws_account_id","identifier");
+CREATE INDEX IF NOT EXISTS "certificates_org_id_idx" ON "certificates" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "consent_logs_user_id_idx" ON "consent_logs" USING btree ("user_id");
+CREATE INDEX IF NOT EXISTS "consent_logs_email_idx" ON "consent_logs" USING btree ("email");
+CREATE INDEX IF NOT EXISTS "consent_logs_consent_type_idx" ON "consent_logs" USING btree ("consent_type");
+CREATE INDEX IF NOT EXISTS "consent_logs_consented_at_idx" ON "consent_logs" USING btree ("consented_at");
+CREATE INDEX IF NOT EXISTS "data_deletion_requests_user_id_idx" ON "data_deletion_requests" USING btree ("user_id");
+CREATE INDEX IF NOT EXISTS "data_deletion_requests_status_idx" ON "data_deletion_requests" USING btree ("status");
+CREATE INDEX IF NOT EXISTS "data_deletion_requests_requested_at_idx" ON "data_deletion_requests" USING btree ("requested_at");
+CREATE INDEX IF NOT EXISTS "dead_letter_jobs_job_type_idx" ON "dead_letter_jobs" USING btree ("job_type");
+CREATE INDEX IF NOT EXISTS "dead_letter_jobs_created_at_idx" ON "dead_letter_jobs" USING btree ("created_at");
+CREATE INDEX IF NOT EXISTS "dead_letter_jobs_job_id_idx" ON "dead_letter_jobs" USING btree ("job_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "finding_scans_finding_scan_idx" ON "finding_scans" USING btree ("finding_id","scan_id");
+CREATE INDEX IF NOT EXISTS "finding_scans_scan_id_idx" ON "finding_scans" USING btree ("scan_id");
+CREATE INDEX IF NOT EXISTS "finding_scans_finding_id_idx" ON "finding_scans" USING btree ("finding_id");
+CREATE INDEX IF NOT EXISTS "findings_org_id_idx" ON "findings" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "findings_type_idx" ON "findings" USING btree ("type");
+CREATE INDEX IF NOT EXISTS "findings_severity_idx" ON "findings" USING btree ("severity");
+CREATE INDEX IF NOT EXISTS "findings_status_idx" ON "findings" USING btree ("status");
+CREATE INDEX IF NOT EXISTS "findings_last_scan_id_idx" ON "findings" USING btree ("last_scan_id");
 -- Composite indexes (migration 0002)
-CREATE INDEX "findings_org_status_idx" ON "findings" USING btree ("org_id","status");
-CREATE INDEX "scans_org_status_idx" ON "scans" USING btree ("org_id","status");
-CREATE INDEX "jobs_status_idx" ON "jobs" USING btree ("status");
-CREATE INDEX "jobs_type_idx" ON "jobs" USING btree ("type");
-CREATE INDEX "jobs_scan_id_idx" ON "jobs" USING btree ("scan_id");
-CREATE INDEX "jobs_recovery_count_idx" ON "jobs" USING btree ("recovery_count");
-CREATE INDEX "orgs_tier_idx" ON "orgs" USING btree ("tier");
-CREATE INDEX "orgs_stripe_customer_id_idx" ON "orgs" USING btree ("stripe_customer_id");
-CREATE INDEX "orgs_subscription_status_idx" ON "orgs" USING btree ("subscription_status");
-CREATE UNIQUE INDEX "resource_dependencies_unique_idx" ON "resource_dependencies" USING btree ("org_id","source_resource_id","target_resource_id","relationship_type");
-CREATE INDEX "resource_dependencies_org_id_idx" ON "resource_dependencies" USING btree ("org_id");
-CREATE INDEX "resource_dependencies_source_resource_id_idx" ON "resource_dependencies" USING btree ("source_resource_id");
-CREATE INDEX "resource_dependencies_target_resource_id_idx" ON "resource_dependencies" USING btree ("target_resource_id");
-CREATE INDEX "resource_dependencies_relationship_type_idx" ON "resource_dependencies" USING btree ("relationship_type");
-CREATE UNIQUE INDEX "resource_scans_resource_scan_idx" ON "resource_scans" USING btree ("resource_id","scan_id");
-CREATE INDEX "resource_scans_scan_id_idx" ON "resource_scans" USING btree ("scan_id");
-CREATE INDEX "resource_scans_resource_id_idx" ON "resource_scans" USING btree ("resource_id");
-CREATE UNIQUE INDEX "resources_org_account_resource_idx" ON "resources" USING btree ("org_id","aws_account_id","resource_id");
-CREATE INDEX "resources_org_id_idx" ON "resources" USING btree ("org_id");
-CREATE INDEX "resources_aws_account_id_idx" ON "resources" USING btree ("aws_account_id");
-CREATE INDEX "resources_service_idx" ON "resources" USING btree ("service");
-CREATE UNIQUE INDEX "retention_policies_org_data_type_idx" ON "retention_policies" USING btree ("org_id","data_type");
-CREATE INDEX "scans_org_id_idx" ON "scans" USING btree ("org_id");
-CREATE INDEX "scans_aws_account_id_idx" ON "scans" USING btree ("aws_account_id");
-CREATE INDEX "scans_has_key_idx" ON "scans" USING btree ("has_key");
-CREATE UNIQUE INDEX "user_oauth_accounts_provider_user_idx" ON "user_oauth_accounts" USING btree ("provider","provider_user_id");
-CREATE INDEX "user_oauth_accounts_user_id_idx" ON "user_oauth_accounts" USING btree ("user_id");
-CREATE UNIQUE INDEX "user_org_members_user_org_idx" ON "user_org_members" USING btree ("user_id","org_id");
-CREATE INDEX "user_org_members_user_id_idx" ON "user_org_members" USING btree ("user_id");
-CREATE INDEX "user_org_members_org_id_idx" ON "user_org_members" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "findings_org_status_idx" ON "findings" USING btree ("org_id","status");
+CREATE INDEX IF NOT EXISTS "scans_org_status_idx" ON "scans" USING btree ("org_id","status");
+CREATE INDEX IF NOT EXISTS "jobs_status_idx" ON "jobs" USING btree ("status");
+CREATE INDEX IF NOT EXISTS "jobs_type_idx" ON "jobs" USING btree ("type");
+CREATE INDEX IF NOT EXISTS "jobs_scan_id_idx" ON "jobs" USING btree ("scan_id");
+CREATE INDEX IF NOT EXISTS "jobs_recovery_count_idx" ON "jobs" USING btree ("recovery_count");
+CREATE INDEX IF NOT EXISTS "orgs_tier_idx" ON "orgs" USING btree ("tier");
+CREATE INDEX IF NOT EXISTS "orgs_stripe_customer_id_idx" ON "orgs" USING btree ("stripe_customer_id");
+CREATE INDEX IF NOT EXISTS "orgs_subscription_status_idx" ON "orgs" USING btree ("subscription_status");
+CREATE UNIQUE INDEX IF NOT EXISTS "resource_dependencies_unique_idx" ON "resource_dependencies" USING btree ("org_id","source_resource_id","target_resource_id","relationship_type");
+CREATE INDEX IF NOT EXISTS "resource_dependencies_org_id_idx" ON "resource_dependencies" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "resource_dependencies_source_resource_id_idx" ON "resource_dependencies" USING btree ("source_resource_id");
+CREATE INDEX IF NOT EXISTS "resource_dependencies_target_resource_id_idx" ON "resource_dependencies" USING btree ("target_resource_id");
+CREATE INDEX IF NOT EXISTS "resource_dependencies_relationship_type_idx" ON "resource_dependencies" USING btree ("relationship_type");
+CREATE UNIQUE INDEX IF NOT EXISTS "resource_scans_resource_scan_idx" ON "resource_scans" USING btree ("resource_id","scan_id");
+CREATE INDEX IF NOT EXISTS "resource_scans_scan_id_idx" ON "resource_scans" USING btree ("scan_id");
+CREATE INDEX IF NOT EXISTS "resource_scans_resource_id_idx" ON "resource_scans" USING btree ("resource_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "resources_org_account_resource_idx" ON "resources" USING btree ("org_id","aws_account_id","resource_id");
+CREATE INDEX IF NOT EXISTS "resources_org_id_idx" ON "resources" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "resources_aws_account_id_idx" ON "resources" USING btree ("aws_account_id");
+CREATE INDEX IF NOT EXISTS "resources_service_idx" ON "resources" USING btree ("service");
+CREATE UNIQUE INDEX IF NOT EXISTS "retention_policies_org_data_type_idx" ON "retention_policies" USING btree ("org_id","data_type");
+CREATE INDEX IF NOT EXISTS "scans_org_id_idx" ON "scans" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "scans_aws_account_id_idx" ON "scans" USING btree ("aws_account_id");
+CREATE INDEX IF NOT EXISTS "scans_has_key_idx" ON "scans" USING btree ("has_key");
+CREATE UNIQUE INDEX IF NOT EXISTS "user_oauth_accounts_provider_user_idx" ON "user_oauth_accounts" USING btree ("provider","provider_user_id");
+CREATE INDEX IF NOT EXISTS "user_oauth_accounts_user_id_idx" ON "user_oauth_accounts" USING btree ("user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "user_org_members_user_org_idx" ON "user_org_members" USING btree ("user_id","org_id");
+CREATE INDEX IF NOT EXISTS "user_org_members_user_id_idx" ON "user_org_members" USING btree ("user_id");
+CREATE INDEX IF NOT EXISTS "user_org_members_org_id_idx" ON "user_org_members" USING btree ("org_id");
 -- drip_log indexes (migration 0001)
-CREATE UNIQUE INDEX "drip_log_email_seq_day_idx" ON "drip_log" USING btree ("subscriber_email","sequence_name","email_day");
-CREATE INDEX "drip_log_subscriber_email_idx" ON "drip_log" USING btree ("subscriber_email");
+CREATE UNIQUE INDEX IF NOT EXISTS "drip_log_email_seq_day_idx" ON "drip_log" USING btree ("subscriber_email","sequence_name","email_day");
+CREATE INDEX IF NOT EXISTS "drip_log_subscriber_email_idx" ON "drip_log" USING btree ("subscriber_email");
 
 -- =============================================================================
 -- 4. OWNERSHIP & GRANTS (scanorbit database)

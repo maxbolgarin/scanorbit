@@ -186,8 +186,8 @@ services:
       # AWS region (credentials via secrets)
       - AWS_REGION=${AWS_REGION:-eu-central-1}
       # Network/Security
-      # Include Docker bridge subnet (172.21.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
-      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.21.0.0/16}
+      # Include Docker bridge subnet (172.22.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.22.0.0/16}
       # Email Configuration
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
       - EMAIL_FROM=${EMAIL_FROM:-}
@@ -418,7 +418,7 @@ services:
       - -c
       - |
         # Read password from Docker secret
-        REDIS_PASSWORD=$(cat /run/secrets/redis_password | tr -d '\n')
+        REDIS_PASSWORD=$$(cat /run/secrets/redis_password | tr -d '\n')
         # Copy certs to local dir and fix permissions for redis user
         mkdir -p /data/certs
         cp /tls-source/* /data/certs/
@@ -427,7 +427,7 @@ services:
         chmod 644 /data/certs/redis.crt /data/certs/ca.crt
         # Start Redis with production config and TLS
         exec redis-server /etc/redis/redis.conf \
-          --requirepass "$REDIS_PASSWORD" \
+          --requirepass "$$REDIS_PASSWORD" \
           --tls-port 6379 \
           --port 0 \
           --tls-cert-file /data/certs/redis.crt \
@@ -442,7 +442,7 @@ services:
       - ./certs/redis:/tls-source:ro
       - ./redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --tls --cert /data/certs/redis.crt --key /data/certs/redis.key --cacert /data/certs/ca.crt -a $(cat /run/secrets/redis_password) ping"]
+      test: ["CMD-SHELL", "redis-cli --tls --cert /data/certs/redis.crt --key /data/certs/redis.key --cacert /data/certs/ca.crt -a $$(cat /run/secrets/redis_password) ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -900,7 +900,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.21.0.0/16
+        - subnet: 172.22.0.0/16
   watchtower-internal:
     driver: bridge
     internal: true
