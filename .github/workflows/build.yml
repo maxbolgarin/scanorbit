@@ -7,17 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Docker image tag (e.g. v1.0.0, hotfix-123, develop)
+        description: Docker image tag (e.g. v1.0.0, hotfix-123)
         required: true
         type: string
-        default: develop
-      environment:
-        description: Target environment
-        required: true
-        type: choice
-        options:
-          - develop
-          - production
+        default: latest
       api:
         description: Force build API
         required: false
@@ -47,7 +40,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
-  DEV_TAG: ${{ vars.DEV_IMAGE_TAG || 'develop' }}
 
 jobs:
   changes:
@@ -109,8 +101,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api
           tags: |
-            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
-            type=sha,prefix=dev-
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -151,8 +143,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/app
           tags: |
-            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
-            type=sha,prefix=dev-
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -163,7 +155,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_API_URL=${{ inputs.environment == 'production' && vars.VITE_API_URL || vars.VITE_API_URL_DEV }}
+            VITE_API_URL=${{ vars.VITE_API_URL }}
             VITE_SCANORBIT_AWS_ACCOUNT_ID=${{ vars.VITE_SCANORBIT_AWS_ACCOUNT_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -196,8 +188,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/landing
           tags: |
-            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
-            type=sha,prefix=dev-
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -241,8 +233,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.worker }}
           tags: |
-            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
-            type=sha,prefix=dev-
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -283,8 +275,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/listmonk-setup
           tags: |
-            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
-            type=sha,prefix=dev-
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
