@@ -22,6 +22,13 @@
       "when": 1772994301694,
       "tag": "0002_clear_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773400000000,
+      "tag": "0003_add_processing_restricted",
+      "breakpoints": true
     }
   ]
 }
