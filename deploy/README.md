@@ -88,6 +88,7 @@ Push to `main` or trigger the Release workflow manually. This builds and pushes 
 - `ghcr.io/<org>/scanorbit/landing:latest`
 - `ghcr.io/<org>/scanorbit/scanner:latest`
 - `ghcr.io/<org>/scanorbit/analyzer:latest`
+- `ghcr.io/<org>/scanorbit/listmonk-setup:latest`
 
 
 ## Step 3: Deploy Configuration Files
@@ -231,8 +232,9 @@ The `init-db` service runs automatically before any application service, creatin
 7. `caddy` → start (auto-provisions TLS certificates)
 8. `app`, `landing` → start
 9. `umami`, `listmonk` → start
-10. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
-11. `watchtower` + `docker-socket-proxy` → start
+10. `listmonk-setup` → creates lists and transactional templates after Listmonk is healthy
+11. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
+12. `watchtower` + `docker-socket-proxy` → start
 
 ### Verify
 
@@ -268,8 +270,16 @@ Push to `main` → GitHub Actions builds images → GHCR → Watchtower pulls an
 ```bash
 # On VM
 cd /opt/scanorbit/deploy
-docker compose pull api scanner analyzer app landing
+docker compose pull api scanner analyzer app landing listmonk-setup
 docker compose up -d
+```
+
+If you update email templates only, you can rerun just the Listmonk seed job:
+
+```bash
+docker compose pull listmonk-setup
+docker compose up -d listmonk-setup
+docker compose logs -f listmonk-setup
 ```
 
 ### Update configuration
