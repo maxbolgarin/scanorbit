@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
-  const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
+  const { isAuthenticated, hasOrg, isLoading, checkAuth } = useAuthStore();
   const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
@@ -40,6 +40,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Preserve query params (like ?oauth=success) in the redirect
     const redirectTo = `/login${location.search}`;
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  if (!hasOrg) {
+    return <Navigate to="/signup" replace />;
   }
 
   return <>{children}</>;

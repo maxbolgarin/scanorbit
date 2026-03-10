@@ -18,7 +18,7 @@ import {
   Settings,
   Network,
   BookOpen,
-  User,
+  Users,
   MoreHorizontal,
 } from "lucide-react";
 
@@ -76,9 +76,9 @@ export function Sidebar() {
       icon: BookOpen,
     },
     {
-      label: "Profile",
+      label: "Team",
       href: "/profile",
-      icon: User,
+      icon: Users,
     },
     {
       label: "Settings",
@@ -208,9 +208,9 @@ export function MobileNav() {
     },
     { separator: true },
     {
-      label: "Profile",
+      label: "Team",
       href: "/profile",
-      icon: User,
+      icon: Users,
     },
     {
       label: "Settings",

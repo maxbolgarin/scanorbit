@@ -36,7 +36,6 @@ import {
   Mail,
   History,
   User,
-  Pencil,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
@@ -64,12 +63,9 @@ export function DataPrivacySettings() {
   const [consentHistory, setConsentHistory] = useState<api.ConsentRecord[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  // Profile rectification state
+  // Profile state
   const [profile, setProfile] = useState<api.GdprProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [isSavingName, setIsSavingName] = useState(false);
 
   const fetchDeletionStatus = async () => {
     try {
@@ -179,31 +175,6 @@ export function DataPrivacySettings() {
       });
     } finally {
       setIsUpdatingConsent(false);
-    }
-  };
-
-  const handleSaveName = async () => {
-    if (!editName.trim()) return;
-
-    setIsSavingName(true);
-    try {
-      const updated = await api.updateGdprProfile({ fullName: editName.trim() });
-      setProfile(updated);
-      setIsEditingName(false);
-
-      toast({
-        title: "Profile updated",
-        description: "Your name has been updated successfully.",
-        type: "success",
-      });
-    } catch (error) {
-      toast({
-        title: "Update failed",
-        description: error instanceof Error ? error.message : "Failed to update profile",
-        type: "error",
-      });
-    } finally {
-      setIsSavingName(false);
     }
   };
 
@@ -353,45 +324,7 @@ export function DataPrivacySettings() {
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Full Name</p>
-                  {isEditingName ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input
-                        value={editName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName(e.target.value)}
-                        className="h-8 w-48"
-                        maxLength={64}
-                      />
-                      <Button
-                        size="sm"
-                        onClick={handleSaveName}
-                        disabled={isSavingName || !editName.trim()}
-                      >
-                        {isSavingName ? <LoadingSpinner size="sm" /> : "Save"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setIsEditingName(false)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm">{profile.fullName}</p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={() => {
-                          setEditName(profile.fullName);
-                          setIsEditingName(true);
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
+                  <p className="text-sm">{profile.fullName}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
