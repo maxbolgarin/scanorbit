@@ -5,10 +5,46 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      force_node:
+        description: Force run Node.js jobs (lint, typecheck, audit, build)
+        required: false
+        type: boolean
+        default: false
+      force_go:
+        description: Force run Go jobs (lint, audit, test)
+        required: false
+        type: boolean
+        default: false
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      node: ${{ steps.filter.outputs.node }}
+      go: ${{ steps.filter.outputs.go }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            node:
+              - 'apps/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+              - '.eslint*'
+            go:
+              - 'workers/**'
+
   lint-and-typecheck:
     name: Lint & Typecheck
+    needs: [changes]
+    if: needs.changes.outputs.node == 'true' || inputs.force_node
     runs-on: ubuntu-latest
     steps:
       - name: Check Internet Connectivity
@@ -42,6 +78,8 @@ jobs:
 
   audit-node:
     name: Audit Node.js Dependencies
+    needs: [changes]
+    if: needs.changes.outputs.node == 'true' || inputs.force_node
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -64,6 +102,8 @@ jobs:
 
   audit-go:
     name: Audit Go Dependencies
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true' || inputs.force_go
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -84,6 +124,8 @@ jobs:
 
   lint-go:
     name: Lint Go Workers
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true' || inputs.force_go
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -104,6 +146,8 @@ jobs:
 
   test-go:
     name: Test Go Workers
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true' || inputs.force_go
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -141,6 +185,8 @@ jobs:
 
   integration-test-go:
     name: Integration Test Go Workers
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true' || inputs.force_go
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -198,6 +244,8 @@ jobs:
 
   build-check:
     name: Build Check
+    needs: [changes]
+    if: needs.changes.outputs.node == 'true' || inputs.force_node
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

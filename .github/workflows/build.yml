@@ -5,6 +5,44 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Docker image tag (e.g. v1.0.0, hotfix-123, develop)
+        required: true
+        type: string
+        default: develop
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - develop
+          - production
+      api:
+        description: Force build API
+        required: false
+        type: boolean
+        default: false
+      app:
+        description: Force build App
+        required: false
+        type: boolean
+        default: false
+      landing:
+        description: Force build Landing
+        required: false
+        type: boolean
+        default: false
+      workers:
+        description: Force build Workers (scanner + analyzer)
+        required: false
+        type: boolean
+        default: false
+      listmonk_setup:
+        description: Force build Listmonk setup image
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -43,11 +81,10 @@ jobs:
             listmonk_setup:
               - 'apps/listmonk-setup/**'
 
-  # Build and push Docker images with develop tag
   build-api:
     name: Build API
     needs: changes
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || inputs.api
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -72,7 +109,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api
           tags: |
-            type=raw,value=${{ env.DEV_TAG }}
+            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -89,7 +126,7 @@ jobs:
   build-app:
     name: Build App
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    if: needs.changes.outputs.app == 'true' || inputs.app
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -114,7 +151,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/app
           tags: |
-            type=raw,value=${{ env.DEV_TAG }}
+            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -126,7 +163,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL_DEV }}
+            VITE_API_URL=${{ inputs.environment == 'production' && vars.VITE_API_URL || vars.VITE_API_URL_DEV }}
             VITE_SCANORBIT_AWS_ACCOUNT_ID=${{ vars.VITE_SCANORBIT_AWS_ACCOUNT_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -134,7 +171,7 @@ jobs:
   build-landing:
     name: Build Landing
     needs: changes
-    if: needs.changes.outputs.landing == 'true'
+    if: needs.changes.outputs.landing == 'true' || inputs.landing
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -159,7 +196,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/landing
           tags: |
-            type=raw,value=${{ env.DEV_TAG }}
+            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -176,7 +213,7 @@ jobs:
   build-workers:
     name: Build Workers
     needs: changes
-    if: needs.changes.outputs.workers == 'true'
+    if: needs.changes.outputs.workers == 'true' || inputs.workers
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -204,7 +241,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.worker }}
           tags: |
-            type=raw,value=${{ env.DEV_TAG }}
+            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
@@ -221,7 +258,7 @@ jobs:
   build-listmonk-setup:
     name: Build Listmonk Setup
     needs: changes
-    if: needs.changes.outputs.listmonk_setup == 'true'
+    if: needs.changes.outputs.listmonk_setup == 'true' || inputs.listmonk_setup
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -246,7 +283,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/listmonk-setup
           tags: |
-            type=raw,value=${{ env.DEV_TAG }}
+            type=raw,value=${{ inputs.tag || env.DEV_TAG }}
             type=sha,prefix=dev-
 
       - name: Build and push
