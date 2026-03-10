@@ -167,18 +167,28 @@ function calculateMigrationHash(filePath: string): string {
 }
 
 /**
- * Sync migration tracking by reading migration files and inserting their hashes
- * This is useful when migrations were applied manually or tracking got out of sync
+ * Sync migration tracking by reading migration files and inserting their hashes.
+ * This is useful when migrations were applied manually or tracking got out of sync.
+ *
+ * IMPORTANT: Only pass entries that are KNOWN to have been applied to the database.
+ * Syncing unapplied migrations will cause them to be skipped permanently.
+ *
+ * @param maxEntries - Only sync the first N journal entries (to avoid marking unapplied migrations as applied)
  */
 async function syncMigrationTracking(
   pool: pg.Pool,
   migrationsFolder: string,
-  journal: MigrationJournal
+  journal: MigrationJournal,
+  maxEntries?: number
 ): Promise<void> {
   let syncedCount = 0;
   const now = Date.now();
 
-  for (const entry of journal.entries) {
+  const entries = maxEntries !== undefined
+    ? journal.entries.slice(0, maxEntries)
+    : journal.entries;
+
+  for (const entry of entries) {
     const fileName = `${entry.tag}.sql`;
     const filePath = join(migrationsFolder, fileName);
 
@@ -251,7 +261,7 @@ async function runMigrations() {
     // Show all available migrations
     console.log(`📋 Available migrations (${journal.entries.length} total):\n`);
     journal.entries.forEach((migration, index) => {
-      const isApplied = appliedMigrations.some((applied) => applied.hash === migration.tag);
+      const isApplied = index < appliedMigrations.length;
       const status = isApplied ? '✅ Applied' : '⏳ Pending';
       const date = new Date(migration.when).toISOString();
       console.log(`  ${index + 1}. ${migration.tag} - ${status}`);
@@ -329,100 +339,35 @@ async function runMigrations() {
         console.warn('⚠️  Migration failed because changes already exist in database.');
         console.warn('   This usually means the migration was applied manually.');
         console.warn('   Attempting to sync migration tracking...\n');
-        
-        // Try to sync remaining migrations
+
+        // Only sync migrations that were already tracked (known to be applied).
+        // Do NOT sync all journal entries — that would mark unapplied migrations as applied.
+        const trackedCount = (await getAppliedMigrations(pool)).length;
+        const pendingCount = journal.entries.length - trackedCount;
+
         try {
-          await syncMigrationTracking(pool, migrationsFolder, journal);
+          await syncMigrationTracking(pool, migrationsFolder, journal, trackedCount);
           console.log('✅ Migration tracking synced after error!\n');
-          
-          // Try running migrations again after sync
-          try {
-            await migrate(db, {
-              migrationsFolder,
-            });
-            console.log('✅ Migrations check completed after sync!\n');
-          } catch (retryError) {
-            console.warn('⚠️  Migrations still failing after sync. Some migrations may need manual review.');
-            console.error('Error:', retryError instanceof Error ? retryError.message : String(retryError));
+
+          if (pendingCount > 0) {
+            console.log(`🔄 Retrying with ${pendingCount} pending migration(s)...\n`);
           }
-        } catch (syncError) {
-          console.error('⚠️  Could not sync migrations:', syncError instanceof Error ? syncError.message : String(syncError));
+
+          // Try running migrations again after sync
+          await migrate(db, {
+            migrationsFolder,
+          });
+          console.log('✅ Migrations check completed after sync!\n');
+        } catch (retryError) {
+          // Retry also failed — re-throw to fail the process
+          throw retryError;
         }
       } else {
-        // Other errors - show full details
-        console.error('⚠️  Migration error:', error);
-        if (error instanceof Error) {
-          console.error('Error message:', error.message);
-          if (error.stack) {
-            console.error('Stack trace:', error.stack);
-          }
-        }
+        // Other errors - re-throw to fail the process
+        throw error;
       }
     }
 
-    // Final sync: Ensure all migrations in journal are tracked
-    // This catches cases where migrations were modified or applied manually
-    const finalAppliedMigrations = await getAppliedMigrations(pool);
-    const journalEntryCount = journal.entries.length;
-    
-    if (finalAppliedMigrations.length < journalEntryCount) {
-      console.log(`\n🔄 Final sync: ${finalAppliedMigrations.length} tracked, ${journalEntryCount} in journal`);
-      console.log('   Syncing any missing migrations...\n');
-      try {
-        await syncMigrationTracking(pool, migrationsFolder, journal);
-      } catch (syncError) {
-        console.warn('⚠️  Final sync warning:', syncError instanceof Error ? syncError.message : String(syncError));
-      }
-    }
-    
-    // Get final count after sync
-    const finalCount = (await getAppliedMigrations(pool)).length;
-    
-    // Debug: Show what's actually in the database
-    if (finalCount === 0) {
-      // Check if migrations table exists and what's in it
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = '__drizzle_migrations'
-        );
-      `);
-      
-      if (tableCheck.rows[0].exists) {
-        const allRows = await pool.query(`SELECT * FROM __drizzle_migrations`);
-        console.log(`⚠️  Migrations table exists but is empty. Found ${allRows.rows.length} row(s).`);
-        if (allRows.rows.length > 0) {
-          console.log('Debug - Raw migration data:');
-          allRows.rows.forEach((row, idx) => {
-            console.log(`  Row ${idx + 1}:`, JSON.stringify(row, null, 2));
-          });
-        }
-      } else {
-        console.log(`⚠️  Migrations table does not exist after migration run.`);
-      }
-      
-      // Check if any application tables were created (indicating migrations ran)
-      const appTablesCheck = await pool.query(`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name NOT LIKE '__drizzle%'
-        ORDER BY table_name;
-      `);
-      
-      if (appTablesCheck.rows.length > 0) {
-        console.log(`\n✅ Application tables exist (${appTablesCheck.rows.length} tables), indicating migrations were applied:`);
-        appTablesCheck.rows.forEach((row) => {
-          console.log(`  - ${row.table_name}`);
-        });
-        console.log(`\n⚠️  However, drizzle migrations table shows 0 migrations.`);
-        console.log(`This suggests a mismatch in how migrations are being tracked.\n`);
-      } else {
-        console.log(`\n⚠️  No application tables found. Migrations may not have been applied.\n`);
-      }
-    }
-    
     const finalMigrations = await getAppliedMigrations(pool);
     console.log(`📊 Final state: ${finalMigrations.length} migration(s) applied\n`);
 
