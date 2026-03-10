@@ -2,13 +2,13 @@
  * setup-listmonk.ts
  *
  * Run once to create all 8 lists and 24 transactional templates in Listmonk via API.
- * Outputs the IDs to paste into drip-config.ts and listmonk-client.ts.
+ * Outputs the IDs to paste into .env/.env.prod.
  *
  * USAGE:
- *   LISTMONK_URL=http://localhost:9000 \
- *   LISTMONK_USER=admin \
- *   LISTMONK_TOKEN=your-token \
- *   npx ts-node setup-listmonk.ts
+    LISTMONK_URL=http://localhost:9000 \
+    LISTMONK_USER=admin \
+    LISTMONK_TOKEN=your-token \
+    pnpm dlx tsx setup_listmonk.ts
  *
  * Or with node (compile first):
  *   node dist/setup-listmonk.js
@@ -183,46 +183,57 @@ async function main() {
   console.log('\n=== Generated Config ===\n');
 
   // List IDs for listmonk-client.ts
-  console.log('// Paste into LISTS in listmonk-client.ts:\n');
-  console.log('export const LISTS = {');
+  console.log('// Paste into .env/.env.prod:\n');
   const listKeyMap: Record<string, string> = {
-    'cold-leads': 'COLD_LEADS', 'subscribers': 'SUBSCRIBERS',
-    'free-new': 'FREE_NEW', 'free-scanned': 'FREE_SCANNED',
-    'trial-new': 'TRIAL_NEW', 'trial-active': 'TRIAL_ACTIVE',
-    'paid-pro': 'PAID_PRO', 'paid-team': 'PAID_TEAM',
+    'cold-leads': 'LISTMONK_LIST_COLD_LEADS',
+    'subscribers': 'LISTMONK_LIST_SUBSCRIBERS',
+    'free-new': 'LISTMONK_LIST_FREE_NEW',
+    'free-scanned': 'LISTMONK_LIST_FREE_SCANNED',
+    'trial-new': 'LISTMONK_LIST_TRIAL_NEW',
+    'trial-active': 'LISTMONK_LIST_TRIAL_ACTIVE',
+    'paid-pro': 'LISTMONK_LIST_PAID_PRO',
+    'paid-team': 'LISTMONK_LIST_PAID_TEAM',
   };
   for (const [name, key] of Object.entries(listKeyMap)) {
     const id = listIds[name] ?? 0;
-    console.log(`  ${key}: ${id},`);
+    console.log(`${key}=${id}`);
   }
-  console.log('} as const;\n');
+  console.log('');
 
-  // Template IDs for drip-config.ts
-  console.log('// Paste into SEQUENCES in drip-config.ts:\n');
+  // Template IDs for runtime config
+  console.log('// Template IDs:\n');
+  const templateKeyMap: Record<string, string> = {
+    'cold-day0-pain': 'LISTMONK_TEMPLATE_COLD_DAY0_PAIN',
+    'cold-day4-gdpr': 'LISTMONK_TEMPLATE_COLD_DAY4_GDPR',
+    'cold-day10-breakup': 'LISTMONK_TEMPLATE_COLD_DAY10_BREAKUP',
+    'subs-day0-welcome': 'LISTMONK_TEMPLATE_SUBS_DAY0_WELCOME',
+    'subs-day3-security': 'LISTMONK_TEMPLATE_SUBS_DAY3_SECURITY',
+    'subs-day7-cost': 'LISTMONK_TEMPLATE_SUBS_DAY7_COST',
+    'subs-day11-gdpr': 'LISTMONK_TEMPLATE_SUBS_DAY11_GDPR',
+    'subs-day16-social-proof': 'LISTMONK_TEMPLATE_SUBS_DAY16_SOCIAL_PROOF',
+    'subs-day21-final-cta': 'LISTMONK_TEMPLATE_SUBS_DAY21_FINAL_CTA',
+    'free-new-day0-welcome': 'LISTMONK_TEMPLATE_FREE_NEW_DAY0_WELCOME',
+    'free-new-day2-security': 'LISTMONK_TEMPLATE_FREE_NEW_DAY2_SECURITY',
+    'free-new-day5-value': 'LISTMONK_TEMPLATE_FREE_NEW_DAY5_VALUE',
+    'free-scanned-day0-results': 'LISTMONK_TEMPLATE_FREE_SCANNED_DAY0_RESULTS',
+    'free-scanned-day2-critical': 'LISTMONK_TEMPLATE_FREE_SCANNED_DAY2_CRITICAL',
+    'free-scanned-day5-cost': 'LISTMONK_TEMPLATE_FREE_SCANNED_DAY5_COST',
+    'free-scanned-day10-breakup': 'LISTMONK_TEMPLATE_FREE_SCANNED_DAY10_BREAKUP',
+    'trial-new-day0-welcome': 'LISTMONK_TEMPLATE_TRIAL_NEW_DAY0_WELCOME',
+    'trial-new-day3-stuck': 'LISTMONK_TEMPLATE_TRIAL_NEW_DAY3_STUCK',
+    'trial-active-day3-deepen': 'LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY3_DEEPEN',
+    'trial-active-day5-warning': 'LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY5_WARNING',
+    'trial-active-day6-lastday': 'LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY6_LASTDAY',
+    'trial-active-day9-winback': 'LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY9_WINBACK',
+    'paid-pro-day0-welcome': 'LISTMONK_TEMPLATE_PAID_PRO_DAY0_WELCOME',
+    'paid-team-day0-welcome': 'LISTMONK_TEMPLATE_PAID_TEAM_DAY0_WELCOME',
+  };
 
-  const sequenceGroups: Record<string, { day: number; templateId: number; name: string }[]> = {};
-  for (const tpl of TEMPLATES_TO_CREATE) {
-    if (!sequenceGroups[tpl.sequence]) sequenceGroups[tpl.sequence] = [];
-    sequenceGroups[tpl.sequence].push({
-      day: tpl.day,
-      templateId: templateIds[tpl.name] ?? 0,
-      name: tpl.name,
-    });
+  for (const [name, key] of Object.entries(templateKeyMap)) {
+    const id = templateIds[name] ?? 0;
+    console.log(`${key}=${id}`);
   }
-
-  for (const [seq, steps] of Object.entries(sequenceGroups)) {
-    console.log(`// ${seq}`);
-    console.log(`steps: [`);
-    for (const step of steps) {
-      const from = seq === 'cold-leads'
-        ? `, fromEmail: 'Maksim <maksim@scanorbit.cloud>'`
-        : step.name.includes('breakup') || step.name.includes('winback')
-          ? `, fromEmail: 'Maksim <maksim@scanorbit.cloud>'`
-          : '';
-      console.log(`  { day: ${step.day}, templateId: ${step.templateId}${from} },  // ${step.name}`);
-    }
-    console.log(`],\n`);
-  }
+  console.log('');
 
   // ── Write config file ──────────────────────────────────────────────
 
