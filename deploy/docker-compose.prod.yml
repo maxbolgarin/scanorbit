@@ -638,6 +638,7 @@ services:
       - docker-socket-proxy
     networks:
       - watchtower-internal
+      - scanorbit
 
   # Prometheus - Metrics collection
   prometheus:

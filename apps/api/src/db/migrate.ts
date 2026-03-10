@@ -182,7 +182,6 @@ async function syncMigrationTracking(
   maxEntries?: number
 ): Promise<void> {
   let syncedCount = 0;
-  const now = Date.now();
 
   const entries = maxEntries !== undefined
     ? journal.entries.slice(0, maxEntries)
@@ -207,10 +206,10 @@ async function syncMigrationTracking(
     );
 
     if (existing.rows.length === 0) {
-      // Insert migration hash
+      // Insert migration hash using folderMillis as created_at (matches Drizzle's behavior)
       await pool.query(
         'INSERT INTO __drizzle_migrations (hash, created_at) VALUES ($1, $2)',
-        [hash, now]
+        [hash, entry.when]
       );
       syncedCount++;
       console.log(`  ✅ Synced: ${entry.tag}`);
@@ -319,11 +318,33 @@ async function runMigrations() {
       }
     }
 
+    // Drop stale drizzle-schema migrations table if it exists (we use public schema)
+    await pool.query(`DROP TABLE IF EXISTS drizzle.__drizzle_migrations`);
+    await pool.query(`DROP SCHEMA IF EXISTS drizzle`);
+
+    // Fix created_at values: Drizzle compares created_at against folderMillis (journal entry timestamps).
+    // If created_at was set to Date.now() by a previous sync, it may be larger than folderMillis of
+    // future migrations, causing them to be skipped. Re-sync created_at with journal entry timestamps.
+    const currentMigrations = await getAppliedMigrations(pool);
+    for (const entry of journal.entries) {
+      const filePath = join(migrationsFolder, `${entry.tag}.sql`);
+      if (!existsSync(filePath)) continue;
+      const hash = calculateMigrationHash(filePath);
+      const existing = currentMigrations.find((m) => m.hash === hash);
+      if (existing) {
+        await pool.query(
+          'UPDATE __drizzle_migrations SET created_at = $1 WHERE hash = $2',
+          [entry.when, hash]
+        );
+      }
+    }
+
     // Run migrations with drizzle's migrator
-    // Drizzle will determine which migrations need to be applied based on content hashes
+    // Drizzle will determine which migrations need to be applied based on folderMillis timestamps
     try {
       await migrate(db, {
         migrationsFolder,
+        migrationsSchema: 'public',
       });
       console.log('✅ Migrations check completed!\n');
     } catch (error) {
@@ -356,6 +377,7 @@ async function runMigrations() {
           // Try running migrations again after sync
           await migrate(db, {
             migrationsFolder,
+            migrationsSchema: 'public',
           });
           console.log('✅ Migrations check completed after sync!\n');
         } catch (retryError) {
