@@ -60,14 +60,17 @@ describe('listmonkService', () => {
   });
 
   describe('subscribe', () => {
-    it('creates subscriber via API', async () => {
-      mockFetch.mockResolvedValue(jsonResponse({ data: { id: 1, email: 'user@test.com', name: 'User', status: 'enabled' } }));
+    it('creates new subscriber via API when not found', async () => {
+      // getSubscriberByEmail → not found
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [] } }));
+      // POST create
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: 1, email: 'user@test.com', name: 'User', status: 'enabled' } }));
 
       const result = await listmonkService.subscribe('user@test.com', 'User');
       expect(result).toBe(true);
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
-      const [url, opts] = mockFetch.mock.calls[0];
+      const [url, opts] = mockFetch.mock.calls[1];
       expect(url).toContain('/api/subscribers');
       expect(opts.method).toBe('POST');
       const body = JSON.parse(opts.body);
@@ -75,8 +78,47 @@ describe('listmonkService', () => {
       expect(body.name).toBe('User');
     });
 
+    it('re-enables existing blocklisted subscriber', async () => {
+      // getSubscriberByEmail → found
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 42 }] } }));
+      // GET subscriber details
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        data: { email: 'user@test.com', name: 'User', status: 'blocklisted', attribs: { existing: 'val' } },
+      }));
+      // PUT to re-enable
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+      // addToLists
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+
+      const result = await listmonkService.subscribe('user@test.com', 'User');
+      expect(result).toBe(true);
+
+      const putBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(putBody.status).toBe('enabled');
+      expect(putBody.attribs).toEqual({ existing: 'val' });
+    });
+
+    it('skips re-enable PUT for already-enabled subscriber', async () => {
+      // getSubscriberByEmail → found
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 42 }] } }));
+      // GET subscriber details (already enabled)
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        data: { email: 'user@test.com', name: 'User', status: 'enabled', attribs: {} },
+      }));
+      // addToLists
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+
+      const result = await listmonkService.subscribe('user@test.com', 'User');
+      expect(result).toBe(true);
+      // No PUT call — only lookup, GET details, addToLists
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
     it('returns false on API error', async () => {
-      mockFetch.mockResolvedValue(jsonResponse({ message: 'error' }, 500));
+      // getSubscriberByEmail → not found
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [] } }));
+      // POST create → error
+      mockFetch.mockResolvedValueOnce(jsonResponse({ message: 'error' }, 500));
 
       const result = await listmonkService.subscribe('user@test.com');
       expect(result).toBe(false);
@@ -90,39 +132,52 @@ describe('listmonkService', () => {
     });
 
     it('uses default list when no listIds provided', async () => {
-      mockFetch.mockResolvedValue(jsonResponse({ data: { id: 1 } }));
+      // getSubscriberByEmail → not found
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [] } }));
+      // POST create
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: 1 } }));
 
       await listmonkService.subscribe('user@test.com');
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.lists).toEqual([{ id: 1 }]);
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.lists).toEqual([1]);
     });
 
     it('uses custom listIds when provided', async () => {
-      mockFetch.mockResolvedValue(jsonResponse({ data: { id: 1 } }));
+      // getSubscriberByEmail → not found
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [] } }));
+      // POST create
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: 1 } }));
 
       await listmonkService.subscribe('user@test.com', null, [3, 4]);
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.lists).toEqual([{ id: 3 }, { id: 4 }]);
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.lists).toEqual([3, 4]);
     });
   });
 
   describe('unsubscribe', () => {
-    it('blocklists subscriber', async () => {
+    it('blocklists subscriber while preserving data', async () => {
       // First call: getSubscriberByEmail search
       mockFetch.mockResolvedValueOnce(
         jsonResponse({ data: { results: [{ id: 42, email: 'user@test.com', name: 'User', status: 'enabled' }] } }),
       );
-      // Second call: PUT to blocklist
+      // Second call: GET subscriber details
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: { email: 'user@test.com', name: 'User', status: 'enabled', attribs: { tier: 'free' } } }),
+      );
+      // Third call: PUT to blocklist
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       const result = await listmonkService.unsubscribe('user@test.com');
       expect(result).toBe(true);
 
-      const [url, opts] = mockFetch.mock.calls[1];
+      const [url, opts] = mockFetch.mock.calls[2];
       expect(url).toContain('/api/subscribers/42');
       expect(opts.method).toBe('PUT');
       const body = JSON.parse(opts.body);
       expect(body.status).toBe('blocklisted');
+      expect(body.email).toBe('user@test.com');
+      expect(body.name).toBe('User');
+      expect(body.attribs).toEqual({ tier: 'free' });
     });
 
     it('returns false when subscriber not found', async () => {

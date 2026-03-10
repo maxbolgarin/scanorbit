@@ -243,6 +243,11 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
     throw err;
   }
 
+  // Immediately stop marketing emails (subscriber is fully deleted when retention runs)
+  listmonkService.unsubscribe(user.email).catch((err) =>
+    logger.warn('listmonk: failed to unsubscribe on deletion request', { error: (err as Error).message })
+  );
+
   // Log this sensitive operation
   await logDataAccess(
     userId,

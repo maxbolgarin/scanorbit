@@ -235,12 +235,13 @@ stripeRoute.post('/webhook', async (c) => {
           if (orgId) {
             const admin = await orgService.getOrgAdminEmail(orgId);
             if (admin) {
-              listmonkService.onTrialStart(admin.email).catch((err) => logger.warn('listmonk: failed onTrialStart', { error: (err as Error).message }));
-              listmonkService.updateAttribsByEmail(admin.email, {
-                trial_started_at: new Date().toISOString(),
-                tier: 'trial',
-                plan: session.metadata?.targetTier || 'pro',
-              }).catch((err) => logger.warn('listmonk: failed updateAttribs', { error: (err as Error).message }));
+              listmonkService.onTrialStart(admin.email)
+                .then(() => listmonkService.updateAttribsByEmail(admin.email, {
+                  trial_started_at: new Date().toISOString(),
+                  tier: 'trial',
+                  plan: session.metadata?.targetTier || 'pro',
+                }))
+                .catch((err) => logger.warn('listmonk: failed onTrialStart', { error: (err as Error).message }));
               sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
             }
           }
@@ -271,12 +272,13 @@ stripeRoute.post('/webhook', async (c) => {
                 const prev = (event.data as Stripe.Event.Data & { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
                 // Trial → Active (payment confirmed)
                 if (prev?.status === 'trialing' && subscription.status === 'active') {
-                  listmonkService.onPayment(admin.email, tier).catch((err) => logger.warn('listmonk: failed onPayment', { error: (err as Error).message }));
-                  listmonkService.updateAttribsByEmail(admin.email, {
-                    paid_at: new Date().toISOString(),
-                    tier: `paid-${tier}`,
-                    plan: tier,
-                  }).catch((err) => logger.warn('listmonk: failed updateAttribs', { error: (err as Error).message }));
+                  listmonkService.onPayment(admin.email, tier)
+                    .then(() => listmonkService.updateAttribsByEmail(admin.email, {
+                      paid_at: new Date().toISOString(),
+                      tier: `paid-${tier}`,
+                      plan: tier,
+                    }))
+                    .catch((err) => logger.warn('listmonk: failed onPayment', { error: (err as Error).message }));
                   sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
                 }
                 // Plan change (Pro ↔ Team)
