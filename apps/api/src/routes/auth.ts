@@ -382,10 +382,10 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
 
   // Only enroll in marketing campaigns if user explicitly consented (GDPR Art. 7)
   if (c.req.valid('json').newsletterConsent) {
-    listmonkService.onUserSignup(user.email, user.fullName).catch((err) => logger.warn('listmonk: failed onUserSignup', { error: (err as Error).message }));
-    listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }).catch((err) => logger.warn('listmonk: failed updateAttribs', { error: (err as Error).message }));
+    listmonkService.onUserSignup(user.email, user.fullName)
+      .then(() => listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }))
+      .catch((err) => logger.warn('listmonk: failed onUserSignup', { error: (err as Error).message }));
     sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
-    listmonkService.subscribe(user.email, user.fullName).catch((err) => logger.warn('listmonk: failed subscribe', { error: (err as Error).message }));
   }
 
   return c.json({
@@ -844,8 +844,9 @@ authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json
 
   // Only enroll in marketing campaigns if user explicitly consented (GDPR Art. 7)
   if (marketingConsent) {
-    listmonkService.onUserSignup(result.email, result.fullName).catch((err) => logger.warn('listmonk: failed onUserSignup', { error: (err as Error).message }));
-    listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }).catch((err) => logger.warn('listmonk: failed updateAttribs', { error: (err as Error).message }));
+    listmonkService.onUserSignup(result.email, result.fullName)
+      .then(() => listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }))
+      .catch((err) => logger.warn('listmonk: failed onUserSignup', { error: (err as Error).message }));
     sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
   }
 
