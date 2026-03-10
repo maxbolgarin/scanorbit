@@ -25,9 +25,13 @@ newsletterRoute.post(
   async (c) => {
     const { email, name } = c.req.valid('json');
 
-    // Fire-and-forget: always return success to prevent email enumeration
-    listmonkService.subscribe(email, name).catch((err) => logger.warn('listmonk: failed subscribe', { error: (err as Error).message }));
-    sendImmediate({ sequenceName: 'subscribers', email, name }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
+    // Fire-and-forget: always return success to prevent email enumeration.
+    // sendImmediate is chained after subscribe so the subscriber exists in Listmonk
+    // before /api/tx is called (prevents 400 "Subscriber not found" race condition).
+    listmonkService
+      .subscribe(email, name)
+      .then(() => sendImmediate({ sequenceName: 'subscribers', email, name }))
+      .catch((err) => logger.warn('listmonk: newsletter flow failed', { error: (err as Error).message }));
 
     return c.json({
       message: 'Thank you for subscribing! Check your inbox for confirmation.',
