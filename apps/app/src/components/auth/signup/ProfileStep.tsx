@@ -41,7 +41,7 @@ interface ProfileStepProps {
 export function ProfileStep({ onComplete }: ProfileStepProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { setOrg } = useAuthStore();
+  const { user, setOrg } = useAuthStore();
 
   const {
     register,
@@ -51,6 +51,9 @@ export function ProfileStep({ onComplete }: ProfileStepProps) {
     formState: { errors },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
+    defaultValues: {
+      fullName: user?.fullName || "",
+    },
   });
 
   const title = watch("title");

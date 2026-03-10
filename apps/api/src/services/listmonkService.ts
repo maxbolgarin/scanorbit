@@ -435,12 +435,9 @@ export const listmonkService = {
     created_at: string;
   }>> {
     if (listId === 0) return [];
-    const q = encodeURIComponent(
-      `subscribers.id IN (SELECT subscriber_id FROM subscriber_lists WHERE list_id=${listId} AND status='confirmed')`
-    );
     const result = await apiRequest<{
       data: { results: Array<{ id: number; email: string; name: string; attribs: Record<string, unknown>; created_at: string }> }
-    }>('GET', `/api/subscribers?query=${q}&per_page=${perPage}`);
+    }>('GET', `/api/subscribers?list_id=${listId}&subscription_status=confirmed&per_page=${perPage}`);
     return result?.data?.results ?? [];
   },
 

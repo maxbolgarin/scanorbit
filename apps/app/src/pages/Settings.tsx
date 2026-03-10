@@ -1,16 +1,16 @@
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
-import { OrgSettings } from "@/components/settings/OrgSettings";
+
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { ViewingSettings } from "@/components/settings/ViewingSettings";
 import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
 import { DataPrivacySettings } from "@/components/settings/DataPrivacySettings";
-import { User, Building2, Shield, SlidersHorizontal, CreditCard, FileText } from "lucide-react";
+import { Settings2, Shield, SlidersHorizontal, CreditCard, FileText } from "lucide-react";
 
 export default function Settings() {
   const [searchParams] = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "profile";
+  const defaultTab = searchParams.get("tab") || "general";
 
   return (
     <div className="space-y-6">
@@ -23,13 +23,9 @@ export default function Settings() {
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList>
-          <TabsTrigger value="profile" className="gap-2">
-            <User className="h-4 w-4" />
-            <span className="hidden sm:inline">Profile</span>
-          </TabsTrigger>
-          <TabsTrigger value="organization" className="gap-2">
-            <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Organization</span>
+          <TabsTrigger value="general" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            <span className="hidden sm:inline">General</span>
           </TabsTrigger>
           <TabsTrigger value="viewing" className="gap-2">
             <SlidersHorizontal className="h-4 w-4" />
@@ -49,12 +45,8 @@ export default function Settings() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="general">
           <ProfileSettings />
-        </TabsContent>
-
-        <TabsContent value="organization">
-          <OrgSettings />
         </TabsContent>
 
         <TabsContent value="viewing">
