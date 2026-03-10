@@ -16,6 +16,7 @@ import { requireAuth } from '../middlewares/auth.js';
 import { logDataAccess } from '../middlewares/auditLog.js';
 import { consentService } from '../services/consentService.js';
 import { listmonkService } from '../services/listmonkService.js';
+import { logger } from '../lib/logger.js';
 import { getClientIP } from '../lib/ip.js';
 import { HTTP400Error, HTTP404Error, HTTP409Error } from '../lib/errors.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
