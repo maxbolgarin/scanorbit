@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../lib/db.js';
 import { jwt } from '../../lib/jwt.js';
-import { HTTP400Error, HTTP401Error, HTTP403Error } from '../../lib/errors.js';
+import { HTTP400Error, HTTP401Error, HTTP403Error, getPgErrorCode } from '../../lib/errors.js';
 import { users, orgs, userOrgMembers } from '../../db/schema.js';
 import type { User, Org } from '../../db/schema.js';
 import { emailService } from '../emailService.js';
@@ -357,8 +357,7 @@ async function completeSignup(
       });
   } catch (err: unknown) {
     // Handle race condition: unique constraint violation on email
-    const dbError = err as { code?: string; constraint?: string };
-    if (dbError.code === '23505') {
+    if (getPgErrorCode(err) === '23505') {
       throw new HTTP400Error('Unable to complete registration. Please try again or contact support.');
     }
     throw err;

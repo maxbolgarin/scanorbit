@@ -18,7 +18,7 @@ import { consentService } from '../services/consentService.js';
 import { listmonkService } from '../services/listmonkService.js';
 import { logger } from '../lib/logger.js';
 import { getClientIP } from '../lib/ip.js';
-import { HTTP400Error, HTTP404Error, HTTP409Error } from '../lib/errors.js';
+import { HTTP400Error, HTTP404Error, HTTP409Error, getPgErrorCode } from '../lib/errors.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import type { Variables } from '../types/index.js';
 
@@ -237,8 +237,7 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
       .returning();
   } catch (err) {
     if (err instanceof HTTP409Error) throw err;
-    const pgErr = err as { code?: string };
-    if (pgErr.code === '23505') {
+    if (getPgErrorCode(err) === '23505') {
       throw new HTTP409Error('A deletion request is already pending');
     }
     throw err;

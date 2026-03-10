@@ -63,3 +63,12 @@ export class HTTP503Error extends HTTPError {
     this.name = 'HTTP503Error';
   }
 }
+
+/**
+ * Extract the PostgreSQL error code from a raw pg error or a Drizzle-wrapped error.
+ * Drizzle ORM wraps pg errors in DrizzleQueryError, storing the original at error.cause.
+ */
+export function getPgErrorCode(error: unknown): string | undefined {
+  const e = error as { code?: string; cause?: { code?: string } };
+  return e.cause?.code ?? e.code;
+}

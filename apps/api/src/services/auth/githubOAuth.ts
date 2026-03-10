@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../lib/db.js';
-import { HTTP400Error, HTTP401Error } from '../../lib/errors.js';
+import { HTTP400Error, HTTP401Error, getPgErrorCode } from '../../lib/errors.js';
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../../db/schema.js';
 import { oauthConsentStore, twoFactorStore } from '../../lib/redis.js';
 import { encryptOAuthTokenOptional } from '../../lib/crypto.js';
@@ -166,7 +166,7 @@ async function processGithubAuth(githubUser: GitHubUserInfo): Promise<GitHubAuth
     try {
       await linkGithubAccount(existingUser[0].id, githubUser);
     } catch (error) {
-      if ((error as { code?: string }).code !== '23505') throw error;
+      if (getPgErrorCode(error) !== '23505') throw error;
       // Already linked by concurrent request, continue to login
     }
 

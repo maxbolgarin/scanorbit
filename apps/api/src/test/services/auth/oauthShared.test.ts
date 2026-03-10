@@ -30,6 +30,7 @@ vi.mock('../../../lib/redis.js', () => ({
   oauthConsentStore: {
     store: vi.fn().mockResolvedValue('consent-token-123'),
     consume: vi.fn().mockResolvedValue(null),
+    restore: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -206,8 +207,8 @@ describe('oauthShared', () => {
         },
       });
 
-      const dbError = new Error('unique violation') as Error & { code: string };
-      dbError.code = '23505';
+      const dbError = new Error('unique violation') as Error & { cause: { code: string } };
+      dbError.cause = { code: '23505' };
       vi.mocked(db.transaction).mockRejectedValue(dbError);
 
       await expect(oauthSharedMethods.completeOAuthSignup('valid-token'))
