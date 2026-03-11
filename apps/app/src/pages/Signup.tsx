@@ -33,6 +33,8 @@ interface PersistedSignupState {
   email: string;
   consent: boolean;
   timestamp: number;
+  plan?: string;
+  trial?: boolean;
 }
 
 const SIGNUP_STATE_KEY = "scanorbit_signup_state";
@@ -57,13 +59,21 @@ function loadPersistedState(): PersistedSignupState | null {
   }
 }
 
-function savePersistedState(step: SignupStep, email: string, consent: boolean): void {
+function savePersistedState(
+  step: SignupStep,
+  email: string,
+  consent: boolean,
+  plan?: string,
+  trial?: boolean,
+): void {
   // Only persist non-sensitive data - signupToken stays in memory only
   const persisted: PersistedSignupState = {
     step,
     email,
     consent,
     timestamp: Date.now(),
+    plan,
+    trial,
   };
   sessionStorage.setItem(SIGNUP_STATE_KEY, JSON.stringify(persisted));
 }
@@ -85,6 +95,13 @@ export default function Signup() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, hasOrg, checkAuth } = useAuthStore();
 
+  // Read trial intent from URL or persisted state
+  const urlPlan = searchParams.get("plan");
+  const urlTrial = searchParams.get("trial") === "1";
+  const persisted = loadPersistedState();
+  const trialPlan = urlPlan || persisted?.plan;
+  const trialIntent = urlTrial || persisted?.trial || false;
+
   // Handle OAuth callback
   useEffect(() => {
     const oauthStatus = searchParams.get("oauth");
@@ -95,7 +112,12 @@ export default function Signup() {
       checkAuth().then(() => {
         // Clear query params
         setSearchParams({}, { replace: true });
-        // Navigate based on org status (checkAuth will update hasOrg)
+        // If user completed OAuth and has org, check for trial intent
+        const saved = loadPersistedState();
+        if (saved?.plan && saved?.trial) {
+          clearPersistedState();
+          navigate(`/trial-checkout?plan=${saved.plan}`, { replace: true });
+        }
       });
     } else if (error) {
       // Show error message
@@ -147,9 +169,9 @@ export default function Signup() {
   // Persist state changes (without sensitive signupToken)
   useEffect(() => {
     if (step < 4) {
-      savePersistedState(step, state.email, state.consent);
+      savePersistedState(step, state.email, state.consent, trialPlan || undefined, trialIntent || undefined);
     }
-  }, [step, state.email, state.consent]);
+  }, [step, state.email, state.consent, trialPlan, trialIntent]);
 
   const handleEmailNext = (email: string, consent: boolean) => {
     setState((prev) => ({ ...prev, email, consent }));
@@ -166,9 +188,17 @@ export default function Signup() {
   };
 
   const handleComplete = () => {
-    // Clear persisted state and redirect to dashboard
+    // Check for trial intent before clearing state
+    const saved = loadPersistedState();
+    const plan = saved?.plan;
+    const trial = saved?.trial;
     clearPersistedState();
-    navigate("/overview");
+
+    if (plan && trial && ["pro", "team"].includes(plan)) {
+      navigate(`/trial-checkout?plan=${plan}`, { replace: true });
+    } else {
+      navigate("/overview");
+    }
   };
 
   const handleBackToEmail = () => {

@@ -244,7 +244,7 @@ export function TwoFactorSetup({ open, onOpenChange, onSuccess }: TwoFactorSetup
 
         {step === "recovery" && recoveryCodes.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-lg border border-green-500/50 bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400">
+            <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-3 text-sm text-success">
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
               Two-factor authentication is now enabled!
             </div>
@@ -271,7 +271,7 @@ export function TwoFactorSetup({ open, onOpenChange, onSuccess }: TwoFactorSetup
               </Button>
             </div>
 
-            <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+            <div className="rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm text-warning">
               <p className="font-medium mb-1">Important:</p>
               <ul className="list-disc list-inside space-y-1 text-xs">
                 <li>Each code can only be used once</li>

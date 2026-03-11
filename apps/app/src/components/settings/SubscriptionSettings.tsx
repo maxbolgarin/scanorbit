@@ -91,22 +91,36 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
   },
 };
 
-function formatTrialTimeRemaining(trialEndsAt: string | null): string | null {
+function calcTrialRemaining(trialEndsAt: string | null) {
   if (!trialEndsAt) return null;
+  const diff = new Date(trialEndsAt).getTime() - Date.now();
+  if (diff <= 0) return null;
+  const days = Math.floor(diff / 86_400_000);
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+  const minutes = Math.floor((diff % 3_600_000) / 60_000);
+  return { days, hours, minutes };
+}
 
-  const endDate = new Date(trialEndsAt);
-  const now = new Date();
-  const diffMs = endDate.getTime() - now.getTime();
-
-  if (diffMs <= 0) return null;
-
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-  if (days > 0) {
-    return `${days} day${days !== 1 ? 's' : ''} remaining`;
+function formatTrialRemaining(r: { days: number; hours: number; minutes: number }): string {
+  if (r.days > 0) {
+    return `${r.days}d ${r.hours}h ${r.minutes}min`;
   }
-  return `${hours} hour${hours !== 1 ? 's' : ''} remaining`;
+  if (r.hours > 0) {
+    return `${r.hours}h ${r.minutes}min`;
+  }
+  return `${r.minutes}min`;
+}
+
+function useTrialCountdown(trialEndsAt: string | null) {
+  const [remaining, setRemaining] = useState(() => calcTrialRemaining(trialEndsAt));
+
+  useEffect(() => {
+    if (!trialEndsAt) return;
+    const id = setInterval(() => setRemaining(calcTrialRemaining(trialEndsAt)), 60_000);
+    return () => clearInterval(id);
+  }, [trialEndsAt]);
+
+  return remaining;
 }
 
 export function SubscriptionSettings() {
@@ -252,8 +266,8 @@ export function SubscriptionSettings() {
       return;
     }
 
-    // If trialing, switch plan directly (preserves trial period)
-    if (status?.subscriptionStatus === 'trialing' && tier !== 'free') {
+    // If trialing and not pending cancellation, switch plan directly (preserves trial period)
+    if (status?.subscriptionStatus === 'trialing' && tier !== 'free' && !status?.subscriptionEndsAt) {
       switchPlanMutation.mutate(tier);
       return;
     }
@@ -283,7 +297,8 @@ export function SubscriptionSettings() {
 
   const currentTier = (status?.tier || org?.tier || "free") as SubscriptionTier;
   const subscriptionStatus = status?.subscriptionStatus || 'none';
-  const trialTimeRemaining = formatTrialTimeRemaining(status?.trialEndsAt || null);
+  const trialCountdown = useTrialCountdown(status?.trialEndsAt || null);
+  const trialTimeRemaining = trialCountdown ? formatTrialRemaining(trialCountdown) : null;
 
   if (isLoading) {
     return (
@@ -295,8 +310,8 @@ export function SubscriptionSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Trial Status Alert - only show when Stripe is enabled */}
-      {status?.stripeEnabled && subscriptionStatus === 'trialing' && trialTimeRemaining && (
+      {/* Trial Status Alert - only show when Stripe is enabled and not pending cancellation */}
+      {status?.stripeEnabled && subscriptionStatus === 'trialing' && trialTimeRemaining && !status?.subscriptionEndsAt && (
         <Alert>
           <Clock className="h-4 w-4" />
           <AlertTitle>Free Trial Active</AlertTitle>
@@ -325,8 +340,8 @@ export function SubscriptionSettings() {
         </Alert>
       )}
 
-      {/* Canceling Alert - subscription is active but will end */}
-      {status?.stripeEnabled && subscriptionStatus === 'active' && status?.subscriptionEndsAt && (
+      {/* Canceling Alert - subscription is active or trialing but will end */}
+      {status?.stripeEnabled && (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') && status?.subscriptionEndsAt && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Subscription Ending</AlertTitle>

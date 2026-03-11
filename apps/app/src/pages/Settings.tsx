@@ -9,7 +9,7 @@ import { DataPrivacySettings } from "@/components/settings/DataPrivacySettings";
 import { Settings2, Shield, SlidersHorizontal, CreditCard, FileText } from "lucide-react";
 
 export default function Settings() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") || "general";
 
   return (
@@ -21,7 +21,13 @@ export default function Settings() {
         </p>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-6">
+      <Tabs
+        defaultValue={defaultTab}
+        className="space-y-6"
+        onValueChange={(value) =>
+          setSearchParams((prev) => { prev.set("tab", value); return prev; })
+        }
+      >
         <TabsList>
           <TabsTrigger value="general" className="gap-2">
             <Settings2 className="h-4 w-4" />
