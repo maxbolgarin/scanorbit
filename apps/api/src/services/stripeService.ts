@@ -327,8 +327,8 @@ export const stripeService = {
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         subscriptionEndsAt: subscription.cancel_at
           ? new Date(subscription.cancel_at * 1000)
-          : subscription.cancel_at_period_end && subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000)
+          : subscription.cancel_at_period_end && subscription.trial_end
+            ? new Date(subscription.trial_end * 1000)
             : null,
         updatedAt: new Date(),
       })
@@ -379,12 +379,12 @@ export const stripeService = {
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
     // Determine subscription end date:
-    // - cancel_at is set for immediate future cancellation date
-    // - cancel_at_period_end means it will cancel at current_period_end
+    // - cancel_at is set when canceling at a future date (including cancel_at_period_end)
+    // - Fallback to trial_end if cancel_at_period_end is set but cancel_at is missing
     const subscriptionEndsAt = subscription.cancel_at
       ? new Date(subscription.cancel_at * 1000)
-      : subscription.cancel_at_period_end && subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
+      : subscription.cancel_at_period_end && subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
         : null;
 
     await db
