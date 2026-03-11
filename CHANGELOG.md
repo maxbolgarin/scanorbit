@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.25.0](https://github.com/maxbolgarin/scanorbit/compare/v1.24.0...v1.25.0) (2026-03-11)
+
+### Features
+
+* 8~y ([b7cadb9](https://github.com/maxbolgarin/scanorbit/commit/b7cadb91d20bc212fe0208d82b75d616976650d0))
+* **billing:** add trial checkout flow and prevent plan switching on canceled subscriptions ([d1776f5](https://github.com/maxbolgarin/scanorbit/commit/d1776f542d8d0e95dc8d85efc8c694ee04ab516e))
+* **db:** add processing_restricted flag to users table for gdpr compliance ([316c825](https://github.com/maxbolgarin/scanorbit/commit/316c8252f4510493575872cf0f5618f60c0c20f9))
+* **services:** add listmonk email template configuration with drip campaign support ([f4a635f](https://github.com/maxbolgarin/scanorbit/commit/f4a635ffb730c075fca2d0156b06364fea64c80c))
+* **services:** add sequential listmonk operations for gdpr deletion and trial/payment workflows ([f630876](https://github.com/maxbolgarin/scanorbit/commit/f6308768296e1d23b1c60757abe7d558ad564098))
+
+### Bug Fixes
+
+* **api:** ensure listmonk signup operations execute sequentially with proper error handling ([79423fb](https://github.com/maxbolgarin/scanorbit/commit/79423fbe63b9f0941da826716f57bcc823f8c96f))
+* **auth:** add error handling for redis json parsing and prevent date serialization issues ([0a9cbd2](https://github.com/maxbolgarin/scanorbit/commit/0a9cbd2ec20b8dc95de4438e6d851c56d6e1ac15))
+* **auth:** ensure oauth token expiry is properly converted to date object ([9b17bc1](https://github.com/maxbolgarin/scanorbit/commit/9b17bc1dac49a6b35c318fceb540f6f3158acfe0))
+* **auth:** include organization creation timestamp in user profile response ([66286bf](https://github.com/maxbolgarin/scanorbit/commit/66286bfc50e2c94ec44670f82065a366ac4d8c73))
+* **db:** use journal entry timestamps for migration tracking and remove stale drizzle schema ([ac0f561](https://github.com/maxbolgarin/scanorbit/commit/ac0f5615a5283443aa3d0ff99df23db3ef286b71))
+* **gdpr:** add missing logger import for error handling ([8447434](https://github.com/maxbolgarin/scanorbit/commit/84474342d707fd073beace0d0628dc0e4b1d1f5c))
+* **newsletter:** chain listmonk subscribe and sendImmediate to prevent race condition and improve healthcheck ([4bee259](https://github.com/maxbolgarin/scanorbit/commit/4bee2597de47d3b9138c5703e3b7a814f91ac439))
+* **services:** use trial_end instead of current_period_end for subscription end date calculation ([66c2729](https://github.com/maxbolgarin/scanorbit/commit/66c27292ee73253b879ae9c5a7f8403ea13477e0))
+
+### Code Refactoring
+
+* **auth:** extract error handling utilities and add oauth token recovery mechanism ([8dc5be5](https://github.com/maxbolgarin/scanorbit/commit/8dc5be517689ffefa4f647756f0ef0fba7b4ab22))
+* **db:** simplify migration tracking with maxEntries limit and improve applied migration detection ([19383ee](https://github.com/maxbolgarin/scanorbit/commit/19383eed18f5c7054c34cfd8d6391eb2bd4b5dd3))
+* **listmonk-setup:** add type safety with interfaces and extract list fetching logic ([7a4dae3](https://github.com/maxbolgarin/scanorbit/commit/7a4dae3c9ffc3b609c3fc9bb2970bed6fba6141d))
+* **services:** remove unused listmonk default list id configuration and simplify migration sync logic ([cc7b6ff](https://github.com/maxbolgarin/scanorbit/commit/cc7b6ffb87ae091e7e1991ca5b1a4e2b87991221))
+* **services:** simplify listmonk subscriber lookup and improve query efficiency ([4c2314f](https://github.com/maxbolgarin/scanorbit/commit/4c2314ffd2f6a1f8def1eda6c7faf364eb7e514e))
+* **settings:** improve password management ui with edit mode and update header navigation label ([3f613e2](https://github.com/maxbolgarin/scanorbit/commit/3f613e23760d7eb5ec22f4e08205ffbbd34df6e8))
+* **settings:** reorganize settings pages and consolidate org/profile configuration with improved listmonk query handling ([e8d7dec](https://github.com/maxbolgarin/scanorbit/commit/e8d7decd405a8b5dca8ed1b377a400bd074589a7))
+
+### Build System
+
+* **deploy:** enhance production deployment with improved ssl configuration and database migration setup ([00be61d](https://github.com/maxbolgarin/scanorbit/commit/00be61d242f43c646158ed8e9b232bfb98e20a8c))
+* **deploy:** migrate from promtail to alloy for log collection and update docker health checks to use localhost ip ([898fb55](https://github.com/maxbolgarin/scanorbit/commit/898fb5535bf5a3d1ae0fb539361e56828281b858))
+
+### Continuous Integration
+
+* **.github:** add listmonk-setup docker build workflow and expand deployment infrastructure ([994ee28](https://github.com/maxbolgarin/scanorbit/commit/994ee28e898c274d01b07bd33eaa7995d6c444ad))
+* **.github:** add production deployment workflow to build and deploy changed services ([7a1368f](https://github.com/maxbolgarin/scanorbit/commit/7a1368f4897c16ddc0e8186f040b3e09316d7f99))
+* **.github:** add telegram deployment notifications and enhance release workflow ([0af3269](https://github.com/maxbolgarin/scanorbit/commit/0af3269d9d9e08e0e24f57c3175a64669690dba5))
+* **.github:** consolidate build workflows and add manual deployment inputs with environment and tag selection ([4c07957](https://github.com/maxbolgarin/scanorbit/commit/4c07957ad10ba87e30c596b5ca4cd24c6edea16b))
+
+### Docs
+
+* **email:** update listmonk list and template ids to reflect current configuration ([064809d](https://github.com/maxbolgarin/scanorbit/commit/064809d8b6fa4c7a3db031504d58ab138554cd32))
+
 ## [1.24.0](https://github.com/maxbolgarin/scanorbit/compare/v1.23.0...v1.24.0) (2026-03-10)
 
 ### Features
