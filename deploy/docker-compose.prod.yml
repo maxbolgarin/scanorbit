@@ -559,9 +559,8 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        # Install crond (already in Alpine)
-        # Create crontab for daily retention cleanup at 03:00 UTC
-        echo "0 3 * * * cd /app/apps/api && node dist/jobs/retention-cleanup.js >> /var/log/retention.log 2>&1" | crontab -
+        # Write crontab directly (avoids crontab SUID requirement in containers)
+        echo "0 3 * * * cd /app/apps/api && node dist/jobs/retention-cleanup.js >> /var/log/retention.log 2>&1" > /etc/crontabs/root
         # Run crond in foreground
         crond -f -l 2
     depends_on:

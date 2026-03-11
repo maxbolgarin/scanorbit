@@ -6,7 +6,7 @@
 set -euo pipefail
 
 DEPLOY_DIR="/opt/scanorbit/deploy"
-COMPOSE="docker compose -f $DEPLOY_DIR/docker-compose.prod.yml"
+COMPOSE="docker compose -f $DEPLOY_DIR/docker-compose.yml"
 
 cd "$DEPLOY_DIR"
 
