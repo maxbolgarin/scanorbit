@@ -115,6 +115,7 @@ function useTrialCountdown(trialEndsAt: string | null) {
   const [remaining, setRemaining] = useState(() => calcTrialRemaining(trialEndsAt));
 
   useEffect(() => {
+    setRemaining(calcTrialRemaining(trialEndsAt));
     if (!trialEndsAt) return;
     const id = setInterval(() => setRemaining(calcTrialRemaining(trialEndsAt)), 60_000);
     return () => clearInterval(id);
