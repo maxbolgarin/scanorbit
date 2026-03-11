@@ -17,6 +17,7 @@ const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 const CreateOrg = lazy(() => import("@/pages/onboarding/CreateOrg"));
 const AwsSetup = lazy(() => import("@/pages/onboarding/AwsSetup"));
 const Scanning = lazy(() => import("@/pages/onboarding/Scanning"));
+const TrialCheckout = lazy(() => import("@/pages/TrialCheckout"));
 
 // Overview pages (Organization-wide merged view)
 const Overview = lazy(() => import("@/pages/Overview"));
@@ -131,6 +132,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <Scanning />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Trial checkout — redirects to Stripe */}
+          <Route
+            path="/trial-checkout"
+            element={
+              <ProtectedRoute>
+                <TrialCheckout />
               </ProtectedRoute>
             }
           />

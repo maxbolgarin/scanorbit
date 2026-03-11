@@ -260,6 +260,11 @@ export const stripeService = {
     }
 
     const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
+
+    if (subscription.cancel_at_period_end || subscription.status === 'canceled') {
+      throw new HTTP400Error('Cannot switch plan on a canceled subscription. Please resubscribe.');
+    }
+
     const newPriceId = getPriceIdForTier(targetTier);
 
     const subscriptionItem = subscription.items.data[0];
@@ -322,7 +327,9 @@ export const stripeService = {
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         subscriptionEndsAt: subscription.cancel_at
           ? new Date(subscription.cancel_at * 1000)
-          : null,
+          : subscription.cancel_at_period_end && subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000)
+            : null,
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));
@@ -371,15 +378,22 @@ export const stripeService = {
     // If subscription is canceled or unpaid, downgrade to free
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
+    // Determine subscription end date:
+    // - cancel_at is set for immediate future cancellation date
+    // - cancel_at_period_end means it will cancel at current_period_end
+    const subscriptionEndsAt = subscription.cancel_at
+      ? new Date(subscription.cancel_at * 1000)
+      : subscription.cancel_at_period_end && subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000)
+        : null;
+
     await db
       .update(orgs)
       .set({
         subscriptionStatus: status,
         tier: finalTier,
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-        subscriptionEndsAt: subscription.cancel_at
-          ? new Date(subscription.cancel_at * 1000)
-          : null,
+        subscriptionEndsAt,
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));

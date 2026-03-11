@@ -46,7 +46,17 @@ export function PublicRoute({ children }: PublicRouteProps) {
     if (!hasOrg && location.pathname === "/signup") {
       return <>{children}</>;
     }
-    return <Navigate to={hasOrg ? "/overview" : "/signup"} replace />;
+    if (hasOrg) {
+      // Check if user came from a "Start Free Trial" button on the landing page
+      const params = new URLSearchParams(location.search);
+      const plan = params.get("plan");
+      const trial = params.get("trial");
+      if (plan && trial === "1" && ["pro", "team"].includes(plan)) {
+        return <Navigate to={`/trial-checkout?plan=${plan}`} replace />;
+      }
+      return <Navigate to="/overview" replace />;
+    }
+    return <Navigate to="/signup" replace />;
   }
 
   return <>{children}</>;
