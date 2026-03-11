@@ -10,4 +10,4 @@ if [ -f /run/secrets/postgres_password ]; then
   export DATA_SOURCE_NAME="postgresql://${POSTGRES_USER:-scanorbit}:${PG_PASS}@postgres:5432/${POSTGRES_DB:-scanorbit}?sslmode=require&sslrootcert=/certs/ca.crt"
 fi
 
-exec /postgres_exporter "$@"
+exec /bin/postgres_exporter "$@"

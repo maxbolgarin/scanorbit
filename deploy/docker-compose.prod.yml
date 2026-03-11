@@ -160,8 +160,8 @@ services:
       - scanorbit
     # Note: don't put this behind a `profile`. The `api` service depends on `migrate`,
     # and Docker Compose treats non-enabled profile services as undefined.
-    # Note: No Watchtower label — this is a one-shot migration job that should only
-    # run via `docker compose up`, not be auto-updated by Watchtower.
+    # Note: No auto-deploy — this is a one-shot migration job invoked explicitly by
+    # deploy.sh before the api service is restarted.
 
   # Node.js API
   # Uses so_api user — full DML on all tables, no DDL
@@ -282,8 +282,6 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # React SPA
   app:
@@ -291,8 +289,6 @@ services:
     restart: unless-stopped
     networks:
       - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Astro Landing Page
   landing:
@@ -300,8 +296,6 @@ services:
     restart: unless-stopped
     networks:
       - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Scanner Worker
   # Uses so_scanner user — RW on scan tables, RO on user/org tables
@@ -350,8 +344,6 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # Go Analyzer Worker
   # Uses so_analyzer user — RW on findings/jobs, RO on scans/resources
@@ -393,8 +385,6 @@ services:
         condition: service_healthy
     networks:
       - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
   # PostgreSQL Database (with SSL/TLS)
   # Uses built-in POSTGRES_PASSWORD_FILE support
@@ -580,69 +570,6 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
-
-  # Docker Socket Proxy - Restricts Docker API access for Watchtower
-  docker-socket-proxy:
-    image: tecnativa/docker-socket-proxy:latest
-    restart: unless-stopped
-    environment:
-      - CONTAINERS=1
-      - IMAGES=1
-      - NETWORKS=0
-      - VOLUMES=0
-      - POST=1
-      - BUILD=0
-      - COMMIT=0
-      - CONFIGS=0
-      - DISTRIBUTION=0
-      - EXEC=0
-      - GRPC=0
-      - INFO=1
-      - NODES=0
-      - PLUGINS=0
-      - SECRETS=0
-      - SERVICES=0
-      - SESSION=0
-      - SWARM=0
-      - SYSTEM=0
-      - TASKS=0
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - watchtower-internal
-
-  # Watchtower - Auto-update containers from GHCR
-  watchtower:
-    image: containrrr/watchtower:latest
-    restart: unless-stopped
-    environment:
-      - DOCKER_HOST=tcp://docker-socket-proxy:2375
-      # Required: Docker 27+ requires API version 1.44+
-      - DOCKER_API_VERSION=1.47
-      # Tell Watchtower where to find Docker credentials
-      - DOCKER_CONFIG=/config
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300
-      - WATCHTOWER_INCLUDE_LABELS=true
-      - WATCHTOWER_SCOPE=scanorbit
-      - WATCHTOWER_INCLUDE_RESTARTING=true
-      # Rolling restarts disabled - incompatible with containers that have dependencies
-      # - WATCHTOWER_ROLLING_RESTART=true
-      - WATCHTOWER_TIMEOUT=60s
-      - WATCHTOWER_NOTIFICATIONS=shoutrrr
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
-    volumes:
-      # Mount Docker config directory for GHCR authentication
-      # Set DOCKER_CONFIG_PATH in .env (e.g., /root/.docker or /home/deploy/.docker)
-      - ${DOCKER_CONFIG_PATH:-/root/.docker}:/config:ro
-    command: --interval 300
-    depends_on:
-      - docker-socket-proxy
-    networks:
-      - watchtower-internal
       - scanorbit
 
   # Prometheus - Metrics collection
@@ -932,8 +859,6 @@ services:
     restart: unless-stopped
     networks:
       - scanorbit
-    labels:
-      - "com.centurylinklabs.watchtower.scope=scanorbit"
 
 volumes:
   redis_data:
@@ -951,6 +876,3 @@ networks:
     ipam:
       config:
         - subnet: 172.22.0.0/16
-  watchtower-internal:
-    driver: bridge
-    internal: true
