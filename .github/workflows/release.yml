@@ -299,3 +299,27 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Production
+    needs: [build-api, build-app, build-landing, build-workers, build-listmonk-setup]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      contains(needs.*.result, 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy changed services
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_DEPLOY_HOST }}
+          username: ${{ secrets.PROD_DEPLOY_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          script: |
+            SERVICES=""
+            [ "${{ needs.build-api.result }}" = "success" ] && SERVICES="$SERVICES api"
+            [ "${{ needs.build-app.result }}" = "success" ] && SERVICES="$SERVICES app"
+            [ "${{ needs.build-landing.result }}" = "success" ] && SERVICES="$SERVICES landing"
+            [ "${{ needs.build-workers.result }}" = "success" ] && SERVICES="$SERVICES scanner analyzer"
+            [ "${{ needs.build-listmonk-setup.result }}" = "success" ] && SERVICES="$SERVICES listmonk-setup"
