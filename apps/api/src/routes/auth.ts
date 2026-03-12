@@ -384,8 +384,8 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   if (c.req.valid('json').newsletterConsent) {
     listmonkService.onUserSignup(user.email, user.fullName)
       .then(() => listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }))
-      .catch((err) => logger.warn('listmonk: failed onUserSignup', { error: (err as Error).message }));
-    sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
+      .then(() => sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }))
+      .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
   }
 
   return c.json({
@@ -846,8 +846,8 @@ authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json
   if (marketingConsent) {
     listmonkService.onUserSignup(result.email, result.fullName)
       .then(() => listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }))
-      .catch((err) => logger.warn('listmonk: failed onUserSignup', { error: (err as Error).message }));
-    sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
+      .then(() => sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }))
+      .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
   }
 
   return c.json({

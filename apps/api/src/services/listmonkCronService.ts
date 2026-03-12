@@ -1,4 +1,4 @@
-import { eq, and, sql, gte, count } from 'drizzle-orm';
+import { eq, and, sql, gte, count, inArray } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { orgs, scans, users, userOrgMembers, findings } from '../db/schema.js';
@@ -81,18 +81,33 @@ async function processFirstScanCompletions(): Promise<void> {
         .where(and(eq(findings.orgId, row.orgId), eq(findings.status, 'open')))
         .groupBy(findings.severity);
 
-      const stats: Record<string, number> = { high: 0, medium: 0, low: 0 };
+      const stats: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
       for (const s of severityCounts) {
         stats[s.severity] = Number(s.total);
       }
       const totalFindings = Object.values(stats).reduce((a, b) => a + b, 0);
 
+      const COST_FINDING_TYPES = [
+        'orphaned_volume', 'orphaned_eip', 'orphaned_snapshot',
+        'unused_resource', 'stopped_instance', 'unused_log_group',
+      ];
+      const [costCount] = await db
+        .select({ total: count() })
+        .from(findings)
+        .where(and(
+          eq(findings.orgId, row.orgId),
+          eq(findings.status, 'open'),
+          inArray(findings.type, COST_FINDING_TYPES),
+        ));
+
       const scanData = {
         scan_completed_at: new Date().toISOString(),
+        critical_count: stats.critical,
         high_count: stats.high,
         medium_count: stats.medium,
         low_count: stats.low,
         total_findings: totalFindings,
+        cost_count: Number(costCount?.total ?? 0),
       };
 
       await listmonkService.updateAttribsByEmail(email, scanData);
@@ -145,6 +160,7 @@ async function processListTransitions(): Promise<void> {
   try {
     await processFirstScanCompletions();
     await processTrialActiveTransitions();
+    await listmonkService.cleanupExpiredTrialActive();
   } catch (error) {
     logger.error('[ListmonkCron] Error processing list transitions', error as Error);
   }

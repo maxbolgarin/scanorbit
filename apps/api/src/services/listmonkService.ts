@@ -22,6 +22,7 @@ function isConfigured(): boolean {
 function listsConfigured(): boolean {
   const l = listmonkConfig.lists;
   return isConfigured() && (
+    l.coldLeads > 0 || l.subscribers > 0 ||
     l.freeNew > 0 || l.freeScanned > 0 || l.trialNew > 0 ||
     l.trialActive > 0 || l.paidPro > 0 || l.paidTeam > 0
   );
@@ -295,7 +296,7 @@ export const listmonkService = {
 
       await moveSubscriber(
         subscriber.id,
-        [lists.freeNew, lists.freeScanned],
+        [lists.freeNew, lists.freeScanned, lists.subscribers, lists.coldLeads],
         [lists.trialNew],
       );
       logger.info(`[Listmonk] onTrialStart: ${maskEmail(email)} → trial-new`);
@@ -334,7 +335,7 @@ export const listmonkService = {
       const targetList = tier === 'team' ? lists.paidTeam : lists.paidPro;
       await moveSubscriber(
         subscriber.id,
-        [lists.trialNew, lists.trialActive],
+        [lists.trialNew, lists.trialActive, lists.freeNew, lists.freeScanned],
         [targetList],
       );
       logger.info(`[Listmonk] onPayment: ${maskEmail(email)} → paid-${tier}`);
@@ -363,22 +364,59 @@ export const listmonkService = {
 
   /**
    * User churned (subscription canceled or deleted).
-   * Move from any paid/trial list to subscribers.
+   * For trial cancellations: keep in trial-active so the day-9 win-back email fires.
+   * For paid cancellations: move to subscribers immediately.
    */
-  async onChurn(email: string): Promise<void> {
+  async onChurn(email: string, isTrialCancellation = false): Promise<void> {
     if (!listsConfigured()) return;
     try {
       const subscriber = await getSubscriberByEmail(email);
       if (!subscriber) return;
 
-      await moveSubscriber(
-        subscriber.id,
-        [lists.paidPro, lists.paidTeam, lists.trialNew, lists.trialActive],
-        [lists.subscribers],
-      );
-      logger.info(`[Listmonk] onChurn: ${maskEmail(email)} → subscribers`);
+      if (isTrialCancellation) {
+        // Keep in trial-active for the day-9 win-back email.
+        // Remove from trial-new (if present) and ensure they're in trial-active.
+        // cleanupExpiredTrialActive() will move them to subscribers after the sequence ends.
+        await removeFromLists(subscriber.id, [lists.trialNew]);
+        await addToLists(subscriber.id, [lists.trialActive]);
+        logger.info(`[Listmonk] onChurn (trial): ${maskEmail(email)} → stays in trial-active for win-back`);
+      } else {
+        await moveSubscriber(
+          subscriber.id,
+          [lists.paidPro, lists.paidTeam, lists.trialNew, lists.trialActive],
+          [lists.subscribers],
+        );
+        logger.info(`[Listmonk] onChurn: ${maskEmail(email)} → subscribers`);
+      }
     } catch (error) {
       logger.error('[Listmonk] onChurn failed', error as Error);
+    }
+  },
+
+  /**
+   * Cleanup trial-active subscribers whose sequence is complete (10+ days since trial start).
+   * Called from the listmonkCron to move them to subscribers after the win-back window.
+   */
+  async cleanupExpiredTrialActive(): Promise<void> {
+    if (!listsConfigured()) return;
+    try {
+      const subs = await this.queryByList(lists.trialActive);
+      const TEN_DAYS_MS = 10 * 86_400_000;
+      const now = Date.now();
+
+      for (const sub of subs) {
+        const trialStart = sub.attribs.trial_started_at as string | undefined;
+        if (!trialStart) continue;
+        if (now - new Date(trialStart).getTime() <= TEN_DAYS_MS) continue;
+
+        const subscriber = await getSubscriberByEmail(sub.email);
+        if (!subscriber) continue;
+
+        await moveSubscriber(subscriber.id, [lists.trialActive], [lists.subscribers]);
+        logger.info(`[Listmonk] cleanupExpiredTrialActive: ${maskEmail(sub.email)} → subscribers`);
+      }
+    } catch (error) {
+      logger.error('[Listmonk] cleanupExpiredTrialActive failed', error as Error);
     }
   },
 
@@ -425,10 +463,23 @@ export const listmonkService = {
     created_at: string;
   }>> {
     if (listId === 0) return [];
-    const result = await apiRequest<{
-      data: { results: Array<{ id: number; email: string; name: string; attribs: Record<string, unknown>; created_at: string }> }
-    }>('GET', `/api/subscribers?list_id=${listId}&subscription_status=confirmed&per_page=${perPage}`);
-    return result?.data?.results ?? [];
+
+    type Sub = { id: number; email: string; name: string; attribs: Record<string, unknown>; created_at: string };
+    const allResults: Sub[] = [];
+    let page = 1;
+
+    while (true) {
+      const result = await apiRequest<{ data: { results: Sub[] } }>(
+        'GET',
+        `/api/subscribers?list_id=${listId}&subscription_status=confirmed&per_page=${perPage}&page=${page}`,
+      );
+      const pageResults = result?.data?.results ?? [];
+      allResults.push(...pageResults);
+      if (pageResults.length < perPage) break;
+      page++;
+    }
+
+    return allResults;
   },
 
   /**

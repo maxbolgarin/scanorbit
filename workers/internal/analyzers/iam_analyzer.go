@@ -85,6 +85,11 @@ func (a *IAMAnalyzer) checkUserMFA(r *models.Resource) []*models.Finding {
 		return nil
 	}
 
+	// Skip users without console access (programmatic-only users don't need MFA)
+	if hasConsole, ok := raw["has_console_access"].(bool); ok && !hasConsole {
+		return nil
+	}
+
 	mfaEnabled, ok := raw["mfa_enabled"].(bool)
 	if ok && !mfaEnabled {
 		resourceID := r.ID

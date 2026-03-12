@@ -241,8 +241,8 @@ stripeRoute.post('/webhook', async (c) => {
                   tier: 'trial',
                   plan: session.metadata?.targetTier || 'pro',
                 }))
-                .catch((err) => logger.warn('listmonk: failed onTrialStart', { error: (err as Error).message }));
-              sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
+                .then(() => sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }))
+                .catch((err) => logger.warn('listmonk: failed onTrialStart/sendImmediate', { error: (err as Error).message }));
             }
           }
         } catch (listmonkErr) {
@@ -278,8 +278,8 @@ stripeRoute.post('/webhook', async (c) => {
                       tier: `paid-${tier}`,
                       plan: tier,
                     }))
-                    .catch((err) => logger.warn('listmonk: failed onPayment', { error: (err as Error).message }));
-                  sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }).catch((err) => logger.warn('listmonk: failed sendImmediate', { error: (err as Error).message }));
+                    .then(() => sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }))
+                    .catch((err) => logger.warn('listmonk: failed onPayment/sendImmediate', { error: (err as Error).message }));
                 }
                 // Plan change (Pro ↔ Team)
                 if (prev?.items && subscription.status === 'active') {
@@ -291,12 +291,15 @@ stripeRoute.post('/webhook', async (c) => {
                 }
                 // Subscription canceled (at period end or immediately)
                 if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
-                  listmonkService.onChurn(admin.email).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
+                  const isTrialCancel = prev?.status === 'trialing';
+                  listmonkService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
                 }
               }
 
               if (event.type === 'customer.subscription.deleted') {
-                listmonkService.onChurn(admin.email).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
+                const isTrialCancel = !!subscription.trial_end &&
+                  subscription.trial_end > Math.floor(Date.now() / 1000) - 86400 * 14;
+                listmonkService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
               }
             }
           }

@@ -15,7 +15,7 @@ func TestCheckUserMFA_Disabled(t *testing.T) {
 	a := &IAMAnalyzer{}
 	r := &models.Resource{
 		ID: "res-1", Name: "admin-user",
-		Raw: json.RawMessage(`{"mfa_enabled": false}`),
+		Raw: json.RawMessage(`{"mfa_enabled": false, "has_console_access": true}`),
 	}
 	findings := a.checkUserMFA(r)
 	if len(findings) != 1 {
@@ -31,9 +31,20 @@ func TestCheckUserMFA_Disabled(t *testing.T) {
 
 func TestCheckUserMFA_Enabled(t *testing.T) {
 	a := &IAMAnalyzer{}
-	r := &models.Resource{Raw: json.RawMessage(`{"mfa_enabled": true}`)}
+	r := &models.Resource{Raw: json.RawMessage(`{"mfa_enabled": true, "has_console_access": true}`)}
 	if findings := a.checkUserMFA(r); len(findings) != 0 {
 		t.Fatalf("expected 0 findings")
+	}
+}
+
+func TestCheckUserMFA_NoConsoleAccess(t *testing.T) {
+	a := &IAMAnalyzer{}
+	r := &models.Resource{
+		ID: "res-1", Name: "programmatic-user",
+		Raw: json.RawMessage(`{"mfa_enabled": false, "has_console_access": false}`),
+	}
+	if findings := a.checkUserMFA(r); len(findings) != 0 {
+		t.Fatalf("expected 0 findings for programmatic-only user, got %d", len(findings))
 	}
 }
 
@@ -231,8 +242,8 @@ func TestIAMAnalyzer_Analyze(t *testing.T) {
 
 	mocks.Resources.GetByAccountIDFn = func(_ context.Context, _ string) ([]*models.Resource, error) {
 		return []*models.Resource{
-			{ID: "1", Service: models.ServiceIAMUser, Name: "no-mfa", Raw: json.RawMessage(`{"mfa_enabled": false}`)},
-			{ID: "2", Service: models.ServiceIAMUser, Name: "has-mfa", Raw: json.RawMessage(`{"mfa_enabled": true}`)},
+			{ID: "1", Service: models.ServiceIAMUser, Name: "no-mfa", Raw: json.RawMessage(`{"mfa_enabled": false, "has_console_access": true}`)},
+			{ID: "2", Service: models.ServiceIAMUser, Name: "has-mfa", Raw: json.RawMessage(`{"mfa_enabled": true, "has_console_access": true}`)},
 			{ID: "3", Service: models.ServiceIAMRole, Name: "old-role", Raw: json.RawMessage(`{"create_date":"` + oldCreate + `","path":"/"}`)},
 		}, nil
 	}

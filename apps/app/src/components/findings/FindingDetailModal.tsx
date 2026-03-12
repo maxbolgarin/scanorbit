@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -109,6 +109,14 @@ export function FindingDetailModal({
   const [snoozeDays, setSnoozeDays] = useState("7");
   const [snoozedUntilDate, setSnoozedUntilDate] = useState<Date | null>(null);
 
+  // Reset modal state when a different finding is opened
+  useEffect(() => {
+    setViewState("details");
+    setCompletedAction(null);
+    setSnoozeDays("7");
+    setSnoozedUntilDate(null);
+  }, [finding?.id]);
+
   if (!finding) return null;
 
   const description = getDetailString(finding.details, "description");
@@ -216,6 +224,18 @@ export function FindingDetailModal({
         </p>
       </div>
 
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium text-sm text-amber-500">Permanent action</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Future scans will skip this finding. You can reopen it manually at any time.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-lg border bg-muted/30 p-4">
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -231,7 +251,10 @@ export function FindingDetailModal({
       </div>
 
       <div className="rounded-lg border p-3 bg-card">
-        <p className="text-sm font-medium text-muted-foreground">Finding</p>
+        <div className="flex items-center gap-2 mb-1">
+          <SeverityBadge severity={finding.severity} />
+          <span className="text-sm font-medium text-muted-foreground">{typeLabels[finding.type] || finding.type}</span>
+        </div>
         <p className="mt-1">{finding.summary}</p>
       </div>
 
@@ -248,54 +271,69 @@ export function FindingDetailModal({
   );
 
   // Render confirmation for Snooze
-  const renderSnoozeConfirmation = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col items-center text-center">
-        <div className="mb-4 rounded-full bg-amber-100 p-3 dark:bg-amber-900/30">
-          <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+  const renderSnoozeConfirmation = () => {
+    const reopenDate = new Date(Date.now() + parseInt(snoozeDays) * 24 * 60 * 60 * 1000);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 rounded-full bg-amber-100 p-3 dark:bg-amber-900/30">
+            <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h3 className="text-lg font-semibold">Snooze this Finding?</h3>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md">
+            Snoozed findings are hidden until the snooze period ends.
+            If still detected after that date, the finding will reopen.
+          </p>
         </div>
-        <h3 className="text-lg font-semibold">Snooze this Finding?</h3>
-        <p className="mt-2 text-sm text-muted-foreground max-w-md">
-          Snoozed findings are hidden until the snooze period ends.
-          If still detected after that date, the finding will reopen.
-        </p>
-      </div>
 
-      <div className="rounded-lg border p-4">
-        <label className="text-sm font-medium">Snooze for</label>
-        <Select value={snoozeDays} onValueChange={setSnoozeDays}>
-          <SelectTrigger className="mt-2">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {snoozeOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground mt-2">
-          Will reopen on {new Date(Date.now() + parseInt(snoozeDays) * 24 * 60 * 60 * 1000).toLocaleDateString()}
-        </p>
-      </div>
+        <div className="rounded-lg border p-4 space-y-4">
+          <div>
+            <label className="text-sm font-medium">Snooze for</label>
+            <Select value={snoozeDays} onValueChange={setSnoozeDays}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {snoozeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="rounded-lg border p-3 bg-card">
-        <p className="text-sm font-medium text-muted-foreground">Finding</p>
-        <p className="mt-1">{finding.summary}</p>
-      </div>
+          <div className="flex items-center gap-3 rounded-md bg-amber-500/10 p-3">
+            <Clock className="h-5 w-5 text-amber-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Reopens on {reopenDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              {(finding.detectionCount || 1) > 1 && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Detected {finding.detectionCount} times so far
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
 
-      <DialogFooter className="flex-col gap-2 sm:flex-row">
-        <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
-          Cancel
-        </Button>
-        <Button onClick={handleSnooze} disabled={isUpdating} className="bg-amber-600 hover:bg-amber-700">
-          <Clock className="mr-2 h-4 w-4" />
-          Snooze Finding
-        </Button>
-      </DialogFooter>
-    </div>
-  );
+        <div className="rounded-lg border p-3 bg-card">
+          <p className="text-sm font-medium text-muted-foreground">Finding</p>
+          <p className="mt-1">{finding.summary}</p>
+        </div>
+
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
+            Cancel
+          </Button>
+          <Button onClick={handleSnooze} disabled={isUpdating} className="bg-amber-600 hover:bg-amber-700">
+            <Clock className="mr-2 h-4 w-4" />
+            Snooze Finding
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  };
 
   // Render success state
   const renderSuccessState = () => {

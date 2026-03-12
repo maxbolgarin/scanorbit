@@ -62,14 +62,24 @@ func (s *IAMScanner) ScanUsers(ctx context.Context, cfg aws.Config) ([]*models.R
 				mfaEnabled = true
 			}
 
+			// Check if user has console access (login profile)
+			hasConsoleAccess := false
+			_, lpErr := client.GetLoginProfile(ctx, &iam.GetLoginProfileInput{
+				UserName: user.UserName,
+			})
+			if lpErr == nil {
+				hasConsoleAccess = true
+			}
+
 			// Store user details in raw
 			rawData := map[string]any{
-				"user_name":   aws.ToString(user.UserName),
-				"user_id":     aws.ToString(user.UserId),
-				"arn":         arn,
-				"path":        aws.ToString(user.Path),
-				"create_date": user.CreateDate,
-				"mfa_enabled": mfaEnabled,
+				"user_name":          aws.ToString(user.UserName),
+				"user_id":            aws.ToString(user.UserId),
+				"arn":                arn,
+				"path":               aws.ToString(user.Path),
+				"create_date":        user.CreateDate,
+				"mfa_enabled":        mfaEnabled,
+				"has_console_access": hasConsoleAccess,
 			}
 			if user.PasswordLastUsed != nil {
 				rawData["password_last_used"] = user.PasswordLastUsed
