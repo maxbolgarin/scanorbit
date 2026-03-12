@@ -566,7 +566,7 @@ GRANT SELECT ON
   TO so_scanner;
 
 -- Read-write tables
-GRANT SELECT, INSERT, UPDATE ON
+GRANT SELECT, INSERT, UPDATE, DELETE ON
   aws_accounts, scans, resources, findings, resource_scans,
   finding_scans, certificates, jobs, dead_letter_jobs, resource_dependencies
   TO so_scanner;
@@ -583,13 +583,20 @@ GRANT CONNECT ON DATABASE scanorbit TO so_analyzer;
 
 -- Read-only tables
 GRANT SELECT ON
-  scans, resources, users, orgs, user_org_members, org_settings
+  scans, resources, users, orgs, user_org_members, org_settings,
+  resource_dependencies, certificates
   TO so_analyzer;
 
 -- Read-write tables
 GRANT SELECT, INSERT, UPDATE ON
   findings, finding_scans, jobs
   TO so_analyzer;
+
+-- Analyzer needs to update scan status to complete
+GRANT UPDATE ON scans TO so_analyzer;
+
+-- Analyzer needs to store failed jobs
+GRANT SELECT, INSERT ON dead_letter_jobs TO so_analyzer;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO so_analyzer;
 

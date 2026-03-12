@@ -169,6 +169,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/entrypoint/secret-entrypoint.sh"]
+    command: ["node", "dist/index.js"]
     environment:
       - NODE_ENV=production
       - PORT=4000
@@ -730,6 +731,7 @@ services:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
+      - TELEGRAM_THREAD_ID=${TELEGRAM_THREAD_ID:-0}
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
       - ./entrypoints/alertmanager-entrypoint.sh:/entrypoint.sh:ro
