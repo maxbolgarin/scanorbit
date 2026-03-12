@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import {
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { FindingStatusBadge } from "@/components/shared/StatusBadge";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { FINDING_REMEDIATIONS } from "@/lib/findingRemediations";
 import type { Finding, FindingStatus } from "@/types";
 import {
   ExternalLink,
@@ -32,6 +34,8 @@ import {
   Undo2,
   Info,
   Ban,
+  Wrench,
+  ArrowRight,
 } from "lucide-react";
 
 interface FindingDetailModalProps {
@@ -39,6 +43,7 @@ interface FindingDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (id: string, status: FindingStatus, snoozedUntil?: Date) => void;
   isUpdating?: boolean;
+  resourcePathPrefix?: string;
 }
 
 type ViewState =
@@ -103,7 +108,9 @@ export function FindingDetailModal({
   onClose,
   onUpdateStatus,
   isUpdating,
+  resourcePathPrefix,
 }: FindingDetailModalProps) {
+  const navigate = useNavigate();
   const [viewState, setViewState] = useState<ViewState>("details");
   const [completedAction, setCompletedAction] = useState<FindingStatus | null>(null);
   const [snoozeDays, setSnoozeDays] = useState("7");
@@ -430,22 +437,70 @@ export function FindingDetailModal({
           </div>
         )}
 
-        {(description || recommendation) && <Separator />}
+        {description && <Separator />}
 
-        {/* Recommendation */}
-        {recommendation && (
-          <div>
-            <h4 className="mb-2 flex items-center gap-2 font-medium">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              Recommendation
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {recommendation}
-            </p>
-          </div>
-        )}
+        {/* How to Fix */}
+        {(() => {
+          const steps = FINDING_REMEDIATIONS[finding.type];
+          const fallbackText = recommendation || getDetailString(finding.details, "action");
 
-        {recommendation && <Separator />}
+          if (!steps && !fallbackText) return null;
+
+          return (
+            <>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-amber-500" />
+                  <h4 className="font-medium">How to Fix</h4>
+                  {docUrl && (
+                    <a
+                      href={docUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      AWS Docs
+                    </a>
+                  )}
+                </div>
+                {steps ? (
+                  <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
+                    {steps.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{fallbackText}</p>
+                )}
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {finding.resourceId && resourcePathPrefix && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        handleClose();
+                        navigate(`${resourcePathPrefix}/resources/${finding.resourceId}`);
+                      }}
+                    >
+                      <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+                      View Resource
+                    </Button>
+                  )}
+                  {awsConsoleUrl && (
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={awsConsoleUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                        Open in AWS Console
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Separator />
+            </>
+          );
+        })()}
 
         {/* Detection Lifecycle */}
         <div className="rounded-lg border bg-muted/30 p-4">
@@ -523,34 +578,6 @@ export function FindingDetailModal({
           )}
         </div>
 
-        {awsConsoleUrl && (
-          <>
-            <Separator />
-            <Button variant="outline" asChild className="w-full">
-              <a
-                href={awsConsoleUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open in AWS Console
-              </a>
-            </Button>
-          </>
-        )}
-
-        {docUrl && (
-          <Button variant="outline" asChild className="w-full">
-            <a
-              href={docUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              View AWS Documentation
-            </a>
-          </Button>
-        )}
       </div>
 
       {finding.status === "open" && (

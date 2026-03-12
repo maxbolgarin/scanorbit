@@ -62,6 +62,32 @@ vi.mock('../../lib/config.js', () => ({
       paidPro: 7,
       paidTeam: 8,
     },
+    templates: {
+      freeNewDay0Welcome: 101,
+      freeNewDay2Security: 102,
+      freeNewDay5Value: 103,
+      freeScannedDay0Results: 104,
+      freeScannedDay2Critical: 105,
+      freeScannedDay5Cost: 106,
+      freeScannedDay10Breakup: 107,
+      trialNewDay0Welcome: 108,
+      trialNewDay3Stuck: 109,
+      trialActiveDay3Deepen: 110,
+      trialActiveDay5Warning: 111,
+      trialActiveDay6Lastday: 112,
+      trialActiveDay9Winback: 113,
+      subsDay0Welcome: 114,
+      subsDay3Security: 115,
+      subsDay7Cost: 116,
+      subsDay11Gdpr: 117,
+      subsDay16SocialProof: 118,
+      subsDay21FinalCta: 119,
+      coldDay0Pain: 120,
+      coldDay4Gdpr: 121,
+      coldDay10Breakup: 122,
+      paidProDay0Welcome: 123,
+      paidTeamDay0Welcome: 124,
+    },
   },
 }));
 
@@ -207,7 +233,7 @@ describe('dripSchedulerService', () => {
 
       expect(mockListmonkService.sendTx).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ first_name: '' }),
+          data: expect.objectContaining({ first_name: 'there' }),
         }),
       );
     });

@@ -453,8 +453,6 @@ describe('listmonkService', () => {
           ],
         },
       }));
-      // getSubscriberByEmail for expired@test.com
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 20, email: 'expired@test.com' }] } }));
       // removeFromLists (trial-active)
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       // addToLists (subscribers)
@@ -463,11 +461,11 @@ describe('listmonkService', () => {
       await listmonkService.cleanupExpiredTrialActive();
 
       // Verify removeFromLists removes from trialActive(6)
-      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(removeBody.target_list_ids).toContain(6);
 
       // Verify addToLists adds to subscribers(2)
-      const addBody = JSON.parse(mockFetch.mock.calls[3][1].body);
+      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(addBody.target_list_ids).toContain(2);
     });
 

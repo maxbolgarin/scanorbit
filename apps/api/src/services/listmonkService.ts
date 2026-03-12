@@ -409,10 +409,7 @@ export const listmonkService = {
         if (!trialStart) continue;
         if (now - new Date(trialStart).getTime() <= TEN_DAYS_MS) continue;
 
-        const subscriber = await getSubscriberByEmail(sub.email);
-        if (!subscriber) continue;
-
-        await moveSubscriber(subscriber.id, [lists.trialActive], [lists.subscribers]);
+        await moveSubscriber(sub.id, [lists.trialActive], [lists.subscribers]);
         logger.info(`[Listmonk] cleanupExpiredTrialActive: ${maskEmail(sub.email)} → subscribers`);
       }
     } catch (error) {
