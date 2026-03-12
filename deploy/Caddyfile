@@ -47,8 +47,12 @@
 	}
 
 	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
-	@umami path /t.js /send
+	@umami path /t.js
 	reverse_proxy @umami umami:3000
+
+	handle /api/send {
+		reverse_proxy umami:3000
+	}
 
 	# Proxy API calls from landing page (newsletter subscribe, etc.)
 	handle_path /api/* {
@@ -78,8 +82,12 @@ app.{$DOMAIN} {
 	}
 
 	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
-	@umami path /t.js /send
+	@umami path /t.js
 	reverse_proxy @umami umami:3000
+
+	handle /api/send {
+		reverse_proxy umami:3000
+	}
 
 	# Route API paths to the API service (so they don't hit the SPA's nginx).
 	handle_path /api/* {
