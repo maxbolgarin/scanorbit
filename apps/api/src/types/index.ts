@@ -191,18 +191,50 @@ export const TERMINAL_SCAN_STATUSES: ScanStatus[] = [
 ];
 
 export const FindingType = {
+  // Orphan findings
   ORPHANED_VOLUME: 'orphaned_volume',
   ORPHANED_EIP: 'orphaned_eip',
   ORPHANED_SNAPSHOT: 'orphaned_snapshot',
+  ORPHANED_ENI: 'orphaned_eni',
+  IDLE_LOAD_BALANCER: 'idle_load_balancer',
+  UNUSED_SECURITY_GROUP: 'unused_security_group',
+  IDLE_NAT_GATEWAY: 'idle_nat_gateway',
+  // SSL findings
   SSL_EXPIRY: 'ssl_expiry',
+  // Compliance findings
   DATA_RESIDENCY_VIOLATION: 'data_residency_violation',
+  // Security findings
+  UNENCRYPTED_RESOURCE: 'unencrypted_resource',
+  PUBLIC_ACCESS: 'public_access',
+  PERMISSIVE_SECURITY_GROUP: 'permissive_security_group',
+  OPEN_ALL_PORTS: 'open_all_ports',
+  // Cost findings
+  UNUSED_RESOURCE: 'unused_resource',
+  STOPPED_INSTANCE: 'stopped_instance',
+  UNUSED_LOG_GROUP: 'unused_log_group',
+  EBS_OPTIMIZATION: 'ebs_optimization',
+  OLD_GEN_INSTANCE: 'old_gen_instance',
+  OVERSIZED_LAMBDA: 'oversized_lambda',
+  LOG_RETENTION: 'log_retention',
+  UNUSED_KMS_KEY: 'unused_kms_key',
+  RDS_OPTIMIZATION: 'rds_optimization',
+  OLD_GEN_RDS: 'old_gen_rds',
+  // Tagging findings
+  MISSING_TAG: 'missing_tag',
+  // IAM findings
+  USER_WITHOUT_MFA: 'user_without_mfa',
+  OLD_ACCESS_KEY: 'old_access_key',
+  UNUSED_ACCESS_KEY: 'unused_access_key',
+  UNUSED_IAM_ROLE: 'unused_iam_role',
 } as const;
 export type FindingType = (typeof FindingType)[keyof typeof FindingType];
 
 export const FindingSeverity = {
-  LOW: 'low',
-  MEDIUM: 'medium',
+  CRITICAL: 'critical',
   HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low',
+  TRIVIAL: 'trivial',
 } as const;
 export type FindingSeverity = (typeof FindingSeverity)[keyof typeof FindingSeverity];
 
@@ -231,6 +263,10 @@ export const JobType = {
   ANALYZE_ORPHANS: 'analyze_orphans',
   ANALYZE_SSL: 'analyze_ssl',
   ANALYZE_DATA_RESIDENCY: 'analyze_data_residency',
+  ANALYZE_SECURITY: 'analyze_security',
+  ANALYZE_COST: 'analyze_cost',
+  ANALYZE_TAGGING: 'analyze_tagging',
+  ANALYZE_IAM: 'analyze_iam',
 } as const;
 export type JobType = (typeof JobType)[keyof typeof JobType];
 

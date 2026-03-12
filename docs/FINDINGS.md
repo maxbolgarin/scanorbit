@@ -562,43 +562,43 @@ Add the missing tags to the resource. Proper tagging enables cost allocation, se
 
 ## Summary Table
 
-| Finding Type | Category | Default Severity |
-|--------------|----------|------------------|
-| `ssl_expiry` | Compliance | CRITICAL/MEDIUM/LOW |
-| `publicly_accessible_rds` | Security | CRITICAL |
-| `public_snapshot` | Security | CRITICAL |
-| `root_account_usage` | IAM | CRITICAL |
-| `user_without_mfa` | IAM | HIGH |
-| `public_access` | Security | HIGH |
-| `permissive_security_group` | Security | HIGH |
-| `open_all_ports` | Security | HIGH |
-| `data_residency_violation` | Compliance | HIGH |
-| `overly_permissive_policy` | IAM | HIGH |
-| `cloudtrail_disabled` | Compliance | HIGH |
-| `cross_account_trust` | IAM | HIGH |
-| `unencrypted_resource` | Security | MEDIUM/LOW |
-| `old_access_key` | IAM | MEDIUM |
-| `orphaned_volume` | Cost | MEDIUM |
-| `insecure_tls` | Security | MEDIUM |
-| `vpc_flow_logs_disabled` | Compliance | MEDIUM |
-| `backup_not_configured` | Compliance | MEDIUM |
-| `orphaned_eip` | Cost | LOW |
-| `orphaned_snapshot` | Cost | LOW |
-| `orphaned_eni` | Cost | LOW |
-| `idle_load_balancer` | Cost | LOW |
-| `unused_access_key` | IAM | LOW |
-| `unused_iam_role` | IAM | LOW |
-| `unused_resource` | Cost | LOW |
-| `stopped_instance` | Cost | LOW |
-| `idle_nat_gateway` | Cost | LOW |
-| `oversized_instance` | Cost | LOW |
-| `ebs_optimization` | Cost | LOW |
-| `old_gen_instance` | Cost | LOW |
-| `oversized_lambda` | Cost | LOW |
-| `unused_kms_key` | Cost | LOW |
-| `rds_optimization` | Cost | LOW |
-| `old_gen_rds` | Cost | LOW |
-| `missing_tag` | Tagging | TRIVIAL |
-| `unused_log_group` | Cost | TRIVIAL |
-| `log_retention` | Cost | TRIVIAL |
-| `unused_security_group` | Cost | TRIVIAL |
+| Finding Type | Category | Default Severity | Status |
+|--------------|----------|------------------|--------|
+| `ssl_expiry` | Compliance | CRITICAL/MEDIUM/LOW | Active |
+| `publicly_accessible_rds` | Security | CRITICAL | Planned |
+| `public_snapshot` | Security | CRITICAL | Planned |
+| `root_account_usage` | IAM | CRITICAL | Planned |
+| `user_without_mfa` | IAM | HIGH | Active |
+| `public_access` | Security | HIGH | Active |
+| `permissive_security_group` | Security | HIGH | Active |
+| `open_all_ports` | Security | HIGH | Active |
+| `data_residency_violation` | Compliance | HIGH | Active |
+| `overly_permissive_policy` | IAM | HIGH | Planned |
+| `cloudtrail_disabled` | Compliance | HIGH | Planned |
+| `cross_account_trust` | IAM | HIGH | Planned |
+| `unencrypted_resource` | Security | MEDIUM/HIGH | Active |
+| `old_access_key` | IAM | MEDIUM | Active |
+| `orphaned_volume` | Cost | MEDIUM | Active |
+| `insecure_tls` | Security | MEDIUM | Planned |
+| `vpc_flow_logs_disabled` | Compliance | MEDIUM | Planned |
+| `backup_not_configured` | Compliance | MEDIUM | Planned |
+| `orphaned_eip` | Cost | LOW | Active |
+| `orphaned_snapshot` | Cost | LOW | Active |
+| `orphaned_eni` | Cost | LOW | Active |
+| `idle_load_balancer` | Cost | MEDIUM | Active |
+| `unused_access_key` | IAM | LOW | Active |
+| `unused_iam_role` | IAM | LOW | Active |
+| `unused_resource` | Cost | LOW | Active |
+| `stopped_instance` | Cost | LOW | Active |
+| `idle_nat_gateway` | Cost | MEDIUM | Active |
+| `oversized_instance` | Cost | LOW | Planned |
+| `ebs_optimization` | Cost | LOW | Active |
+| `old_gen_instance` | Cost | LOW | Active |
+| `oversized_lambda` | Cost | LOW | Active |
+| `unused_kms_key` | Cost | LOW | Active |
+| `rds_optimization` | Cost | LOW | Active |
+| `old_gen_rds` | Cost | LOW | Active |
+| `missing_tag` | Tagging | TRIVIAL | Active |
+| `unused_log_group` | Cost | TRIVIAL | Active |
+| `log_retention` | Cost | LOW | Active |
+| `unused_security_group` | Cost | LOW | Active |
