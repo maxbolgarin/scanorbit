@@ -6,6 +6,7 @@ import { orgs, userOrgMembers, users, scans } from '../db/schema.js';
 import type { Org } from '../db/schema.js';
 import { TIER_LIMITS, ScanStatus, type SubscriptionTier, type SubscriptionStatus } from '../types/index.js';
 import { logger } from '../lib/logger.js';
+import { orgsCreatedTotal } from '../lib/metrics.js';
 import { stripeService } from './stripeService.js';
 
 // Generate URL-safe slug from org name
@@ -131,6 +132,8 @@ export const orgService = {
 
       return createdOrg;
     });
+
+    orgsCreatedTotal.inc();
 
     return { org };
   },

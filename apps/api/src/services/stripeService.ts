@@ -5,6 +5,7 @@ import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { orgs, users } from '../db/schema.js';
 import { stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
+import { subscriptionEventsTotal, planSwitchesTotal } from '../lib/metrics.js';
 import { verifyOrgAdmin } from './orgService.js';
 import type { SubscriptionTier } from '../types/index.js';
 
@@ -292,6 +293,9 @@ export const stripeService = {
       },
     });
 
+    subscriptionEventsTotal.inc({ event: 'plan_switched' });
+    planSwitchesTotal.inc({ from_tier: org.tier, to_tier: targetTier });
+
     logger.info('Switched subscription plan (awaiting webhook confirmation)', { orgId, targetTier });
   },
 
@@ -334,6 +338,8 @@ export const stripeService = {
       })
       .where(eq(orgs.id, orgId));
 
+    subscriptionEventsTotal.inc({ event: 'trial_started' });
+
     logger.info('Processed checkout completion', {
       orgId,
       subscriptionId,
@@ -375,6 +381,14 @@ export const stripeService = {
     const tier = getTierFromPriceId(priceId || '');
     const status = mapStripeStatus(subscription.status);
 
+    // Read current status before update to detect transitions
+    const [currentOrg] = await db
+      .select({ subscriptionStatus: orgs.subscriptionStatus })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+    const previousStatus = currentOrg?.subscriptionStatus || 'none';
+
     // If subscription is canceled or unpaid, downgrade to free
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
@@ -397,6 +411,14 @@ export const stripeService = {
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));
+
+    // Emit subscription lifecycle events on status transitions
+    if (previousStatus === 'trialing' && status === 'active') {
+      subscriptionEventsTotal.inc({ event: 'activated' });
+    }
+    if (status === 'canceled' && previousStatus !== 'canceled') {
+      subscriptionEventsTotal.inc({ event: 'canceled' });
+    }
 
     logger.info('Updated org subscription status', {
       orgId,
@@ -493,6 +515,8 @@ export const stripeService = {
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, org.id));
+
+    subscriptionEventsTotal.inc({ event: 'payment_failed' });
 
     logger.info('Marked subscription as past_due after payment failure', {
       orgId: org.id,

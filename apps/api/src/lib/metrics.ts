@@ -129,6 +129,77 @@ export const awsAccountsConnected = new Gauge({
   registers: [registry],
 });
 
+// User & signup metrics
+export const userSignupsTotal = new Counter({
+  name: 'user_signups_total',
+  help: 'Total number of user signups',
+  labelNames: ['method'],
+  registers: [registry],
+});
+
+export const userLoginsTotal = new Counter({
+  name: 'user_logins_total',
+  help: 'Total number of user logins',
+  labelNames: ['method', 'status'],
+  registers: [registry],
+});
+
+export const emailVerificationsTotal = new Counter({
+  name: 'email_verifications_total',
+  help: 'Total number of email verification attempts',
+  labelNames: ['status'],
+  registers: [registry],
+});
+
+// Organization metrics
+export const orgsCreatedTotal = new Counter({
+  name: 'orgs_created_total',
+  help: 'Total number of organizations created',
+  registers: [registry],
+});
+
+// Subscription lifecycle metrics
+export const subscriptionEventsTotal = new Counter({
+  name: 'subscription_events_total',
+  help: 'Total subscription lifecycle events',
+  labelNames: ['event'],
+  registers: [registry],
+});
+
+export const planSwitchesTotal = new Counter({
+  name: 'plan_switches_total',
+  help: 'Total plan switches between tiers',
+  labelNames: ['from_tier', 'to_tier'],
+  registers: [registry],
+});
+
+// Gauge metrics (DB-polled on scrape)
+export const usersTotal = new Gauge({
+  name: 'users_total',
+  help: 'Total number of registered users',
+  registers: [registry],
+});
+
+export const orgsByTier = new Gauge({
+  name: 'orgs_by_tier',
+  help: 'Number of organizations by subscription tier',
+  labelNames: ['tier'],
+  registers: [registry],
+});
+
+export const orgsBySubscriptionStatus = new Gauge({
+  name: 'orgs_by_subscription_status',
+  help: 'Number of organizations by subscription status',
+  labelNames: ['status'],
+  registers: [registry],
+});
+
+export const orgsWithAwsAccounts = new Gauge({
+  name: 'orgs_with_aws_accounts',
+  help: 'Number of organizations with at least one AWS account connected',
+  registers: [registry],
+});
+
 // ============================================
 // Error Metrics
 // ============================================

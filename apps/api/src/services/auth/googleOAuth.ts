@@ -4,7 +4,7 @@ import { HTTP400Error, HTTP401Error, getPgErrorCode } from '../../lib/errors.js'
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../../db/schema.js';
 import { oauthConsentStore, twoFactorStore } from '../../lib/redis.js';
 import { encryptOAuthTokenOptional } from '../../lib/crypto.js';
-import { authOperationsTotal } from '../../lib/metrics.js';
+import { authOperationsTotal, userLoginsTotal } from '../../lib/metrics.js';
 import { config } from '../../lib/config.js';
 import { minimizeOAuthProfile, googleClient } from './helpers.js';
 import { verifyOAuthState } from './oauthShared.js';
@@ -110,6 +110,7 @@ async function processGoogleAuth(googleUser: GoogleUserInfo): Promise<GoogleAuth
   if (existingOAuth.length > 0) {
     // Existing OAuth account - just log in
     authOperationsTotal.inc({ operation: 'google_oauth', status: 'existing_oauth' });
+    userLoginsTotal.inc({ method: 'google', status: 'success' });
     return completeOAuthLogin(existingOAuth[0].userId, googleUser, false);
   }
 
@@ -138,6 +139,7 @@ async function processGoogleAuth(googleUser: GoogleUserInfo): Promise<GoogleAuth
     }
 
     authOperationsTotal.inc({ operation: 'google_oauth', status: 'linked_account' });
+    userLoginsTotal.inc({ method: 'google', status: 'success' });
     return completeOAuthLogin(existingUser[0].id, googleUser, false);
   }
 
@@ -207,6 +209,7 @@ async function completeOAuthLogin(
   if (user.twoFactorEnabled && !isNewUser) {
     const challengeToken = await twoFactorStore.createChallenge(userId);
     authOperationsTotal.inc({ operation: 'google_oauth', status: '2fa_required' });
+    userLoginsTotal.inc({ method: 'google', status: '2fa_required' });
     return {
       requires2FA: true,
       challengeToken,

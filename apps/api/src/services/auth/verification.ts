@@ -6,6 +6,7 @@ import { users } from '../../db/schema.js';
 import { emailService } from '../emailService.js';
 import { signupCodes, refreshTokenStore } from '../../lib/redis.js';
 import { logger } from '../../lib/logger.js';
+import { emailVerificationsTotal } from '../../lib/metrics.js';
 import { generateVerificationCode, secureCompare, VERIFICATION_CODE_EXPIRY_HOURS } from './helpers.js';
 
 async function verifyEmail(email: string, code: string): Promise<{ success: boolean; message: string }> {
@@ -34,11 +35,13 @@ async function verifyEmail(email: string, code: string): Promise<{ success: bool
   }
 
   if (new Date() > user.emailVerificationExpiresAt) {
+    emailVerificationsTotal.inc({ status: 'expired' });
     throw new HTTP400Error('Verification code expired. Please request a new one.');
   }
 
   // Use constant-time comparison to prevent timing attacks
   if (!secureCompare(user.emailVerificationCode, code)) {
+    emailVerificationsTotal.inc({ status: 'invalid' });
     throw new HTTP400Error('Invalid verification code');
   }
 
@@ -55,6 +58,8 @@ async function verifyEmail(email: string, code: string): Promise<{ success: bool
 
   // Invalidate existing sessions so user re-authenticates with verified status
   await refreshTokenStore.revokeAllForUser(user.id);
+
+  emailVerificationsTotal.inc({ status: 'success' });
 
   return { success: true, message: 'Email verified successfully' };
 }

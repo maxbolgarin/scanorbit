@@ -32,6 +32,11 @@ vi.mock('../../services/orgService.js', () => ({
   verifyOrgAdmin: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../../lib/metrics.js', () => ({
+  subscriptionEventsTotal: { inc: vi.fn() },
+  planSwitchesTotal: { inc: vi.fn() },
+}));
+
 const {
   mockStripeCustomersCreate,
   mockStripeCustomersDel,

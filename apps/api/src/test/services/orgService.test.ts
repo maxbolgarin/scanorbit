@@ -21,6 +21,10 @@ vi.mock('../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+vi.mock('../../lib/metrics.js', () => ({
+  orgsCreatedTotal: { inc: vi.fn() },
+}));
+
 vi.mock('../../services/stripeService.js', () => ({
   stripeService: {
     isConfigured: vi.fn().mockReturnValue(false),
