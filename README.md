@@ -189,7 +189,7 @@ Copy only the required files (scripts are pre-installed via Terraform cloud-init
 PUBLIC_IP=$(cd deploy/scaleway && terraform output -raw public_ip)
 
 # Copy docker-compose, Caddyfile, and environment
-scp deploy/docker-compose.prod.yml deploy/Caddyfile \
+scp deploy/docker-compose.yml deploy/Caddyfile \
     deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
 
 scp .env deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
@@ -218,14 +218,14 @@ cd /opt/scanorbit/deploy
 echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 
 # Start all services (migrations run automatically before API starts)
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml up -d
 
 # Verify all services are healthy
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml ps
 
 # Check GDPR components are running
-docker compose -f docker-compose.prod.yml logs postgres-backup
-docker compose -f docker-compose.prod.yml logs retention-cleanup
+docker compose -f docker-compose.yml logs postgres-backup
+docker compose -f docker-compose.yml logs retention-cleanup
 ```
 
 ### 7. Auto-Updates with Watchtower
@@ -238,29 +238,29 @@ Watchtower runs inside Docker Compose and automatically:
 **Manual deploy** (if needed):
 ```bash
 cd /opt/scanorbit
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d
 ```
 ### 8. Monitoring & Logs
 
 ```bash
 # View all logs
-docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.yml logs -f
 
 # View specific service
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose -f docker-compose.yml logs -f api
 
 # Check Watchtower activity
-docker compose -f docker-compose.prod.yml logs -f watchtower
+docker compose -f docker-compose.yml logs -f watchtower
 
 # GDPR: Check backup status
-docker compose -f docker-compose.prod.yml logs postgres-backup
+docker compose -f docker-compose.yml logs postgres-backup
 
 # GDPR: Check retention cleanup
-docker compose -f docker-compose.prod.yml logs retention-cleanup
+docker compose -f docker-compose.yml logs retention-cleanup
 
 # Service status
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml ps
 ```
 
 

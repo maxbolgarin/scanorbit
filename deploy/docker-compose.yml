@@ -508,9 +508,9 @@ services:
 
   # PostgreSQL Restore (on-demand, not auto-started)
   # Usage:
-  #   docker compose -f docker-compose.prod.yml run --rm db-restore --list
-  #   docker compose -f docker-compose.prod.yml run --rm db-restore --verify daily/<file>
-  #   docker compose -f docker-compose.prod.yml run --rm db-restore daily/<file>
+  #   docker compose -f docker-compose.yml run --rm db-restore --list
+  #   docker compose -f docker-compose.yml run --rm db-restore --verify daily/<file>
+  #   docker compose -f docker-compose.yml run --rm db-restore daily/<file>
   # Uses so_migrate user — DB owner with full DDL access (needed for DROP/CREATE)
   db-restore:
     image: postgres:17-alpine
@@ -623,52 +623,10 @@ services:
     depends_on:
       prometheus:
         condition: service_healthy
-      loki:
-        condition: service_healthy
     networks:
       - scanorbit
 
-  # Loki - Log aggregation
-  loki:
-    image: grafana/loki:2.9.6
-    restart: unless-stopped
-    volumes:
-      - ./loki.yml:/etc/loki/local-config.yaml:ro
-      - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
-    ports:
-      - "127.0.0.1:3100:3100"  # Loki API (localhost only, access via SSH tunnel)
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3100/ready"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    networks:
-      - scanorbit
-
-  # Alloy - Log collector (replaces Promtail)
-  alloy:
-    image: grafana/alloy:v1.14.0
-    restart: unless-stopped
-    volumes:
-      - ./alloy.alloy:/etc/alloy/config.alloy:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:12345/ready"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    depends_on:
-      loki:
-        condition: service_healthy
-    networks:
-      - scanorbit
-
-  # PostgreSQL Exporter - Database metrics
+  # PostgreSQL Exporter
   # Uses so_exporter user — pg_monitor role (statistics views only)
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
@@ -870,7 +828,6 @@ volumes:
   backup_temp:
   prometheus_data:
   grafana_data:
-  loki_data:
   alertmanager_data:
 
 networks:

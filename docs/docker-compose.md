@@ -1,6 +1,6 @@
 # Docker Compose Production Stack
 
-This document describes all services in `deploy/docker-compose.prod.yml`, how they interact, and their configuration.
+This document describes all services in `deploy/docker-compose.yml`, how they interact, and their configuration.
 
 ## Architecture Overview
 

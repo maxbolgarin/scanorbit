@@ -199,6 +199,6 @@ final_message: |
              deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
            # Or use scp if rsync is not available (will overwrite all files):
            # scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
-           scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
+           scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
            scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
         2. Start services: cd /opt/scanorbit/deploy && docker compose up -d

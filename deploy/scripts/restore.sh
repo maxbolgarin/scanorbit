@@ -172,9 +172,9 @@ usage() {
     echo "  SCW_BUCKET_NAME, SCW_REGION"
     echo ""
     echo "Run inside Docker:"
-    echo "  docker compose -f docker-compose.prod.yml run --rm db-restore --list"
-    echo "  docker compose -f docker-compose.prod.yml run --rm db-restore --verify daily/<file>"
-    echo "  docker compose -f docker-compose.prod.yml run --rm db-restore daily/<file>"
+    echo "  docker compose -f docker-compose.yml run --rm db-restore --list"
+    echo "  docker compose -f docker-compose.yml run --rm db-restore --verify daily/<file>"
+    echo "  docker compose -f docker-compose.yml run --rm db-restore daily/<file>"
 }
 
 # Main

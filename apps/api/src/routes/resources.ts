@@ -134,7 +134,7 @@ resourcesRoute.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const resourceId = c.req.param('id');
 
-  if (!z.string().uuid().safeParse(resourceId).success) {
+  if (!resourceId || resourceId.length > 128) {
     throw new HTTP400Error('Invalid resource ID format');
   }
 

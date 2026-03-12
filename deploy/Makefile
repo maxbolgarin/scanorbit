@@ -1,4 +1,4 @@
-.PHONY: health redis-cli redis-queue-status status status-api status-scanner status-analyzer metrics metrics-api metrics-scanner metrics-analyzer monitoring-up monitoring-down tunnel-grafana tunnel-prometheus tunnel-loki tunnel-umami tunnel-listmonk tunnel-monitoring tunnel-all clean help
+.PHONY: health redis-cli redis-queue-status status status-api status-scanner status-analyzer metrics metrics-api metrics-scanner metrics-analyzer monitoring-up monitoring-down tunnel-grafana tunnel-prometheus tunnel-umami tunnel-listmonk tunnel-monitoring tunnel-all clean help
 
 # Colors for help output
 BLUE := \033[34m
@@ -25,21 +25,12 @@ help:
 	@echo "  $(BLUE)metrics-api$(RESET)     Fetch API service metrics"
 	@echo "  $(BLUE)metrics-scanner$(RESET) Fetch scanner worker metrics"
 	@echo "  $(BLUE)metrics-analyzer$(RESET) Fetch analyzer worker metrics"
-	@echo "  $(BLUE)monitoring-up$(RESET)   Start monitoring stack (Prometheus + Grafana + Loki)"
+	@echo "  $(BLUE)monitoring-up$(RESET)   Start monitoring stack (Prometheus + Grafana)"
 	@echo "  $(BLUE)monitoring-down$(RESET) Stop monitoring stack"
-	@echo ""
-	@echo "$(YELLOW)Logs (Loki):$(RESET)"
-	@echo "  $(BLUE)logs$(RESET)            View recent logs from all services"
-	@echo "  $(BLUE)logs-api$(RESET)        View API service logs"
-	@echo "  $(BLUE)logs-scanner$(RESET)    View scanner worker logs"
-	@echo "  $(BLUE)logs-analyzer$(RESET)   View analyzer worker logs"
-	@echo "  $(BLUE)logs-errors$(RESET)     View error logs only"
-	@echo "  $(BLUE)logs-tail$(RESET)       Tail logs in real-time"
 	@echo ""
 	@echo "$(YELLOW)SSH Tunnels (Production):$(RESET)"
 	@echo "  $(BLUE)tunnel-grafana$(RESET)    Open tunnel to prod Grafana (localhost:3001)"
 	@echo "  $(BLUE)tunnel-prometheus$(RESET) Open tunnel to prod Prometheus (localhost:9092)"
-	@echo "  $(BLUE)tunnel-loki$(RESET)       Open tunnel to prod Loki (localhost:3100)"
 	@echo "  $(BLUE)tunnel-umami$(RESET)      Open tunnel to prod Umami analytics (localhost:3002)"
 	@echo "  $(BLUE)tunnel-listmonk$(RESET)   Open tunnel to prod Listmonk newsletter (localhost:9000)"
 	@echo "  $(BLUE)tunnel-monitoring$(RESET) Open tunnels to all monitoring services"
@@ -57,8 +48,8 @@ help:
 # Utilities
 # =============================================================================
 
-# Docker compose command (auto-detect compose file)
-COMPOSE_CMD := docker compose -f docker-compose.prod.yml
+# Docker compose command (production stack)
+COMPOSE_CMD := docker compose -f docker-compose.yml
 
 health:
 	@echo "$(YELLOW)Checking service health...$(RESET)"

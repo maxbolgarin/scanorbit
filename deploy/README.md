@@ -101,7 +101,7 @@ make send-deploy-files
 
 # This runs:
 #   scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
-#   scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
+#   scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
 #   scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
 ```
 
@@ -448,7 +448,7 @@ docker compose restart postgres redis api scanner analyzer
 
 ```
 deploy/
-├── docker-compose.prod.yml    # Main compose file (→ docker-compose.yml on VM)
+├── docker-compose.yml         # Main compose file
 ├── Caddyfile                  # Reverse proxy config
 ├── redis.conf                 # Redis production config
 ├── prometheus.yml             # Prometheus scrape config

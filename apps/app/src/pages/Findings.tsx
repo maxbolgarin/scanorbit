@@ -142,7 +142,12 @@ export default function Findings() {
         description: `Finding marked as ${status}`,
         type: "success",
       });
-      handleCloseModal();
+      if (status === "resolved") {
+        handleCloseModal();
+      } else {
+        // Keep modal open and update finding to reflect new status
+        setSelectedFinding(prev => prev ? { ...prev, status } : null);
+      }
     } catch {
       toast({
         title: "Update failed",
