@@ -1,13 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Scan, RefreshCw, ArrowRight } from "lucide-react";
+import { Scan, RefreshCw, ArrowRight, Play } from "lucide-react";
 
 interface NoScanStateProps {
   accountId: string;
   title?: string;
   description?: string;
   isScanning?: boolean;
+  onTriggerScan?: () => void;
+  isTriggeringScan?: boolean;
 }
 
 /**
@@ -19,6 +21,8 @@ export function NoScanState({
   title = "Run a scan to see data",
   description = "Start a scan on the Scans page to discover resources and identify issues in this account.",
   isScanning = false,
+  onTriggerScan,
+  isTriggeringScan = false,
 }: NoScanStateProps) {
   const navigate = useNavigate();
 
@@ -57,14 +61,26 @@ export function NoScanState({
         <p className="mt-3 max-w-lg text-muted-foreground">
           {description}
         </p>
-        <Button
-          size="lg"
-          className="mt-8"
-          onClick={() => navigate(`/accounts/${accountId}/scans`)}
-        >
-          Go to Scans
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          {onTriggerScan ? (
+            <Button
+              size="lg"
+              onClick={onTriggerScan}
+              disabled={isTriggeringScan}
+            >
+              <Play className="mr-2 h-5 w-5" />
+              {isTriggeringScan ? "Starting..." : "Start Scan"}
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              onClick={() => navigate(`/accounts/${accountId}/scans`)}
+            >
+              Go to Scans
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

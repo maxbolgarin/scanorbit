@@ -16,7 +16,7 @@ import { ConnectionErrorState } from "@/components/shared/ConnectionErrorState";
 import { NoScanState } from "@/components/shared/NoScanState";
 
 import { useEnhancedDashboardSummary } from "@/hooks/use-dashboard";
-import { useAwsAccount, useScanHistory, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useAwsAccount, useScanHistory, useActiveScans, useScanCompletionRefresh, useTriggerScan } from "@/hooks/use-aws-accounts";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -36,6 +36,7 @@ export default function AccountDashboard() {
   const { data: summary, isLoading: summaryLoading, isFetching } = useEnhancedDashboardSummary({ awsAccountId: accountId });
   const { data: scanHistory, isLoading: scansLoading } = useScanHistory(accountId ?? '');
   const { data: activeScans } = useActiveScans();
+  const triggerScan = useTriggerScan();
 
   // Auto-refresh data when scans complete
   useScanCompletionRefresh();
@@ -145,12 +146,14 @@ export default function AccountDashboard() {
         />
       )}
 
-      {/* No scan yet - direct to Scans page */}
+      {/* No scan yet - start scan directly */}
       {account.status === "ok" && !hasCompletedScan && !hasScanInProgress && (
         <NoScanState
           accountId={accountId ?? ''}
           title="Ready to scan this account"
-          description="Go to the Scans page to start discovering resources, identify security vulnerabilities, find cost optimization opportunities, and check compliance status."
+          description="Run a scan to start discovering resources, identify security vulnerabilities, find cost optimization opportunities, and check compliance status."
+          onTriggerScan={() => triggerScan.mutate(accountId)}
+          isTriggeringScan={triggerScan.isPending}
         />
       )}
 
@@ -175,8 +178,8 @@ export default function AccountDashboard() {
               accounts={account ? [account] : []}
               activeScans={accountActiveScans}
               recentScans={scanHistory}
-              onTriggerScan={() => navigate(`/accounts/${accountId}/scans`)}
-              isTriggeringScan={false}
+              onTriggerScan={(id) => triggerScan.mutate(id)}
+              isTriggeringScan={triggerScan.isPending}
               isLoading={scansLoading}
               accountId={accountId}
             />
