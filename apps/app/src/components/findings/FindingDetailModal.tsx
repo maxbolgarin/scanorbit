@@ -439,8 +439,8 @@ export function FindingDetailModal({
 
         {description && <Separator />}
 
-        {/* How to Fix */}
-        {(() => {
+        {/* How to Fix — only shown for open findings */}
+        {finding.status === "open" && (() => {
           const steps = FINDING_REMEDIATIONS[finding.type];
           const fallbackText = recommendation || getDetailString(finding.details, "action");
 
@@ -480,7 +480,9 @@ export function FindingDetailModal({
                       size="sm"
                       onClick={() => {
                         handleClose();
-                        navigate(`${resourcePathPrefix}/resources/${finding.resourceId}`);
+                        navigate(`${resourcePathPrefix}/resources/${finding.resourceId}`, {
+                          state: { from: 'finding', findingId: finding.id },
+                        });
                       }}
                     >
                       <ArrowRight className="mr-1.5 h-3.5 w-3.5" />

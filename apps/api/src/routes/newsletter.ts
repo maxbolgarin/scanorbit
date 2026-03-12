@@ -31,6 +31,7 @@ newsletterRoute.post(
     // before /api/tx is called (prevents 400 "Subscriber not found" race condition).
     listmonkService
       .subscribe(email, name)
+      .then(() => listmonkService.updateAttribsByEmail(email, { subscribed_at: new Date().toISOString() }))
       .then(() => sendImmediate({ sequenceName: 'subscribers', email, name }))
       .catch((err) => logger.warn('listmonk: newsletter flow failed', { error: (err as Error).message }));
 

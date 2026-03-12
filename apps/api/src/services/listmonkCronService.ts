@@ -13,16 +13,16 @@ const LOOKBACK_MS = 2 * 60_000; // 2 minutes (overlap window to avoid misses)
 const REDIS_KEY_FIRST_SCAN = 'listmonk:processed:first-scan';
 const REDIS_KEY_TRIAL_ACTIVE = 'listmonk:processed:trial-active';
 
-/** Get admin email for an org */
-async function getAdminEmail(orgId: string): Promise<string | null> {
+/** Get admin email and name for an org */
+async function getAdminEmail(orgId: string): Promise<{ email: string; name: string | null } | null> {
   const [admin] = await db
-    .select({ email: users.email })
+    .select({ email: users.email, fullName: users.fullName })
     .from(users)
     .innerJoin(userOrgMembers, eq(users.id, userOrgMembers.userId))
     .where(and(eq(userOrgMembers.orgId, orgId), eq(userOrgMembers.role, 'admin')))
     .limit(1);
 
-  return admin?.email ?? null;
+  return admin ? { email: admin.email, name: admin.fullName } : null;
 }
 
 /**
@@ -66,10 +66,10 @@ async function processFirstScanCompletions(): Promise<void> {
 
     if ((scanCount?.total ?? 0) !== 1) continue;
 
-    const email = await getAdminEmail(row.orgId);
-    if (!email) continue;
+    const admin = await getAdminEmail(row.orgId);
+    if (!admin) continue;
 
-    await listmonkService.onFirstScanComplete(email);
+    await listmonkService.onFirstScanComplete(admin.email);
     await redis.sadd(REDIS_KEY_FIRST_SCAN, row.scanId);
     logger.info('[ListmonkCron] Processed first scan completion', { orgId: row.orgId });
 
@@ -110,8 +110,8 @@ async function processFirstScanCompletions(): Promise<void> {
         cost_count: Number(costCount?.total ?? 0),
       };
 
-      await listmonkService.updateAttribsByEmail(email, scanData);
-      sendImmediate({ sequenceName: 'free-scanned', email, data: scanData }).catch((err) => logger.warn('listmonk: failed sendImmediate for free-scanned', { error: (err as Error).message }));
+      await listmonkService.updateAttribsByEmail(admin.email, scanData);
+      sendImmediate({ sequenceName: 'free-scanned', email: admin.email, name: admin.name, data: scanData }).catch((err) => logger.warn('listmonk: failed sendImmediate for free-scanned', { error: (err as Error).message }));
     } catch (attribErr) {
       logger.warn('[ListmonkCron] Failed to store scan stats or send drip', {
         error: (attribErr as Error).message,
@@ -147,10 +147,10 @@ async function processTrialActiveTransitions(): Promise<void> {
     const alreadyProcessed = await redis.sismember(REDIS_KEY_TRIAL_ACTIVE, row.orgId);
     if (alreadyProcessed) continue;
 
-    const email = await getAdminEmail(row.orgId);
-    if (!email) continue;
+    const admin = await getAdminEmail(row.orgId);
+    if (!admin) continue;
 
-    await listmonkService.onTrialActive(email);
+    await listmonkService.onTrialActive(admin.email);
     await redis.sadd(REDIS_KEY_TRIAL_ACTIVE, row.orgId);
     logger.info('[ListmonkCron] Processed trial-active transition', { orgId: row.orgId });
   }

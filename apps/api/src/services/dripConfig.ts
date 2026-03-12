@@ -69,6 +69,7 @@ export const SEQUENCES: DripSequence[] = [
   {
     name: 'subscribers',
     listId: lists.subscribers,
+    dateAttrib: 'subscribed_at',
     steps: [
       { day: 0, templateId: templates.subsDay0Welcome, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
       { day: 3, templateId: templates.subsDay3Security, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
@@ -81,6 +82,7 @@ export const SEQUENCES: DripSequence[] = [
   {
     name: 'cold-leads',
     listId: lists.coldLeads,
+    dateAttrib: 'imported_at',
     steps: [
       { day: 0, templateId: templates.coldDay0Pain, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
       { day: 4, templateId: templates.coldDay4Gdpr, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },

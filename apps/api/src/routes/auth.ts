@@ -380,12 +380,18 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, user.id, null);
 
-  // Only enroll in marketing campaigns if user explicitly consented (GDPR Art. 7)
+  // Always enroll in free-new onboarding (transactional product setup emails)
+  listmonkService.onUserSignup(user.email, user.fullName)
+    .then(() => listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }))
+    .then(() => sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }))
+    .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
+
+  // Only subscribe to newsletter list if user explicitly consented (GDPR Art. 7)
   if (c.req.valid('json').newsletterConsent) {
-    listmonkService.onUserSignup(user.email, user.fullName)
-      .then(() => listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }))
-      .then(() => sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }))
-      .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
+    listmonkService.subscribe(user.email, user.fullName)
+      .then(() => listmonkService.updateAttribsByEmail(user.email, { subscribed_at: new Date().toISOString() }))
+      .then(() => sendImmediate({ sequenceName: 'subscribers', email: user.email, name: user.fullName }))
+      .catch((err) => logger.warn('listmonk: failed newsletter subscribe', { error: (err as Error).message }));
   }
 
   return c.json({

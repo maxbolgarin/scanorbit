@@ -218,7 +218,8 @@ function getRelationshipLabel(type: RelationshipType): string {
 
 // Type for location state
 interface LocationState {
-  from?: 'infrastructure-map' | 'resources';
+  from?: 'infrastructure-map' | 'resources' | 'finding';
+  findingId?: string;
 }
 
 export default function ResourceDetail() {
@@ -240,16 +241,19 @@ export default function ResourceDetail() {
   // Determine back navigation destination based on where user came from
   const locationState = location.state as LocationState | null;
   const cameFromMap = locationState?.from === 'infrastructure-map';
+  const cameFromFinding = locationState?.from === 'finding';
 
   const handleBack = () => {
-    if (cameFromMap) {
+    if (cameFromFinding && locationState?.findingId) {
+      navigate(`${pathPrefix}/findings?id=${locationState.findingId}`);
+    } else if (cameFromMap) {
       navigate(`${pathPrefix}/infrastructure-map`);
     } else {
       navigate(`${pathPrefix}/resources`);
     }
   };
 
-  const backLabel = cameFromMap ? 'Back to Map' : 'Back to Resources';
+  const backLabel = cameFromFinding ? 'Back to Finding' : cameFromMap ? 'Back to Map' : 'Back to Resources';
 
   if (isLoading) {
     return (

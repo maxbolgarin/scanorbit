@@ -62,7 +62,7 @@ vi.mock('../../services/dripSchedulerService.js', () => ({
 vi.mock('../../db/schema.js', () => ({
   orgs: { id: 'id', tier: 'tier', subscriptionStatus: 'subscription_status' },
   scans: { id: 'id', orgId: 'org_id', status: 'status', completedAt: 'completed_at' },
-  users: { id: 'id', email: 'email' },
+  users: { id: 'id', email: 'email', fullName: 'full_name' },
   userOrgMembers: { userId: 'user_id', orgId: 'org_id', role: 'role' },
   findings: { orgId: 'org_id', severity: 'severity', status: 'status', type: 'type' },
 }));
@@ -165,7 +165,7 @@ describe('listmonkCronService', () => {
           return createChain([{ total: 1 }]) as any;
         }
         if (callCount === 3) {
-          return createChain([{ email: 'admin@test.com' }]) as any;
+          return createChain([{ email: 'admin@test.com', fullName: 'Admin User' }]) as any;
         }
         if (callCount === 4) {
           return createChain([{ severity: 'high', total: 2 }]) as any;
@@ -278,7 +278,7 @@ describe('listmonkCronService', () => {
         }
         if (callCount === 3) {
           // getAdminEmail
-          return createChain([{ email: 'trial@test.com' }]) as any;
+          return createChain([{ email: 'trial@test.com', fullName: 'Trial User' }]) as any;
         }
         return createChain([]) as any;
       });
