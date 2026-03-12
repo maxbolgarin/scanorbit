@@ -64,14 +64,19 @@ jobs:
         with:
           node-version: 25
 
-      - name: Install dependencies
-        run: npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/changelog @semantic-release/git @semantic-release/github conventional-changelog-conventionalcommits
-
       - name: Semantic Release
         id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/changelog
+            @semantic-release/git
+            @semantic-release/github
+            conventional-changelog-conventionalcommits
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
 
   # Build and push Docker images with version tags
   build-api:
@@ -369,12 +374,44 @@ jobs:
           version           = os.environ.get('VERSION', '').strip()
           gh_token          = os.environ.get('GITHUB_TOKEN', '').strip()
 
+          import re
+
           def escape_html(s: str) -> str:
               return (
                   s.replace('&', '&amp;')
                    .replace('<', '&lt;')
                    .replace('>', '&gt;')
               )
+
+          def md_to_telegram_html(md: str) -> str:
+              """Convert GitHub release Markdown to Telegram HTML."""
+              result = []
+              for line in md.split('\n'):
+                  # Headers: ## text -> <b>text</b>
+                  m = re.match(r'^#{1,6}\s+(.*)', line)
+                  if m:
+                      result.append(f'<b>{_inline(m.group(1))}</b>')
+                      continue
+                  # List items: * text -> • text
+                  m = re.match(r'^\s*\*\s+(.*)', line)
+                  if m:
+                      result.append(f'• {_inline(m.group(1))}')
+                      continue
+                  result.append(_inline(line))
+              return '\n'.join(result)
+
+          def _inline(text: str) -> str:
+              """Convert inline Markdown (bold, links) to Telegram HTML."""
+              text = escape_html(text)
+              # Links: [text](url) – entities are escaped, so match &amp; in URLs
+              text = re.sub(
+                  r'\[([^\]]+)\]\(([^)]+)\)',
+                  r'<a href="\2">\1</a>',
+                  text,
+              )
+              # Bold: **text**
+              text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
+              return text
 
           services_line = deployed_services if deployed_services else 'n/a'
           services_line = escape_html(services_line)
@@ -404,7 +441,7 @@ jobs:
               body = (data.get('body') or '').strip()
               if len(body) > 2800:
                   body = body[:2800] + '\n...'
-              return escape_html(body)
+              return md_to_telegram_html(body)
 
           def get_latest_release_body_and_version():
               if not gh_token:
@@ -426,7 +463,7 @@ jobs:
               body = (data.get('body') or '').strip()
               if len(body) > 2800:
                   body = body[:2800] + '\n...'
-              body = escape_html(body)
+              body = md_to_telegram_html(body)
               tag = data.get('tag_name') or ''
               if tag.startswith('v'):
                   tag = tag[1:]
@@ -466,7 +503,7 @@ jobs:
               commit_message_line = commit_message.splitlines()[0] if commit_message else 'n/a'
               commit_message_line = escape_html(commit_message_line)
 
-              header = f'🔧 <b>Deploy [main]</b>\n\n'
+              header = f'🚀 <b>Release [main]</b>\n\n'
               changelog_part = ''
               if latest_body:
                   title = f'Changelog (latest v{escape_html(latest_version)})\n'
