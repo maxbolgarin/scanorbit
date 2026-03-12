@@ -72,7 +72,7 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
             Compliance Status
           </div>
           <Link
-            to={`${baseFindingsUrl}?status=open`}
+            to={`${baseFindingsUrl}?types=ssl_expiry,data_residency_violation,public_access,permissive_security_group,unencrypted_resource&status=open`}
             className="text-xs text-primary hover:underline flex items-center gap-1"
           >
             View all

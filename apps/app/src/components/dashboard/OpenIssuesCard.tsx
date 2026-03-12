@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, ExternalLink, AlertCircle, AlertOctagon, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { EnhancedDashboardSummary } from "@/types";
+import { useViewingSettingsStore } from "@/stores/settings-store";
 
 interface OpenIssuesCardProps {
   summary: EnhancedDashboardSummary | undefined;
@@ -44,6 +45,9 @@ const severityConfig = {
 };
 
 export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCardProps) {
+  const navigate = useNavigate();
+  const updateSettings = useViewingSettingsStore((state) => state.updateSettings);
+
   if (isLoading || !summary) {
     return (
       <Card className="h-full">
@@ -108,13 +112,16 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
             <AlertTriangle className="h-4 w-4" />
             Open Issues
           </div>
-          <Link
-            to={`${baseFindingsUrl}?status=open`}
+          <button
+            onClick={() => {
+              updateSettings({ hideTrivial: true });
+              navigate(`${baseFindingsUrl}?status=open`);
+            }}
             className="text-xs text-primary hover:underline flex items-center gap-1"
           >
             View all
             <ExternalLink className="h-3 w-3" />
-          </Link>
+          </button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -122,7 +129,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
         <div className="flex items-center justify-between">
           <div>
             <span className="text-2xl font-bold">{total}</span>
-            <span className="text-sm text-muted-foreground ml-2">open findings</span>
+            <span className="text-sm text-muted-foreground ml-2">non-trivial findings</span>
           </div>
           <span className={cn("text-sm font-medium", statusConfig[status].color)}>
             {statusConfig[status].text}
