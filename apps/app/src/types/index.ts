@@ -131,6 +131,41 @@ export interface OrgMember {
   user?: User;
 }
 
+export interface OrgInvitation {
+  id: string;
+  orgId: string;
+  email: string;
+  role: "admin" | "member";
+  invitedBy: string | null;
+  inviterName: string | null;
+  status: "pending" | "accepted" | "canceled" | "expired";
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface SeatInfo {
+  totalMembers: number;
+  pendingInvitations: number;
+  includedSeats: number;
+  paidSeats: number;
+  seatPriceMonthly: number;
+}
+
+export interface SeatBillingPreview {
+  willAddPaidSeat: boolean;
+  currentPaidSeats: number;
+  newPaidSeats: number;
+  seatPriceMonthly: number;
+  estimatedNewMonthly: number;
+}
+
+export interface InviteInfo {
+  orgName: string;
+  inviterName: string;
+  email: string;
+  expiresAt: string;
+}
+
 // AWS Account
 export type AwsAccountStatus = "pending" | "ok" | "error";
 

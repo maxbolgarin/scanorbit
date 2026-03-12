@@ -379,7 +379,7 @@ Set a retention policy to automatically delete old logs, or delete the log group
 ---
 
 #### `idle_nat_gateway`
-**Severity:** LOW
+**Severity:** MEDIUM
 
 **Description:** NAT Gateway has minimal or no traffic but continues to incur hourly charges.
 
@@ -391,7 +391,7 @@ Consider using NAT instances for low-traffic scenarios, or consolidate NAT Gatew
 
 ---
 
-#### `oversized_instance`
+#### `oversized_instance` **(Planned)**
 **Severity:** LOW
 
 **Description:** EC2 instance is significantly underutilized based on CPU/memory metrics.
@@ -420,7 +420,7 @@ Delete the ENI if no longer needed. Orphaned ENIs may indicate incomplete resour
 ---
 
 #### `idle_load_balancer`
-**Severity:** LOW
+**Severity:** MEDIUM
 
 **Description:** Application Load Balancer has no healthy targets registered.
 
@@ -435,7 +435,7 @@ Delete the ENI if no longer needed. Orphaned ENIs may indicate incomplete resour
 ---
 
 #### `unused_security_group`
-**Severity:** TRIVIAL
+**Severity:** LOW
 
 **Description:** Security group is not associated with any resources.
 
@@ -489,7 +489,7 @@ Reduce the memory allocation to match actual usage. Use AWS Lambda Power Tuning 
 ---
 
 #### `log_retention`
-**Severity:** TRIVIAL
+**Severity:** LOW
 
 **Description:** CloudWatch Log Group has no retention policy, leading to unbounded log storage.
 

@@ -5,6 +5,7 @@ import { requireAuth } from '../middlewares/auth.js';
 import { requireOrgId } from '../middlewares/requireOrgId.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { awsAccountService } from '../services/awsAccountService.js';
+import { verifyOrgAdmin } from '../services/orgService.js';
 import { HTTP400Error } from '../lib/errors.js';
 import type { Variables } from '../types/index.js';
 
@@ -54,9 +55,11 @@ awsAccountsRoute.get('/', async (c) => {
   return c.json({ data: accounts });
 });
 
-// POST /aws/accounts - Create AWS account
+// POST /aws/accounts - Create AWS account (admin-only)
 awsAccountsRoute.post('/', zValidator('json', createAccountSchema), async (c) => {
   const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  await verifyOrgAdmin(orgId, userId);
   const data = c.req.valid('json');
   const account = await awsAccountService.createAccount(orgId, data);
   return c.json({ data: account }, 201);
@@ -75,9 +78,11 @@ awsAccountsRoute.get('/:id', async (c) => {
   return c.json({ data: account });
 });
 
-// DELETE /aws/accounts/:id - Delete AWS account
+// DELETE /aws/accounts/:id - Delete AWS account (admin-only)
 awsAccountsRoute.delete('/:id', async (c) => {
   const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  await verifyOrgAdmin(orgId, userId);
   const accountId = c.req.param('id');
 
   if (!accountId) {
@@ -88,12 +93,14 @@ awsAccountsRoute.delete('/:id', async (c) => {
   return c.json({ message: 'AWS account deleted successfully' });
 });
 
-// PATCH /aws/accounts/:id/scanners - Update enabled scanners
+// PATCH /aws/accounts/:id/scanners - Update enabled scanners (admin-only)
 awsAccountsRoute.patch(
   '/:id/scanners',
   zValidator('json', updateScannersSchema),
   async (c) => {
     const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    await verifyOrgAdmin(orgId, userId);
     const accountId = c.req.param('id');
 
     if (!orgId) {

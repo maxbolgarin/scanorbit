@@ -32,6 +32,10 @@ import type {
   SubscriptionStatus,
   CheckoutSession,
   PortalSession,
+  OrgInvitation,
+  SeatInfo,
+  SeatBillingPreview,
+  InviteInfo,
 } from "@/types";
 
 function normalizeApiUrl(value: unknown): string | undefined {
@@ -486,6 +490,101 @@ export async function updateOrganization(updates: { name?: string; logoUrl?: str
 export async function getOrgMembers(orgId: string): Promise<OrgMember[]> {
   try {
     const { data } = await api.get<{ data: OrgMember[] }>(`/orgs/${orgId}/members`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// =============================================================================
+// Team Members & Invitations
+// =============================================================================
+
+export async function getOrgInvitations(orgId: string): Promise<OrgInvitation[]> {
+  try {
+    const { data } = await api.get<{ data: OrgInvitation[] }>(`/orgs/${orgId}/invitations`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function createInvitation(
+  orgId: string,
+  email: string,
+  role: "admin" | "member"
+): Promise<{ invitation: OrgInvitation; billing: SeatBillingPreview }> {
+  try {
+    const { data } = await api.post<{ data: { invitation: OrgInvitation; billing: SeatBillingPreview } }>(
+      `/orgs/${orgId}/invitations`,
+      { email, role }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function cancelInvitation(orgId: string, invitationId: string): Promise<void> {
+  try {
+    await api.delete(`/orgs/${orgId}/invitations/${invitationId}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function resendInvitation(orgId: string, invitationId: string): Promise<void> {
+  try {
+    await api.post(`/orgs/${orgId}/invitations/${invitationId}/resend`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getInviteInfo(token: string): Promise<InviteInfo> {
+  try {
+    const { data } = await api.get<{ data: InviteInfo }>(`/auth/invite-info/${token}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function acceptInvitation(token: string): Promise<{ org: Org; accessToken: string }> {
+  try {
+    const { data } = await api.post<{ data: { org: Org }; accessToken: string }>(
+      "/auth/accept-invite",
+      { token }
+    );
+    return { org: data.data.org, accessToken: data.accessToken };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function removeMember(orgId: string, userId: string): Promise<void> {
+  try {
+    await api.delete(`/orgs/${orgId}/members/${userId}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function changeMemberRole(
+  orgId: string,
+  userId: string,
+  role: "admin" | "member"
+): Promise<void> {
+  try {
+    await api.patch(`/orgs/${orgId}/members/${userId}`, { role });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getSeatInfo(orgId: string): Promise<SeatInfo> {
+  try {
+    const { data } = await api.get<{ data: SeatInfo }>(`/orgs/${orgId}/seats`);
     return data.data;
   } catch (error) {
     handleApiError(error);

@@ -4,8 +4,9 @@ import { z } from 'zod';
 import { desc, eq, and, gte, lte, inArray, sql } from 'drizzle-orm';
 import { requireAuth } from '../middlewares/auth.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
-import { orgService, getOrgTier } from '../services/orgService.js';
+import { orgService, getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
+import { invitationService } from '../services/invitationService.js';
 import { setAuthTokens } from '../lib/authTokens.js';
 import { db } from '../lib/db.js';
 import { auditLogs, userOrgMembers, users } from '../db/schema.js';
@@ -71,12 +72,13 @@ orgsRoute.get('/:id', async (c) => {
   return c.json({ data: org });
 });
 
-// PATCH /orgs/:id - Update organization
+// PATCH /orgs/:id - Update organization (admin-only)
 orgsRoute.patch('/:id', zValidator('json', updateOrgSchema), async (c) => {
   const orgId = c.req.param('id');
   const userId = c.get('userId');
   const data = c.req.valid('json');
 
+  await verifyOrgAdmin(orgId, userId);
   const org = await orgService.updateOrg(orgId, userId, data);
   return c.json({ data: org });
 });
@@ -105,12 +107,13 @@ orgsRoute.get('/:id/settings', async (c) => {
   });
 });
 
-// PATCH /orgs/:id/settings - Update organization viewing settings
+// PATCH /orgs/:id/settings - Update organization viewing settings (admin-only)
 orgsRoute.patch('/:id/settings', zValidator('json', updateOrgSettingsSchema), async (c) => {
   const orgId = c.req.param('id');
   const userId = c.get('userId');
   const data = c.req.valid('json');
 
+  await verifyOrgAdmin(orgId, userId);
   const settings = await orgSettingsService.updateSettings(orgId, userId, data);
   return c.json({
     data: {
@@ -196,6 +199,91 @@ orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async
       totalPages: Math.ceil(total / limit),
     },
   });
+});
+
+// =============================================================================
+// Team Members & Invitations (Team-only)
+// =============================================================================
+
+const createInvitationSchema = z.object({
+  email: z.string().email().max(255),
+  role: z.enum(['admin', 'member']).default('member'),
+});
+
+const changeMemberRoleSchema = z.object({
+  role: z.enum(['admin', 'member']),
+});
+
+// POST /orgs/:id/invitations — Create invitation (admin, Team-only)
+orgsRoute.post('/:id/invitations', zValidator('json', createInvitationSchema), async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const { email, role } = c.req.valid('json');
+
+  const result = await invitationService.createInvitation(orgId, userId, email, role);
+  return c.json({ data: result }, 201);
+});
+
+// GET /orgs/:id/invitations — List pending invitations (admin)
+orgsRoute.get('/:id/invitations', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+
+  const invitations = await invitationService.listInvitations(orgId, userId);
+  return c.json({ data: invitations });
+});
+
+// DELETE /orgs/:id/invitations/:invId — Cancel invitation (admin)
+orgsRoute.delete('/:id/invitations/:invId', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const invId = c.req.param('invId');
+
+  await invitationService.cancelInvitation(orgId, userId, invId);
+  return c.json({ data: { canceled: true } });
+});
+
+// POST /orgs/:id/invitations/:invId/resend — Resend invitation email (admin)
+orgsRoute.post('/:id/invitations/:invId/resend', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const invId = c.req.param('invId');
+
+  await invitationService.resendInvitation(orgId, userId, invId);
+  return c.json({ data: { resent: true } });
+});
+
+// DELETE /orgs/:id/members/:memberId — Remove member (admin)
+orgsRoute.delete('/:id/members/:memberId', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const memberId = c.req.param('memberId');
+
+  await invitationService.removeMember(orgId, userId, memberId);
+  return c.json({ data: { removed: true } });
+});
+
+// PATCH /orgs/:id/members/:memberId — Change member role (admin)
+orgsRoute.patch('/:id/members/:memberId', zValidator('json', changeMemberRoleSchema), async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const memberId = c.req.param('memberId');
+  const { role } = c.req.valid('json');
+
+  await invitationService.changeMemberRole(orgId, userId, memberId, role);
+  return c.json({ data: { role } });
+});
+
+// GET /orgs/:id/seats — Get seat/billing info
+orgsRoute.get('/:id/seats', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+
+  // Verify membership (any role)
+  await orgService.getOrg(orgId, userId);
+
+  const seatInfo = await invitationService.getSeatInfo(orgId);
+  return c.json({ data: seatInfo });
 });
 
 // =============================================================================

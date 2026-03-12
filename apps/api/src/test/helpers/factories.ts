@@ -130,6 +130,21 @@ export function createFinding(overrides: Record<string, unknown> = {}) {
   };
 }
 
+export function createOrgInvitation(overrides: Record<string, unknown> = {}) {
+  return {
+    id: crypto.randomUUID(),
+    orgId: crypto.randomUUID(),
+    email: `invite-${Date.now()}@example.com`,
+    role: 'member' as const,
+    invitedBy: crypto.randomUUID(),
+    token: crypto.randomUUID(),
+    status: 'pending' as const,
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
 export function createJob(overrides: Record<string, unknown> = {}) {
   return {
     id: crypto.randomUUID(),

@@ -324,6 +324,42 @@ const networkingResources: ResourceInfo[] = [
     costModel: "Paid",
     regionScope: "Regional",
   },
+  {
+    service: "eni",
+    name: "Elastic Network Interfaces",
+    description:
+      "Virtual network interfaces. ScanOrbit detects orphaned ENIs from incomplete resource cleanup.",
+    dataCollected: [
+      "Network Interface ID and description",
+      "Status (available/in-use/attaching/detaching)",
+      "Interface type",
+      "VPC, Subnet, and Availability Zone",
+      "Private IP address and MAC address",
+      "Attachment details (instance ID, device index, status)",
+      "Security group associations",
+      "Requester ID and requester-managed flag",
+      "Tags",
+    ],
+    costModel: "Free",
+    regionScope: "Regional",
+  },
+  {
+    service: "nat_gateway",
+    name: "NAT Gateways",
+    description:
+      "Managed network address translation gateways. ScanOrbit detects idle NAT Gateways incurring unnecessary charges.",
+    dataCollected: [
+      "NAT Gateway ID and state",
+      "Connectivity type (public/private)",
+      "VPC and Subnet",
+      "Addresses (public IP, private IP, allocation ID, network interface ID)",
+      "Creation time",
+      "Failure code and message (if applicable)",
+      "Tags and estimated monthly cost",
+    ],
+    costModel: "Paid",
+    regionScope: "Regional",
+  },
 ];
 
 const iamResources: ResourceInfo[] = [
@@ -479,7 +515,7 @@ export function ResourcesArticle() {
         <h1 className="text-3xl font-bold mb-4">Scanned Resources</h1>
         <p className="text-muted-foreground mb-6">
           ScanOrbit automatically discovers and monitors AWS resources across
-          your connected accounts. This reference documents all 18 resource
+          your connected accounts. This reference documents all 20 resource
           types that are scanned, including what data is collected and how
           resources are categorized.
         </p>
@@ -606,6 +642,8 @@ export function ResourcesArticle() {
                   { name: "Elastic IPs", service: "eip", category: "Networking", scope: "Regional", cost: "Paid" },
                   { name: "Security Groups", service: "security_group", category: "Networking", scope: "Regional", cost: "Free" },
                   { name: "ACM Certificates", service: "acm", category: "Networking", scope: "Regional", cost: "Paid" },
+                  { name: "Elastic Network Interfaces", service: "eni", category: "Networking", scope: "Regional", cost: "Free" },
+                  { name: "NAT Gateways", service: "nat_gateway", category: "Networking", scope: "Regional", cost: "Paid" },
                   { name: "IAM Users", service: "iam_user", category: "IAM", scope: "Global", cost: "Free" },
                   { name: "IAM Roles", service: "iam_role", category: "IAM", scope: "Global", cost: "Free" },
                   { name: "IAM Access Keys", service: "iam_access_key", category: "IAM", scope: "Global", cost: "Free" },
@@ -684,6 +722,8 @@ export function ResourcesArticle() {
                   { type: "owns", source: "ALB", target: "Target Group", example: "Load balancer owns TG" },
                   { type: "uses_layer", source: "Lambda", target: "Lambda Layer", example: "Function uses shared code" },
                   { type: "encrypted_by", source: "EBS, RDS, S3", target: "KMS Key", example: "Volume encrypted by key" },
+                  { type: "uses_eip", source: "NAT Gateway", target: "EIP", example: "NAT Gateway uses Elastic IP" },
+                  { type: "monitors", source: "CloudWatch Alarm", target: "EC2, RDS, Lambda, ALB", example: "Alarm monitors instance CPU" },
                 ].map((item) => (
                   <tr key={item.type} className="border-b last:border-0">
                     <td className="py-2 px-4">

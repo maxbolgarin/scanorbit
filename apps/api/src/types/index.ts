@@ -71,6 +71,11 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   },
 } as const;
 
+export const SEAT_BILLING = {
+  INCLUDED_SEATS: 5,
+  SEAT_PRICE_MONTHLY: 10,
+} as const;
+
 export interface SubscriptionStatus {
   tier: SubscriptionTier;
   tierUpgradedAt: string | null;

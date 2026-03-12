@@ -35,6 +35,7 @@ const { mockOrgService, mockOrgSettingsService } = vi.hoisted(() => ({
 vi.mock('../../services/orgService.js', () => ({
   orgService: mockOrgService,
   getOrgTier: vi.fn().mockResolvedValue('pro'),
+  verifyOrgAdmin: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../../services/orgSettingsService.js', () => ({
@@ -43,6 +44,18 @@ vi.mock('../../services/orgSettingsService.js', () => ({
 
 vi.mock('../../lib/authTokens.js', () => ({
   setAuthTokens: vi.fn().mockResolvedValue({ accessToken: 'mock-token' }),
+}));
+
+vi.mock('../../services/invitationService.js', () => ({
+  invitationService: {
+    createInvitation: vi.fn(),
+    listInvitations: vi.fn(),
+    cancelInvitation: vi.fn(),
+    resendInvitation: vi.fn(),
+    removeMember: vi.fn(),
+    changeMemberRole: vi.fn(),
+    getSeatInfo: vi.fn(),
+  },
 }));
 
 vi.mock('../../lib/logger.js', () => ({

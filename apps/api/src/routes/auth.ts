@@ -9,7 +9,7 @@ import { rateLimiters } from '../middlewares/rateLimit.js';
 import { config } from '../lib/config.js';
 import { twoFactorStore, refreshTokenStore } from '../lib/redis.js';
 import { jwt } from '../lib/jwt.js';
-import { HTTP401Error } from '../lib/errors.js';
+import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
 import { getClientIP } from '../lib/ip.js';
 import { logger } from '../lib/logger.js';
 import { setAuthTokens } from '../lib/authTokens.js';
@@ -863,6 +863,41 @@ authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json
     accessToken,
     isNewUser: true,
   });
+});
+
+// =============================================================================
+// Team Invitation Routes
+// =============================================================================
+
+import { invitationService } from '../services/invitationService.js';
+
+const acceptInviteSchema = z.object({
+  token: z.string().uuid(),
+});
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// GET /auth/invite-info/:token — Get invitation info (no auth required)
+authRoute.get('/invite-info/:token', rateLimiters.passwordReset, async (c) => {
+  const token = c.req.param('token');
+  if (!UUID_RE.test(token)) {
+    throw new HTTP400Error('Invalid invitation token');
+  }
+  const info = await invitationService.getInviteInfo(token);
+  return c.json({ data: info });
+});
+
+// POST /auth/accept-invite — Accept invitation (requires auth)
+authRoute.post('/accept-invite', requireAuth, rateLimiters.verifyCode, zValidator('json', acceptInviteSchema), async (c) => {
+  const userId = c.get('userId');
+  const { token } = c.req.valid('json');
+
+  const { org } = await invitationService.acceptInvitation(token, userId);
+
+  // Issue new tokens with the new org context
+  const { accessToken } = await setAuthTokens(c, userId, org.id);
+
+  return c.json({ data: { org }, accessToken });
 });
 
 export default authRoute;
