@@ -22,7 +22,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import type { ResourceFilters as Filters, ServiceType, Resource } from "@/types";
 import { ACTIVE_SCAN_STATUSES, TIER_LIMITS } from "@/types";
-import { Server, RefreshCw, LayoutGrid, List, Scan, Play, ArrowRight } from "lucide-react";
+import { Server, RefreshCw, LayoutGrid, List, Scan, Play, ArrowRight, Download } from "lucide-react";
+import * as api from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 
 type ViewMode = "table" | "grid";
@@ -42,6 +43,8 @@ export default function Resources() {
   // Check tier-based access
   const tier = org?.tier || 'free';
   const canViewResourceList = TIER_LIMITS[tier].canViewResourceList;
+  const canExport = TIER_LIMITS[tier].canExportData;
+  const [exporting, setExporting] = useState(false);
 
   // Fetch all resources (we'll filter client-side for search)
   const { data: resourcesResponse, isLoading, isFetching } = useResources(filters, { enabled: canViewResourceList });
@@ -76,6 +79,24 @@ export default function Resources() {
     queryClient.invalidateQueries({ queryKey: ["resource-stats"] });
     queryClient.invalidateQueries({ queryKey: ["resource-regions"] });
     queryClient.invalidateQueries({ queryKey: ["resource-services"] });
+  };
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (!canExport) return;
+    setExporting(true);
+    try {
+      const blob = await api.exportResources(format, { ...filters });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scanorbit-resources.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Export failed", description: "Could not export resources.", type: "error" });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleStatsFilterSelect = (filter: { service?: ServiceType; region?: string; sortBy?: string; state?: string }) => {
@@ -175,6 +196,19 @@ export default function Resources() {
               <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
               Refresh
             </Button>
+
+            {/* Export button (Team-only) */}
+            {canExport && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('csv')}
+                disabled={exporting}
+              >
+                <Download className={`mr-2 h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
+                Export CSV
+              </Button>
+            )}
           </div>
         )}
       </div>

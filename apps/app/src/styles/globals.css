@@ -13,8 +13,8 @@
     --popover: 230 38% 16%;
     --popover-foreground: 214 32% 91%;
 
-    --primary: 191 100% 50%; /* cyber-cyan #00d4ff */
-    --primary-foreground: 222 52% 8%;
+    --primary: 262 50% 51%; /* orbit-purple #6b46c1 */
+    --primary-foreground: 214 32% 91%;
 
     --secondary: 230 38% 20%;
     --secondary-foreground: 214 32% 91%;
@@ -22,8 +22,8 @@
     --muted: 230 38% 20%;
     --muted-foreground: 215 16% 65%; /* slate-gray #94a3b8 */
 
-    --accent: 262 50% 51%; /* orbit-purple #6b46c1 */
-    --accent-foreground: 214 32% 91%;
+    --accent: 191 100% 50%; /* cyber-cyan #00d4ff */
+    --accent-foreground: 222 52% 8%;
 
     --destructive: 0 84% 60%; /* alert-red #ef4444 */
     --destructive-foreground: 214 32% 91%;
@@ -36,7 +36,7 @@
 
     --border: 230 38% 30%;
     --input: 222 52% 12%;
-    --ring: 191 100% 50%;
+    --ring: 262 50% 51%;
     --radius: 0.5rem;
 
     /* Custom brand colors for direct use */
@@ -65,7 +65,7 @@
   /* Better tap highlight on mobile */
   @media (hover: none) {
     button, a, [role="button"] {
-      -webkit-tap-highlight-color: rgba(0, 212, 255, 0.1);
+      -webkit-tap-highlight-color: rgba(107, 70, 193, 0.1);
     }
   }
 
@@ -118,7 +118,7 @@
 /* Focus styles */
 *:focus-visible {
   @apply outline-2 outline-offset-2;
-  outline-color: hsl(var(--cyber-cyan));
+  outline-color: hsl(var(--primary));
 }
 
 /* Animations */
@@ -135,11 +135,11 @@
 @keyframes pulse-glow {
   0%, 100% {
     opacity: 0.5;
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 20px rgba(107, 70, 193, 0.3);
   }
   50% {
     opacity: 1;
-    box-shadow: 0 0 40px rgba(0, 212, 255, 0.6);
+    box-shadow: 0 0 40px rgba(107, 70, 193, 0.6);
   }
 }
 
