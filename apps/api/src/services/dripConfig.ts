@@ -68,12 +68,12 @@ export const SEQUENCES: DripSequence[] = [
     name: 'subscribers',
     listId: lists.subscribers,
     steps: [
-      { day: 0, templateId: templates.subsDay0Welcome },
-      { day: 3, templateId: templates.subsDay3Security },
-      { day: 7, templateId: templates.subsDay7Cost },
-      { day: 11, templateId: templates.subsDay11Gdpr },
-      { day: 16, templateId: templates.subsDay16SocialProof },
-      { day: 21, templateId: templates.subsDay21FinalCta },
+      { day: 0, templateId: templates.subsDay0Welcome, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
+      { day: 3, templateId: templates.subsDay3Security, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
+      { day: 7, templateId: templates.subsDay7Cost, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
+      { day: 11, templateId: templates.subsDay11Gdpr, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
+      { day: 16, templateId: templates.subsDay16SocialProof, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
+      { day: 21, templateId: templates.subsDay21FinalCta, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
     ],
   },
   {

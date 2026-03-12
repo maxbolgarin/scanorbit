@@ -17,6 +17,7 @@ const { mockRedis, mockListmonkService, mockSendImmediate } = vi.hoisted(() => (
     onFirstScanComplete: vi.fn().mockResolvedValue(undefined),
     onTrialActive: vi.fn().mockResolvedValue(undefined),
     updateAttribsByEmail: vi.fn().mockResolvedValue(true),
+    cleanupExpiredTrialActive: vi.fn().mockResolvedValue(undefined),
   },
   mockSendImmediate: vi.fn().mockResolvedValue(undefined),
 }));
@@ -63,7 +64,7 @@ vi.mock('../../db/schema.js', () => ({
   scans: { id: 'id', orgId: 'org_id', status: 'status', completedAt: 'completed_at' },
   users: { id: 'id', email: 'email' },
   userOrgMembers: { userId: 'user_id', orgId: 'org_id', role: 'role' },
-  findings: { orgId: 'org_id', severity: 'severity', status: 'status' },
+  findings: { orgId: 'org_id', severity: 'severity', status: 'status', type: 'type' },
 }));
 
 vi.mock('../../types/index.js', () => ({
@@ -152,7 +153,8 @@ describe('listmonkCronService', () => {
       // Second call: verify first scan count query - returns count 1
       // Third call: getAdminEmail query - returns admin
       // Fourth call: findings severity query
-      // Fifth call: processTrialActiveTransitions query - returns empty
+      // Fifth call: findings cost count query
+      // Sixth call: processTrialActiveTransitions query - returns empty
       let callCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
@@ -168,6 +170,9 @@ describe('listmonkCronService', () => {
         if (callCount === 4) {
           return createChain([{ severity: 'high', total: 2 }]) as any;
         }
+        if (callCount === 5) {
+          return createChain([{ total: 1 }]) as any; // 1 cost finding
+        }
         return createChain([]) as any;
       });
 
@@ -181,6 +186,18 @@ describe('listmonkCronService', () => {
       });
 
       expect(mockRedis.sadd).toHaveBeenCalledWith('listmonk:processed:first-scan', 'scan-1');
+
+      // Verify scan stats include critical_count and cost_count
+      await vi.waitFor(() => {
+        expect(mockListmonkService.updateAttribsByEmail).toHaveBeenCalledWith(
+          'admin@test.com',
+          expect.objectContaining({
+            critical_count: 0,
+            high_count: 2,
+            cost_count: 1,
+          }),
+        );
+      });
 
       vi.restoreAllMocks();
     });
@@ -276,6 +293,19 @@ describe('listmonkCronService', () => {
       });
 
       expect(mockRedis.sadd).toHaveBeenCalledWith('listmonk:processed:trial-active', 'org-trial');
+
+      vi.restoreAllMocks();
+    });
+
+    it('calls cleanupExpiredTrialActive during cron run', async () => {
+      mockListmonkService.listsConfigured.mockReturnValue(true);
+      vi.spyOn(global, 'setInterval').mockReturnValue(0 as any);
+
+      startListmonkCron();
+
+      await vi.waitFor(() => {
+        expect(mockListmonkService.cleanupExpiredTrialActive).toHaveBeenCalled();
+      });
 
       vi.restoreAllMocks();
     });

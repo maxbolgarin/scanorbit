@@ -259,26 +259,23 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
               <h3 className="text-sm font-medium text-muted-foreground mb-4">
                 Findings by Severity
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {severityItems.map((item) => {
                   if (item.count === 0) return null;
-                  const percentage = Math.round((item.count / maxSeverityCount) * 100);
+                  const percentage = Math.max(Math.round((item.count / maxSeverityCount) * 100), 2);
                   return (
-                    <div
-                      key={item.key}
-                      className="flex items-center gap-3 p-2 -mx-2 rounded-md"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`text-sm font-medium ${item.textColor}`}>
-                            {item.label}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {item.count}
-                          </span>
-                        </div>
+                    <div key={item.key}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-sm font-medium ${item.textColor}`}>
+                          {item.label}
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {item.count}
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full rounded-full bg-muted">
                         <div
-                          className={`h-2 rounded-full transition-all duration-300 ${item.barColor}`}
+                          className={`h-2.5 rounded-full transition-all duration-300 ${item.barColor}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
@@ -322,28 +319,27 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
                   </div>
                 )}
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {paginatedTypes.map(([type, count]) => {
-                  // Use relative percentage based on max count for better visualization
-                  const percentage = Math.round((count / maxTypeCount) * 100);
+                  const percentage = Math.max(Math.round((count / maxTypeCount) * 100), 2);
                   const severityInfo = getTypeSeverity(type);
                   return (
                     <div
                       key={type}
-                      className="flex items-center gap-3 p-2 -mx-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                      className="cursor-pointer rounded-md p-2 -mx-2 hover:bg-muted/50 transition-colors"
                       onClick={() => handleTypeClick(type)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium capitalize">
-                            {type.replace(/_/g, " ")}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {count}
-                          </span>
-                        </div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium capitalize">
+                          {type.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {count}
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full rounded-full bg-muted">
                         <div
-                          className={`h-2 rounded-full transition-all duration-300 ${severityInfo.barColor}`}
+                          className={`h-2.5 rounded-full transition-all duration-300 ${severityInfo.barColor}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>

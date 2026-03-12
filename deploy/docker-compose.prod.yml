@@ -725,7 +725,7 @@ services:
   # Alertmanager - Alert routing and notifications
   # Set SLACK_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID in .env
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.31.1
     restart: unless-stopped
     environment:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}

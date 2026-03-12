@@ -78,11 +78,9 @@ describe('listmonkService', () => {
     });
 
     it('re-enables existing blocklisted subscriber', async () => {
-      // getSubscriberByEmail → found
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 42 }] } }));
-      // GET subscriber details
+      // getSubscriberByEmail → found (blocklisted)
       mockFetch.mockResolvedValueOnce(jsonResponse({
-        data: { email: 'user@test.com', name: 'User', status: 'blocklisted', attribs: { existing: 'val' } },
+        data: { results: [{ id: 42, email: 'user@test.com', name: 'User', status: 'blocklisted', attribs: { existing: 'val' } }] },
       }));
       // PUT to re-enable
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
@@ -92,25 +90,23 @@ describe('listmonkService', () => {
       const result = await listmonkService.subscribe('user@test.com', 'User');
       expect(result).toBe(true);
 
-      const putBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      const putBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(putBody.status).toBe('enabled');
       expect(putBody.attribs).toEqual({ existing: 'val' });
     });
 
     it('skips re-enable PUT for already-enabled subscriber', async () => {
-      // getSubscriberByEmail → found
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 42 }] } }));
-      // GET subscriber details (already enabled)
+      // getSubscriberByEmail → found (already enabled)
       mockFetch.mockResolvedValueOnce(jsonResponse({
-        data: { email: 'user@test.com', name: 'User', status: 'enabled', attribs: {} },
+        data: { results: [{ id: 42, email: 'user@test.com', name: 'User', status: 'enabled', attribs: {} }] },
       }));
       // addToLists
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       const result = await listmonkService.subscribe('user@test.com', 'User');
       expect(result).toBe(true);
-      // No PUT call — only lookup, GET details, addToLists
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      // No PUT call — only lookup + addToLists
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it('returns false on API error', async () => {
@@ -155,21 +151,17 @@ describe('listmonkService', () => {
 
   describe('unsubscribe', () => {
     it('blocklists subscriber while preserving data', async () => {
-      // First call: getSubscriberByEmail search
+      // getSubscriberByEmail search → found
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: { results: [{ id: 42, email: 'user@test.com', name: 'User', status: 'enabled' }] } }),
+        jsonResponse({ data: { results: [{ id: 42, email: 'user@test.com', name: 'User', status: 'enabled', attribs: { tier: 'free' } }] } }),
       );
-      // Second call: GET subscriber details
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: { email: 'user@test.com', name: 'User', status: 'enabled', attribs: { tier: 'free' } } }),
-      );
-      // Third call: PUT to blocklist
+      // PUT to blocklist
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       const result = await listmonkService.unsubscribe('user@test.com');
       expect(result).toBe(true);
 
-      const [url, opts] = mockFetch.mock.calls[2];
+      const [url, opts] = mockFetch.mock.calls[1];
       expect(url).toContain('/api/subscribers/42');
       expect(opts.method).toBe('PUT');
       const body = JSON.parse(opts.body);
@@ -190,7 +182,7 @@ describe('listmonkService', () => {
   describe('deleteSubscriber', () => {
     it('deletes subscriber via API', async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: { results: [{ id: 42 }] } }),
+        jsonResponse({ data: { results: [{ id: 42, email: 'user@test.com' }] } }),
       );
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
@@ -213,7 +205,7 @@ describe('listmonkService', () => {
   describe('onUserSignup', () => {
     it('ensures subscriber and adds to free-new', async () => {
       // getSubscriberByEmail (ensureSubscriber lookup)
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
       // addToLists
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       // removeFromLists
@@ -238,7 +230,7 @@ describe('listmonkService', () => {
   describe('onFirstScanComplete', () => {
     it('moves subscriber from free-new to free-scanned', async () => {
       // getSubscriberByEmail
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
       // removeFromLists (free-new)
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       // addToLists (free-scanned)
@@ -258,35 +250,53 @@ describe('listmonkService', () => {
   });
 
   describe('onTrialStart', () => {
-    it('moves subscriber to trial-new', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
+    it('moves subscriber to trial-new and removes from all source lists', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.onTrialStart('user@test.com');
       expect(mockFetch).toHaveBeenCalledTimes(3);
+
+      // Verify removes from freeNew(3), freeScanned(4), subscribers(2), coldLeads(1)
+      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(removeBody.action).toBe('remove');
+      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+
+      // Verify adds to trialNew(5)
+      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(addBody.action).toBe('add');
+      expect(addBody.target_list_ids).toContain(5);
     });
   });
 
   describe('onPayment', () => {
-    it('moves subscriber to paid-pro for pro tier', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
+    it('moves subscriber to paid-pro and removes from all source lists', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.onPayment('user@test.com', 'pro');
 
-      // addToLists call (third call)
+      // Verify removes from trialNew(5), trialActive(6), freeNew(3), freeScanned(4)
+      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(removeBody.action).toBe('remove');
+      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([3, 4, 5, 6]));
+
+      // addToLists call
       const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(addBody.target_list_ids).toContain(7); // paidPro
     });
 
-    it('moves subscriber to paid-team for team tier', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
+    it('moves subscriber to paid-team and removes from all source lists', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.onPayment('user@test.com', 'team');
+
+      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([3, 4, 5, 6]));
 
       const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(addBody.target_list_ids).toContain(8); // paidTeam
@@ -294,8 +304,8 @@ describe('listmonkService', () => {
   });
 
   describe('onChurn', () => {
-    it('moves subscriber to subscribers list', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
+    it('moves paid subscriber to subscribers list', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
@@ -303,6 +313,27 @@ describe('listmonkService', () => {
 
       const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(addBody.target_list_ids).toContain(2); // subscribers
+    });
+
+    it('keeps trial subscriber in trial-active for win-back email', async () => {
+      // getSubscriberByEmail
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
+      // removeFromLists (trial-new)
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+      // addToLists (trial-active)
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+
+      await listmonkService.onChurn('user@test.com', true);
+
+      // Should remove from trialNew(5)
+      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(removeBody.action).toBe('remove');
+      expect(removeBody.target_list_ids).toContain(5);
+
+      // Should add to trialActive(6)
+      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(addBody.action).toBe('add');
+      expect(addBody.target_list_ids).toContain(6);
     });
   });
 
@@ -387,23 +418,82 @@ describe('listmonkService', () => {
       const result = await listmonkService.queryByList(3);
       expect(result).toEqual([]);
     });
+
+    it('paginates through all pages', async () => {
+      // Create 100 subscribers for page 1 (full page)
+      const page1 = Array.from({ length: 100 }, (_, i) => ({
+        id: i + 1, email: `user${i + 1}@test.com`, name: `User${i + 1}`, attribs: {}, created_at: '2025-01-01',
+      }));
+      // Page 2 has fewer — signals end of pagination
+      const page2 = [
+        { id: 101, email: 'user101@test.com', name: 'User101', attribs: {}, created_at: '2025-01-01' },
+      ];
+
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: page1 } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: page2 } }));
+
+      const result = await listmonkService.queryByList(3);
+      expect(result).toHaveLength(101);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      // Verify page parameters
+      expect(mockFetch.mock.calls[0][0]).toContain('page=1');
+      expect(mockFetch.mock.calls[1][0]).toContain('page=2');
+    });
+  });
+
+  describe('cleanupExpiredTrialActive', () => {
+    it('moves expired trial subscribers to subscribers list', async () => {
+      const elevenDaysAgo = new Date(Date.now() - 11 * 86_400_000).toISOString();
+      // queryByList page 1 (trial-active list = 6)
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        data: {
+          results: [
+            { id: 20, email: 'expired@test.com', name: 'Expired', attribs: { trial_started_at: elevenDaysAgo }, created_at: '2025-01-01' },
+          ],
+        },
+      }));
+      // getSubscriberByEmail for expired@test.com
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 20, email: 'expired@test.com' }] } }));
+      // removeFromLists (trial-active)
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+      // addToLists (subscribers)
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+
+      await listmonkService.cleanupExpiredTrialActive();
+
+      // Verify removeFromLists removes from trialActive(6)
+      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(removeBody.target_list_ids).toContain(6);
+
+      // Verify addToLists adds to subscribers(2)
+      const addBody = JSON.parse(mockFetch.mock.calls[3][1].body);
+      expect(addBody.target_list_ids).toContain(2);
+    });
+
+    it('skips subscribers whose trial started less than 10 days ago', async () => {
+      const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000).toISOString();
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        data: {
+          results: [
+            { id: 30, email: 'active@test.com', name: 'Active', attribs: { trial_started_at: fiveDaysAgo }, created_at: '2025-01-01' },
+          ],
+        },
+      }));
+
+      await listmonkService.cleanupExpiredTrialActive();
+
+      // Only the queryByList call — no move calls
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('updateAttribsByEmail', () => {
     it('merges attributes with existing ones', async () => {
-      // getSubscriberByEmail
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10 }] } }));
-      // GET subscriber details
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            email: 'user@test.com',
-            name: 'User',
-            status: 'enabled',
-            attribs: { existing: 'value' },
-          },
-        }),
-      );
+      // getSubscriberByEmail → found with existing attribs
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        data: { results: [{ id: 10, email: 'user@test.com', name: 'User', status: 'enabled', attribs: { existing: 'value' } }] },
+      }));
       // PUT update
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
@@ -412,7 +502,7 @@ describe('listmonkService', () => {
       });
       expect(result).toBe(true);
 
-      const putBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      const putBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(putBody.attribs).toEqual({ existing: 'value', new_key: 'new_value' });
     });
 
