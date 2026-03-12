@@ -380,19 +380,19 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   // Issue new access and refresh tokens
   const { accessToken } = await setAuthTokens(c, user.id, null);
 
-  // Always enroll in free-new onboarding (transactional product setup emails)
+  // Always enroll in free-new onboarding (transactional product setup emails).
+  // Do NOT also add to subscribers list even with newsletter consent —
+  // spec requires exactly one list at a time. Newsletter consent is stored as
+  // an attribute; user joins subscribers naturally when they churn later.
+  const newsletterConsent = c.req.valid('json').newsletterConsent;
   listmonkService.onUserSignup(user.email, user.fullName)
-    .then(() => listmonkService.updateAttribsByEmail(user.email, { tier: 'free', signup_at: new Date().toISOString() }))
+    .then(() => listmonkService.updateAttribsByEmail(user.email, {
+      tier: 'free',
+      signup_at: new Date().toISOString(),
+      ...(newsletterConsent ? { newsletter_consent: true } : {}),
+    }))
     .then(() => sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }))
     .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
-
-  // Only subscribe to newsletter list if user explicitly consented (GDPR Art. 7)
-  if (c.req.valid('json').newsletterConsent) {
-    listmonkService.subscribe(user.email, user.fullName)
-      .then(() => listmonkService.updateAttribsByEmail(user.email, { subscribed_at: new Date().toISOString() }))
-      .then(() => sendImmediate({ sequenceName: 'subscribers', email: user.email, name: user.fullName }))
-      .catch((err) => logger.warn('listmonk: failed newsletter subscribe', { error: (err as Error).message }));
-  }
 
   return c.json({
     user,
@@ -848,13 +848,15 @@ authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json
   // Set auth tokens
   const { accessToken } = await setAuthTokens(c, result.userId, null);
 
-  // Only enroll in marketing campaigns if user explicitly consented (GDPR Art. 7)
-  if (marketingConsent) {
-    listmonkService.onUserSignup(result.email, result.fullName)
-      .then(() => listmonkService.updateAttribsByEmail(result.email, { tier: 'free', signup_at: new Date().toISOString() }))
-      .then(() => sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }))
-      .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
-  }
+  // Always enroll in free-new onboarding (transactional product setup emails)
+  listmonkService.onUserSignup(result.email, result.fullName)
+    .then(() => listmonkService.updateAttribsByEmail(result.email, {
+      tier: 'free',
+      signup_at: new Date().toISOString(),
+      ...(marketingConsent ? { newsletter_consent: true } : {}),
+    }))
+    .then(() => sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }))
+    .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
 
   return c.json({
     user: { id: result.userId, email: result.email, fullName: result.fullName },

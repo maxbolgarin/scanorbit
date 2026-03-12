@@ -1,12 +1,16 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { desc, eq, and, gte, lte, inArray, sql } from 'drizzle-orm';
 import { requireAuth } from '../middlewares/auth.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
-import { orgService } from '../services/orgService.js';
+import { orgService, getOrgTier } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
 import { setAuthTokens } from '../lib/authTokens.js';
-import type { Variables, SubscriptionTier } from '../types/index.js';
+import { db } from '../lib/db.js';
+import { auditLogs, userOrgMembers, users } from '../db/schema.js';
+import { HTTP403Error } from '../lib/errors.js';
+import { TIER_LIMITS, type Variables, type SubscriptionTier } from '../types/index.js';
 
 const orgsRoute = new Hono<{ Variables: Variables }>();
 
@@ -113,6 +117,83 @@ orgsRoute.patch('/:id/settings', zValidator('json', updateOrgSettingsSchema), as
       requiredTags: settings.requiredTags as string[],
       hiddenFindingTypes: settings.hiddenFindingTypes as string[],
       hideTrivial: settings.hideTrivial,
+    },
+  });
+});
+
+// =============================================================================
+// Audit Logs (Team-only)
+// =============================================================================
+
+const auditLogQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(50),
+  action: z.string().max(64).optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+});
+
+// GET /orgs/:id/audit-logs - List audit logs for organization (Team-only)
+orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+
+  // Verify membership
+  await orgService.getOrg(orgId, userId);
+
+  // Check tier
+  const tier = await getOrgTier(orgId);
+  if (!TIER_LIMITS[tier].canViewAuditLogs) {
+    throw new HTTP403Error('Audit logs are available on the Team plan only. Upgrade to Team for full audit trail.');
+  }
+
+  const { page, limit, action, startDate, endDate } = c.req.valid('query');
+  const offset = (page - 1) * limit;
+
+  // Build conditions using a subquery for org membership (avoids large IN lists)
+  const membershipSubquery = db
+    .select({ userId: userOrgMembers.userId })
+    .from(userOrgMembers)
+    .where(eq(userOrgMembers.orgId, orgId));
+
+  const conditions = [inArray(auditLogs.userId, membershipSubquery)];
+  if (action) conditions.push(eq(auditLogs.action, action));
+  if (startDate) conditions.push(gte(auditLogs.timestamp, new Date(startDate)));
+  if (endDate) conditions.push(lte(auditLogs.timestamp, new Date(endDate)));
+
+  // Single query with COUNT(*) OVER() window function for consistent pagination
+  const rows = await db
+    .select({
+      id: auditLogs.id,
+      timestamp: auditLogs.timestamp,
+      userId: auditLogs.userId,
+      action: auditLogs.action,
+      method: auditLogs.method,
+      path: auditLogs.path,
+      statusCode: auditLogs.statusCode,
+      ipAddress: auditLogs.ipAddress,
+      durationMs: auditLogs.durationMs,
+      userEmail: users.email,
+      userFullName: users.fullName,
+      totalCount: sql<number>`count(*) over()`,
+    })
+    .from(auditLogs)
+    .leftJoin(users, eq(auditLogs.userId, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(auditLogs.timestamp))
+    .offset(offset)
+    .limit(limit);
+
+  const total = Number(rows[0]?.totalCount ?? 0);
+  const logs = rows.map(({ totalCount: _, ...rest }) => rest);
+
+  return c.json({
+    data: logs,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
   });
 });

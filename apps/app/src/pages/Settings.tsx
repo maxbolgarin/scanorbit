@@ -6,11 +6,17 @@ import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { ViewingSettings } from "@/components/settings/ViewingSettings";
 import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
 import { DataPrivacySettings } from "@/components/settings/DataPrivacySettings";
-import { Settings2, Shield, SlidersHorizontal, CreditCard, FileText } from "lucide-react";
+import { AuditLogSettings } from "@/components/settings/AuditLogSettings";
+import { useAuthStore } from "@/stores/auth-store";
+import { TIER_LIMITS } from "@/types";
+import { Settings2, Shield, SlidersHorizontal, CreditCard, FileText, ScrollText } from "lucide-react";
 
 export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") || "general";
+  const { org } = useAuthStore();
+  const tier = org?.tier || 'free';
+  const canViewAuditLogs = TIER_LIMITS[tier].canViewAuditLogs;
 
   return (
     <div className="space-y-6">
@@ -49,6 +55,12 @@ export default function Settings() {
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Data & Privacy</span>
           </TabsTrigger>
+          {canViewAuditLogs && (
+            <TabsTrigger value="audit" className="gap-2">
+              <ScrollText className="h-4 w-4" />
+              <span className="hidden sm:inline">Audit Log</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="general">
@@ -70,6 +82,12 @@ export default function Settings() {
         <TabsContent value="privacy">
           <DataPrivacySettings />
         </TabsContent>
+
+        {canViewAuditLogs && (
+          <TabsContent value="audit">
+            <AuditLogSettings />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

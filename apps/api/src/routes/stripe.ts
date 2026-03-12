@@ -286,7 +286,14 @@ stripeRoute.post('/webhook', async (c) => {
                   const prevPriceId = prev.items.data?.[0]?.price?.id;
                   if (prevPriceId && prevPriceId !== priceId) {
                     const prevTier = prevPriceId === stripeConfig.teamPriceId ? 'team' as const : 'pro' as const;
-                    listmonkService.onPlanChange(admin.email, prevTier, tier).catch((err) => logger.warn('listmonk: failed onPlanChange', { error: (err as Error).message }));
+                    listmonkService.onPlanChange(admin.email, prevTier, tier)
+                      .then(() => listmonkService.updateAttribsByEmail(admin.email, {
+                        tier: `paid-${tier}`,
+                        plan: tier,
+                        paid_at: new Date().toISOString(),
+                      }))
+                      .then(() => sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }))
+                      .catch((err) => logger.warn('listmonk: failed onPlanChange', { error: (err as Error).message }));
                   }
                 }
                 // Subscription canceled (at period end or immediately)
@@ -297,8 +304,11 @@ stripeRoute.post('/webhook', async (c) => {
               }
 
               if (event.type === 'customer.subscription.deleted') {
-                const isTrialCancel = !!subscription.trial_end &&
-                  subscription.trial_end > Math.floor(Date.now() / 1000) - 86400 * 14;
+                // Check if trial was still running at deletion time (not the broad 14-day heuristic).
+                // subscription.trial_end is in the future if trial was still active when deleted.
+                const isTrialCancel = subscription.status === 'canceled' &&
+                  !!subscription.trial_end &&
+                  subscription.trial_end > Math.floor(Date.now() / 1000);
                 listmonkService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
               }
             }

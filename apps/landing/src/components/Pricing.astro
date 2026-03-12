@@ -27,16 +27,18 @@ const plans = [
 ];
 
 const features = [
-  { name: "AWS Accounts", free: "Single", pro: "Single", team: "More than one" },
+  { name: "AWS Accounts", free: "Single", pro: "Single", team: "Unlimited" },
   { name: "Scan Frequency", free: "Single scan", pro: "1 hour cooldown", team: "Unlimited" },
   { name: "Data Retention", free: "7 days", pro: "90 days", team: "180+ days" },
   { name: "Infrastructure Health", free: true, pro: true, team: true },
   { name: "Infrastructure Map", free: false, pro: true, team: true },
   { name: "Issues Control", free: false, pro: true, team: true },
   { name: "Cost Optimization", free: false, pro: true, team: true },
-  { name: "API Access", free: false, pro: false, team: true },
+  { name: "Data Export (CSV/JSON)", free: false, pro: false, team: true },
   { name: "Scan Priority", free: false, pro: false, team: true },
-  { name: "Team Features", free: false, pro: false, team: true },
+  { name: "Team Members", free: false, pro: false, team: true },
+  { name: "Webhook Notifications", free: false, pro: false, team: true },
+  { name: "Audit Logs", free: false, pro: false, team: true },
 ];
 
 const planKeys = ["free", "pro", "team"] as const;

@@ -58,6 +58,74 @@ findingsRoute.get('/', zValidator('query', querySchema), async (c) => {
   return c.json(result);
 });
 
+// Hard cap for export to prevent OOM on large datasets
+const MAX_EXPORT_ROWS = 10_000;
+
+// Sanitize CSV cell to prevent formula injection in spreadsheet tools
+function sanitizeCsvCell(value: string): string {
+  const escaped = value.replace(/"/g, '""');
+  if (/^[=+\-@\t]/.test(escaped)) {
+    return `"'${escaped}"`;
+  }
+  return `"${escaped}"`;
+}
+
+// GET /findings/export - Export all findings as CSV or JSON (Team-only)
+findingsRoute.get('/export', zValidator('query', z.object({
+  format: z.enum(['csv', 'json']).default('csv'),
+  awsAccountId: z.string().uuid().optional(),
+  status: z.enum(['open', 'resolved', 'snoozed', 'ignored']).optional(),
+  type: z.string().optional(),
+  severity: z.enum(['low', 'medium', 'high']).optional(),
+})), async (c) => {
+  const orgId = c.get('orgId');
+  const tier = await getOrgTier(orgId);
+
+  if (!TIER_LIMITS[tier].canExportData) {
+    throw new HTTP403Error('Data export is available on the Team plan only. Upgrade to Team for CSV/JSON exports.');
+  }
+
+  const { format, awsAccountId, status, type, severity } = c.req.valid('query');
+
+  // Single query with hard cap to prevent unbounded memory usage
+  const result = await findingService.getFindings(orgId, {
+    awsAccountId,
+    status: status as any,
+    type,
+    severity,
+    page: 1,
+    limit: MAX_EXPORT_ROWS,
+  });
+  const allFindings = result.data;
+
+  if (format === 'json') {
+    c.header('Content-Disposition', 'attachment; filename="scanorbit-findings.json"');
+    return c.json({ data: allFindings, total: allFindings.length });
+  }
+
+  // CSV format with formula injection protection
+  const csvHeaders = ['ID', 'AWS Account ID', 'Resource ID', 'Type', 'Severity', 'Status', 'Summary', 'First Detected', 'Last Detected', 'Detection Count', 'Resolved At', 'Created At'];
+  const csvRows = allFindings.map(f => [
+    sanitizeCsvCell(f.id),
+    sanitizeCsvCell(f.awsAccountId),
+    sanitizeCsvCell(f.resourceId ?? ''),
+    sanitizeCsvCell(f.type),
+    sanitizeCsvCell(f.severity),
+    sanitizeCsvCell(f.status),
+    sanitizeCsvCell(f.summary ?? ''),
+    sanitizeCsvCell(f.firstDetectedAt ?? ''),
+    sanitizeCsvCell(f.lastDetectedAt ?? ''),
+    sanitizeCsvCell(String(f.detectionCount ?? 0)),
+    sanitizeCsvCell(f.resolvedAt ?? ''),
+    sanitizeCsvCell(f.createdAt),
+  ].join(','));
+
+  const csv = [csvHeaders.join(','), ...csvRows].join('\n');
+  c.header('Content-Type', 'text/csv; charset=utf-8');
+  c.header('Content-Disposition', 'attachment; filename="scanorbit-findings.csv"');
+  return c.body(csv);
+});
+
 // GET /findings/stats - Get finding statistics
 findingsRoute.get('/stats', async (c) => {
   const orgId = c.get('orgId');

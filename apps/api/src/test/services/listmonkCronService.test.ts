@@ -6,8 +6,7 @@ let selectResult: unknown[] = [];
 const { mockRedis, mockListmonkService, mockSendImmediate } = vi.hoisted(() => ({
   mockRedis: {
     set: vi.fn().mockResolvedValue('OK'),
-    sismember: vi.fn().mockResolvedValue(0),
-    sadd: vi.fn().mockResolvedValue(1),
+    get: vi.fn().mockResolvedValue(null),
     on: vi.fn(),
     status: 'ready',
   },
@@ -79,8 +78,7 @@ describe('listmonkCronService', () => {
     selectResult = [];
 
     mockRedis.set.mockResolvedValue('OK');
-    mockRedis.sismember.mockResolvedValue(0);
-    mockRedis.sadd.mockResolvedValue(1);
+    mockRedis.get.mockResolvedValue(null);
     mockListmonkService.listsConfigured.mockReturnValue(true);
     mockListmonkService.onFirstScanComplete.mockResolvedValue(undefined);
     mockListmonkService.onTrialActive.mockResolvedValue(undefined);
@@ -185,7 +183,7 @@ describe('listmonkCronService', () => {
         expect(mockListmonkService.onFirstScanComplete).toHaveBeenCalledWith('admin@test.com');
       });
 
-      expect(mockRedis.sadd).toHaveBeenCalledWith('listmonk:processed:first-scan', 'scan-1');
+      expect(mockRedis.set).toHaveBeenCalledWith('listmonk:processed:first-scan:scan-1', '1', 'EX', 30 * 86_400);
 
       // Verify scan stats include critical_count and cost_count
       await vi.waitFor(() => {
@@ -215,7 +213,7 @@ describe('listmonkCronService', () => {
         return createChain([]) as any;
       });
 
-      mockRedis.sismember.mockResolvedValue(1); // Already processed
+      mockRedis.get.mockResolvedValue('1'); // Already processed
 
       mockListmonkService.listsConfigured.mockReturnValue(true);
       vi.spyOn(global, 'setInterval').mockReturnValue(0 as any);
@@ -223,7 +221,7 @@ describe('listmonkCronService', () => {
       startListmonkCron();
 
       await vi.waitFor(() => {
-        expect(mockRedis.sismember).toHaveBeenCalled();
+        expect(mockRedis.get).toHaveBeenCalled();
       });
 
       expect(mockListmonkService.onFirstScanComplete).not.toHaveBeenCalled();
@@ -292,7 +290,7 @@ describe('listmonkCronService', () => {
         expect(mockListmonkService.onTrialActive).toHaveBeenCalledWith('trial@test.com');
       });
 
-      expect(mockRedis.sadd).toHaveBeenCalledWith('listmonk:processed:trial-active', 'org-trial');
+      expect(mockRedis.set).toHaveBeenCalledWith('listmonk:processed:trial-active:org-trial', '1', 'EX', 30 * 86_400);
 
       vi.restoreAllMocks();
     });

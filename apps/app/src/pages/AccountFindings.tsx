@@ -20,7 +20,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
 import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES, TIER_LIMITS } from "@/types";
-import { AlertTriangle, RefreshCw, Cloud } from "lucide-react";
+import { AlertTriangle, RefreshCw, Cloud, Download } from "lucide-react";
+import * as api from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function AccountFindings() {
@@ -186,6 +187,27 @@ export default function AccountFindings() {
     return Object.values(byType).reduce((sum, count) => sum + count, 0) > 0;
   }, [unfilteredStats]);
 
+  const [exporting, setExporting] = useState(false);
+  const canExport = TIER_LIMITS[tier].canExportData;
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (!canExport) return;
+    setExporting(true);
+    try {
+      const blob = await api.exportFindings(format, { awsAccountId: accountId, status: baseFilters.status, type: baseFilters.type, severity: baseFilters.severity });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scanorbit-findings.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Export failed", description: "Could not export findings.", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasCompletedScan = scanHistory?.some(scan =>
     scan.status === "complete" || scan.status === "partial"
   );
@@ -218,6 +240,19 @@ export default function AccountFindings() {
               <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
               Refresh
             </Button>
+
+            {/* Export button (Team-only) */}
+            {canExport && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('csv')}
+                disabled={exporting}
+              >
+                <Download className={`mr-2 h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
+                Export CSV
+              </Button>
+            )}
           </div>
         )}
       </div>

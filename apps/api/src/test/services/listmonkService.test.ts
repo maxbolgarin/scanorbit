@@ -26,6 +26,13 @@ vi.mock('../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+vi.mock('../../services/dripSchedulerService.js', () => ({
+  clearDripLog: vi.fn().mockResolvedValue(undefined),
+  sendImmediate: vi.fn().mockResolvedValue(undefined),
+  startDripScheduler: vi.fn(),
+  buildUnsubscribeUrl: vi.fn().mockReturnValue('http://test/unsubscribe'),
+}));
+
 // Replace global fetch
 vi.stubGlobal('fetch', mockFetch);
 
@@ -231,9 +238,9 @@ describe('listmonkService', () => {
     it('moves subscriber from free-new to free-scanned', async () => {
       // getSubscriberByEmail
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
-      // removeFromLists (free-new)
+      // addToLists (free-scanned) — add-first order
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
-      // addToLists (free-scanned)
+      // removeFromLists (free-new)
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.onFirstScanComplete('user@test.com');
@@ -258,15 +265,15 @@ describe('listmonkService', () => {
       await listmonkService.onTrialStart('user@test.com');
       expect(mockFetch).toHaveBeenCalledTimes(3);
 
-      // Verify removes from freeNew(3), freeScanned(4), subscribers(2), coldLeads(1)
-      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(removeBody.action).toBe('remove');
-      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([1, 2, 3, 4]));
-
-      // Verify adds to trialNew(5)
-      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      // Verify adds to trialNew(5) — add-first order
+      const addBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(addBody.action).toBe('add');
       expect(addBody.target_list_ids).toContain(5);
+
+      // Verify removes from freeNew(3), freeScanned(4), subscribers(2), coldLeads(1)
+      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(removeBody.action).toBe('remove');
+      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([1, 2, 3, 4]));
     });
   });
 
@@ -278,14 +285,14 @@ describe('listmonkService', () => {
 
       await listmonkService.onPayment('user@test.com', 'pro');
 
+      // addToLists call — add-first order
+      const addBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(addBody.target_list_ids).toContain(7); // paidPro
+
       // Verify removes from trialNew(5), trialActive(6), freeNew(3), freeScanned(4)
-      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(removeBody.action).toBe('remove');
       expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([3, 4, 5, 6]));
-
-      // addToLists call
-      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
-      expect(addBody.target_list_ids).toContain(7); // paidPro
     });
 
     it('moves subscriber to paid-team and removes from all source lists', async () => {
@@ -295,45 +302,63 @@ describe('listmonkService', () => {
 
       await listmonkService.onPayment('user@test.com', 'team');
 
-      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([3, 4, 5, 6]));
-
-      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      const addBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(addBody.target_list_ids).toContain(8); // paidTeam
+
+      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(removeBody.target_list_ids).toEqual(expect.arrayContaining([3, 4, 5, 6]));
     });
   });
 
   describe('onChurn', () => {
-    it('moves paid subscriber to subscribers list', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
+    it('moves paid subscriber to subscribers list and clears drip log', async () => {
+      // getSubscriberByEmail
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com', status: 'enabled', name: 'User', attribs: {} }] } }));
+      // addToLists (subscribers) — add-first order
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+      // removeFromLists
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
+      // updateAttribsByEmail: getSubscriberByEmail + PUT
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com', status: 'enabled', name: 'User', attribs: {} }] } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.onChurn('user@test.com');
 
-      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      // add-first: calls[1] is add to subscribers(2)
+      const addBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(addBody.target_list_ids).toContain(2); // subscribers
+
+      // clearDripLog was called (mocked via vi.mock)
+      const { clearDripLog } = await import('../../services/dripSchedulerService.js');
+      expect(clearDripLog).toHaveBeenCalledWith('user@test.com', 'subscribers');
     });
 
-    it('keeps trial subscriber in trial-active for win-back email', async () => {
+    it('keeps trial subscriber in trial-active and sets trial_cancelled_at', async () => {
       // getSubscriberByEmail
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com' }] } }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com', status: 'enabled', name: 'User', attribs: {} }] } }));
+      // addToLists (trial-active) — add-first order
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       // removeFromLists (trial-new)
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
-      // addToLists (trial-active)
+      // updateAttribsByEmail (trial_cancelled_at): getSubscriberByEmail + PUT
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { results: [{ id: 10, email: 'user@test.com', status: 'enabled', name: 'User', attribs: {} }] } }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.onChurn('user@test.com', true);
 
-      // Should remove from trialNew(5)
-      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      // Should add to trialActive(6) first (add-first safety pattern)
+      const addBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(addBody.action).toBe('add');
+      expect(addBody.target_list_ids).toContain(6);
+
+      // Then remove from trialNew(5)
+      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(removeBody.action).toBe('remove');
       expect(removeBody.target_list_ids).toContain(5);
 
-      // Should add to trialActive(6)
-      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
-      expect(addBody.action).toBe('add');
-      expect(addBody.target_list_ids).toContain(6);
+      // Should set trial_cancelled_at attribute
+      const putBody = JSON.parse(mockFetch.mock.calls[4][1].body);
+      expect(putBody.attribs).toHaveProperty('trial_cancelled_at');
     });
   });
 
@@ -443,7 +468,7 @@ describe('listmonkService', () => {
   });
 
   describe('cleanupExpiredTrialActive', () => {
-    it('moves expired trial subscribers to subscribers list', async () => {
+    it('moves expired trial subscribers to subscribers list and sets subscribed_at', async () => {
       const elevenDaysAgo = new Date(Date.now() - 11 * 86_400_000).toISOString();
       // queryByList page 1 (trial-active list = 6)
       mockFetch.mockResolvedValueOnce(jsonResponse({
@@ -453,20 +478,34 @@ describe('listmonkService', () => {
           ],
         },
       }));
+      // addToLists (subscribers) — add-first order
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
       // removeFromLists (trial-active)
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
-      // addToLists (subscribers)
+      // updateAttribsByEmail (subscribed_at): getSubscriberByEmail + PUT
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        data: { results: [{ id: 20, email: 'expired@test.com', name: 'Expired', status: 'enabled', attribs: { trial_started_at: elevenDaysAgo } }] },
+      }));
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: {} }));
 
       await listmonkService.cleanupExpiredTrialActive();
 
+      // Verify addToLists adds to subscribers(2) — add-first order
+      const addBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(addBody.target_list_ids).toContain(2);
+
       // Verify removeFromLists removes from trialActive(6)
-      const removeBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const removeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(removeBody.target_list_ids).toContain(6);
 
-      // Verify addToLists adds to subscribers(2)
-      const addBody = JSON.parse(mockFetch.mock.calls[2][1].body);
-      expect(addBody.target_list_ids).toContain(2);
+      // Verify subscribed_at was set
+      const putBody = JSON.parse(mockFetch.mock.calls[4][1].body);
+      expect(putBody.attribs).toHaveProperty('subscribed_at');
+
+      // Verify clearDripLog was called for both sequences
+      const { clearDripLog } = await import('../../services/dripSchedulerService.js');
+      expect(clearDripLog).toHaveBeenCalledWith('expired@test.com', 'trial-active');
+      expect(clearDripLog).toHaveBeenCalledWith('expired@test.com', 'subscribers');
     });
 
     it('skips subscribers whose trial started less than 10 days ago', async () => {
