@@ -373,6 +373,7 @@ export default function Findings() {
         onClose={handleCloseModal}
         onUpdateStatus={handleUpdateStatus}
         isUpdating={updateStatus.isPending}
+        resourcePathPrefix="/overview"
       />
     </div>
   );

@@ -28,6 +28,7 @@ export const SEQUENCES: DripSequence[] = [
   {
     name: 'free-new',
     listId: lists.freeNew,
+    dateAttrib: 'signup_at',
     steps: [
       { day: 0, templateId: templates.freeNewDay0Welcome },
       { day: 2, templateId: templates.freeNewDay2Security },
@@ -48,6 +49,7 @@ export const SEQUENCES: DripSequence[] = [
   {
     name: 'trial-new',
     listId: lists.trialNew,
+    dateAttrib: 'trial_started_at',
     steps: [
       { day: 0, templateId: templates.trialNewDay0Welcome },
       { day: 3, templateId: templates.trialNewDay3Stuck },

@@ -294,6 +294,7 @@ export default function AccountFindings() {
         onClose={handleCloseModal}
         onUpdateStatus={handleUpdateStatus}
         isUpdating={updateStatus.isPending}
+        resourcePathPrefix={`/accounts/${accountId}`}
       />
     </div>
   );

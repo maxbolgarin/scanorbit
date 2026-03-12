@@ -124,6 +124,16 @@ describe('dripConfig', () => {
       expect(trialActive?.dateAttrib).toBe('trial_started_at');
     });
 
+    it('free-new uses signup_at dateAttrib', () => {
+      const freeNew = SEQUENCES.find(s => s.name === 'free-new');
+      expect(freeNew?.dateAttrib).toBe('signup_at');
+    });
+
+    it('trial-new uses trial_started_at dateAttrib', () => {
+      const trialNew = SEQUENCES.find(s => s.name === 'trial-new');
+      expect(trialNew?.dateAttrib).toBe('trial_started_at');
+    });
+
     it('cold-leads steps all have custom fromEmail', () => {
       const coldLeads = SEQUENCES.find(s => s.name === 'cold-leads');
       expect(coldLeads).toBeDefined();
