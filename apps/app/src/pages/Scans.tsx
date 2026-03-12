@@ -460,7 +460,7 @@ export default function Scans() {
                             scan.status === "error" ? "text-destructive" :
                             scan.status === "complete" ? "text-green-500" :
                             scan.status === "partial" ? "text-orange-500" :
-                            scan.status === "running" || scan.status === "analyzing" ? "text-primary" :
+                            scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
                             scan.status === "canceled" ? "text-muted-foreground" :
                             "text-yellow-500"
                           }>
@@ -562,7 +562,7 @@ export default function Scans() {
                                 scan.status === "error" ? "text-destructive" :
                                 scan.status === "complete" ? "text-green-500" :
                                 scan.status === "partial" ? "text-orange-500" :
-                                scan.status === "running" || scan.status === "analyzing" ? "text-primary" :
+                                scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
                                 scan.status === "canceled" ? "text-muted-foreground" :
                                 "text-yellow-500"
                               }>

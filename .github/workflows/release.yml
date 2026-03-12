@@ -310,6 +310,17 @@ jobs:
       contains(needs.*.result, 'success')
     runs-on: ubuntu-latest
     steps:
+      - name: Compute deployed services
+        id: services
+        run: |
+          services=""
+          [ "${{ needs.build-api.result }}" = "success" ] && services="$services api"
+          [ "${{ needs.build-app.result }}" = "success" ] && services="$services app"
+          [ "${{ needs.build-landing.result }}" = "success" ] && services="$services landing"
+          [ "${{ needs.build-workers.result }}" = "success" ] && services="$services scanner analyzer"
+          [ "${{ needs.build-listmonk-setup.result }}" = "success" ] && services="$services listmonk-setup"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+
       - name: Deploy changed services
         uses: appleboy/ssh-action@v1
         with:
@@ -337,42 +348,133 @@ jobs:
           ACTOR: ${{ github.actor }}
           SHA: ${{ github.sha }}
           SERVER_URL: ${{ github.server_url }}
+          DEPLOYED_SERVICES: ${{ steps.services.outputs.services }}
         run: |
           python3 - <<'EOF'
           import os, json, urllib.request
+          from datetime import datetime, timezone
 
-          token     = os.environ['TELEGRAM_BOT_TOKEN']
-          chat_id   = os.environ['CHAT_ID']
-          thread_id = os.environ['THREAD_ID']
-          repo      = os.environ['REPO']
-          actor     = os.environ['ACTOR']
-          sha       = os.environ['SHA'][:7]
-          server    = os.environ['SERVER_URL']
+          token            = os.environ['TELEGRAM_BOT_TOKEN']
+          chat_id          = os.environ['CHAT_ID']
+          thread_id        = os.environ['THREAD_ID']
+          repo             = os.environ['REPO']
+          actor            = os.environ['ACTOR']
+          full_sha         = os.environ['SHA']
+          sha_short        = full_sha[:7]
+          server           = os.environ['SERVER_URL']
+          deployed_services = os.environ.get('DEPLOYED_SERVICES', '').strip()
+          new_release      = os.environ.get('NEW_RELEASE')
+          version          = os.environ.get('VERSION', '').strip()
+          gh_token         = os.environ.get('GITHUB_TOKEN', '').strip()
 
-          if os.environ.get('NEW_RELEASE') == 'true':
-              version  = os.environ['VERSION']
-              gh_token = os.environ['GITHUB_TOKEN']
-              api_url  = f'https://api.github.com/repos/{repo}/releases/tags/v{version}'
-              req = urllib.request.Request(api_url, headers={
-                  'Authorization': f'token {gh_token}',
-                  'Accept': 'application/vnd.github+json'
-              })
-              with urllib.request.urlopen(req) as r:
-                  data = json.loads(r.read())
-              body = data.get('body', '').strip()
+          def escape_html(s: str) -> str:
+              return (
+                  s.replace('&', '&amp;')
+                   .replace('<', '&lt;')
+                   .replace('>', '&gt;')
+              )
+
+          services_line = deployed_services if deployed_services else 'n/a'
+          services_line = escape_html(services_line)
+
+          deploy_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')
+
+          def get_release_body(v: str) -> str:
+              if not gh_token or not v:
+                  return ''
+              api_url = f'https://api.github.com/repos/{repo}/releases/tags/v{v}'
+              req = urllib.request.Request(
+                  api_url,
+                  headers={
+                      'Authorization': f'Bearer {gh_token}',
+                      'Accept': 'application/vnd.github+json',
+                      'User-Agent': 'scanorbit-release-bot',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      data = json.loads(r.read().decode())
+              except Exception:
+                  return ''
+              body = (data.get('body') or '').strip()
               if len(body) > 2800:
                   body = body[:2800] + '\n...'
+              return escape_html(body)
+
+          def get_latest_release_body_and_version():
+              if not gh_token:
+                  return '', ''
+              api_url = f'https://api.github.com/repos/{repo}/releases/latest'
+              req = urllib.request.Request(
+                  api_url,
+                  headers={
+                      'Authorization': f'Bearer {gh_token}',
+                      'Accept': 'application/vnd.github+json',
+                      'User-Agent': 'scanorbit-release-bot',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      data = json.loads(r.read().decode())
+              except Exception:
+                  return '', ''
+              body = (data.get('body') or '').strip()
+              if len(body) > 2800:
+                  body = body[:2800] + '\n...'
+              body = escape_html(body)
+              tag = data.get('tag_name') or ''
+              if tag.startswith('v'):
+                  tag = tag[1:]
+              return body, tag
+
+          if new_release == 'true':
+              body = get_release_body(version)
               text = (
-                  f'🚀 <b>New Release v{version}</b>\n\n'
+                  f'🚀 <b>New Release v{escape_html(version or "n/a")}</b>\n\n'
                   f'{body}\n\n'
+                  f'Services: {services_line}\n'
+                  f'Datetime (UTC): {deploy_time}\n'
+                  f'By: {escape_html(actor)}\n\n'
                   f'🔗 {server}/{repo}/releases/tag/v{version}'
               )
           else:
-              full_sha = os.environ['SHA']
+              # Fallback: show latest release changelog (if any) plus commit info
+              latest_body, latest_version = get_latest_release_body_and_version()
+
+              commit_message = ''
+              if gh_token:
+                  commit_req = urllib.request.Request(
+                      f'https://api.github.com/repos/{repo}/commits/{full_sha}',
+                      headers={
+                          'Authorization': f'Bearer {gh_token}',
+                          'Accept': 'application/vnd.github+json',
+                          'User-Agent': 'scanorbit-release-bot',
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(commit_req) as cr:
+                          cdata = json.loads(cr.read().decode())
+                      commit_message = cdata.get('commit', {}).get('message', '') or ''
+                  except Exception:
+                      commit_message = ''
+
+              commit_message_line = commit_message.splitlines()[0] if commit_message else 'n/a'
+              commit_message_line = escape_html(commit_message_line)
+
+              header = f'🔧 <b>Deploy [main]</b>\n\n'
+              changelog_part = ''
+              if latest_body:
+                  title = f'Changelog (latest v{escape_html(latest_version)})\n'
+                  changelog_part = f'{title}{latest_body}\n\n'
+
               text = (
-                  f'🔧 <b>Deploy to Production</b>\n\n'
-                  f'Commit: <code>{sha}</code>\n'
-                  f'By: {actor}\n\n'
+                  header +
+                  changelog_part +
+                  f'<code>{sha_short}</code>\n'
+                  f'Commit: {commit_message_line}\n'
+                  f'Services: {services_line}\n'
+                  f'Datetime (UTC): {deploy_time}\n'
+                  f'By: {escape_html(actor)}\n\n'
                   f'🔗 {server}/{repo}/commit/{full_sha}'
               )
 
@@ -381,7 +483,8 @@ jobs:
               'message_thread_id': int(thread_id),
               'text': text,
               'parse_mode': 'HTML',
-              'disable_web_page_preview': False
+              'disable_web_page_preview': True,
+              'disable_notification': True,
           }).encode()
 
           req = urllib.request.Request(

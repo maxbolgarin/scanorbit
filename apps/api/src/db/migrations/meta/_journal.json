@@ -29,6 +29,13 @@
       "when": 1773400000000,
       "tag": "0003_add_processing_restricted",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1741776000000,
+      "tag": "0004_grant_scanner_delete",
+      "breakpoints": true
     }
   ]
 }
