@@ -122,8 +122,8 @@ export const stripeConfig = {
 // Listmonk newsletter configuration
 export const listmonkConfig = {
   apiUrl: process.env.LISTMONK_API_URL || 'http://localhost:9000',
-  apiUser: process.env.LISTMONK_API_USER || 'admin',
-  apiPassword: process.env.LISTMONK_API_PASSWORD || '',
+  apiUser: process.env.LISTMONK_ADMIN_USER || process.env.LISTMONK_API_USER || 'admin',
+  apiPassword: process.env.LISTMONK_ADMIN_PASSWORD || process.env.LISTMONK_API_PASSWORD || '',
   // Campaign list IDs (0 = not configured, skip operations)
   lists: {
     coldLeads: parseInt(process.env.LISTMONK_LIST_COLD_LEADS || '0', 10),

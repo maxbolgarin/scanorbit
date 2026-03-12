@@ -386,6 +386,8 @@ export const listmonkService = {
           [lists.paidPro, lists.paidTeam, lists.trialNew, lists.trialActive],
           [lists.subscribers],
         );
+        // Set subscribed_at so the subscribers drip sequence fires from day 0
+        await this.updateAttribsByEmail(email, { subscribed_at: new Date().toISOString() });
         logger.info(`[Listmonk] onChurn: ${maskEmail(email)} → subscribers`);
       }
     } catch (error) {

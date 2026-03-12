@@ -18,12 +18,12 @@ import { logger } from '../lib/logger.js';
 export function buildUnsubscribeUrl(email: string): string {
   const secret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? 'default-secret';
   const token = createHmac('sha256', secret).update(email.toLowerCase()).digest('hex');
-  const base = process.env.API_PUBLIC_URL ?? 'https://scanorbit.cloud';
+  const base = process.env.API_PUBLIC_URL ?? process.env.FRONTEND_URL ?? 'https://scanorbit.cloud';
   return `${base}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
 }
 
 const POLL_INTERVAL_MS = 60_000;
-const TARGET_HOUR_UTC = 8; // 9 AM CET = 8 AM UTC
+const TARGET_HOUR_CET = 9; // 9 AM Europe/Amsterdam (auto-adjusts for CET/CEST)
 
 // ── Dedup ────────────────────────────────────────────────────────────
 
@@ -102,7 +102,10 @@ async function processSequence(seq: DripSequence): Promise<void> {
 
 async function runDripScheduler(): Promise<void> {
   const now = new Date();
-  if (now.getUTCHours() !== TARGET_HOUR_UTC) return;
+  const cetHour = parseInt(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Europe/Amsterdam' }).format(now),
+  );
+  if (cetHour !== TARGET_HOUR_CET) return;
 
   // Prevent double-runs within the same day
   const todayKey = `drip:ran:${now.toISOString().slice(0, 10)}`;

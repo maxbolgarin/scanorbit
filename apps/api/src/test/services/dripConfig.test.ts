@@ -134,6 +134,16 @@ describe('dripConfig', () => {
       expect(trialNew?.dateAttrib).toBe('trial_started_at');
     });
 
+    it('subscribers uses subscribed_at dateAttrib', () => {
+      const subscribers = SEQUENCES.find(s => s.name === 'subscribers');
+      expect(subscribers?.dateAttrib).toBe('subscribed_at');
+    });
+
+    it('cold-leads uses imported_at dateAttrib', () => {
+      const coldLeads = SEQUENCES.find(s => s.name === 'cold-leads');
+      expect(coldLeads?.dateAttrib).toBe('imported_at');
+    });
+
     it('cold-leads steps all have custom fromEmail', () => {
       const coldLeads = SEQUENCES.find(s => s.name === 'cold-leads');
       expect(coldLeads).toBeDefined();
