@@ -14,6 +14,14 @@ import { RoleGuide } from "@/components/onboarding/RoleGuide";
 import { TestConnection } from "@/components/onboarding/TestConnection";
 import { useAwsAccounts, useTriggerScan } from "@/hooks/use-aws-accounts";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Cloud, Orbit, X } from "lucide-react";
 import type { CreateAwsAccountInput, ScannerType } from "@/types";
 
@@ -79,6 +87,7 @@ export default function AwsSetup() {
   );
   const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
@@ -102,6 +111,10 @@ export default function AwsSetup() {
     clearOnboardingState();
     navigate("/overview");
   }, [navigate]);
+
+  const handleCloseClick = useCallback(() => {
+    setShowCloseConfirm(true);
+  }, []);
 
   const handleAccountDetails = async (data: { name: string; awsAccountId: string }) => {
     // Generate a unique external ID for this account connection
@@ -300,7 +313,7 @@ export default function AwsSetup() {
             variant="ghost"
             size="icon"
             className="absolute right-2 top-2 h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={handleClose}
+            onClick={handleCloseClick}
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
@@ -320,6 +333,7 @@ export default function AwsSetup() {
                 error={error}
                 existingNames={existingNames}
                 existingAwsAccountIds={existingAwsAccountIds}
+                initialValues={accountDetails ? { name: accountDetails.name, awsAccountId: accountDetails.awsAccountId } : undefined}
               />
             )}
             {step === "scanners" && (
@@ -355,6 +369,25 @@ export default function AwsSetup() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Exit AWS Setup?</DialogTitle>
+            <DialogDescription>
+              Your progress will be lost. Are you sure you want to exit?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowCloseConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleClose}>
+              Exit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

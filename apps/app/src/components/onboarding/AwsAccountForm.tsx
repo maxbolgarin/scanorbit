@@ -33,6 +33,7 @@ interface AwsAccountFormProps {
   error?: string | null;
   existingNames?: string[];
   existingAwsAccountIds?: string[];
+  initialValues?: { name: string; awsAccountId: string };
 }
 
 export function AwsAccountForm({
@@ -42,6 +43,7 @@ export function AwsAccountForm({
   error,
   existingNames = [],
   existingAwsAccountIds = [],
+  initialValues,
 }: AwsAccountFormProps) {
   const accountSchema = createAccountSchema(existingNames, existingAwsAccountIds);
 
@@ -52,7 +54,8 @@ export function AwsAccountForm({
   } = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
-      name: "",
+      name: initialValues?.name ?? "",
+      awsAccountId: initialValues?.awsAccountId ?? "",
     },
   });
 

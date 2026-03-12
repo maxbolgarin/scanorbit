@@ -300,6 +300,17 @@ jobs:
       contains(needs.*.result, 'success')
     runs-on: ubuntu-latest
     steps:
+      - name: Compute deployed services
+        id: services
+        run: |
+          services=""
+          [ "${{ needs.build-api.result }}" = "success" ] && services="$services api"
+          [ "${{ needs.build-app.result }}" = "success" ] && services="$services app"
+          [ "${{ needs.build-landing.result }}" = "success" ] && services="$services landing"
+          [ "${{ needs.build-workers.result }}" = "success" ] && services="$services scanner analyzer"
+          [ "${{ needs.build-listmonk-setup.result }}" = "success" ] && services="$services listmonk-setup"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+
       - name: Deploy changed services
         uses: appleboy/ssh-action@v1
         with:
@@ -320,30 +331,72 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
           THREAD_ID: ${{ vars.TELEGRAM_THREAD_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           ACTOR: ${{ github.actor }}
           SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
           REPO: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
+          DEPLOYED_SERVICES: ${{ steps.services.outputs.services }}
         run: |
           python3 - <<'EOF'
           import os, json, urllib.request
+          from datetime import datetime, timezone
 
-          token     = os.environ['TELEGRAM_BOT_TOKEN']
-          chat_id   = os.environ['CHAT_ID']
-          thread_id = os.environ['THREAD_ID']
-          pr_title  = os.environ.get('PR_TITLE', '').strip()
-          actor     = os.environ['ACTOR']
-          sha       = os.environ['SHA'][:7]
-          run_id    = os.environ['RUN_ID']
-          repo      = os.environ['REPO']
-          server    = os.environ['SERVER_URL']
+          token            = os.environ['TELEGRAM_BOT_TOKEN']
+          chat_id          = os.environ['CHAT_ID']
+          thread_id        = os.environ['THREAD_ID']
+          pr_title         = os.environ.get('PR_TITLE', '').strip()
+          actor            = os.environ['ACTOR']
+          sha_full         = os.environ['SHA']
+          sha_short        = sha_full[:7]
+          run_id           = os.environ['RUN_ID']
+          repo             = os.environ['REPO']
+          server           = os.environ['SERVER_URL']
+          deployed_services = os.environ.get('DEPLOYED_SERVICES', '').strip()
+          github_token     = os.environ.get('GITHUB_TOKEN', '').strip()
 
-          commit_line = pr_title if pr_title else f'<code>{sha}</code>'
+          def escape_html(s: str) -> str:
+              return (
+                  s.replace('&', '&amp;')
+                   .replace('<', '&lt;')
+                   .replace('>', '&gt;')
+              )
+
+          # Fetch commit message from GitHub API, if possible
+          commit_message = ''
+          if github_token:
+              api_req = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/commits/{sha_full}',
+                  headers={
+                      'Authorization': f'Bearer {github_token}',
+                      'Accept': 'application/vnd.github+json',
+                      'User-Agent': 'scanorbit-deploy-bot'
+                  }
+              )
+              try:
+                  with urllib.request.urlopen(api_req) as cr:
+                      data = json.loads(cr.read().decode())
+                  commit_message = data.get('commit', {}).get('message', '') or ''
+              except Exception as e:
+                  commit_message = ''
+
+          commit_message_line = commit_message.splitlines()[0] if commit_message else 'n/a'
+          commit_message_line = escape_html(commit_message_line)
+
+          services_line = deployed_services if deployed_services else 'n/a'
+          services_line = escape_html(services_line)
+
+          deploy_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')
+
+          commit_line = pr_title if pr_title else f'<code>{sha_short}</code>'
           text = (
               f'🔧 <b>Deploy [develop]</b>\n\n'
               f'{commit_line}\n'
+              f'Commit: {commit_message_line}\n'
+              f'Services: {services_line}\n'
+              f'Datetime (UTC): {deploy_time}\n'
               f'By: {actor}\n\n'
               f'🔗 {server}/{repo}/actions/runs/{run_id}'
           )

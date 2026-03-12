@@ -168,6 +168,7 @@ services:
   api:
     image: ghcr.io/${GITHUB_REPOSITORY}/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint/secret-entrypoint.sh"]
     environment:
       - NODE_ENV=production
       - PORT=4000
@@ -261,6 +262,7 @@ services:
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
+      - ./entrypoints/secret-entrypoint.sh:/entrypoint/secret-entrypoint.sh:ro
     deploy:
       resources:
         limits:
