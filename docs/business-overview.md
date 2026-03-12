@@ -86,7 +86,7 @@ Every detected issue becomes a "finding" with a full lifecycle:
 
 1. **Connect** — User adds their AWS account by creating a read-only IAM role with a unique external ID. No AWS credentials are stored by ScanOrbit.
 2. **Scan** — ScanOrbit assumes the IAM role and scans all AWS regions concurrently, discovering resources across supported services.
-3. **Analyze** — Eight specialized analyzers process the scan results: orphan detection, SSL monitoring, security analysis, IAM analysis, cost optimization, tagging compliance, data residency checks, and orchestration.
+3. **Analyze** — Seven specialized analyzers process the scan results: orphan detection, SSL monitoring, security analysis, IAM analysis, cost optimization, tagging compliance, and data residency checks.
 4. **Review** — Users see their complete infrastructure inventory, findings sorted by severity, cost estimates, and compliance status in the web dashboard.
 5. **Act** — Users resolve, snooze, or ignore findings. They can re-scan to verify fixes. The platform tracks finding resolution over time.
 
@@ -145,7 +145,7 @@ Every detected issue becomes a "finding" with a full lifecycle:
 | **Landing Page** | Astro-based marketing site at the root domain |
 | **API** | Central backend handling authentication, data access, billing, and orchestration |
 | **Scanner Worker** | Background service that connects to AWS and discovers resources |
-| **Analyzer Worker** | Background service that processes scan results through 8 specialized analyzers |
+| **Analyzer Worker** | Background service that processes scan results through 7 specialized analyzers |
 | **Database** | PostgreSQL storing all application data with encrypted connections |
 | **Cache & Queue** | Redis for job queuing (scan/analysis tasks) and caching |
 | **Reverse Proxy** | Caddy handling HTTPS, automatic TLS certificates, and subdomain routing |
@@ -209,7 +209,7 @@ Every detected issue becomes a "finding" with a full lifecycle:
 | **Resource** | An AWS infrastructure item (EC2 instance, S3 bucket, IAM role, etc.) discovered during a scan |
 | **Finding** | A detected issue — security risk, compliance violation, cost waste, or operational problem — with severity and lifecycle status |
 | **Scan** | A single execution of the discovery process across all regions of an AWS account |
-| **Analysis** | The post-scan phase where 8 analyzers evaluate resources and generate findings |
+| **Analysis** | The post-scan phase where 7 analyzers evaluate resources and generate findings |
 | **Organization** | A team workspace that owns AWS accounts and contains members with roles |
 | **AWS Account** | A customer's AWS account connected via IAM role for scanning |
 | **Severity** | Finding importance: Critical > High > Medium > Low > Trivial |
