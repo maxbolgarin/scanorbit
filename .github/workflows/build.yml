@@ -335,6 +335,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           ACTOR: ${{ github.actor }}
           SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           RUN_ID: ${{ github.run_id }}
           REPO: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
@@ -343,19 +344,20 @@ jobs:
           python3 - <<'EOF'
           import os, json, urllib.request
           from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
 
-          token            = os.environ['TELEGRAM_BOT_TOKEN']
-          chat_id          = os.environ['CHAT_ID']
-          thread_id        = os.environ['THREAD_ID']
-          pr_title         = os.environ.get('PR_TITLE', '').strip()
-          actor            = os.environ['ACTOR']
-          sha_full         = os.environ['SHA']
-          sha_short        = sha_full[:7]
-          run_id           = os.environ['RUN_ID']
-          repo             = os.environ['REPO']
-          server           = os.environ['SERVER_URL']
+          token             = os.environ['TELEGRAM_BOT_TOKEN']
+          chat_id           = os.environ['CHAT_ID']
+          thread_id         = os.environ['THREAD_ID']
+          pr_title          = os.environ.get('PR_TITLE', '').strip()
+          actor             = os.environ['ACTOR']
+          sha_full          = os.environ.get('HEAD_SHA') or os.environ['SHA']
+          sha_short         = sha_full[:7]
+          run_id            = os.environ['RUN_ID']
+          repo              = os.environ['REPO']
+          server            = os.environ['SERVER_URL']
           deployed_services = os.environ.get('DEPLOYED_SERVICES', '').strip()
-          github_token     = os.environ.get('GITHUB_TOKEN', '').strip()
+          github_token      = os.environ.get('GITHUB_TOKEN', '').strip()
 
           def escape_html(s: str) -> str:
               return (
@@ -388,7 +390,10 @@ jobs:
           services_line = deployed_services if deployed_services else 'n/a'
           services_line = escape_html(services_line)
 
-          deploy_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')
+          # Datetime in CET/CEST (Europe/Berlin)
+          now_utc = datetime.now(timezone.utc)
+          now_cet = now_utc.astimezone(ZoneInfo("Europe/Berlin"))
+          deploy_time = now_cet.strftime('%Y-%m-%d %H:%M:%S %Z')
 
           commit_line = pr_title if pr_title else f'<code>{sha_short}</code>'
           text = (
@@ -396,7 +401,7 @@ jobs:
               f'{commit_line}\n'
               f'Commit: {commit_message_line}\n'
               f'Services: {services_line}\n'
-              f'Datetime (UTC): {deploy_time}\n'
+              f'Datetime: {deploy_time}\n'
               f'By: {actor}\n\n'
               f'🔗 {server}/{repo}/actions/runs/{run_id}'
           )

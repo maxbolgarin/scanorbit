@@ -193,7 +193,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
               By Category
             </p>
             <div className="flex items-baseline gap-1">
-              {categoryCounts.slice(0, 5).map((category, i) => (
+              {categoryCounts.slice(0, 5).map((category) => (
                 <div key={category.key} className="flex-1 text-center">
                   <p className={`text-2xl font-bold ${category.color}`}>{category.count}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{category.label}</p>
