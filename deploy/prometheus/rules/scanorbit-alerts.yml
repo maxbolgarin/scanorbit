@@ -18,6 +18,20 @@ groups:
           description: "The {{ $labels.job }} service has been down for more than 1 minute."
           runbook_url: "https://docs.scanorbit.cloud/runbooks/service-down"
 
+      - alert: AllProdServicesDown
+        # Fires when ALL three application services are simultaneously unreachable.
+        # Uses `for: 5m` to avoid false positives during rolling deploys/restarts,
+        # where services are briefly down but recover within ~1-2 minutes.
+        expr: |
+          sum(up{job=~"scanorbit-api|scanorbit-scanner|scanorbit-analyzer"}) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "All production services are down"
+          description: "All ScanOrbit application services (API, Scanner, Analyzer) have been unreachable for more than 5 minutes. This is NOT a deploy restart — investigate immediately."
+          runbook_url: "https://docs.scanorbit.cloud/runbooks/all-services-down"
+
       - alert: APIHighErrorRate
         # Only alert when there's actual traffic (at least 0.1 req/sec = 6 req/min)
         expr: |
@@ -271,25 +285,6 @@ groups:
           description: "Redis has {{ $value }} connected clients."
           runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-connections"
 
-      - alert: RedisLowHitRate
-        # Only alert when there's significant traffic and cache is not cold (has some hits)
-        expr: |
-          (
-            rate(redis_keyspace_hits_total[5m]) /
-            (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
-          ) < 0.8
-          and
-          (increase(redis_keyspace_hits_total[5m]) + increase(redis_keyspace_misses_total[5m])) > 100
-          and
-          rate(redis_keyspace_hits_total[5m]) > 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Redis cache hit rate is low"
-          description: "Redis cache hit rate is {{ $value | humanizePercentage }} (threshold: 80%)"
-          runbook_url: "https://docs.scanorbit.cloud/runbooks/redis-hit-rate"
-
       - alert: RedisEvictions
         expr: increase(redis_evicted_keys_total[5m]) > 100
         for: 5m
@@ -351,17 +346,6 @@ groups:
   - name: business_metrics
     interval: 60s
     rules:
-      - alert: HighSeverityFindingsSpike
-        expr: |
-          increase(findings_created_total{severity=~"critical|high"}[1h]) > 100
-        for: 0m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Spike in critical/high severity findings"
-          description: "{{ $value }} critical/high severity findings created in the last hour."
-          runbook_url: "https://docs.scanorbit.cloud/runbooks/findings-spike"
-
       - alert: ScanErrors
         # Alert when there are scan errors (at least 1 error in the last hour)
         expr: |

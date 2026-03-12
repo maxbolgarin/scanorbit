@@ -313,7 +313,7 @@ Views:
 
 ### 7.1 Compose Layout
 
-`docker-compose.yml` (base for dev) plus `docker-compose.prod.yml` with overrides.[1][2]
+`deploy/docker-compose.yml` defines the production stack.[1][2]
 
 Services:
 
@@ -326,12 +326,12 @@ Services:
 - `db` – Postgres (with volume).
 - `redis` – Redis.
 
-Production changes (in `docker-compose.prod.yml`):
+Key production characteristics:
 
-- Remove source code bind mounts.
-- Set `restart: always`.
-- Configure minimal logging.
-- Point to production environment variables (DB creds, JWT secret, etc.).[3][1]
+- No source code bind mounts (all services run from built images).
+- `restart: unless-stopped` for long-running services.
+- Minimal logging and healthchecks for all critical services.
+- Uses Docker secrets and `.env.prod` for credentials and configuration.[3][1]
 
 ### 7.2 Cheap GDPR‑friendly VM
 

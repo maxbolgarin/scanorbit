@@ -30,7 +30,6 @@ import {
   AlertTriangle,
   History,
   RefreshCw,
-  X,
   Undo2,
   Info,
   Ban,
@@ -50,8 +49,7 @@ type ViewState =
   | "details"
   | "confirm-resolve"
   | "confirm-ignore"
-  | "confirm-snooze"
-  | "success";
+  | "confirm-snooze";
 
 const typeLabels: Record<string, string> = {
   // Orphan findings
@@ -112,17 +110,13 @@ export function FindingDetailModal({
 }: FindingDetailModalProps) {
   const navigate = useNavigate();
   const [viewState, setViewState] = useState<ViewState>("details");
-  const [completedAction, setCompletedAction] = useState<FindingStatus | null>(null);
   const [snoozeDays, setSnoozeDays] = useState("7");
-  const [snoozedUntilDate, setSnoozedUntilDate] = useState<Date | null>(null);
 
-  // Reset modal state when a different finding is opened
+  // Reset modal state when finding changes (different finding or status update)
   useEffect(() => {
     setViewState("details");
-    setCompletedAction(null);
     setSnoozeDays("7");
-    setSnoozedUntilDate(null);
-  }, [finding?.id]);
+  }, [finding?.id, finding?.status]);
 
   if (!finding) return null;
 
@@ -136,37 +130,27 @@ export function FindingDetailModal({
 
   const handleClose = () => {
     setViewState("details");
-    setCompletedAction(null);
     setSnoozeDays("7");
-    setSnoozedUntilDate(null);
     onClose();
   };
 
   const handleResolve = () => {
     onUpdateStatus(finding.id, "resolved");
-    setCompletedAction("resolved");
-    setViewState("success");
   };
 
   const handleSnooze = () => {
     const days = parseInt(snoozeDays, 10);
     const snoozedUntil = new Date();
     snoozedUntil.setDate(snoozedUntil.getDate() + days);
-    setSnoozedUntilDate(snoozedUntil);
     onUpdateStatus(finding.id, "snoozed", snoozedUntil);
-    setCompletedAction("snoozed");
-    setViewState("success");
   };
 
   const handleIgnore = () => {
     onUpdateStatus(finding.id, "ignored");
-    setCompletedAction("ignored");
-    setViewState("success");
   };
 
-  const handleUndo = () => {
+  const handleReopen = () => {
     onUpdateStatus(finding.id, "open");
-    handleClose();
   };
 
   const handleBackToDetails = () => {
@@ -336,76 +320,6 @@ export function FindingDetailModal({
           <Button onClick={handleSnooze} disabled={isUpdating} className="bg-amber-600 hover:bg-amber-700">
             <Clock className="mr-2 h-4 w-4" />
             Snooze Finding
-          </Button>
-        </DialogFooter>
-      </div>
-    );
-  };
-
-  // Render success state
-  const renderSuccessState = () => {
-    const config = {
-      resolved: {
-        icon: CheckCircle,
-        iconBg: "bg-green-100 dark:bg-green-900/30",
-        iconColor: "text-green-600 dark:text-green-400",
-        title: "Finding Resolved",
-        description: `"${finding.summary}" has been marked as resolved.`,
-        info: "If this issue appears in your next scan, the finding will automatically reopen so you can address it again.",
-      },
-      ignored: {
-        icon: EyeOff,
-        iconBg: "bg-gray-100 dark:bg-gray-800",
-        iconColor: "text-gray-600 dark:text-gray-400",
-        title: "Finding Ignored",
-        description: `"${finding.summary}" has been ignored.`,
-        info: "This finding will remain ignored even if detected in future scans. You can change this anytime from the finding details.",
-      },
-      snoozed: {
-        icon: Clock,
-        iconBg: "bg-amber-100 dark:bg-amber-900/30",
-        iconColor: "text-amber-600 dark:text-amber-400",
-        title: "Finding Snoozed",
-        description: `"${finding.summary}" has been snoozed.`,
-        info: `This finding is hidden until ${snoozedUntilDate?.toLocaleDateString() || "the snooze period ends"}. If still detected after that, it will reopen for your attention.`,
-      },
-    };
-
-    const currentConfig = config[completedAction as keyof typeof config] || config.resolved;
-    const IconComponent = currentConfig.icon;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col items-center text-center">
-          <div className={`mb-4 rounded-full ${currentConfig.iconBg} p-3`}>
-            <IconComponent className={`h-8 w-8 ${currentConfig.iconColor}`} />
-          </div>
-          <h3 className="text-lg font-semibold">{currentConfig.title}</h3>
-          <p className="mt-2 text-sm text-muted-foreground max-w-md">
-            {currentConfig.description}
-          </p>
-        </div>
-
-        <div className="rounded-lg border bg-muted/30 p-4">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-sm">What happens next?</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {currentConfig.info}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={handleUndo} disabled={isUpdating}>
-            <Undo2 className="mr-2 h-4 w-4" />
-            Undo
-          </Button>
-          <Button onClick={handleClose}>
-            <X className="mr-2 h-4 w-4" />
-            Close
           </Button>
         </DialogFooter>
       </div>
@@ -609,7 +523,7 @@ export function FindingDetailModal({
 
       {finding.status !== "open" && (
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleUndo()} disabled={isUpdating}>
+          <Button variant="outline" onClick={handleReopen} disabled={isUpdating}>
             <Undo2 className="mr-2 h-4 w-4" />
             Reopen Finding
           </Button>
@@ -630,8 +544,6 @@ export function FindingDetailModal({
         return renderIgnoreConfirmation();
       case "confirm-snooze":
         return renderSnoozeConfirmation();
-      case "success":
-        return renderSuccessState();
       default:
         return renderDetails();
     }

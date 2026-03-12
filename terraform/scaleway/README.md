@@ -220,7 +220,7 @@ Copy only the required files (scripts are pre-installed via cloud-init):
 PUBLIC_IP=$(terraform output -raw public_ip)
 
 # Copy docker-compose, Caddyfile, and environment
-scp deploy/docker-compose.prod.yml deploy/Caddyfile \
+scp deploy/docker-compose.yml deploy/Caddyfile \
     deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
 
 scp .env deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
@@ -248,27 +248,27 @@ This creates:
 echo 'YOUR_GITHUB_PAT' | docker login ghcr.io -u maxbolgarin --password-stdin
 
 # Start all services (migrations run automatically)
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml up -d
 
 # Verify services are healthy
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml ps
 ```
 
 ### 8. Verify GDPR Components
 
 ```bash
 # Check backup container
-docker compose -f docker-compose.prod.yml logs postgres-backup
+docker compose -f docker-compose.yml logs postgres-backup
 
 # Check retention cleanup
-docker compose -f docker-compose.prod.yml logs retention-cleanup
+docker compose -f docker-compose.yml logs retention-cleanup
 
 # Verify TLS connections
-docker compose -f docker-compose.prod.yml exec postgres \
+docker compose -f docker-compose.yml exec postgres \
   psql -U scanorbit -c "SELECT ssl_is_used();"
 
 # Test Redis TLS
-docker compose -f docker-compose.prod.yml exec redis \
+docker compose -f docker-compose.yml exec redis \
   redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key \
   --cacert /tls/ca.crt -a $REDIS_PASSWORD ping
 ```
@@ -335,23 +335,23 @@ ssh deploy@$(terraform output -raw public_ip)
 
 ```bash
 # All services
-docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.yml logs -f
 
 # Specific service
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose -f docker-compose.yml logs -f api
 
 # Backup logs
-docker compose -f docker-compose.prod.yml logs -f postgres-backup
+docker compose -f docker-compose.yml logs -f postgres-backup
 
 # Retention cleanup logs
-docker compose -f docker-compose.prod.yml logs -f retention-cleanup
+docker compose -f docker-compose.yml logs -f retention-cleanup
 ```
 
 ### Manual Backup
 
 ```bash
 # Trigger backup manually
-docker compose -f docker-compose.prod.yml exec postgres-backup \
+docker compose -f docker-compose.yml exec postgres-backup \
   /usr/local/bin/backup.sh
 
 # List backups in S3
@@ -372,7 +372,7 @@ aws s3 ls s3://${SCW_BUCKET_NAME}/ \
 ### Manual Retention Cleanup
 
 ```bash
-docker compose -f docker-compose.prod.yml exec retention-cleanup \
+docker compose -f docker-compose.yml exec retention-cleanup \
   node dist/jobs/retention-cleanup.js
 ```
 
@@ -381,8 +381,8 @@ docker compose -f docker-compose.prod.yml exec retention-cleanup \
 ```bash
 cd /opt/scanorbit
 git pull
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d
 ```
 
 ### Regenerate TLS Certificates
@@ -394,7 +394,7 @@ cd /opt/scanorbit/deploy
 ./scripts/generate-certs.sh
 
 # Restart services to pick up new certs
-docker compose -f docker-compose.prod.yml restart postgres redis
+docker compose -f docker-compose.yml restart postgres redis
 ```
 
 ### Destroy Infrastructure
@@ -423,26 +423,26 @@ terraform destroy
 openssl x509 -in deploy/certs/postgres/server.crt -text -noout
 
 # Verify PostgreSQL SSL
-docker compose -f docker-compose.prod.yml exec postgres \
+docker compose -f docker-compose.yml exec postgres \
   psql -U scanorbit -c "SHOW ssl;"
 
 # Check Redis TLS
-docker compose -f docker-compose.prod.yml logs redis | grep -i tls
+docker compose -f docker-compose.yml logs redis | grep -i tls
 ```
 
 ### Backup Failures
 
 ```bash
 # Check backup logs
-docker compose -f docker-compose.prod.yml logs postgres-backup
+docker compose -f docker-compose.yml logs postgres-backup
 
 # Test S3 connectivity
-docker compose -f docker-compose.prod.yml exec postgres-backup \
+docker compose -f docker-compose.yml exec postgres-backup \
   aws s3 ls s3://${SCW_BUCKET_NAME}/ \
   --endpoint-url https://s3.nl-ams.scw.cloud
 
 # Verify encryption key is set
-docker compose -f docker-compose.prod.yml exec postgres-backup \
+docker compose -f docker-compose.yml exec postgres-backup \
   printenv BACKUP_ENCRYPTION_KEY
 ```
 
@@ -450,10 +450,10 @@ docker compose -f docker-compose.prod.yml exec postgres-backup \
 
 ```bash
 # Check retention logs
-docker compose -f docker-compose.prod.yml logs retention-cleanup
+docker compose -f docker-compose.yml logs retention-cleanup
 
 # Run manually with verbose output
-docker compose -f docker-compose.prod.yml exec retention-cleanup \
+docker compose -f docker-compose.yml exec retention-cleanup \
   node dist/jobs/retention-cleanup.js
 ```
 

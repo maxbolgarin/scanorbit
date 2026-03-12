@@ -10,4 +10,7 @@ if [ -f /run/secrets/postgres_password ]; then
   export DATABASE_URL="postgresql://${POSTGRES_USER:-scanorbit}:${PG_PASS}@postgres:5432/umami?sslmode=require"
 fi
 
+# Run Prisma migrations (creates tables on first start, no-op afterwards)
+npx prisma migrate deploy
+
 exec node server.js "$@"

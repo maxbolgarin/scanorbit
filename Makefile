@@ -262,11 +262,11 @@ tf-prod-destroy:
 # =============================================================================
 send-deploy-files:
 	scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
-	scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
+	scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
 	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
 
 send-docker-compose:
-	scp deploy/docker-compose.prod.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml 
+	scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml 
 
 send-caddyfile:
 	scp deploy/Caddyfile deploy@scanorbit.cloud:/opt/scanorbit/deploy/Caddyfile
