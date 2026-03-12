@@ -112,7 +112,7 @@ export default function AccountResources() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast({ title: "Export failed", description: "Could not export resources.", variant: "destructive" });
+      toast({ title: "Export failed", description: "Could not export resources.", type: "error" });
     } finally {
       setExporting(false);
     }

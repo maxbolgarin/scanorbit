@@ -202,7 +202,7 @@ export default function AccountFindings() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast({ title: "Export failed", description: "Could not export findings.", variant: "destructive" });
+      toast({ title: "Export failed", description: "Could not export findings.", type: "error" });
     } finally {
       setExporting(false);
     }
