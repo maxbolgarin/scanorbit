@@ -113,11 +113,11 @@ findingsRoute.get('/export', zValidator('query', z.object({
     sanitizeCsvCell(f.severity),
     sanitizeCsvCell(f.status),
     sanitizeCsvCell(f.summary ?? ''),
-    sanitizeCsvCell(f.firstDetectedAt ?? ''),
-    sanitizeCsvCell(f.lastDetectedAt ?? ''),
+    sanitizeCsvCell(String(f.firstDetectedAt ?? '')),
+    sanitizeCsvCell(String(f.lastDetectedAt ?? '')),
     sanitizeCsvCell(String(f.detectionCount ?? 0)),
-    sanitizeCsvCell(f.resolvedAt ?? ''),
-    sanitizeCsvCell(f.createdAt),
+    sanitizeCsvCell(String(f.resolvedAt ?? '')),
+    sanitizeCsvCell(String(f.createdAt)),
   ].join(','));
 
   const csv = [csvHeaders.join(','), ...csvRows].join('\n');

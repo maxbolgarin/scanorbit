@@ -161,8 +161,8 @@ resourcesRoute.get('/export', zValidator('query', z.object({
     sanitizeCsvCell(r.name ?? ''),
     sanitizeCsvCell(r.state ?? ''),
     sanitizeCsvCell(String(r.costEstimateMonthly ?? '')),
-    sanitizeCsvCell(r.lastSeenAt),
-    sanitizeCsvCell(r.createdAt),
+    sanitizeCsvCell(String(r.lastSeenAt)),
+    sanitizeCsvCell(String(r.createdAt)),
   ].join(','));
 
   const csv = [csvHeaders.join(','), ...csvRows].join('\n');
