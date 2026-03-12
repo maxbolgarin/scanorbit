@@ -12,7 +12,7 @@ import { structuredLoggerMiddleware } from './middlewares/structuredLogger.js';
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
-import { getMetrics, getContentType, dbPoolConnections, queueLength } from './lib/metrics.js';
+import { getMetrics, getContentType, dbPoolConnections, queueLength, usersTotal, orgsByTier, orgsBySubscriptionStatus, orgsWithAwsAccounts } from './lib/metrics.js';
 import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
 import { startListmonkCron } from './services/listmonkCronService.js';
@@ -121,6 +121,28 @@ app.get('/metrics', async (c) => {
       const len = await redis.llen(queue);
       queueLength.labels({ queue_name: queue.replace('jobs:', '') }).set(len);
     }
+
+    // Update business analytics gauges
+    const [userCountResult, tierResults, statusResults, orgsWithAwsResult] = await Promise.all([
+      pool.query('SELECT count(*) AS cnt FROM users'),
+      pool.query('SELECT tier, count(*) AS cnt FROM orgs GROUP BY tier'),
+      pool.query('SELECT subscription_status, count(*) AS cnt FROM orgs GROUP BY subscription_status'),
+      pool.query('SELECT count(DISTINCT org_id) AS cnt FROM aws_accounts'),
+    ]);
+
+    usersTotal.set(parseInt(userCountResult.rows[0].cnt));
+
+    orgsByTier.reset();
+    for (const row of tierResults.rows) {
+      orgsByTier.labels({ tier: row.tier || 'free' }).set(parseInt(row.cnt));
+    }
+
+    orgsBySubscriptionStatus.reset();
+    for (const row of statusResults.rows) {
+      orgsBySubscriptionStatus.labels({ status: row.subscription_status || 'none' }).set(parseInt(row.cnt));
+    }
+
+    orgsWithAwsAccounts.set(parseInt(orgsWithAwsResult.rows[0].cnt));
 
     const metrics = await getMetrics();
     return c.text(metrics, 200, {

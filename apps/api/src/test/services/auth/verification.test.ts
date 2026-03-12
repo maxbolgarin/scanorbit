@@ -86,6 +86,7 @@ vi.mock('../../../services/consentService.js', () => ({
 
 vi.mock('../../../lib/metrics.js', () => ({
   authOperationsTotal: { inc: vi.fn() },
+  emailVerificationsTotal: { inc: vi.fn() },
 }));
 
 vi.mock('../../../lib/config.js', () => ({

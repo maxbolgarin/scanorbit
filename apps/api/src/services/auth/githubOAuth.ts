@@ -4,7 +4,7 @@ import { HTTP400Error, HTTP401Error, getPgErrorCode } from '../../lib/errors.js'
 import { users, orgs, userOrgMembers, userOauthAccounts } from '../../db/schema.js';
 import { oauthConsentStore, twoFactorStore } from '../../lib/redis.js';
 import { encryptOAuthTokenOptional } from '../../lib/crypto.js';
-import { authOperationsTotal } from '../../lib/metrics.js';
+import { authOperationsTotal, userLoginsTotal } from '../../lib/metrics.js';
 import { config } from '../../lib/config.js';
 import { minimizeOAuthProfile } from './helpers.js';
 import { verifyOAuthState } from './oauthShared.js';
@@ -151,6 +151,7 @@ async function processGithubAuth(githubUser: GitHubUserInfo): Promise<GitHubAuth
   if (existingOAuth.length > 0) {
     // Existing OAuth account - just log in
     authOperationsTotal.inc({ operation: 'github_oauth', status: 'existing_oauth' });
+    userLoginsTotal.inc({ method: 'github', status: 'success' });
     return completeGithubOAuthLogin(existingOAuth[0].userId, githubUser, false);
   }
 
@@ -179,6 +180,7 @@ async function processGithubAuth(githubUser: GitHubUserInfo): Promise<GitHubAuth
     }
 
     authOperationsTotal.inc({ operation: 'github_oauth', status: 'linked_account' });
+    userLoginsTotal.inc({ method: 'github', status: 'success' });
     return completeGithubOAuthLogin(existingUser[0].id, githubUser, false);
   }
 
@@ -246,6 +248,7 @@ async function completeGithubOAuthLogin(
   if (user.twoFactorEnabled && !isNewUser) {
     const challengeToken = await twoFactorStore.createChallenge(userId);
     authOperationsTotal.inc({ operation: 'github_oauth', status: '2fa_required' });
+    userLoginsTotal.inc({ method: 'github', status: '2fa_required' });
     return {
       requires2FA: true,
       challengeToken,

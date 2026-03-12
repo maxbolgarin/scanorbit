@@ -5,7 +5,7 @@ import { users, userOauthAccounts } from '../../db/schema.js';
 import { redis, oauthConsentStore } from '../../lib/redis.js';
 import { consentService } from '../consentService.js';
 import { encryptOAuthTokenOptional } from '../../lib/crypto.js';
-import { authOperationsTotal } from '../../lib/metrics.js';
+import { authOperationsTotal, userSignupsTotal } from '../../lib/metrics.js';
 import { OAUTH_STATE_EXPIRY_SECONDS } from './helpers.js';
 import type { GoogleUserInfo, GitHubUserInfo } from '../../types/index.js';
 
@@ -95,6 +95,7 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
     }
 
     authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
+    userSignupsTotal.inc({ method: 'google' });
     return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
   }
 
@@ -149,6 +150,7 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
     }
 
     authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
+    userSignupsTotal.inc({ method: 'github' });
     return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
   }
 

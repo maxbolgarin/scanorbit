@@ -8,7 +8,7 @@ import type { User, Org } from '../../db/schema.js';
 import { emailService } from '../emailService.js';
 import { signupCodes, twoFactorStore, accountLockoutStore } from '../../lib/redis.js';
 import { consentService } from '../consentService.js';
-import { authOperationsTotal } from '../../lib/metrics.js';
+import { authOperationsTotal, userSignupsTotal, userLoginsTotal } from '../../lib/metrics.js';
 import { logger } from '../../lib/logger.js';
 import { generateVerificationCode, generateSlug, SALT_ROUNDS, VERIFICATION_CODE_EXPIRY_HOURS } from './helpers.js';
 import type { SignupResult, LoginResponse, LoginResult } from './helpers.js';
@@ -102,6 +102,7 @@ async function signup(
   }
 
   authOperationsTotal.inc({ operation: 'signup', status: 'success' });
+  userSignupsTotal.inc({ method: 'email' });
 
   return {
     user,
@@ -165,6 +166,7 @@ async function login(email: string, password: string): Promise<LoginResponse> {
     // Create challenge token and return
     const challengeToken = await twoFactorStore.createChallenge(user.id);
     authOperationsTotal.inc({ operation: 'login', status: '2fa_required' });
+    userLoginsTotal.inc({ method: 'email', status: '2fa_required' });
     return {
       requires2FA: true,
       challengeToken,
@@ -183,6 +185,7 @@ async function login(email: string, password: string): Promise<LoginResponse> {
     .where(eq(userOrgMembers.userId, user.id));
 
   authOperationsTotal.inc({ operation: 'login', status: 'success' });
+  userLoginsTotal.inc({ method: 'email', status: 'success' });
 
   return {
     user: {
@@ -230,6 +233,7 @@ async function completeLoginAfter2FA(userId: string): Promise<LoginResult> {
     .where(eq(userOrgMembers.userId, userId));
 
   authOperationsTotal.inc({ operation: 'login_2fa', status: 'success' });
+  userLoginsTotal.inc({ method: 'email', status: 'success' });
 
   return {
     user: {
@@ -374,6 +378,8 @@ async function completeSignup(
 
   // Cleanup any remaining Redis data
   await signupCodes.cleanup(email);
+
+  userSignupsTotal.inc({ method: 'email' });
 
   return { user };
 }
