@@ -76,6 +76,7 @@ export const orgs = pgTable('orgs', {
 
 export const orgsRelations = relations(orgs, ({ many }) => ({
   members: many(userOrgMembers),
+  invitations: many(orgInvitations),
   awsAccounts: many(awsAccounts),
   resources: many(resources),
   resourceDependencies: many(resourceDependencies),
@@ -106,6 +107,34 @@ export const userOrgMembersRelations = relations(userOrgMembers, ({ one }) => ({
   org: one(orgs, {
     fields: [userOrgMembers.orgId],
     references: [orgs.id],
+  }),
+}));
+
+// Organization Invitations
+export const orgInvitations = pgTable('org_invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  email: varchar('email', { length: 255 }).notNull(),
+  role: varchar('role', { length: 50 }).default('member').notNull(), // 'admin', 'member'
+  invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  status: varchar('status', { length: 50 }).default('pending').notNull(), // 'pending', 'accepted', 'canceled', 'expired'
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  // Partial unique index added manually in migration SQL: WHERE status = 'pending'
+  uniqueIndex('org_invitations_org_email_pending_idx').on(table.orgId, table.email),
+  index('org_invitations_org_id_idx').on(table.orgId),
+]);
+
+export const orgInvitationsRelations = relations(orgInvitations, ({ one }) => ({
+  org: one(orgs, {
+    fields: [orgInvitations.orgId],
+    references: [orgs.id],
+  }),
+  inviter: one(users, {
+    fields: [orgInvitations.invitedBy],
+    references: [users.id],
   }),
 }));
 
@@ -182,7 +211,7 @@ export const resources = pgTable('resources', {
   orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
   awsAccountId: uuid('aws_account_id').notNull().references(() => awsAccounts.id, { onDelete: 'cascade' }),
   resourceId: varchar('resource_id', { length: 255 }).notNull(), // ARN or provider ID
-  service: varchar('service', { length: 50 }).notNull(), // 'ec2', 'ebs', 'eip', 'rds', 'rds_snapshot', 's3', 'alb', 'acm', 'lambda', 'cloudwatch_logs', 'cloudwatch_alarm', 'iam_user', 'iam_role', 'iam_policy', 'iam_access_key', 'security_group', 'secret', 'kms_key'
+  service: varchar('service', { length: 50 }).notNull(), // 'ec2', 'ebs', 'eip', 'eni', 'rds', 'rds_snapshot', 's3', 'alb', 'acm', 'lambda', 'nat_gateway', 'cloudwatch_logs', 'cloudwatch_alarm', 'iam_user', 'iam_role', 'iam_policy', 'iam_access_key', 'security_group', 'secret', 'kms_key'
   region: varchar('region', { length: 50 }),
   name: varchar('name', { length: 255 }),
   state: varchar('state', { length: 50 }), // 'available', 'running', 'pending', etc.
@@ -572,6 +601,8 @@ export type Org = typeof orgs.$inferSelect;
 export type NewOrg = typeof orgs.$inferInsert;
 export type UserOrgMember = typeof userOrgMembers.$inferSelect;
 export type NewUserOrgMember = typeof userOrgMembers.$inferInsert;
+export type OrgInvitation = typeof orgInvitations.$inferSelect;
+export type NewOrgInvitation = typeof orgInvitations.$inferInsert;
 export type AwsAccount = typeof awsAccounts.$inferSelect;
 export type NewAwsAccount = typeof awsAccounts.$inferInsert;
 export type Scan = typeof scans.$inferSelect;

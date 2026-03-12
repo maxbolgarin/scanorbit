@@ -22,6 +22,7 @@ interface FindingInfo {
   description: string;
   triggers: string[];
   remediation: string[];
+  isPlanned?: boolean;
 }
 
 const severityColors: Record<string, string> = {
@@ -59,6 +60,11 @@ function FindingCard({ finding }: { finding: FindingInfo }) {
                 <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
                   {finding.type}
                 </code>
+                {finding.isPlanned && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground border-dashed">
+                    Planned
+                  </Badge>
+                )}
               </div>
               <SeverityBadge severity={finding.severity} />
             </div>
@@ -196,6 +202,7 @@ const securityFindings: FindingInfo[] = [
     remediation: [
       "Disable public accessibility and access the database through a VPN, bastion host, or VPC peering",
     ],
+    isPlanned: true,
   },
   {
     type: "public_snapshot",
@@ -207,6 +214,7 @@ const securityFindings: FindingInfo[] = [
       "Remove public permissions from the snapshot",
       "If sharing is required, use specific AWS account IDs",
     ],
+    isPlanned: true,
   },
   {
     type: "insecure_tls",
@@ -220,6 +228,7 @@ const securityFindings: FindingInfo[] = [
     remediation: [
       "Update the security policy to use TLS 1.2 or higher with modern cipher suites",
     ],
+    isPlanned: true,
   },
 ];
 
@@ -283,6 +292,7 @@ const iamFindings: FindingInfo[] = [
       "Create IAM users for day-to-day operations",
       "Use root only for tasks that require root privileges",
     ],
+    isPlanned: true,
   },
   {
     type: "overly_permissive_policy",
@@ -296,6 +306,7 @@ const iamFindings: FindingInfo[] = [
     remediation: [
       "Apply the principle of least privilege. Grant only the specific permissions required",
     ],
+    isPlanned: true,
   },
   {
     type: "cross_account_trust",
@@ -309,6 +320,7 @@ const iamFindings: FindingInfo[] = [
     remediation: [
       "Add conditions to the trust policy (e.g., ExternalId, SourceArn, or SourceAccount) to prevent confused deputy attacks",
     ],
+    isPlanned: true,
   },
 ];
 
@@ -351,6 +363,7 @@ const complianceFindings: FindingInfo[] = [
     remediation: [
       "Enable CloudTrail with multi-region logging and S3 log file validation",
     ],
+    isPlanned: true,
   },
   {
     type: "vpc_flow_logs_disabled",
@@ -361,6 +374,7 @@ const complianceFindings: FindingInfo[] = [
     remediation: [
       "Enable VPC Flow Logs to capture network traffic for security analysis and troubleshooting",
     ],
+    isPlanned: true,
   },
   {
     type: "backup_not_configured",
@@ -373,6 +387,7 @@ const complianceFindings: FindingInfo[] = [
     remediation: [
       "Create an AWS Backup plan and add the resource to ensure regular backups",
     ],
+    isPlanned: true,
   },
 ];
 
@@ -420,7 +435,7 @@ const costFindings: FindingInfo[] = [
   },
   {
     type: "idle_load_balancer",
-    severity: "Low",
+    severity: "Medium",
     description: "Application Load Balancer has no healthy targets registered.",
     triggers: [
       "ALB with no registered targets",
@@ -433,7 +448,7 @@ const costFindings: FindingInfo[] = [
   },
   {
     type: "unused_security_group",
-    severity: "Trivial",
+    severity: "Low",
     description: "Security group is not associated with any resources.",
     triggers: [
       "Security group not attached to any EC2 instance, RDS, Lambda, or other resources",
@@ -483,7 +498,7 @@ const costFindings: FindingInfo[] = [
   },
   {
     type: "idle_nat_gateway",
-    severity: "Low",
+    severity: "Medium",
     description:
       "NAT Gateway has minimal or no traffic but continues to incur hourly charges.",
     triggers: ["NAT Gateway with very low data processing metrics"],
@@ -503,6 +518,7 @@ const costFindings: FindingInfo[] = [
     remediation: [
       "Rightsize the instance to a smaller instance type that matches actual usage",
     ],
+    isPlanned: true,
   },
   {
     type: "ebs_optimization",
@@ -544,7 +560,7 @@ const costFindings: FindingInfo[] = [
   },
   {
     type: "log_retention",
-    severity: "Trivial",
+    severity: "Low",
     description:
       "CloudWatch Log Group has no retention policy, leading to unbounded log storage.",
     triggers: [
@@ -760,48 +776,49 @@ export function FindingsArticle() {
                   <th className="text-left py-3 px-4">Finding Type</th>
                   <th className="text-left py-3 px-4">Category</th>
                   <th className="text-left py-3 px-4">Severity</th>
+                  <th className="text-left py-3 px-4">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { type: "ssl_expiry", category: "Compliance", severity: "Critical/Medium/Low" },
-                  { type: "publicly_accessible_rds", category: "Security", severity: "Critical" },
-                  { type: "public_snapshot", category: "Security", severity: "Critical" },
-                  { type: "root_account_usage", category: "IAM", severity: "Critical" },
-                  { type: "user_without_mfa", category: "IAM", severity: "High" },
-                  { type: "public_access", category: "Security", severity: "High" },
-                  { type: "permissive_security_group", category: "Security", severity: "High" },
-                  { type: "open_all_ports", category: "Security", severity: "High" },
-                  { type: "data_residency_violation", category: "Compliance", severity: "High" },
-                  { type: "overly_permissive_policy", category: "IAM", severity: "High" },
-                  { type: "cloudtrail_disabled", category: "Compliance", severity: "High" },
-                  { type: "cross_account_trust", category: "IAM", severity: "High" },
-                  { type: "unencrypted_resource", category: "Security", severity: "Medium/High" },
-                  { type: "old_access_key", category: "IAM", severity: "Medium" },
-                  { type: "orphaned_volume", category: "Cost", severity: "Medium" },
-                  { type: "insecure_tls", category: "Security", severity: "Medium" },
-                  { type: "vpc_flow_logs_disabled", category: "Compliance", severity: "Medium" },
-                  { type: "backup_not_configured", category: "Compliance", severity: "Medium" },
-                  { type: "orphaned_eip", category: "Cost", severity: "Low" },
-                  { type: "orphaned_snapshot", category: "Cost", severity: "Low" },
-                  { type: "orphaned_eni", category: "Cost", severity: "Low" },
-                  { type: "idle_load_balancer", category: "Cost", severity: "Low" },
-                  { type: "unused_access_key", category: "IAM", severity: "Low" },
-                  { type: "unused_iam_role", category: "IAM", severity: "Low" },
-                  { type: "unused_resource", category: "Cost", severity: "Low" },
-                  { type: "stopped_instance", category: "Cost", severity: "Low" },
-                  { type: "idle_nat_gateway", category: "Cost", severity: "Low" },
-                  { type: "oversized_instance", category: "Cost", severity: "Low" },
-                  { type: "ebs_optimization", category: "Cost", severity: "Low" },
-                  { type: "old_gen_instance", category: "Cost", severity: "Low" },
-                  { type: "oversized_lambda", category: "Cost", severity: "Low" },
-                  { type: "unused_kms_key", category: "Cost", severity: "Low" },
-                  { type: "rds_optimization", category: "Cost", severity: "Low" },
-                  { type: "old_gen_rds", category: "Cost", severity: "Low" },
-                  { type: "missing_tag", category: "Tagging", severity: "Trivial" },
-                  { type: "unused_log_group", category: "Cost", severity: "Trivial" },
-                  { type: "log_retention", category: "Cost", severity: "Trivial" },
-                  { type: "unused_security_group", category: "Cost", severity: "Trivial" },
+                  { type: "ssl_expiry", category: "Compliance", severity: "Critical/Medium/Low", planned: false },
+                  { type: "publicly_accessible_rds", category: "Security", severity: "Critical", planned: true },
+                  { type: "public_snapshot", category: "Security", severity: "Critical", planned: true },
+                  { type: "root_account_usage", category: "IAM", severity: "Critical", planned: true },
+                  { type: "user_without_mfa", category: "IAM", severity: "High", planned: false },
+                  { type: "public_access", category: "Security", severity: "High", planned: false },
+                  { type: "permissive_security_group", category: "Security", severity: "High", planned: false },
+                  { type: "open_all_ports", category: "Security", severity: "High", planned: false },
+                  { type: "data_residency_violation", category: "Compliance", severity: "High", planned: false },
+                  { type: "overly_permissive_policy", category: "IAM", severity: "High", planned: true },
+                  { type: "cloudtrail_disabled", category: "Compliance", severity: "High", planned: true },
+                  { type: "cross_account_trust", category: "IAM", severity: "High", planned: true },
+                  { type: "unencrypted_resource", category: "Security", severity: "Medium/High", planned: false },
+                  { type: "old_access_key", category: "IAM", severity: "Medium", planned: false },
+                  { type: "orphaned_volume", category: "Cost", severity: "Medium", planned: false },
+                  { type: "idle_load_balancer", category: "Cost", severity: "Medium", planned: false },
+                  { type: "idle_nat_gateway", category: "Cost", severity: "Medium", planned: false },
+                  { type: "insecure_tls", category: "Security", severity: "Medium", planned: true },
+                  { type: "vpc_flow_logs_disabled", category: "Compliance", severity: "Medium", planned: true },
+                  { type: "backup_not_configured", category: "Compliance", severity: "Medium", planned: true },
+                  { type: "orphaned_eip", category: "Cost", severity: "Low", planned: false },
+                  { type: "orphaned_snapshot", category: "Cost", severity: "Low", planned: false },
+                  { type: "orphaned_eni", category: "Cost", severity: "Low", planned: false },
+                  { type: "unused_access_key", category: "IAM", severity: "Low", planned: false },
+                  { type: "unused_iam_role", category: "IAM", severity: "Low", planned: false },
+                  { type: "unused_resource", category: "Cost", severity: "Low", planned: false },
+                  { type: "stopped_instance", category: "Cost", severity: "Low", planned: false },
+                  { type: "unused_security_group", category: "Cost", severity: "Low", planned: false },
+                  { type: "oversized_instance", category: "Cost", severity: "Low", planned: true },
+                  { type: "ebs_optimization", category: "Cost", severity: "Low", planned: false },
+                  { type: "old_gen_instance", category: "Cost", severity: "Low", planned: false },
+                  { type: "oversized_lambda", category: "Cost", severity: "Low", planned: false },
+                  { type: "log_retention", category: "Cost", severity: "Low", planned: false },
+                  { type: "unused_kms_key", category: "Cost", severity: "Low", planned: false },
+                  { type: "rds_optimization", category: "Cost", severity: "Low", planned: false },
+                  { type: "old_gen_rds", category: "Cost", severity: "Low", planned: false },
+                  { type: "missing_tag", category: "Tagging", severity: "Trivial", planned: false },
+                  { type: "unused_log_group", category: "Cost", severity: "Trivial", planned: false },
                 ].map((item) => (
                   <tr key={item.type} className="border-b last:border-0">
                     <td className="py-2 px-4">
@@ -814,6 +831,17 @@ export function FindingsArticle() {
                     </td>
                     <td className="py-2 px-4">
                       <SeverityBadge severity={item.severity} />
+                    </td>
+                    <td className="py-2 px-4">
+                      {item.planned ? (
+                        <Badge variant="outline" className="text-xs text-muted-foreground border-dashed">
+                          Planned
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Active
+                        </Badge>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -39,6 +39,10 @@ vi.mock('../../services/awsAccountService.js', () => ({
   awsAccountService: mockAwsAccountService,
 }));
 
+vi.mock('../../services/orgService.js', () => ({
+  verifyOrgAdmin: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));

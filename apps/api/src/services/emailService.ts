@@ -527,6 +527,57 @@ https://scanorbit.io
   `.trim();
 }
 
+// Invitation email HTML content
+function getInvitationEmailHtml(inviterName: string, orgName: string, inviteUrl: string): string {
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      You're invited to join ${orgName}
+    </h1>
+    <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      ${inviterName} has invited you to join <strong style="color: ${BRAND.text};">${orgName}</strong> on ScanOrbit.
+      Accept the invitation to start collaborating on cloud infrastructure monitoring.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
+        Join ${orgName}
+      </a>
+    </div>
+
+    <p style="margin: 0 0 16px; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      Or copy and paste this link into your browser:
+    </p>
+    <p style="margin: 0 0 24px; font-size: 13px; color: ${BRAND.primary}; word-break: break-all; background-color: ${BRAND.background}; padding: 12px; border-radius: 6px;">
+      ${inviteUrl}
+    </p>
+
+    <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      <strong style="color: ${BRAND.text};">This invitation expires in 7 days.</strong><br>
+      If you weren't expecting this invitation, you can safely ignore this email.
+    </p>
+  `;
+
+  return wrapInTemplate(content, `${inviterName} invited you to join ${orgName} on ScanOrbit`);
+}
+
+function getInvitationEmailText(inviterName: string, orgName: string, inviteUrl: string): string {
+  return `
+${inviterName} has invited you to join ${orgName} on ScanOrbit.
+
+Accept the invitation by visiting:
+${inviteUrl}
+
+This invitation expires in 7 days.
+
+If you weren't expecting this invitation, you can safely ignore this email.
+
+---
+ScanOrbit
+https://scanorbit.io
+  `.trim();
+}
+
 export const emailService = {
   /**
    * Send verification email with 6-digit code
@@ -571,6 +622,23 @@ export const emailService = {
     const subject = 'Your ScanOrbit trial is ending soon';
     const html = getTrialEndingEmailHtml(trialEndsAt, tier, name);
     const text = getTrialEndingEmailText(trialEndsAt, tier, name);
+
+    return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send team invitation email
+   */
+  async sendInvitationEmail(
+    email: string,
+    inviterName: string,
+    orgName: string,
+    token: string
+  ): Promise<EmailResult> {
+    const inviteUrl = `${config.frontendUrl}/invite/${token}`;
+    const subject = `Join ${orgName} on ScanOrbit`;
+    const html = getInvitationEmailHtml(inviterName, orgName, inviteUrl);
+    const text = getInvitationEmailText(inviterName, orgName, inviteUrl);
 
     return sendEmail(email, subject, text, html);
   },

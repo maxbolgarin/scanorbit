@@ -7,6 +7,7 @@ import { stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { subscriptionEventsTotal, planSwitchesTotal } from '../lib/metrics.js';
 import { verifyOrgAdmin } from './orgService.js';
+import { SEAT_BILLING } from '../types/index.js';
 import type { SubscriptionTier } from '../types/index.js';
 
 // Lazy-initialized Stripe client (only created when Stripe is configured)
@@ -546,6 +547,116 @@ export const stripeService = {
     } catch (err) {
       logger.error('Failed to delete Stripe customer', { customerId, error: (err as Error).message });
     }
+  },
+
+  /**
+   * Get seat subscription item info for an org
+   */
+  async getSeatItemInfo(orgId: string): Promise<{ itemId: string | null; quantity: number }> {
+    const [org] = await db
+      .select({ stripeSubscriptionId: orgs.stripeSubscriptionId })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (!org?.stripeSubscriptionId) {
+      return { itemId: null, quantity: 0 };
+    }
+
+    try {
+      const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
+      const seatItem = subscription.items.data.find(
+        (item) => item.price.id === stripeConfig.seatPriceId
+      );
+      return {
+        itemId: seatItem?.id ?? null,
+        quantity: seatItem?.quantity ?? 0,
+      };
+    } catch {
+      return { itemId: null, quantity: 0 };
+    }
+  },
+
+  /**
+   * Update paid seat count on Stripe subscription (idempotent — sets absolute quantity)
+   * Best-effort: logs errors but does not throw
+   */
+  async updateSeatQuantity(orgId: string, newPaidSeats: number): Promise<void> {
+    if (!stripeConfig.seatPriceId) {
+      logger.warn('STRIPE_SEAT_PRICE_ID not configured, skipping seat billing update', { orgId });
+      return;
+    }
+
+    try {
+      const [org] = await db
+        .select({ stripeSubscriptionId: orgs.stripeSubscriptionId })
+        .from(orgs)
+        .where(eq(orgs.id, orgId))
+        .limit(1);
+
+      if (!org?.stripeSubscriptionId) {
+        logger.warn('No subscription found for seat update', { orgId });
+        return;
+      }
+
+      // Inline subscription retrieval to avoid redundant DB query via getSeatItemInfo
+      const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
+      const seatItem = subscription.items.data.find(
+        (item) => item.price.id === stripeConfig.seatPriceId
+      );
+      const itemId = seatItem?.id ?? null;
+
+      if (newPaidSeats > 0 && !itemId) {
+        // Add new seat item to subscription
+        await getStripeClient().subscriptionItems.create({
+          subscription: org.stripeSubscriptionId,
+          price: stripeConfig.seatPriceId,
+          quantity: newPaidSeats,
+          proration_behavior: 'create_prorations',
+        });
+        logger.info('Added seat item to subscription', { orgId, quantity: newPaidSeats });
+      } else if (newPaidSeats > 0 && itemId) {
+        // Update existing seat item quantity
+        await getStripeClient().subscriptionItems.update(itemId, {
+          quantity: newPaidSeats,
+          proration_behavior: 'create_prorations',
+        });
+        logger.info('Updated seat quantity', { orgId, quantity: newPaidSeats });
+      } else if (newPaidSeats <= 0 && itemId) {
+        // Remove seat item
+        await getStripeClient().subscriptionItems.del(itemId, {
+          proration_behavior: 'create_prorations',
+        });
+        logger.info('Removed seat item from subscription', { orgId });
+      }
+    } catch (err) {
+      logger.error('Failed to update Stripe seat quantity', {
+        orgId,
+        newPaidSeats,
+        error: (err as Error).message,
+      });
+    }
+  },
+
+  /**
+   * Get billing preview for adding a new member
+   */
+  getSeatBillingPreview(totalMemberCount: number): {
+    willAddPaidSeat: boolean;
+    currentPaidSeats: number;
+    newPaidSeats: number;
+    seatPriceMonthly: number;
+    estimatedNewMonthly: number;
+  } {
+    const currentPaidSeats = Math.max(0, totalMemberCount - SEAT_BILLING.INCLUDED_SEATS);
+    const newPaidSeats = Math.max(0, totalMemberCount + 1 - SEAT_BILLING.INCLUDED_SEATS);
+    return {
+      willAddPaidSeat: newPaidSeats > currentPaidSeats,
+      currentPaidSeats,
+      newPaidSeats,
+      seatPriceMonthly: SEAT_BILLING.SEAT_PRICE_MONTHLY,
+      estimatedNewMonthly: 79 + newPaidSeats * SEAT_BILLING.SEAT_PRICE_MONTHLY,
+    };
   },
 
   /**

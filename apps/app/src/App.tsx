@@ -18,6 +18,7 @@ const CreateOrg = lazy(() => import("@/pages/onboarding/CreateOrg"));
 const AwsSetup = lazy(() => import("@/pages/onboarding/AwsSetup"));
 const Scanning = lazy(() => import("@/pages/onboarding/Scanning"));
 const TrialCheckout = lazy(() => import("@/pages/TrialCheckout"));
+const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 
 // Overview pages (Organization-wide merged view)
 const Overview = lazy(() => import("@/pages/Overview"));
@@ -112,6 +113,9 @@ function App() {
 
           {/* OAuth consent page for new users (not protected - user isn't authenticated yet) */}
           <Route path="/oauth-consent" element={<OAuthConsent />} />
+
+          {/* Team invitation acceptance (handles both logged-in and logged-out) */}
+          <Route path="/invite/:token" element={<AcceptInvite />} />
 
           {/* Onboarding routes */}
           {/* OAuth callback route - NOT protected to avoid auth race conditions */}

@@ -86,7 +86,7 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
       { text: "Unlimited AWS accounts", included: true },
       { text: "Unlimited scans with priority", included: true },
       { text: "Data export (CSV/JSON)", included: true },
-      { text: "Team members & invites", included: true },
+      { text: "5 team members included (+$10/seat)", included: true },
       { text: "Webhook notifications", included: true },
       { text: "Audit logs", included: true },
       { text: "180+ days data retention", included: true },

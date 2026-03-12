@@ -116,6 +116,7 @@ export const stripeConfig = {
   webhookSecret: readSecret('STRIPE_WEBHOOK_SECRET', 'stripe_webhook_secret'),
   proPriceId: process.env.STRIPE_PRO_PRICE_ID || '',
   teamPriceId: process.env.STRIPE_TEAM_PRICE_ID || '',
+  seatPriceId: process.env.STRIPE_SEAT_PRICE_ID || '',
   trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '7', 10),
 } as const;
 
