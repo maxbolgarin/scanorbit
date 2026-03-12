@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.26.0](https://github.com/maxbolgarin/scanorbit/compare/v1.25.0...v1.26.0) (2026-03-12)
+
+### Features
+
+* **dashboard:** add finding type filters and hide trivial issues option to dashboard cards ([91f3174](https://github.com/maxbolgarin/scanorbit/commit/91f31748370e4e9d18c1789570e6f322b535f6ca))
+* **dashboard:** add trigger scan button to no scan state component ([dff3ff2](https://github.com/maxbolgarin/scanorbit/commit/dff3ff2ae027e05e5745ce1113b9c5a933100545))
+* **services:** add business analytics metrics for users, organizations, and aws accounts ([6b7b5be](https://github.com/maxbolgarin/scanorbit/commit/6b7b5bea8ea99265a234bcee516e33a7f9a063f9))
+* **services:** add dateAttrib configuration to drip sequences and improve trial cleanup logic ([bf9926d](https://github.com/maxbolgarin/scanorbit/commit/bf9926d974ef8031ff38fb22ea3b7e8a02600cce))
+* **services:** chain listmonk email operations and improve iam analyzer with resource filtering ([a86db3a](https://github.com/maxbolgarin/scanorbit/commit/a86db3a9de86a800e1df9c4b96a31781ad849c71))
+* **services:** separate marketing consent from transactional onboarding and store newsletter preference as attribute ([2816e9d](https://github.com/maxbolgarin/scanorbit/commit/2816e9d424bbc4f45836397fee5662e792385d74))
+* **services:** separate marketing consent from transactional onboarding emails and add newsletter unsubscribe secret ([49eee65](https://github.com/maxbolgarin/scanorbit/commit/49eee65e80cf72ed5b9c9c8701d354e1a283f1be))
+
+### Bug Fixes
+
+* **routes:** ensure date fields are properly converted to strings in csv exports ([1c395e7](https://github.com/maxbolgarin/scanorbit/commit/1c395e73f13220c53c9b5286aee6b2b4b5006691))
+
+### Code Refactoring
+
+* **deploy:** consolidate docker-compose production configuration and remove unused monitoring components ([588a508](https://github.com/maxbolgarin/scanorbit/commit/588a50817c6d0317be637e26b8b820935b47733f))
+
+### Continuous Integration
+
+* **.github:** add service deployment tracking and disable telegram notification sounds ([f77eafc](https://github.com/maxbolgarin/scanorbit/commit/f77eafc32baf322b3bae6e109e0000446086e39f))
+* **.github:** compute and track deployed services in build workflow notifications ([5e91e37](https://github.com/maxbolgarin/scanorbit/commit/5e91e37c871cdbd5ae87e2b51a908618453ca685))
+* **.github:** use head sha for pull request commits and add timezone import to telegram notifications ([47e0a4c](https://github.com/maxbolgarin/scanorbit/commit/47e0a4cfc14edb8367606ff419c7acaf4c667cfb))
+
 ## [1.25.0](https://github.com/maxbolgarin/scanorbit/compare/v1.24.0...v1.25.0) (2026-03-11)
 
 ### Features
