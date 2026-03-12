@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, CheckCircle2, AlertTriangle, RefreshCw, Server, XCircle, Clock, ExternalLink } from "lucide-react";
+import { Activity, CheckCircle2, AlertTriangle, RefreshCw, Server, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -146,18 +146,9 @@ export function RecentActivityCard({ scans, accounts, isLoading, accountId }: Re
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Recent Activity
-          </div>
-          <Link
-            to={baseScansUrl}
-            className="text-xs text-primary hover:underline flex items-center gap-1"
-          >
-            View scans
-            <ExternalLink className="h-3 w-3" />
-          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent>

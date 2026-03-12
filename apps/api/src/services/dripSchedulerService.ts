@@ -48,6 +48,13 @@ async function markSent(email: string, seq: string, day: number): Promise<void> 
   }).onConflictDoNothing();
 }
 
+/** Clear drip log entries for a subscriber + sequence, allowing the sequence to restart. */
+export async function clearDripLog(email: string, sequenceName: string): Promise<void> {
+  await db.delete(dripLog).where(
+    and(eq(dripLog.subscriberEmail, email), eq(dripLog.sequenceName, sequenceName)),
+  );
+}
+
 // ── Core ─────────────────────────────────────────────────────────────
 
 function daysSince(date: string | Date): number {
@@ -58,7 +65,9 @@ function getStepForToday(
   sub: { attribs: Record<string, unknown>; created_at: string },
   seq: DripSequence,
 ): DripStep | null {
-  const startDate = seq.dateAttrib && sub.attribs[seq.dateAttrib]
+  // If a dateAttrib is required but missing, skip — falling back to created_at would send wrong-day emails
+  if (seq.dateAttrib && !sub.attribs[seq.dateAttrib]) return null;
+  const startDate = seq.dateAttrib
     ? sub.attribs[seq.dateAttrib] as string
     : sub.created_at;
   const days = daysSince(startDate);
@@ -75,6 +84,7 @@ async function processSequence(seq: DripSequence): Promise<void> {
   for (const sub of subs) {
     const step = getStepForToday(sub, seq);
     if (!step || step.templateId === 0) continue;
+    if (step.requiredAttrib && !sub.attribs[step.requiredAttrib]) continue;
     if (await wasSent(sub.email, seq.name, step.day)) continue;
 
     try {

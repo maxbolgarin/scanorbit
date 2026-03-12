@@ -105,6 +105,72 @@ resourcesRoute.get('/services', async (c) => {
   return c.json({ data: services });
 });
 
+// Hard cap for export to prevent OOM on large datasets
+const MAX_EXPORT_ROWS = 10_000;
+
+// Sanitize CSV cell to prevent formula injection in spreadsheet tools
+function sanitizeCsvCell(value: string): string {
+  const escaped = value.replace(/"/g, '""');
+  if (/^[=+\-@\t]/.test(escaped)) {
+    return `"'${escaped}"`;
+  }
+  return `"${escaped}"`;
+}
+
+// GET /resources/export - Export all resources as CSV or JSON (Team-only)
+resourcesRoute.get('/export', zValidator('query', z.object({
+  format: z.enum(['csv', 'json']).default('csv'),
+  awsAccountId: z.string().uuid().optional(),
+  region: z.string().optional(),
+  service: z.string().optional(),
+  state: z.string().optional(),
+})), async (c) => {
+  const orgId = c.get('orgId');
+  const tier = await getOrgTier(orgId);
+
+  if (!TIER_LIMITS[tier].canExportData) {
+    throw new HTTP403Error('Data export is available on the Team plan only. Upgrade to Team for CSV/JSON exports.');
+  }
+
+  const { format, awsAccountId, region, service, state } = c.req.valid('query');
+
+  // Single query with hard cap to prevent unbounded memory usage
+  const result = await resourceService.getResources(orgId, {
+    awsAccountId,
+    region,
+    service,
+    state,
+    page: 1,
+    limit: MAX_EXPORT_ROWS,
+  });
+  const allResources = result.data;
+
+  if (format === 'json') {
+    c.header('Content-Disposition', 'attachment; filename="scanorbit-resources.json"');
+    return c.json({ data: allResources, total: allResources.length });
+  }
+
+  // CSV format with formula injection protection
+  const csvHeaders = ['ID', 'AWS Account ID', 'Resource ID', 'Service', 'Region', 'Name', 'State', 'Cost Estimate (Monthly)', 'Last Seen At', 'Created At'];
+  const csvRows = allResources.map(r => [
+    sanitizeCsvCell(r.id),
+    sanitizeCsvCell(r.awsAccountId),
+    sanitizeCsvCell(r.resourceId),
+    sanitizeCsvCell(r.service),
+    sanitizeCsvCell(r.region ?? ''),
+    sanitizeCsvCell(r.name ?? ''),
+    sanitizeCsvCell(r.state ?? ''),
+    sanitizeCsvCell(String(r.costEstimateMonthly ?? '')),
+    sanitizeCsvCell(r.lastSeenAt),
+    sanitizeCsvCell(r.createdAt),
+  ].join(','));
+
+  const csv = [csvHeaders.join(','), ...csvRows].join('\n');
+  c.header('Content-Type', 'text/csv; charset=utf-8');
+  c.header('Content-Disposition', 'attachment; filename="scanorbit-resources.csv"');
+  return c.body(csv);
+});
+
 // GET /resources/dependencies/all - Get all dependencies for graph visualization
 resourcesRoute.get('/dependencies/all', async (c) => {
   const orgId = c.get('orgId');

@@ -12,6 +12,7 @@ const LOOKBACK_MS = 2 * 60_000; // 2 minutes (overlap window to avoid misses)
 
 const REDIS_KEY_FIRST_SCAN = 'listmonk:processed:first-scan';
 const REDIS_KEY_TRIAL_ACTIVE = 'listmonk:processed:trial-active';
+const DEDUP_TTL_SECONDS = 30 * 86_400; // 30 days
 
 /** Get admin email and name for an org */
 async function getAdminEmail(orgId: string): Promise<{ email: string; name: string | null } | null> {
@@ -50,7 +51,7 @@ async function processFirstScanCompletions(): Promise<void> {
 
   for (const row of results) {
     // Check if already processed
-    const alreadyProcessed = await redis.sismember(REDIS_KEY_FIRST_SCAN, row.scanId);
+    const alreadyProcessed = await redis.get(`${REDIS_KEY_FIRST_SCAN}:${row.scanId}`);
     if (alreadyProcessed) continue;
 
     // Verify this is actually the org's first completed scan
@@ -70,7 +71,7 @@ async function processFirstScanCompletions(): Promise<void> {
     if (!admin) continue;
 
     await listmonkService.onFirstScanComplete(admin.email);
-    await redis.sadd(REDIS_KEY_FIRST_SCAN, row.scanId);
+    await redis.set(`${REDIS_KEY_FIRST_SCAN}:${row.scanId}`, '1', 'EX', DEDUP_TTL_SECONDS);
     logger.info('[ListmonkCron] Processed first scan completion', { orgId: row.orgId });
 
     // Store scan stats as subscriber attributes and send day-0 drip email
@@ -144,14 +145,14 @@ async function processTrialActiveTransitions(): Promise<void> {
 
   for (const row of results) {
     // Check if already processed
-    const alreadyProcessed = await redis.sismember(REDIS_KEY_TRIAL_ACTIVE, row.orgId);
+    const alreadyProcessed = await redis.get(`${REDIS_KEY_TRIAL_ACTIVE}:${row.orgId}`);
     if (alreadyProcessed) continue;
 
     const admin = await getAdminEmail(row.orgId);
     if (!admin) continue;
 
     await listmonkService.onTrialActive(admin.email);
-    await redis.sadd(REDIS_KEY_TRIAL_ACTIVE, row.orgId);
+    await redis.set(`${REDIS_KEY_TRIAL_ACTIVE}:${row.orgId}`, '1', 'EX', DEDUP_TTL_SECONDS);
     logger.info('[ListmonkCron] Processed trial-active transition', { orgId: row.orgId });
   }
 }

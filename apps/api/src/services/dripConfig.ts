@@ -12,6 +12,8 @@ export interface DripStep {
   day: number;
   templateId: number;
   fromEmail?: string;
+  /** If set, the step is only sent when this subscriber attribute is present (truthy). */
+  requiredAttrib?: string;
 }
 
 export interface DripSequence {
@@ -63,7 +65,7 @@ export const SEQUENCES: DripSequence[] = [
       { day: 3, templateId: templates.trialActiveDay3Deepen },
       { day: 5, templateId: templates.trialActiveDay5Warning },
       { day: 6, templateId: templates.trialActiveDay6Lastday },
-      { day: 9, templateId: templates.trialActiveDay9Winback, fromEmail: 'Maksim <maksim@scanorbit.cloud>' },
+      { day: 9, templateId: templates.trialActiveDay9Winback, fromEmail: 'Maksim <maksim@scanorbit.cloud>', requiredAttrib: 'trial_cancelled_at' },
     ],
   },
   {
@@ -92,6 +94,7 @@ export const SEQUENCES: DripSequence[] = [
   {
     name: 'paid-pro',
     listId: lists.paidPro,
+    dateAttrib: 'paid_at',
     steps: [
       { day: 0, templateId: templates.paidProDay0Welcome },
     ],
@@ -99,6 +102,7 @@ export const SEQUENCES: DripSequence[] = [
   {
     name: 'paid-team',
     listId: lists.paidTeam,
+    dateAttrib: 'paid_at',
     steps: [
       { day: 0, templateId: templates.paidTeamDay0Welcome },
     ],

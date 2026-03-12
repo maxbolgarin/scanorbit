@@ -19,6 +19,11 @@ export interface TierLimits {
   allowRetryOnError: boolean;
   maxAccounts: number; // -1 = unlimited
   canViewOrgOverview: boolean;
+  scanPriority: boolean;
+  canExportData: boolean;
+  canViewAuditLogs: boolean;
+  canInviteMembers: boolean;
+  canConfigureWebhooks: boolean;
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
@@ -30,6 +35,11 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     allowRetryOnError: true,
     maxAccounts: 1,
     canViewOrgOverview: false,
+    scanPriority: false,
+    canExportData: false,
+    canViewAuditLogs: false,
+    canInviteMembers: false,
+    canConfigureWebhooks: false,
   },
   pro: {
     scanCooldownMinutes: 60, // 1 hour cooldown
@@ -39,6 +49,11 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     allowRetryOnError: true,
     maxAccounts: 1,
     canViewOrgOverview: false,
+    scanPriority: false,
+    canExportData: false,
+    canViewAuditLogs: false,
+    canInviteMembers: false,
+    canConfigureWebhooks: false,
   },
   team: {
     scanCooldownMinutes: null, // Unlimited
@@ -48,6 +63,11 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     allowRetryOnError: true,
     maxAccounts: -1, // unlimited
     canViewOrgOverview: true,
+    scanPriority: true,
+    canExportData: true,
+    canViewAuditLogs: true,
+    canInviteMembers: true,
+    canConfigureWebhooks: true,
   },
 } as const;
 

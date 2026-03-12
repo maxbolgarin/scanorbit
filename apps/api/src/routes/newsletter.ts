@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
@@ -51,7 +51,8 @@ newsletterRoute.get('/unsubscribe', async (c) => {
 
   const secret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? 'default-secret';
   const expected = createHmac('sha256', secret).update(email.toLowerCase()).digest('hex');
-  if (token !== expected) {
+  if (token.length !== expected.length ||
+      !timingSafeEqual(Buffer.from(token), Buffer.from(expected))) {
     return c.json({ message: 'Invalid unsubscribe link.' }, 400);
   }
 

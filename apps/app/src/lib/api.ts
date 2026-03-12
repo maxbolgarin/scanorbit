@@ -492,6 +492,40 @@ export async function getOrgMembers(orgId: string): Promise<OrgMember[]> {
   }
 }
 
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  userId: string | null;
+  action: string;
+  method: string | null;
+  path: string | null;
+  statusCode: number | null;
+  ipAddress: string | null;
+  durationMs: number | null;
+  userEmail: string | null;
+  userFullName: string | null;
+}
+
+export async function getAuditLogs(
+  orgId: string,
+  params?: { page?: number; limit?: number; action?: string; startDate?: string; endDate?: string }
+): Promise<PaginatedResponse<AuditLogEntry>> {
+  try {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.action) searchParams.set("action", params.action);
+    if (params?.startDate) searchParams.set("startDate", params.startDate);
+    if (params?.endDate) searchParams.set("endDate", params.endDate);
+    const { data } = await api.get<PaginatedResponse<AuditLogEntry>>(
+      `/orgs/${orgId}/audit-logs?${searchParams.toString()}`
+    );
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
   try {
     const { data } = await api.get<{ data: OrgSettings }>(`/orgs/${orgId}/settings`);
@@ -648,6 +682,22 @@ export async function getResources(filters?: ResourceFilters): Promise<Paginated
   }
 }
 
+export async function exportResources(format: 'csv' | 'json', filters?: { awsAccountId?: string; region?: string; service?: string; state?: string }): Promise<Blob> {
+  try {
+    const params = new URLSearchParams({ format });
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.region) params.set("region", filters.region);
+    if (filters?.service) params.set("service", filters.service);
+    if (filters?.state) params.set("state", filters.state);
+    const { data } = await api.get(`/resources/export?${params.toString()}`, {
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 export async function getResource(resourceId: string): Promise<Resource> {
   try {
     const { data } = await api.get<{ data: Resource }>(`/resources/${resourceId}`);
@@ -765,6 +815,22 @@ export async function getFindings(filters?: FindingFilters): Promise<PaginatedRe
     if (filters?.limit) params.set("limit", String(filters.limit));
 
     const { data } = await api.get<PaginatedResponse<Finding>>(`/findings?${params.toString()}`);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function exportFindings(format: 'csv' | 'json', filters?: { awsAccountId?: string; status?: string; type?: string; severity?: string }): Promise<Blob> {
+  try {
+    const params = new URLSearchParams({ format });
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.severity) params.set("severity", filters.severity);
+    const { data } = await api.get(`/findings/export?${params.toString()}`, {
+      responseType: 'blob',
+    });
     return data;
   } catch (error) {
     handleApiError(error);

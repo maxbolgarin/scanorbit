@@ -1,4 +1,5 @@
 import { listmonkConfig } from '../lib/config.js';
+import { clearDripLog } from './dripSchedulerService.js';
 import { logger } from '../lib/logger.js';
 
 interface ListmonkSubscriber {
@@ -131,15 +132,17 @@ async function removeFromLists(subscriberId: number, listIds: number[]): Promise
   return result !== null;
 }
 
-/** Move a subscriber: remove from old lists, add to new lists */
+/** Move a subscriber: add to new lists first, then remove from old lists.
+ *  Add-first order ensures partial failure leaves subscriber in both lists (recoverable)
+ *  rather than zero lists (invisible). */
 async function moveSubscriber(
   subscriberId: number,
   fromListIds: number[],
   toListIds: number[],
 ): Promise<boolean> {
-  const removeOk = await removeFromLists(subscriberId, fromListIds);
   const addOk = await addToLists(subscriberId, toListIds);
-  return removeOk && addOk;
+  const removeOk = await removeFromLists(subscriberId, fromListIds);
+  return addOk && removeOk;
 }
 
 const lists = listmonkConfig.lists;
@@ -377,8 +380,10 @@ export const listmonkService = {
         // Keep in trial-active for the day-9 win-back email.
         // Remove from trial-new (if present) and ensure they're in trial-active.
         // cleanupExpiredTrialActive() will move them to subscribers after the sequence ends.
-        await removeFromLists(subscriber.id, [lists.trialNew]);
         await addToLists(subscriber.id, [lists.trialActive]);
+        await removeFromLists(subscriber.id, [lists.trialNew]);
+        // Mark as cancelled so the win-back drip step (requiredAttrib: 'trial_cancelled_at') fires
+        await this.updateAttribsByEmail(email, { trial_cancelled_at: new Date().toISOString() });
         logger.info(`[Listmonk] onChurn (trial): ${maskEmail(email)} → stays in trial-active for win-back`);
       } else {
         await moveSubscriber(
@@ -388,6 +393,8 @@ export const listmonkService = {
         );
         // Set subscribed_at so the subscribers drip sequence fires from day 0
         await this.updateAttribsByEmail(email, { subscribed_at: new Date().toISOString() });
+        // Clear old drip_log entries so the subscribers sequence can restart
+        await clearDripLog(email, 'subscribers');
         logger.info(`[Listmonk] onChurn: ${maskEmail(email)} → subscribers`);
       }
     } catch (error) {
@@ -412,6 +419,10 @@ export const listmonkService = {
         if (now - new Date(trialStart).getTime() <= TEN_DAYS_MS) continue;
 
         await moveSubscriber(sub.id, [lists.trialActive], [lists.subscribers]);
+        // Set subscribed_at so the subscribers drip fires from day 0, and clear old entries
+        await this.updateAttribsByEmail(sub.email, { subscribed_at: new Date().toISOString() });
+        await clearDripLog(sub.email, 'trial-active');
+        await clearDripLog(sub.email, 'subscribers');
         logger.info(`[Listmonk] cleanupExpiredTrialActive: ${maskEmail(sub.email)} → subscribers`);
       }
     } catch (error) {

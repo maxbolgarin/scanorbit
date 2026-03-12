@@ -5,11 +5,14 @@ let selectResult: unknown[] = [];
 let deleteResult: unknown[] = [];
 const mockTransaction = vi.fn();
 
+let executeRowCount = 0;
+
 vi.mock('../../lib/db.js', () => ({
   db: {
     select: vi.fn(() => createChain(selectResult)),
     delete: vi.fn(() => createChain(deleteResult)),
     update: vi.fn(() => createChain([])),
+    execute: vi.fn(() => Promise.resolve({ rowCount: executeRowCount })),
     transaction: (...args: unknown[]) => mockTransaction(...args),
   },
   pool: {},
@@ -55,10 +58,12 @@ describe('retentionService', () => {
     vi.clearAllMocks();
     selectResult = [];
     deleteResult = [];
+    executeRowCount = 0;
     const { db } = await import('../../lib/db.js');
     vi.mocked(db.select).mockImplementation(() => createChain(selectResult) as any);
     vi.mocked(db.delete).mockImplementation(() => createChain(deleteResult) as any);
     vi.mocked(db.update).mockImplementation(() => createChain([]) as any);
+    vi.mocked(db.execute).mockImplementation(() => Promise.resolve({ rowCount: executeRowCount }) as any);
     mockTransaction.mockImplementation(async (fn: any) => {
       const tx = {
         select: vi.fn(() => createChain([{ id: 'user-1' }])),
@@ -71,8 +76,15 @@ describe('retentionService', () => {
 
   describe('runRetentionCleanup', () => {
     it('runs all cleanup tasks', async () => {
-      // delete returns items for each cleanup type
       const { db } = await import('../../lib/db.js');
+
+      // Resources, findings, scans use db.execute (tier-based SQL)
+      executeRowCount = 1;
+      vi.mocked(db.execute).mockImplementation(() =>
+        Promise.resolve({ rowCount: 1 }) as any
+      );
+
+      // Audit logs still use db.delete
       vi.mocked(db.delete).mockImplementation(() =>
         createChain([{ id: 'item-1' }]) as any
       );
@@ -90,6 +102,9 @@ describe('retentionService', () => {
 
     it('captures errors without failing entire job', async () => {
       const { db } = await import('../../lib/db.js');
+      vi.mocked(db.execute).mockImplementation(() => {
+        throw new Error('DB error');
+      });
       vi.mocked(db.delete).mockImplementation(() => {
         throw new Error('DB error');
       });
@@ -104,7 +119,12 @@ describe('retentionService', () => {
     it('processes pending deletion requests', async () => {
       const { db } = await import('../../lib/db.js');
 
-      // First 4 calls are for delete (stale resources, findings, scans, audit logs)
+      // Resources, findings, scans use db.execute (tier-based SQL)
+      vi.mocked(db.execute).mockImplementation(() =>
+        Promise.resolve({ rowCount: 0 }) as any
+      );
+
+      // Audit logs use db.delete
       vi.mocked(db.delete).mockImplementation(() => createChain([]) as any);
 
       // The 5th call (processPendingDeletions) does a select

@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, not, gte } from 'drizzle-orm';
+import { eq, and, desc, inArray, not, gte, count } from 'drizzle-orm';
 import { STSClient, AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
@@ -101,6 +101,22 @@ export const awsAccountService = {
 
     // Use transaction to prevent duplicate check race condition
     const account = await db.transaction(async (tx) => {
+      // Enforce maxAccounts limit per tier
+      const tier = await getOrgTier(orgId);
+      const maxAccounts = TIER_LIMITS[tier].maxAccounts;
+      if (maxAccounts !== -1) {
+        const [{ value: accountCount }] = await tx
+          .select({ value: count() })
+          .from(awsAccounts)
+          .where(eq(awsAccounts.orgId, orgId));
+
+        if (accountCount >= maxAccounts) {
+          throw new HTTP403Error(
+            `Your ${tier} plan allows up to ${maxAccounts} AWS account${maxAccounts === 1 ? '' : 's'}. Upgrade to Team for unlimited accounts.`
+          );
+        }
+      }
+
       const existingById = await tx
         .select({ id: awsAccounts.id })
         .from(awsAccounts)
@@ -449,8 +465,11 @@ export const awsAccountService = {
 
     // Push to Redis queue for workers to pick up
     // Go workers expect snake_case: job_id, scan_id, account_id, org_id, enabled_scanners
+    // Team tier gets scan priority: lpush (front of queue) vs rpush (back of queue)
+    const tier = await getOrgTier(orgId);
+    const pushMethod = TIER_LIMITS[tier].scanPriority ? 'lpush' : 'rpush';
     try {
-      await redis.rpush('jobs:scan_account', JSON.stringify({
+      await redis[pushMethod]('jobs:scan_account', JSON.stringify({
         job_id: job.id,
         scan_id: scan.id,
         account_id: accountId,

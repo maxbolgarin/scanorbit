@@ -715,7 +715,6 @@ services:
       - POSTGRES_USER=so_umami
       - APP_SECRET=${UMAMI_APP_SECRET}
       - TRACKER_SCRIPT_NAME=t.js
-      - COLLECT_API_ENDPOINT=/collect
       - NODE_EXTRA_CA_CERTS=/certs/postgres-ca.crt
     secrets:
       - source: so_umami_password

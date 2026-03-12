@@ -83,10 +83,13 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
     icon: Crown,
     features: [
       { text: "Everything in Pro", included: true },
-      { text: "Multiple AWS accounts", included: true },
+      { text: "Unlimited AWS accounts", included: true },
       { text: "Unlimited scans with priority", included: true },
-      { text: "Team members", included: true },
-      { text: "API access", included: true },
+      { text: "Data export (CSV/JSON)", included: true },
+      { text: "Team members & invites", included: true },
+      { text: "Webhook notifications", included: true },
+      { text: "Audit logs", included: true },
+      { text: "180+ days data retention", included: true },
     ],
   },
 };
@@ -267,13 +270,7 @@ export function SubscriptionSettings() {
       return;
     }
 
-    // If trialing and not pending cancellation, switch plan directly (preserves trial period)
-    if (status?.subscriptionStatus === 'trialing' && tier !== 'free' && !status?.subscriptionEndsAt) {
-      switchPlanMutation.mutate(tier);
-      return;
-    }
-
-    // If user has an active subscription, use portal to change plan
+    // If user has an active or trialing subscription, use portal to change plan
     if (status?.subscriptionStatus === 'active' || status?.subscriptionStatus === 'trialing') {
       portalMutation.mutate();
       return;
