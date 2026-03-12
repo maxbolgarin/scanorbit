@@ -909,7 +909,8 @@ function calculateHealthScores(
   resourceStats: ResourceStats,
   orphanedCount: number,
   residencyViolations: number,
-  expiringCerts: number
+  expiringCerts: number,
+  securityComplianceIssues: number
 ): { overall: number; security: number; compliance: number; costEfficiency: number } {
   const totalResources = resourceStats.totalCount || 1; // Avoid division by zero
 
@@ -925,9 +926,9 @@ function calculateHealthScores(
   );
   const securityScore = Math.max(0, 100 - securityPenalty);
 
-  // Compliance score (30% weight): Certs + residency
-  // Each expiring cert = -15, each violation = -20
-  const compliancePenalty = Math.min(100, expiringCerts * 15 + residencyViolations * 20);
+  // Compliance score (30% weight): Certs + residency + security compliance issues
+  // Each expiring cert = -15, each violation = -20, each security compliance issue = -10
+  const compliancePenalty = Math.min(100, expiringCerts * 15 + residencyViolations * 20 + securityComplianceIssues * 10);
   const complianceScore = Math.max(0, 100 - compliancePenalty);
 
   // Cost efficiency score (30% weight): Orphaned resources ratio
@@ -1100,12 +1101,14 @@ export async function getEnhancedDashboardSummary(filters?: {
       ...findingStats,
       bySeverity,
     };
+    const securityComplianceIssues = (byType["public_access"] || 0) + (byType["permissive_security_group"] || 0) + (byType["unencrypted_resource"] || 0);
     const healthScores = calculateHealthScores(
       filteredFindingStats,
       resourceStats,
       orphanedCount,
       residencyViolations,
-      expiringCertificates
+      expiringCertificates,
+      securityComplianceIssues
     );
 
     const healthStatus = getHealthStatus(healthScores.overall);
@@ -1165,7 +1168,7 @@ export async function getEnhancedDashboardSummary(filters?: {
     const complianceDetails = {
       residencyViolations,
       missingTags: byType["missing_tag"] || 0,
-      securityIssues: (byType["public_access"] || 0) + (byType["permissive_security_group"] || 0) + (byType["unencrypted_resource"] || 0),
+      securityIssues: securityComplianceIssues,
     };
 
     return {

@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { FindingFilters as Filters, FindingType, FindingSeverity, FindingStatus } from "@/types";
 import { ORPHANED_FINDING_TYPES } from "@/types";
-import { Search, X, SlidersHorizontal, ChevronDown, HardDrive } from "lucide-react";
+import { Search, X, SlidersHorizontal, ChevronDown, HardDrive, EyeOff } from "lucide-react";
+import { useViewingSettingsStore } from "@/stores/settings-store";
 
 interface FindingFiltersAdvancedProps {
   filters: Filters;
@@ -103,6 +104,8 @@ export function FindingFiltersAdvanced({
   filteredCount,
 }: FindingFiltersAdvancedProps) {
   const [typePopoverOpen, setTypePopoverOpen] = useState(false);
+  const hideTrivial = useViewingSettingsStore((state) => state.settings.hideTrivial);
+  const updateSettings = useViewingSettingsStore((state) => state.updateSettings);
 
   // Get selected types (either from types array or single type)
   const selectedTypes = useMemo(() => {
@@ -401,6 +404,16 @@ export function FindingFiltersAdvanced({
           >
             <HardDrive className="mr-2 h-4 w-4" />
             Orphaned
+          </Button>
+
+          {/* Quick non-trivial toggle button */}
+          <Button
+            variant={hideTrivial ? "default" : "outline"}
+            size="default"
+            onClick={() => updateSettings({ hideTrivial: !hideTrivial })}
+          >
+            <EyeOff className="mr-2 h-4 w-4" />
+            Non-Trivial
           </Button>
 
           {/* Clear all button */}

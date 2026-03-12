@@ -66,12 +66,12 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-4 w-20 rounded bg-muted" />
-              <div className="mt-2 h-8 w-16 rounded bg-muted" />
+            <CardContent className="p-5">
+              <div className="h-3 w-20 rounded bg-muted" />
+              <div className="mt-2 h-7 w-14 rounded bg-muted" />
             </CardContent>
           </Card>
         ))}
@@ -170,37 +170,33 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Main stats row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Open Findings */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Open Findings
-                </p>
-                <p className="mt-1 text-3xl font-bold">{openCount}</p>
-              </div>
-              <div className="rounded-full bg-muted p-3">
-                <AlertTriangle className="h-6 w-6 text-muted-foreground" />
-              </div>
+        <Card className="border-l-2 border-l-yellow-500">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Open Findings
+              </p>
             </div>
+            <p className="text-2xl font-bold">{openCount}</p>
           </CardContent>
         </Card>
 
         {/* By Category */}
         <Card>
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-muted-foreground mb-3">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
               By Category
             </p>
-            <div className="flex items-center justify-between gap-2">
-              {categoryCounts.slice(0, 5).map((category) => (
-                <div key={category.key} className="text-center">
-                  <p className={`text-xl font-bold ${category.color}`}>{category.count}</p>
-                  <p className="text-xs text-muted-foreground">{category.label}</p>
+            <div className="flex items-baseline gap-1">
+              {categoryCounts.slice(0, 5).map((category, i) => (
+                <div key={category.key} className="flex-1 text-center">
+                  <p className={`text-2xl font-bold ${category.color}`}>{category.count}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{category.label}</p>
                 </div>
               ))}
             </div>
@@ -208,41 +204,37 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
         </Card>
 
         {/* Resolved */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Resolved
-                </p>
-                <p className="mt-1 text-3xl font-bold text-green-600">{resolvedCount}</p>
-              </div>
-              <div className="rounded-full bg-green-500/10 p-3">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
+        <Card className="border-l-2 border-l-green-500">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Resolved
+              </p>
             </div>
+            <p className="text-2xl font-bold text-green-500">{resolvedCount}</p>
           </CardContent>
         </Card>
 
         {/* Snoozed & Ignored */}
         <Card>
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-muted-foreground mb-3">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
               Deferred
             </p>
-            <div className="flex items-center gap-6">
+            <div className="flex items-baseline gap-5">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-yellow-500" />
+                <Clock className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                 <div>
-                  <p className="text-xl font-bold">{snoozedCount}</p>
-                  <p className="text-xs text-muted-foreground">Snoozed</p>
+                  <p className="text-2xl font-bold">{snoozedCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Snoozed</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                <EyeOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <div>
-                  <p className="text-xl font-bold">{ignoredCount}</p>
-                  <p className="text-xs text-muted-foreground">Ignored</p>
+                  <p className="text-2xl font-bold">{ignoredCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Ignored</p>
                 </div>
               </div>
             </div>
@@ -252,30 +244,30 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
 
       {/* Severity and Types breakdown */}
       {(criticalCount > 0 || highCount > 0 || mediumCount > 0 || lowCount > 0 || trivialCount > 0 || allTypes.length > 0) && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {/* By Severity */}
           <Card>
-            <CardContent className="p-6">
-              <h3 className="text-sm font-medium text-muted-foreground mb-4">
+            <CardContent className="p-5">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
                 Findings by Severity
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {severityItems.map((item) => {
                   if (item.count === 0) return null;
                   const percentage = Math.max(Math.round((item.count / maxSeverityCount) * 100), 2);
                   return (
                     <div key={item.key}>
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center justify-between mb-1">
                         <span className={`text-sm font-medium ${item.textColor}`}>
                           {item.label}
                         </span>
-                        <span className="text-sm font-semibold">
+                        <span className="text-sm font-semibold tabular-nums">
                           {item.count}
                         </span>
                       </div>
-                      <div className="h-2.5 w-full rounded-full bg-muted">
+                      <div className="h-1.5 w-full rounded-full bg-muted">
                         <div
-                          className={`h-2.5 rounded-full transition-all duration-300 ${item.barColor}`}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${item.barColor}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
@@ -288,9 +280,9 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
 
           {/* Top Finding Types */}
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-muted-foreground">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Top Finding Types
                 </h3>
                 {typeTotalPages > 1 && (
@@ -298,48 +290,48 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-6 w-6"
                       onClick={() => setTypePage(p => Math.max(0, p - 1))}
                       disabled={typePage === 0}
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft className="h-3.5 w-3.5" />
                     </Button>
-                    <span className="text-xs text-muted-foreground px-1">
+                    <span className="text-xs text-muted-foreground tabular-nums px-0.5">
                       {typePage + 1}/{typeTotalPages}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-6 w-6"
                       onClick={() => setTypePage(p => Math.min(typeTotalPages - 1, p + 1))}
                       disabled={typePage === typeTotalPages - 1}
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {paginatedTypes.map(([type, count]) => {
                   const percentage = Math.max(Math.round((count / maxTypeCount) * 100), 2);
                   const severityInfo = getTypeSeverity(type);
                   return (
                     <div
                       key={type}
-                      className="cursor-pointer rounded-md p-2 -mx-2 hover:bg-muted/50 transition-colors"
+                      className="cursor-pointer rounded-md p-1.5 -mx-1.5 hover:bg-muted/50 transition-colors"
                       onClick={() => handleTypeClick(type)}
                     >
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium capitalize">
                           {type.replace(/_/g, " ")}
                         </span>
-                        <span className="text-sm font-semibold">
+                        <span className="text-sm font-semibold tabular-nums">
                           {count}
                         </span>
                       </div>
-                      <div className="h-2.5 w-full rounded-full bg-muted">
+                      <div className="h-1.5 w-full rounded-full bg-muted">
                         <div
-                          className={`h-2.5 rounded-full transition-all duration-300 ${severityInfo.barColor}`}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${severityInfo.barColor}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
