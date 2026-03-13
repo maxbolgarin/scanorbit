@@ -28,7 +28,7 @@ export function RecentActivityCard({ scans, accounts, isLoading, accountId }: Re
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Recent Activity
           </CardTitle>
         </CardHeader>
@@ -146,7 +146,7 @@ export function RecentActivityCard({ scans, accounts, isLoading, accountId }: Re
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Recent Activity
         </CardTitle>

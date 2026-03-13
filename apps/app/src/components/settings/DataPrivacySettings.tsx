@@ -323,13 +323,13 @@ export function DataPrivacySettings() {
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Full Name</p>
+                  <p className="text-sm font-semibold text-muted-foreground">Full Name</p>
                   <p className="text-sm">{profile.fullName}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Email</p>
+                  <p className="text-sm font-semibold text-muted-foreground">Email</p>
                   <div className="flex items-center gap-2">
                     <p className="text-sm">{profile.email}</p>
                     {profile.emailVerified && (

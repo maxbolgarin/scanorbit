@@ -112,7 +112,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground">
                   Total Resources
                 </p>
                 <p className="mt-1 text-3xl font-bold">{totalCount.toLocaleString()}</p>
@@ -129,7 +129,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground">
                   Est. Monthly Cost
                 </p>
                 <p className="mt-1 text-3xl font-bold">
@@ -148,7 +148,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground">
                   Regions
                 </p>
                 <p className="mt-1 text-3xl font-bold">{regionCount}</p>
@@ -165,7 +165,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground">
                   Running / Stopped
                 </p>
                 <p className="mt-1 text-3xl font-bold">
@@ -203,7 +203,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
+              <h3 className="text-sm font-semibold text-muted-foreground">
                 Cost by Service (Paid Only)
               </h3>
               {serviceTotalPages > 1 && (
@@ -255,7 +255,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                           <span className="text-sm text-muted-foreground">
                             {data.count}
                           </span>
-                          <span className="text-sm font-medium text-muted-foreground">
+                          <span className="text-sm font-semibold text-muted-foreground">
                             {formatCurrency(data.totalCost)}
                           </span>
                         </div>
@@ -281,7 +281,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
+              <h3 className="text-sm font-semibold text-muted-foreground">
                 Resources by Region
               </h3>
               {regionTotalPages > 1 && (

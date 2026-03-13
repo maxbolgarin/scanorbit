@@ -185,7 +185,7 @@ export function FindingDetailModal({
       </div>
 
       <div className="rounded-lg border p-3 bg-card">
-        <p className="text-sm font-medium text-muted-foreground">Finding</p>
+        <p className="text-sm font-semibold text-muted-foreground">Finding</p>
         <p className="mt-1">{finding.summary}</p>
       </div>
 
@@ -215,7 +215,7 @@ export function FindingDetailModal({
         </p>
       </div>
 
-      <div className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
+      <div className="rounded-lg border border-status-warning/40 bg-status-warning/5 p-4">
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-status-warning mt-0.5 flex-shrink-0" />
           <div>
@@ -244,7 +244,7 @@ export function FindingDetailModal({
       <div className="rounded-lg border p-3 bg-card">
         <div className="flex items-center gap-2 mb-1">
           <SeverityBadge severity={finding.severity} />
-          <span className="text-sm font-medium text-muted-foreground">{typeLabels[finding.type] || finding.type}</span>
+          <span className="text-sm font-semibold text-muted-foreground">{typeLabels[finding.type] || finding.type}</span>
         </div>
         <p className="mt-1">{finding.summary}</p>
       </div>
@@ -295,7 +295,7 @@ export function FindingDetailModal({
             </Select>
           </div>
 
-          <div className="flex items-center gap-3 rounded-md bg-status-warning/10 p-3">
+          <div className="flex items-center gap-3 rounded-md bg-status-warning/15 p-3">
             <Clock className="h-5 w-5 text-status-warning flex-shrink-0" />
             <div>
               <p className="text-sm font-medium">Reopens on {reopenDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
@@ -309,7 +309,7 @@ export function FindingDetailModal({
         </div>
 
         <div className="rounded-lg border p-3 bg-card">
-          <p className="text-sm font-medium text-muted-foreground">Finding</p>
+          <p className="text-sm font-semibold text-muted-foreground">Finding</p>
           <p className="mt-1">{finding.summary}</p>
         </div>
 
@@ -362,7 +362,7 @@ export function FindingDetailModal({
 
           return (
             <>
-              <div className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
+              <div className="rounded-lg border border-status-warning/40 bg-status-warning/5 p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <Wrench className="h-4 w-4 text-status-warning" />
                   <h4 className="font-medium">How to Fix</h4>
@@ -426,15 +426,15 @@ export function FindingDetailModal({
           </h4>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">First Detected</p>
+              <p className="text-sm font-semibold text-muted-foreground">First Detected</p>
               <p className="mt-1">{formatDateTime(finding.firstDetectedAt || finding.createdAt)}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Last Detected</p>
+              <p className="text-sm font-semibold text-muted-foreground">Last Detected</p>
               <p className="mt-1">{formatDateTime(finding.lastDetectedAt || finding.updatedAt)}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1">
                 <RefreshCw className="h-3 w-3" />
                 Detection Count
               </p>
@@ -447,7 +447,7 @@ export function FindingDetailModal({
             </div>
             {finding.resolvedAt && (
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground">
                   Resolved At
                 </p>
                 <p className="mt-1">{formatDateTime(finding.resolvedAt)}</p>
@@ -455,7 +455,7 @@ export function FindingDetailModal({
             )}
             {finding.snoozedUntil && (
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground">
                   Snoozed Until
                 </p>
                 <p className="mt-1">{formatDateTime(finding.snoozedUntil)}</p>
@@ -470,13 +470,13 @@ export function FindingDetailModal({
         <div className="grid gap-3 sm:grid-cols-2">
           {region && (
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Region</p>
+              <p className="text-sm font-semibold text-muted-foreground">Region</p>
               <p className="mt-1">{region}</p>
             </div>
           )}
           {estimatedSavings !== null && estimatedSavings > 0 && (
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="text-sm font-semibold text-muted-foreground">
                 Estimated Savings
               </p>
               <p className="mt-1 text-status-success font-medium">
@@ -486,7 +486,7 @@ export function FindingDetailModal({
           )}
           {expiresAt && (
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="text-sm font-semibold text-muted-foreground">
                 Expires At
               </p>
               <p className="mt-1">{formatDateTime(expiresAt)}</p>

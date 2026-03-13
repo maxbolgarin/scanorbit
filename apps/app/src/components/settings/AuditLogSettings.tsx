@@ -115,6 +115,7 @@ interface ExportParams {
   userId: string;
   startDate: string;
   endDate: string;
+  status: string;
 }
 
 export function AuditLogSettings() {
@@ -191,6 +192,7 @@ export function AuditLogSettings() {
       userId: "all",
       startDate,
       endDate,
+      status: statusFilter,
     });
     setExportModalOpen(true);
   };
@@ -203,6 +205,7 @@ export function AuditLogSettings() {
         userId: exportParams.userId !== "all" ? exportParams.userId : undefined,
         startDate: exportParams.startDate ? new Date(exportParams.startDate).toISOString() : undefined,
         endDate: exportParams.endDate ? new Date(exportParams.endDate + "T23:59:59").toISOString() : undefined,
+        status: exportParams.status !== "all" ? exportParams.status : undefined,
       };
 
       let allLogs: api.AuditLogEntry[] = [];
@@ -485,6 +488,26 @@ export function AuditLogSettings() {
                 </SelectTrigger>
                 <SelectContent>
                   {ACTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status filter */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Status code</label>
+              <Select
+                value={exportParams.status}
+                onValueChange={(v) => setExportParams((p) => ({ ...p, status: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

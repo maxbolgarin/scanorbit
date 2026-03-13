@@ -15,7 +15,7 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Compliance Status
           </CardTitle>
         </CardHeader>
@@ -48,9 +48,9 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
       : "good";
 
   const certStatusConfig = {
-    critical: { color: "text-status-critical", bgColor: "bg-status-critical/10", borderColor: "border-status-critical/20" },
-    warning: { color: "text-status-warning", bgColor: "bg-status-warning/10", borderColor: "border-status-warning/20" },
-    good: { color: "text-status-info", bgColor: "bg-status-info/10", borderColor: "border-status-info/20" },
+    critical: { color: "text-status-critical", bgColor: "bg-status-critical/15", borderColor: "border-status-critical/30" },
+    warning: { color: "text-status-warning", bgColor: "bg-status-warning/15", borderColor: "border-status-warning/30" },
+    good: { color: "text-status-info", bgColor: "bg-status-info/15", borderColor: "border-status-info/30" },
   };
 
   // Calculate compliance score (without tagging)
@@ -66,7 +66,7 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileCheck className="h-4 w-4" />
             Compliance Status
@@ -159,8 +159,8 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
             className={cn(
               "p-3 rounded-lg border transition-colors hover:bg-muted/50",
               residencyViolations > 0
-                ? "bg-status-critical/10 border-status-critical/20"
-                : "bg-status-success/10 border-status-success/20"
+                ? "bg-status-critical/15 border-status-critical/30"
+                : "bg-status-success/15 border-status-success/30"
             )}
           >
             <div className="flex items-center gap-1.5 mb-1">
@@ -187,8 +187,8 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
             className={cn(
               "p-3 rounded-lg border transition-colors hover:bg-muted/50",
               complianceDetails.securityIssues > 0
-                ? "bg-status-high/10 border-status-high/20"
-                : "bg-status-success/10 border-status-success/20"
+                ? "bg-status-high/15 border-status-high/30"
+                : "bg-status-success/15 border-status-success/30"
             )}
           >
             <div className="flex items-center gap-1.5 mb-1">

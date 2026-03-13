@@ -52,7 +52,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Open Issues
           </CardTitle>
         </CardHeader>
@@ -107,7 +107,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             Open Issues
@@ -163,7 +163,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.critical > 0
-                  ? "bg-status-critical/10 border-status-critical/20"
+                  ? "bg-status-critical/15 border-status-critical/30"
                   : "bg-muted/50 border-border"
               )}
             >
@@ -188,7 +188,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.high > 0
-                  ? "bg-status-high/10 border-status-high/20"
+                  ? "bg-status-high/15 border-status-high/30"
                   : "bg-muted/50 border-border"
               )}
             >
@@ -210,7 +210,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.medium > 0
-                  ? "bg-status-warning/10 border-status-warning/20"
+                  ? "bg-status-warning/15 border-status-warning/30"
                   : "bg-muted/50 border-border"
               )}
             >
@@ -232,7 +232,7 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.low > 0
-                  ? "bg-status-info/10 border-status-info/20"
+                  ? "bg-status-info/15 border-status-info/30"
                   : "bg-muted/50 border-border"
               )}
             >

@@ -15,7 +15,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Resource Health
           </CardTitle>
         </CardHeader>
@@ -52,7 +52,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Server className="h-4 w-4" />
             Resource Health
@@ -120,7 +120,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.healthy > 0
-                  ? "bg-status-success/10 border-status-success/20"
+                  ? "bg-status-success/15 border-status-success/30"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -138,7 +138,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.warning > 0
-                  ? "bg-status-warning/10 border-status-warning/20"
+                  ? "bg-status-warning/15 border-status-warning/30"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -156,7 +156,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.critical > 0
-                  ? "bg-status-critical/10 border-status-critical/20"
+                  ? "bg-status-critical/15 border-status-critical/30"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
@@ -174,7 +174,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 (resourceHealth.orphaned ?? 0) > 0
-                  ? "bg-status-trivial/10 border-status-trivial/20"
+                  ? "bg-status-trivial/15 border-status-trivial/30"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
