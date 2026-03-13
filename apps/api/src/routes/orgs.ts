@@ -133,6 +133,7 @@ const auditLogQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(50),
   action: z.string().max(64).optional(),
+  userId: z.string().uuid().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
 });
@@ -151,7 +152,7 @@ orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async
     throw new HTTP403Error('Audit logs are available on the Team plan only. Upgrade to Team for full audit trail.');
   }
 
-  const { page, limit, action, startDate, endDate } = c.req.valid('query');
+  const { page, limit, action, userId: userId_filter, startDate, endDate } = c.req.valid('query');
   const offset = (page - 1) * limit;
 
   // Build conditions using a subquery for org membership (avoids large IN lists)
@@ -162,6 +163,7 @@ orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async
 
   const conditions = [inArray(auditLogs.userId, membershipSubquery)];
   if (action) conditions.push(eq(auditLogs.action, action));
+  if (userId_filter) conditions.push(eq(auditLogs.userId, userId_filter));
   if (startDate) conditions.push(gte(auditLogs.timestamp, new Date(startDate)));
   if (endDate) conditions.push(lte(auditLogs.timestamp, new Date(endDate)));
 
