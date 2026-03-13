@@ -132,6 +132,8 @@ export interface OrgMember {
   orgId: string;
   role: "admin" | "member";
   createdAt: string;
+  email?: string;
+  fullName?: string | null;
   user?: User;
 }
 

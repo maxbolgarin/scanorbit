@@ -201,7 +201,7 @@ export function AuditLogSettings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "scanorbit-audit-log.csv";
+      a.download = `scanorbit-audit-log-${new Date().toISOString().split("T")[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       setExportModalOpen(false);
@@ -398,7 +398,7 @@ export function AuditLogSettings() {
                   <SelectItem value="all">All users</SelectItem>
                   {members?.map((m) => (
                     <SelectItem key={m.userId} value={m.userId}>
-                      {m.user?.fullName || m.user?.email || m.userId}
+                      {m.fullName || m.email || m.userId}
                     </SelectItem>
                   ))}
                 </SelectContent>

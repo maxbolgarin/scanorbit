@@ -36,6 +36,8 @@ function shouldExclude(path: string): boolean {
     /^\/$/,                      // Root
     /^(\/api)?\/health/,         // Health checks
     /^(\/api)?\/auth\/me$/,      // Session polling (high frequency)
+    /^(\/api)?\/auth\/login$/,   // Login — logged explicitly with real userId via logAuthEvent
+    /^(\/api)?\/auth\/logout$/,  // Logout — logged explicitly with real userId via logAuthEvent
     /^\/favicon/,                // Favicon and related
     /^\/robots\.txt/,            // Bots
     /^\/_next\//,                // Next.js internals
