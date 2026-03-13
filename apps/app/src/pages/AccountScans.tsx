@@ -290,7 +290,7 @@ export default function AccountScans() {
                 </p>
               )}
               {!subscriptionCanScan && scanReason && !getActiveScanForAccount() && (
-                <p className="text-sm text-amber-600">
+                <p className="text-sm text-status-warning">
                   {scanReason}
                 </p>
               )}
@@ -370,7 +370,7 @@ export default function AccountScans() {
               {account?.status === "ok" && (
                 <>
                   {!subscriptionCanScan && scanReason && (
-                    <p className="mt-4 text-sm text-amber-600">
+                    <p className="mt-4 text-sm text-status-warning">
                       {scanReason}
                     </p>
                   )}
@@ -437,11 +437,11 @@ export default function AccountScans() {
                           >
                             <span className={
                               scan.status === "error" ? "text-destructive" :
-                              scan.status === "complete" ? "text-green-500" :
-                              scan.status === "partial" ? "text-orange-500" :
+                              scan.status === "complete" ? "text-status-success" :
+                              scan.status === "partial" ? "text-status-high" :
                               scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
                               scan.status === "canceled" ? "text-muted-foreground" :
-                              "text-yellow-500"
+                              "text-status-warning"
                             }>
                               {config.icon}
                             </span>
@@ -464,7 +464,7 @@ export default function AccountScans() {
                           {(scan.status === "complete" || scan.status === "partial") && scan.resourcesDelta !== 0 ? (
                             <Badge
                               variant="outline"
-                              className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                              className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${scan.resourcesDelta > 0 ? "text-status-success border-status-success" : "text-status-high border-status-high"}`}
                               onClick={() => navigate(`/accounts/${accountId}/resources`)}
                             >
                               {scan.resourcesDelta > 0 ? (
@@ -483,7 +483,7 @@ export default function AccountScans() {
                             {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew > 0 && (
                               <Badge
                                 variant="outline"
-                                className="text-xs text-yellow-600 border-yellow-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                className="text-xs text-status-warning border-status-warning cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={() => navigate(`/accounts/${accountId}/findings`)}
                               >
                                 <AlertCircle className="h-3 w-3 mr-1" />
@@ -493,7 +493,7 @@ export default function AccountScans() {
                             {(scan.status === "complete" || scan.status === "partial") && scan.findingsResolved > 0 && (
                               <Badge
                                 variant="outline"
-                                className="text-xs text-green-600 border-green-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                className="text-xs text-status-success border-status-success cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={() => navigate(`/accounts/${accountId}/findings`)}
                               >
                                 <CheckCircle className="h-3 w-3 mr-1" />

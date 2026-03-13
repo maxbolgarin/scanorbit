@@ -67,6 +67,13 @@ export default {
         "alert-red": "hsl(var(--alert-red))",
         "cloud-gray": "hsl(var(--cloud-gray))",
         "slate-gray": "hsl(var(--slate-gray))",
+        // Muted status colors
+        "status-critical": "hsl(var(--status-critical))",
+        "status-high": "hsl(var(--status-high))",
+        "status-warning": "hsl(var(--status-warning))",
+        "status-success": "hsl(var(--status-success))",
+        "status-info": "hsl(var(--status-info))",
+        "status-trivial": "hsl(var(--status-trivial))",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -348,7 +348,7 @@ export function FindingsTableAdvanced({
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-right">
                     {typeof finding.details.estimatedSavings === "number" ? (
-                      <span className="flex items-center justify-end gap-1 text-green-600 font-medium">
+                      <span className="flex items-center justify-end gap-1 text-status-success font-medium">
                         <DollarSign className="h-3 w-3" />
                         {formatCurrency(finding.details.estimatedSavings)}
                       </span>
@@ -360,7 +360,7 @@ export function FindingsTableAdvanced({
                     <div className="flex items-center justify-end gap-1.5">
                       {(finding.detectionCount || 1) > 1 && (
                         <span
-                          className="flex items-center gap-0.5 text-xs text-amber-600"
+                          className="flex items-center gap-0.5 text-xs text-status-warning"
                           title={`Detected ${finding.detectionCount} times`}
                         >
                           <RefreshCw className="h-3 w-3" />

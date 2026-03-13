@@ -93,15 +93,15 @@ export function QuickActionsPanel({ findings, isLoading }: QuickActionsPanelProp
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Zap className="h-5 w-5 text-status-warning" />
             Quick Actions
           </CardTitle>
           <CardDescription>Recommended actions for your infrastructure</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="rounded-full bg-green-500/10 p-4">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            <div className="rounded-full bg-muted p-4">
+              <CheckCircle2 className="h-8 w-8 text-status-success" />
             </div>
             <p className="mt-4 text-lg font-medium">All caught up!</p>
             <p className="text-sm text-muted-foreground">
@@ -119,13 +119,13 @@ export function QuickActionsPanel({ findings, isLoading }: QuickActionsPanelProp
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-yellow-500" />
+              <Zap className="h-5 w-5 text-status-warning" />
               Quick Actions
             </CardTitle>
             <CardDescription>High-impact actions for your infrastructure</CardDescription>
           </div>
           {totalSavings > 0 && (
-            <Badge variant="secondary" className="gap-1 text-green-600">
+            <Badge variant="secondary" className="gap-1 text-status-success">
               <DollarSign className="h-3 w-3" />
               {formatCurrency(totalSavings)} potential savings
             </Badge>
@@ -166,7 +166,7 @@ export function QuickActionsPanel({ findings, isLoading }: QuickActionsPanelProp
                       {actionInfo.action}
                     </span>
                     {savings > 0 && (
-                      <span className="text-xs text-green-600 font-medium">
+                      <span className="text-xs text-status-success font-medium">
                         Save {formatCurrency(savings)}/mo
                       </span>
                     )}

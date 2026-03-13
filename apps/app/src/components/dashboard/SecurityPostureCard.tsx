@@ -13,28 +13,28 @@ interface SecurityPostureCardProps {
 const severityConfig = {
   critical: {
     label: "Critical",
-    color: "bg-red-500",
-    textColor: "text-red-500",
+    color: "bg-status-critical",
+    textColor: "text-status-critical",
   },
   high: {
     label: "High",
-    color: "bg-orange-500",
-    textColor: "text-orange-500",
+    color: "bg-status-high",
+    textColor: "text-status-high",
   },
   medium: {
     label: "Medium",
-    color: "bg-yellow-500",
-    textColor: "text-yellow-500",
+    color: "bg-status-warning",
+    textColor: "text-status-warning",
   },
   low: {
     label: "Low",
-    color: "bg-blue-500",
-    textColor: "text-blue-500",
+    color: "bg-status-info",
+    textColor: "text-status-info",
   },
   trivial: {
     label: "Trivial",
-    color: "bg-slate-400",
-    textColor: "text-slate-400",
+    color: "bg-status-trivial",
+    textColor: "text-status-trivial",
   },
 };
 
@@ -85,10 +85,10 @@ export function SecurityPostureCard({ summary, isLoading, accountId }: SecurityP
         : "good";
 
   const statusConfig = {
-    critical: { text: "Needs Immediate Attention", color: "text-red-500" },
-    warning: { text: "Action Required", color: "text-orange-500" },
-    fair: { text: "Stable", color: "text-yellow-500" },
-    good: { text: "Excellent", color: "text-green-500" },
+    critical: { text: "Needs Immediate Attention", color: "text-status-critical" },
+    warning: { text: "Action Required", color: "text-status-high" },
+    fair: { text: "Stable", color: "text-status-warning" },
+    good: { text: "Excellent", color: "text-status-success" },
   };
 
   return (

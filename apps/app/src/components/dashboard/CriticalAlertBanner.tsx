@@ -87,7 +87,7 @@ export function CriticalAlertBanner({ summary, accountId, onDismiss }: CriticalA
             key={alert.id}
             variant="destructive"
             className={cn(
-              "relative border-red-500/50 bg-red-500/10",
+              "relative border-status-critical/50 bg-status-critical/10",
               "animate-in fade-in slide-in-from-top-2 duration-300"
             )}
           >
@@ -101,7 +101,7 @@ export function CriticalAlertBanner({ summary, accountId, onDismiss }: CriticalA
                 variant="outline"
                 size="sm"
                 asChild
-                className="ml-4 border-red-500/30 hover:bg-red-500/20"
+                className="ml-4 border-status-critical/30 hover:bg-status-critical/20"
               >
                 <Link to={alert.link}>{alert.linkText}</Link>
               </Button>
@@ -109,7 +109,7 @@ export function CriticalAlertBanner({ summary, accountId, onDismiss }: CriticalA
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-2 top-2 h-6 w-6 text-red-500/70 hover:text-red-500 hover:bg-red-500/10"
+              className="absolute right-2 top-2 h-6 w-6 text-status-critical/70 hover:text-status-critical hover:bg-status-critical/10"
               onClick={() => handleDismiss(alert.id)}
             >
               <X className="h-4 w-4" />

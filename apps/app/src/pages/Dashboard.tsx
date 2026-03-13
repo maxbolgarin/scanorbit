@@ -248,20 +248,20 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {/* Severity breakdown */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="rounded-lg bg-red-500/10 p-3 text-center">
-                    <div className="text-2xl font-bold text-red-500">
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-status-high">
                       {openFindings.filter(f => f.severity === "high").length}
                     </div>
                     <div className="text-xs text-muted-foreground">High</div>
                   </div>
-                  <div className="rounded-lg bg-yellow-500/10 p-3 text-center">
-                    <div className="text-2xl font-bold text-yellow-500">
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-status-warning">
                       {openFindings.filter(f => f.severity === "medium").length}
                     </div>
                     <div className="text-xs text-muted-foreground">Medium</div>
                   </div>
-                  <div className="rounded-lg bg-blue-500/10 p-3 text-center">
-                    <div className="text-2xl font-bold text-blue-500">
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-status-info">
                       {openFindings.filter(f => f.severity === "low").length}
                     </div>
                     <div className="text-xs text-muted-foreground">Low</div>
@@ -276,7 +276,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Resolved this week</span>
-                    <span className="font-medium text-green-500">
+                    <span className="font-medium text-status-success">
                       {findings?.data?.filter(f => f.status === "resolved").length || 0}
                     </span>
                   </div>
@@ -307,8 +307,8 @@ export default function Dashboard() {
       {!findingsLoading && hasAccounts && !hasAnyFindings && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="rounded-full bg-green-500/10 p-3">
-              <AlertTriangle className="h-6 w-6 text-green-500" />
+            <div className="rounded-full bg-muted p-3">
+              <AlertTriangle className="h-6 w-6 text-status-success" />
             </div>
             <h3 className="mt-3 font-medium">No findings yet</h3>
             <p className="mt-1 text-sm text-muted-foreground">

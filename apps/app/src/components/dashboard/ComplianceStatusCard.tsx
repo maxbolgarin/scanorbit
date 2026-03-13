@@ -48,9 +48,9 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
       : "good";
 
   const certStatusConfig = {
-    critical: { color: "text-red-500", bgColor: "bg-red-500/10", borderColor: "border-red-500/20" },
-    warning: { color: "text-yellow-500", bgColor: "bg-yellow-500/10", borderColor: "border-yellow-500/20" },
-    good: { color: "text-blue-500", bgColor: "bg-blue-500/10", borderColor: "border-blue-500/20" },
+    critical: { color: "text-status-critical", bgColor: "bg-status-critical/10", borderColor: "border-status-critical/20" },
+    warning: { color: "text-status-warning", bgColor: "bg-status-warning/10", borderColor: "border-status-warning/20" },
+    good: { color: "text-status-info", bgColor: "bg-status-info/10", borderColor: "border-status-info/20" },
   };
 
   // Calculate compliance score (without tagging)
@@ -58,9 +58,9 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
   const overallStatus = totalIssues === 0 ? "compliant" : totalIssues <= 3 ? "partial" : "needs_work";
 
   const statusConfig = {
-    compliant: { label: "Fully Compliant", color: "text-green-500" },
-    partial: { label: "Mostly Compliant", color: "text-yellow-500" },
-    needs_work: { label: "Needs Attention", color: "text-red-500" },
+    compliant: { label: "Fully Compliant", color: "text-status-success" },
+    partial: { label: "Mostly Compliant", color: "text-status-warning" },
+    needs_work: { label: "Needs Attention", color: "text-status-critical" },
   };
 
   return (
@@ -99,21 +99,21 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
           <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
             {certificateInsights.urgent > 0 && (
               <div
-                className="h-full bg-amber-500 transition-all"
+                className="h-full bg-status-warning transition-all"
                 style={{ width: `${(certificateInsights.urgent / totalIssues) * 100}%` }}
                 title={`${certificateInsights.urgent} Certificate issues`}
               />
             )}
             {complianceDetails.residencyViolations > 0 && (
               <div
-                className="h-full bg-red-500 transition-all"
+                className="h-full bg-status-critical transition-all"
                 style={{ width: `${(complianceDetails.residencyViolations / totalIssues) * 100}%` }}
                 title={`${complianceDetails.residencyViolations} Residency violations`}
               />
             )}
             {complianceDetails.securityIssues > 0 && (
               <div
-                className="h-full bg-orange-500 transition-all"
+                className="h-full bg-status-high transition-all"
                 style={{ width: `${(complianceDetails.securityIssues / totalIssues) * 100}%` }}
                 title={`${complianceDetails.securityIssues} Security issues`}
               />
@@ -140,13 +140,13 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
               {certificateInsights.healthy}/{certificateInsights.total}
             </div>
             {certificateInsights.urgent > 0 && (
-              <span className="text-xs text-red-500 flex items-center gap-1 mt-1">
+              <span className="text-xs text-status-critical flex items-center gap-1 mt-1">
                 <AlertTriangle className="h-3 w-3" />
                 {certificateInsights.urgent} urgent
               </span>
             )}
             {certificateInsights.urgent === 0 && certificateInsights.expiringSoon > 0 && (
-              <span className="text-xs text-yellow-500 flex items-center gap-1 mt-1">
+              <span className="text-xs text-status-warning flex items-center gap-1 mt-1">
                 <Clock className="h-3 w-3" />
                 {certificateInsights.expiringSoon} soon
               </span>
@@ -159,25 +159,25 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
             className={cn(
               "p-3 rounded-lg border transition-colors hover:bg-muted/50",
               residencyViolations > 0
-                ? "bg-red-500/10 border-red-500/20"
-                : "bg-green-500/10 border-green-500/20"
+                ? "bg-status-critical/10 border-status-critical/20"
+                : "bg-status-success/10 border-status-success/20"
             )}
           >
             <div className="flex items-center gap-1.5 mb-1">
               <MapPin className={cn(
                 "h-4 w-4",
-                residencyViolations > 0 ? "text-red-500" : "text-green-500"
+                residencyViolations > 0 ? "text-status-critical" : "text-status-success"
               )} />
               <span className="text-xs text-muted-foreground">Residency</span>
             </div>
             <div className={cn(
               "text-lg font-semibold",
-              residencyViolations > 0 ? "text-red-500" : "text-green-500"
+              residencyViolations > 0 ? "text-status-critical" : "text-status-success"
             )}>
               {residencyViolations > 0 ? residencyViolations : "OK"}
             </div>
             {residencyViolations > 0 && (
-              <span className="text-xs text-red-500 mt-1">violations</span>
+              <span className="text-xs text-status-critical mt-1">violations</span>
             )}
           </Link>
 
@@ -187,25 +187,25 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
             className={cn(
               "p-3 rounded-lg border transition-colors hover:bg-muted/50",
               complianceDetails.securityIssues > 0
-                ? "bg-orange-500/10 border-orange-500/20"
-                : "bg-green-500/10 border-green-500/20"
+                ? "bg-status-high/10 border-status-high/20"
+                : "bg-status-success/10 border-status-success/20"
             )}
           >
             <div className="flex items-center gap-1.5 mb-1">
               <ShieldCheck className={cn(
                 "h-4 w-4",
-                complianceDetails.securityIssues > 0 ? "text-orange-500" : "text-green-500"
+                complianceDetails.securityIssues > 0 ? "text-status-high" : "text-status-success"
               )} />
               <span className="text-xs text-muted-foreground">Security</span>
             </div>
             <div className={cn(
               "text-lg font-semibold",
-              complianceDetails.securityIssues > 0 ? "text-orange-500" : "text-green-500"
+              complianceDetails.securityIssues > 0 ? "text-status-high" : "text-status-success"
             )}>
               {complianceDetails.securityIssues > 0 ? complianceDetails.securityIssues : "OK"}
             </div>
             {complianceDetails.securityIssues > 0 && (
-              <span className="text-xs text-orange-500 mt-1">issues</span>
+              <span className="text-xs text-status-high mt-1">issues</span>
             )}
           </Link>
         </div>

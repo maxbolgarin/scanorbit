@@ -107,7 +107,7 @@ export function RecentFindings({ findings, baseUrl = "" }: RecentFindingsProps) 
                     <div className="flex items-center justify-end gap-1.5">
                       {(finding.detectionCount || 1) > 1 && (
                         <span
-                          className="flex items-center gap-0.5 text-xs text-amber-600"
+                          className="flex items-center gap-0.5 text-xs text-status-warning"
                           title={`Detected ${finding.detectionCount} times`}
                         >
                           <RefreshCw className="h-3 w-3" />

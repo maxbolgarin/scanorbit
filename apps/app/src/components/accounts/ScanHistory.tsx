@@ -18,13 +18,13 @@ interface ScanHistoryProps {
 }
 
 const statusIcons: Record<ScanStatus, React.ReactNode> = {
-  queued: <Clock className="h-4 w-4 text-yellow-500" />,
-  processing: <Loader2 className="h-4 w-4 text-yellow-500 animate-spin" />,
-  running: <PlayCircle className="h-4 w-4 text-blue-500 animate-pulse" />,
-  analyzing: <Search className="h-4 w-4 text-blue-500 animate-pulse" />,
-  complete: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-  partial: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-  error: <XCircle className="h-4 w-4 text-red-500" />,
+  queued: <Clock className="h-4 w-4 text-status-warning" />,
+  processing: <Loader2 className="h-4 w-4 text-status-warning animate-spin" />,
+  running: <PlayCircle className="h-4 w-4 text-status-info animate-pulse" />,
+  analyzing: <Search className="h-4 w-4 text-status-info animate-pulse" />,
+  complete: <CheckCircle2 className="h-4 w-4 text-status-success" />,
+  partial: <AlertTriangle className="h-4 w-4 text-status-high" />,
+  error: <XCircle className="h-4 w-4 text-status-critical" />,
   canceled: <Ban className="h-4 w-4 text-muted-foreground" />,
 };
 
@@ -84,7 +84,7 @@ export function ScanHistory({ accountId, accountName, onClose }: ScanHistoryProp
                       </p>
                     )}
                     {scan.errorMessage && (
-                      <p className="text-sm text-red-600">{scan.errorMessage}</p>
+                      <p className="text-sm text-status-critical">{scan.errorMessage}</p>
                     )}
                   </div>
                 </div>

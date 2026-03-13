@@ -86,8 +86,8 @@ export function ResourceScanHistory({ resourceId }: ResourceScanHistoryProps) {
                     <span
                       className={`ml-2 ${
                         item.resourcesDelta > 0
-                          ? "text-green-600"
-                          : "text-red-600"
+                          ? "text-status-success"
+                          : "text-status-critical"
                       }`}
                     >
                       ({item.resourcesDelta > 0 ? "+" : ""}

@@ -79,8 +79,8 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
         <CardContent>
           {hasOptimizations ? (
             <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
-              <div className="rounded-full bg-amber-500/10 p-3">
-                <Lock className="h-6 w-6 text-amber-500" />
+              <div className="rounded-full bg-status-warning/10 p-3">
+                <Lock className="h-6 w-6 text-status-warning" />
               </div>
               <div>
                 <p className="text-sm font-medium">Cost insights available</p>
@@ -98,8 +98,8 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-4 text-center space-y-2">
-              <div className="rounded-full bg-green-500/10 p-3">
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
+              <div className="rounded-full bg-status-success/10 p-3">
+                <CheckCircle2 className="h-6 w-6 text-status-success" />
               </div>
               <p className="text-sm text-muted-foreground">
                 No cost optimization opportunities found. Your infrastructure is efficient!
@@ -159,7 +159,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
           <div>
             {hasCostSavings ? (
               <>
-                <span className="text-2xl font-bold text-green-500">
+                <span className="text-2xl font-bold text-status-success">
                   {formatCurrency(totalSavings)}
                 </span>
                 <span className="text-sm text-muted-foreground ml-2">potential monthly savings</span>
@@ -195,7 +195,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
                     </div>
                   </div>
                   {opportunity.savings > 0 && (
-                    <span className="text-sm font-medium text-green-500">
+                    <span className="text-sm font-medium text-status-success">
                       {formatCurrency(opportunity.savings)}/mo
                     </span>
                   )}

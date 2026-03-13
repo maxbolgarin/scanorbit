@@ -16,52 +16,52 @@ interface PriorityActionsCardProps {
 // Map finding types to categories for display
 const findingCategoryConfig: Record<string, { label: string; icon: typeof Shield; color: string }> = {
   // Security
-  public_access: { label: "Security", icon: Shield, color: "text-red-500" },
-  permissive_security_group: { label: "Security", icon: Shield, color: "text-red-500" },
-  open_all_ports: { label: "Security", icon: Shield, color: "text-red-500" },
-  publicly_accessible_rds: { label: "Security", icon: Shield, color: "text-red-500" },
-  public_snapshot: { label: "Security", icon: Shield, color: "text-red-500" },
-  unencrypted_resource: { label: "Security", icon: Shield, color: "text-orange-500" },
-  insecure_tls: { label: "Security", icon: Shield, color: "text-orange-500" },
+  public_access: { label: "Security", icon: Shield, color: "text-status-critical" },
+  permissive_security_group: { label: "Security", icon: Shield, color: "text-status-critical" },
+  open_all_ports: { label: "Security", icon: Shield, color: "text-status-critical" },
+  publicly_accessible_rds: { label: "Security", icon: Shield, color: "text-status-critical" },
+  public_snapshot: { label: "Security", icon: Shield, color: "text-status-critical" },
+  unencrypted_resource: { label: "Security", icon: Shield, color: "text-status-high" },
+  insecure_tls: { label: "Security", icon: Shield, color: "text-status-high" },
 
   // SSL/Certificates
-  ssl_expiry: { label: "Certificate", icon: Clock, color: "text-yellow-500" },
+  ssl_expiry: { label: "Certificate", icon: Clock, color: "text-status-warning" },
 
   // Cost
-  orphaned_volume: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  orphaned_eip: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  orphaned_snapshot: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  orphaned_eni: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  idle_load_balancer: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  idle_nat_gateway: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  unused_security_group: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  stopped_instance: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  unused_resource: { label: "Cost", icon: DollarSign, color: "text-green-500" },
-  unused_log_group: { label: "Cost", icon: DollarSign, color: "text-green-500" },
+  orphaned_volume: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  orphaned_eip: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  orphaned_snapshot: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  orphaned_eni: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  idle_load_balancer: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  idle_nat_gateway: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  unused_security_group: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  stopped_instance: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  unused_resource: { label: "Cost", icon: DollarSign, color: "text-status-success" },
+  unused_log_group: { label: "Cost", icon: DollarSign, color: "text-status-success" },
 
   // Compliance
-  data_residency_violation: { label: "Compliance", icon: AlertCircle, color: "text-red-500" },
-  missing_tag: { label: "Tagging", icon: Tag, color: "text-yellow-500" },
-  cloudtrail_disabled: { label: "Compliance", icon: AlertCircle, color: "text-orange-500" },
-  vpc_flow_logs_disabled: { label: "Compliance", icon: AlertCircle, color: "text-orange-500" },
-  backup_not_configured: { label: "Compliance", icon: AlertCircle, color: "text-orange-500" },
+  data_residency_violation: { label: "Compliance", icon: AlertCircle, color: "text-status-critical" },
+  missing_tag: { label: "Tagging", icon: Tag, color: "text-status-warning" },
+  cloudtrail_disabled: { label: "Compliance", icon: AlertCircle, color: "text-status-high" },
+  vpc_flow_logs_disabled: { label: "Compliance", icon: AlertCircle, color: "text-status-high" },
+  backup_not_configured: { label: "Compliance", icon: AlertCircle, color: "text-status-high" },
 
   // IAM
-  old_access_key: { label: "IAM", icon: Shield, color: "text-orange-500" },
-  unused_access_key: { label: "IAM", icon: Shield, color: "text-yellow-500" },
-  unused_iam_role: { label: "IAM", icon: Shield, color: "text-yellow-500" },
-  user_without_mfa: { label: "IAM", icon: Shield, color: "text-orange-500" },
-  root_account_usage: { label: "IAM", icon: Shield, color: "text-red-500" },
-  overly_permissive_policy: { label: "IAM", icon: Shield, color: "text-orange-500" },
-  cross_account_trust: { label: "IAM", icon: Shield, color: "text-yellow-500" },
+  old_access_key: { label: "IAM", icon: Shield, color: "text-status-high" },
+  unused_access_key: { label: "IAM", icon: Shield, color: "text-status-warning" },
+  unused_iam_role: { label: "IAM", icon: Shield, color: "text-status-warning" },
+  user_without_mfa: { label: "IAM", icon: Shield, color: "text-status-high" },
+  root_account_usage: { label: "IAM", icon: Shield, color: "text-status-critical" },
+  overly_permissive_policy: { label: "IAM", icon: Shield, color: "text-status-high" },
+  cross_account_trust: { label: "IAM", icon: Shield, color: "text-status-warning" },
 };
 
 const severityConfig = {
-  critical: { color: "bg-red-500", textColor: "text-red-500", priority: 0 },
-  high: { color: "bg-orange-500", textColor: "text-orange-500", priority: 1 },
-  medium: { color: "bg-yellow-500", textColor: "text-yellow-500", priority: 2 },
-  low: { color: "bg-blue-500", textColor: "text-blue-500", priority: 3 },
-  trivial: { color: "bg-slate-400", textColor: "text-slate-400", priority: 4 },
+  critical: { color: "bg-status-critical", textColor: "text-status-critical", priority: 0 },
+  high: { color: "bg-status-high", textColor: "text-status-high", priority: 1 },
+  medium: { color: "bg-status-warning", textColor: "text-status-warning", priority: 2 },
+  low: { color: "bg-status-info", textColor: "text-status-info", priority: 3 },
+  trivial: { color: "bg-status-trivial", textColor: "text-status-trivial", priority: 4 },
 };
 
 export function PriorityActionsCard({ findings, summary, isLoading, accountId }: PriorityActionsCardProps) {
@@ -177,7 +177,7 @@ export function PriorityActionsCard({ findings, summary, isLoading, accountId }:
                       {costEstimate && (
                         <>
                           <span>•</span>
-                          <span className="text-green-500">${costEstimate}/mo</span>
+                          <span className="text-status-success">${costEstimate}/mo</span>
                         </>
                       )}
                       <span>•</span>

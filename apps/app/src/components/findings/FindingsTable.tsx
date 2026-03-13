@@ -80,7 +80,7 @@ export function FindingsTable({ findings, onSelectFinding }: FindingsTableProps)
               </TableCell>
               <TableCell className="hidden lg:table-cell text-right">
                 {typeof finding.details.estimatedSavings === "number" ? (
-                  <span className="flex items-center justify-end gap-1 text-green-600">
+                  <span className="flex items-center justify-end gap-1 text-status-success">
                     <DollarSign className="h-3 w-3" />
                     {formatCurrency(finding.details.estimatedSavings)}
                   </span>

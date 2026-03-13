@@ -16,14 +16,14 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
         trend={summary.resourcesTrend}
         trendLabel="from last scan"
         icon={Server}
-        iconColor="text-blue-500"
+        iconColor="text-status-info"
       />
       <MetricCard
         title="Orphaned Resources"
         value={summary.orphanedResources}
         subtitle={`Save ${formatCurrency(summary.orphanedSavings)}/month`}
         icon={HardDrive}
-        iconColor="text-orange-500"
+        iconColor="text-status-high"
       />
       <MetricCard
         title="Expiring Certificates"
@@ -34,14 +34,14 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
             : "None urgent"
         }
         icon={Shield}
-        iconColor={summary.urgentCertificates > 0 ? "text-red-500" : "text-green-500"}
+        iconColor={summary.urgentCertificates > 0 ? "text-status-critical" : "text-status-success"}
       />
       <MetricCard
         title="Residency Violations"
         value={summary.residencyViolations}
         subtitle="Non-EU resources detected"
         icon={Globe}
-        iconColor={summary.residencyViolations > 0 ? "text-red-500" : "text-green-500"}
+        iconColor={summary.residencyViolations > 0 ? "text-status-critical" : "text-status-success"}
       />
     </div>
   );

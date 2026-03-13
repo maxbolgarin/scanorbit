@@ -71,7 +71,7 @@ export function ResourceRawViewer({ raw }: ResourceRawViewerProps) {
               >
                 {copied ? (
                   <>
-                    <Check className="h-3.5 w-3.5 mr-1.5 text-green-500" />
+                    <Check className="h-3.5 w-3.5 mr-1.5 text-status-success" />
                     Copied
                   </>
                 ) : (

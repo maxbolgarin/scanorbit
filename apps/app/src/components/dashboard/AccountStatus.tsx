@@ -24,7 +24,7 @@ export function AccountStatus({ accounts }: AccountStatusProps) {
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Cloud className="h-5 w-5 text-blue-500" />
+            <Cloud className="h-5 w-5 text-status-info" />
             AWS Accounts
           </CardTitle>
           <CardDescription>Connected accounts and scan status</CardDescription>

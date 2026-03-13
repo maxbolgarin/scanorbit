@@ -74,7 +74,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
             <span className="text-sm text-muted-foreground ml-2">total resources</span>
           </div>
           {resourcesWithIssues > 0 && (
-            <span className="text-sm text-orange-500 flex items-center gap-1">
+            <span className="text-sm text-status-high flex items-center gap-1">
               <AlertCircle className="h-4 w-4" />
               {resourcesWithIssues} with issues
             </span>
@@ -87,28 +87,28 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
             <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
               {healthyPercent > 0 && (
                 <div
-                  className="h-full bg-green-500 transition-all"
+                  className="h-full bg-status-success transition-all"
                   style={{ width: `${healthyPercent}%` }}
                   title={`${resourceHealth.healthy} Healthy`}
                 />
               )}
               {warningPercent > 0 && (
                 <div
-                  className="h-full bg-yellow-500 transition-all"
+                  className="h-full bg-status-warning transition-all"
                   style={{ width: `${warningPercent}%` }}
                   title={`${resourceHealth.warning} Warning`}
                 />
               )}
               {criticalPercent > 0 && (
                 <div
-                  className="h-full bg-red-500 transition-all"
+                  className="h-full bg-status-critical transition-all"
                   style={{ width: `${criticalPercent}%` }}
                   title={`${resourceHealth.critical} Critical`}
                 />
               )}
               {orphanedPercent > 0 && (
                 <div
-                  className="h-full bg-slate-500 transition-all"
+                  className="h-full bg-status-trivial transition-all"
                   style={{ width: `${orphanedPercent}%` }}
                   title={`${resourceHealth.orphaned} Orphaned`}
                 />
@@ -120,15 +120,15 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.healthy > 0
-                  ? "bg-green-500/10 border-green-500/20"
+                  ? "bg-status-success/10 border-status-success/20"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
                 </div>
                 <div className={cn(
                   "text-lg font-semibold",
-                  resourceHealth.healthy > 0 ? "text-green-500" : "text-muted-foreground"
+                  resourceHealth.healthy > 0 ? "text-status-success" : "text-muted-foreground"
                 )}>
                   {resourceHealth.healthy}
                 </div>
@@ -138,15 +138,15 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.warning > 0
-                  ? "bg-yellow-500/10 border-yellow-500/20"
+                  ? "bg-status-warning/10 border-status-warning/20"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
-                  <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-status-warning" />
                 </div>
                 <div className={cn(
                   "text-lg font-semibold",
-                  resourceHealth.warning > 0 ? "text-yellow-500" : "text-muted-foreground"
+                  resourceHealth.warning > 0 ? "text-status-warning" : "text-muted-foreground"
                 )}>
                   {resourceHealth.warning}
                 </div>
@@ -156,15 +156,15 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 resourceHealth.critical > 0
-                  ? "bg-red-500/10 border-red-500/20"
+                  ? "bg-status-critical/10 border-status-critical/20"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
-                  <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                  <AlertCircle className="h-3.5 w-3.5 text-status-critical" />
                 </div>
                 <div className={cn(
                   "text-lg font-semibold",
-                  resourceHealth.critical > 0 ? "text-red-500" : "text-muted-foreground"
+                  resourceHealth.critical > 0 ? "text-status-critical" : "text-muted-foreground"
                 )}>
                   {resourceHealth.critical}
                 </div>
@@ -174,15 +174,15 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
               <div className={cn(
                 "text-center p-2 rounded-lg border",
                 (resourceHealth.orphaned ?? 0) > 0
-                  ? "bg-slate-500/10 border-slate-500/20"
+                  ? "bg-status-trivial/10 border-status-trivial/20"
                   : "bg-muted/50 border-border"
               )}>
                 <div className="flex items-center justify-center gap-1 mb-1">
-                  <Unplug className="h-3.5 w-3.5 text-slate-500" />
+                  <Unplug className="h-3.5 w-3.5 text-status-trivial" />
                 </div>
                 <div className={cn(
                   "text-lg font-semibold",
-                  (resourceHealth.orphaned ?? 0) > 0 ? "text-slate-500" : "text-muted-foreground"
+                  (resourceHealth.orphaned ?? 0) > 0 ? "text-status-trivial" : "text-muted-foreground"
                 )}>
                   {resourceHealth.orphaned ?? 0}
                 </div>

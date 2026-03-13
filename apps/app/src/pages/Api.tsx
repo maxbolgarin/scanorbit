@@ -1,4 +1,5 @@
 import { ApiKeySettings } from "@/components/settings/ApiKeySettings";
+import { ApiExplorer } from "@/components/settings/ApiExplorer";
 
 export default function Api() {
   return (
@@ -8,6 +9,7 @@ export default function Api() {
         <p className="text-muted-foreground">Manage API keys and explore the API documentation</p>
       </div>
       <ApiKeySettings />
+      <ApiExplorer />
     </div>
   );
 }

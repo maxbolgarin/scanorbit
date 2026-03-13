@@ -69,10 +69,10 @@ const typeOptions: { value: FindingType; label: string; category: string }[] = [
 ];
 
 const severityOptions: { value: FindingSeverity; label: string; color: string }[] = [
-  { value: "critical", label: "Critical", color: "text-red-600" },
-  { value: "high", label: "High", color: "text-red-500" },
-  { value: "medium", label: "Medium", color: "text-yellow-500" },
-  { value: "low", label: "Low", color: "text-blue-500" },
+  { value: "critical", label: "Critical", color: "text-status-critical" },
+  { value: "high", label: "High", color: "text-status-high" },
+  { value: "medium", label: "Medium", color: "text-status-warning" },
+  { value: "low", label: "Low", color: "text-status-info" },
   { value: "trivial", label: "Trivial", color: "text-muted-foreground" },
 ];
 
@@ -321,7 +321,7 @@ export function FindingFiltersAdvanced({
                   onChange={toggleOrphaned}
                   label={
                     <div className="flex items-center gap-2">
-                      <HardDrive className="h-4 w-4 text-orange-500" />
+                      <HardDrive className="h-4 w-4 text-status-high" />
                       <span className="font-medium">Orphaned Resources</span>
                       <span className="text-xs text-muted-foreground">({ORPHANED_FINDING_TYPES.length} types)</span>
                     </div>

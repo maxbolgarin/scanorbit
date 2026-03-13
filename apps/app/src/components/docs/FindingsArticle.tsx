@@ -26,11 +26,11 @@ interface FindingInfo {
 }
 
 const severityColors: Record<string, string> = {
-  critical: "bg-red-900 text-red-100",
-  high: "bg-red-600 text-white",
-  medium: "bg-yellow-500 text-black",
-  low: "bg-blue-500 text-white",
-  trivial: "bg-gray-500 text-white",
+  critical: "bg-status-critical text-white",
+  high: "bg-status-high text-white",
+  medium: "bg-status-warning text-white",
+  low: "bg-status-info text-white",
+  trivial: "bg-status-trivial text-white",
 };
 
 function SeverityBadge({ severity }: { severity: string }) {
