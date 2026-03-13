@@ -38,7 +38,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useOrgMembers } from "@/hooks/use-members";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
-import { ChevronLeft, ChevronRight, ScrollText, Download, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText, Download, X, ArrowUp, ArrowDown, CalendarDays } from "lucide-react";
 
 const ACTION_OPTIONS = [
   { value: "all", label: "All Actions" },
@@ -49,6 +49,13 @@ const ACTION_OPTIONS = [
   { value: "update", label: "Update" },
   { value: "delete", label: "Delete" },
   { value: "export", label: "Export" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "2xx", label: "Success (2xx)" },
+  { value: "4xx", label: "Client Error (4xx)" },
+  { value: "5xx", label: "Server Error (5xx)" },
 ];
 
 function formatTimestamp(ts: string) {
@@ -117,6 +124,8 @@ export function AuditLogSettings() {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -135,10 +144,12 @@ export function AuditLogSettings() {
     action: actionFilter !== "all" ? actionFilter : undefined,
     startDate: startDate ? new Date(startDate).toISOString() : undefined,
     endDate: endDate ? new Date(endDate + "T23:59:59").toISOString() : undefined,
+    sortOrder,
+    status: statusFilter !== "all" ? statusFilter : undefined,
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["audit-logs", org?.id, page, actionFilter, startDate, endDate],
+    queryKey: ["audit-logs", org?.id, page, actionFilter, startDate, endDate, sortOrder, statusFilter],
     queryFn: () => api.getAuditLogs(org!.id, queryParams),
     enabled: !!org?.id,
   });
@@ -158,14 +169,21 @@ export function AuditLogSettings() {
     setPage(1);
   };
 
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
   const handleClearFilters = () => {
     setActionFilter("all");
+    setStatusFilter("all");
+    setSortOrder('desc');
     setStartDate("");
     setEndDate("");
     setPage(1);
   };
 
-  const hasActiveFilters = actionFilter !== "all" || startDate || endDate;
+  const hasActiveFilters = actionFilter !== "all" || statusFilter !== "all" || sortOrder !== 'desc' || startDate || endDate;
 
   const openExportModal = () => {
     setExportParams({
@@ -265,6 +283,36 @@ export function AuditLogSettings() {
               </SelectContent>
             </Select>
 
+            <Select value={statusFilter} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+                setPage(1);
+              }}
+              className="flex items-center gap-1"
+            >
+              {sortOrder === 'desc' ? (
+                <ArrowDown className="h-4 w-4" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
+              {sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+            </Button>
+
             <div className="flex items-center gap-2">
               <Input
                 type="date"
@@ -283,6 +331,20 @@ export function AuditLogSettings() {
               />
             </div>
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const today = new Date().toISOString().split("T")[0];
+                setStartDate(today);
+                setEndDate(today);
+                setPage(1);
+              }}
+            >
+              <CalendarDays className="mr-1 h-4 w-4" />
+              Today
+            </Button>
+
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={handleClearFilters}>
                 <X className="mr-1 h-3 w-3" />
@@ -290,6 +352,12 @@ export function AuditLogSettings() {
               </Button>
             )}
           </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mb-3 text-sm text-muted-foreground">
+              Page {pagination.page} of {pagination.totalPages} ({pagination.total} entries)
+            </div>
+          )}
 
           {logs.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">

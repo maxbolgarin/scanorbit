@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { desc, eq, and, gte, lte, inArray, sql } from 'drizzle-orm';
+import { asc, desc, eq, and, gte, lte, inArray, sql } from 'drizzle-orm';
 import { requireAuth } from '../middlewares/auth.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { orgService, getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
@@ -136,6 +136,8 @@ const auditLogQuerySchema = z.object({
   userId: z.string().uuid().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  status: z.enum(['2xx', '3xx', '4xx', '5xx']).optional(),
 });
 
 // GET /orgs/:id/audit-logs - List audit logs for organization (Team-only)
@@ -152,7 +154,7 @@ orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async
     throw new HTTP403Error('Audit logs are available on the Team plan only. Upgrade to Team for full audit trail.');
   }
 
-  const { page, limit, action, userId: userId_filter, startDate, endDate } = c.req.valid('query');
+  const { page, limit, action, userId: userId_filter, startDate, endDate, sortOrder, status } = c.req.valid('query');
   const offset = (page - 1) * limit;
 
   // Build conditions using a subquery for org membership (avoids large IN lists)
@@ -166,6 +168,11 @@ orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async
   if (userId_filter) conditions.push(eq(auditLogs.userId, userId_filter));
   if (startDate) conditions.push(gte(auditLogs.timestamp, new Date(startDate)));
   if (endDate) conditions.push(lte(auditLogs.timestamp, new Date(endDate)));
+  if (status) {
+    const base = parseInt(status[0]) * 100;
+    conditions.push(gte(auditLogs.statusCode, base));
+    conditions.push(lte(auditLogs.statusCode, base + 99));
+  }
 
   // Single query with COUNT(*) OVER() window function for consistent pagination
   const rows = await db
@@ -186,7 +193,7 @@ orgsRoute.get('/:id/audit-logs', zValidator('query', auditLogQuerySchema), async
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.userId, users.id))
     .where(and(...conditions))
-    .orderBy(desc(auditLogs.timestamp))
+    .orderBy(sortOrder === 'asc' ? asc(auditLogs.timestamp) : desc(auditLogs.timestamp))
     .offset(offset)
     .limit(limit);
 
