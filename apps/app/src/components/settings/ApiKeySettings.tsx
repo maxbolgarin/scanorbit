@@ -24,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -283,7 +282,6 @@ export function ApiKeySettings() {
             </div>
           </CardContent>
         </Card>
-        </>
       )}
 
       {/* Key Reveal Dialog */}
@@ -341,6 +339,8 @@ export function ApiKeySettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </>
+    )}
     </div>
   );
 }
