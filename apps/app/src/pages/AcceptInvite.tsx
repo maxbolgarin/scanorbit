@@ -159,7 +159,9 @@ export default function AcceptInvite() {
         {error && (
           <CardFooter className="justify-center">
             <Button variant="outline" asChild>
-              <Link to="/login">Go to Login</Link>
+              <Link to={isAuthenticated ? "/overview" : "/login"}>
+                {isAuthenticated ? "Go to Dashboard" : "Go to Login"}
+              </Link>
             </Button>
           </CardFooter>
         )}

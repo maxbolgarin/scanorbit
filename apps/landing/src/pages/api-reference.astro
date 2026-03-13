@@ -1,0 +1,1384 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+const sections = [
+  { id: "overview", label: "Overview" },
+  {
+    id: "resources",
+    label: "Resources",
+    children: [
+      { id: "list-resources", label: "List Resources" },
+      { id: "resource-stats", label: "Resource Stats" },
+      { id: "list-regions", label: "List Regions" },
+      { id: "list-services", label: "List Services" },
+      { id: "get-resource", label: "Get Resource" },
+      { id: "resource-dependencies", label: "Dependencies" },
+      { id: "resource-dependents", label: "Dependents" },
+    ],
+  },
+  {
+    id: "findings",
+    label: "Findings",
+    children: [
+      { id: "list-findings", label: "List Findings" },
+      { id: "finding-stats", label: "Finding Stats" },
+      { id: "get-finding", label: "Get Finding" },
+    ],
+  },
+  {
+    id: "scans",
+    label: "Scans",
+    children: [
+      { id: "active-scans", label: "Active Scans" },
+      { id: "recent-scans", label: "Recent Scans" },
+    ],
+  },
+  { id: "accounts", label: "Accounts", children: [{ id: "list-accounts", label: "List Accounts" }] },
+  {
+    id: "organization",
+    label: "Organization",
+    children: [{ id: "get-organization", label: "Get Organization" }],
+  },
+  { id: "errors", label: "Errors" },
+];
+---
+
+<Layout
+  title="API Reference — ScanOrbit"
+  description="Complete REST API reference for ScanOrbit. Query your AWS infrastructure data programmatically with full request/response schemas and curl examples."
+>
+  <Header />
+
+  <div class="min-h-screen bg-deep-space pt-20">
+    <!-- Page header -->
+    <div class="border-b border-midnight">
+      <div class="container mx-auto px-6 py-12">
+        <div class="flex items-center gap-2 text-slate-gray text-sm mb-4">
+          <a href="/" class="hover:text-cyber-cyan transition-colors">Home</a>
+          <span>/</span>
+          <span class="text-cloud-gray">API Reference</span>
+        </div>
+        <h1 class="text-4xl font-bold text-cloud-gray mb-3">API Reference</h1>
+        <p class="text-slate-gray text-lg max-w-2xl mb-6">
+          Query your AWS infrastructure data programmatically. All endpoints are read-only and require a Team plan API key.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <code class="text-sm px-3 py-1.5 bg-midnight rounded-lg text-slate-gray border border-midnight/60">
+            Base URL: <span class="text-cyber-cyan">https://api.scanorbit.cloud/api/v1</span>
+          </code>
+          <span class="text-xs px-3 py-1.5 bg-neon-green/10 text-neon-green rounded-lg border border-neon-green/20 font-medium">
+            REST · HTTPS · JSON
+          </span>
+          <span class="text-xs px-3 py-1.5 bg-orbit-purple/10 text-orbit-purple rounded-lg border border-orbit-purple/20 font-medium">
+            Team plan required
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="container mx-auto px-6 py-10 flex gap-10 items-start">
+      <!-- Sidebar -->
+      <aside class="hidden lg:block w-52 shrink-0">
+        <nav class="sticky top-24" id="api-toc">
+          <p class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">On this page</p>
+          <ul class="space-y-0.5">
+            {sections.map((section) => (
+              <li>
+                <a
+                  href={`#${section.id}`}
+                  class="toc-link block py-1.5 px-3 text-sm text-slate-gray hover:text-cloud-gray rounded-lg transition-colors"
+                  data-section={section.id}
+                >
+                  {section.label}
+                </a>
+                {section.children && (
+                  <ul class="ml-3 mt-0.5 space-y-0.5">
+                    {section.children.map((child) => (
+                      <li>
+                        <a
+                          href={`#${child.id}`}
+                          class="toc-link block py-1 px-3 text-xs text-slate-gray hover:text-cloud-gray rounded-lg transition-colors"
+                          data-section={child.id}
+                        >
+                          {child.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+
+      <!-- Main content -->
+      <main class="flex-1 min-w-0">
+
+        <!-- ─── OVERVIEW ─────────────────────────────────────────── -->
+        <section id="overview" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-6">Overview</h2>
+
+          <!-- Authentication -->
+          <div class="mb-8">
+            <h3 class="text-base font-semibold text-cloud-gray mb-3">Authentication</h3>
+            <p class="text-slate-gray text-sm mb-4">
+              All API requests must include your API key in the <code class="text-cyber-cyan font-mono">X-API-Key</code> header.
+              API keys can be created in your organization settings (Team plan only).
+            </p>
+            <div class="relative group">
+              <pre class="bg-midnight border border-midnight/60 rounded-xl p-4 overflow-x-auto text-sm font-mono text-cloud-gray"><code>curl https://api.scanorbit.cloud/api/v1/organization \
+  -H "X-API-Key: sk_live_your_api_key_here"</code></pre>
+              <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-deep-space/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">
+                Copy
+              </button>
+            </div>
+            <div class="mt-4 overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-midnight">
+                    <th class="text-left py-2 pr-6 text-xs font-semibold text-slate-gray uppercase tracking-wider">Header</th>
+                    <th class="text-left py-2 pr-6 text-xs font-semibold text-slate-gray uppercase tracking-wider">Format</th>
+                    <th class="text-left py-2 text-xs font-semibold text-slate-gray uppercase tracking-wider">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="border-b border-midnight/40">
+                    <td class="py-3 pr-6 font-mono text-cyber-cyan text-xs">X-API-Key</td>
+                    <td class="py-3 pr-6 font-mono text-cloud-gray text-xs">sk_live_&lt;64 hex chars&gt;</td>
+                    <td class="py-3 text-slate-gray text-xs">Your organization API key</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div class="mb-8">
+            <h3 class="text-base font-semibold text-cloud-gray mb-3">Pagination</h3>
+            <p class="text-slate-gray text-sm mb-4">
+              List endpoints return paginated results. Use <code class="text-cyber-cyan font-mono">page</code> and <code class="text-cyber-cyan font-mono">limit</code> query parameters to navigate pages.
+            </p>
+            <div class="overflow-x-auto mb-4">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-midnight">
+                    <th class="text-left py-2 pr-6 text-xs font-semibold text-slate-gray uppercase tracking-wider">Parameter</th>
+                    <th class="text-left py-2 pr-6 text-xs font-semibold text-slate-gray uppercase tracking-wider">Default</th>
+                    <th class="text-left py-2 text-xs font-semibold text-slate-gray uppercase tracking-wider">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="border-b border-midnight/40">
+                    <td class="py-3 pr-6 font-mono text-cyber-cyan text-xs">page</td>
+                    <td class="py-3 pr-6 text-cloud-gray text-xs">1</td>
+                    <td class="py-3 text-slate-gray text-xs">Page number (1-indexed)</td>
+                  </tr>
+                  <tr class="border-b border-midnight/40">
+                    <td class="py-3 pr-6 font-mono text-cyber-cyan text-xs">limit</td>
+                    <td class="py-3 pr-6 text-cloud-gray text-xs">50</td>
+                    <td class="py-3 text-slate-gray text-xs">Items per page (max 100)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-slate-gray text-xs mb-3">All paginated responses include a <code class="text-cyber-cyan font-mono">pagination</code> object:</p>
+            <div class="relative group">
+              <pre class="bg-midnight border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`{
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 243,
+    "totalPages": 5
+  }
+}`}</code></pre>
+              <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-deep-space/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <!-- Rate Limiting -->
+          <div>
+            <h3 class="text-base font-semibold text-cloud-gray mb-3">Rate Limiting</h3>
+            <p class="text-slate-gray text-sm">
+              Requests are limited to <strong class="text-cloud-gray">100 requests per minute</strong> per organization.
+              When exceeded, the API returns <code class="text-cyber-cyan font-mono">429 Too Many Requests</code>.
+            </p>
+          </div>
+        </section>
+
+        <!-- ─── RESOURCES ─────────────────────────────────────────── -->
+        <section id="resources" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-2">Resources</h2>
+          <p class="text-slate-gray text-sm mb-8">
+            AWS resources discovered in your connected accounts. Resources include EC2 instances, S3 buckets, RDS databases, Lambda functions, and more.
+          </p>
+
+          <!-- List Resources -->
+          <div id="list-resources" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources</code>
+                <span class="ml-auto text-xs text-slate-gray">List all resources</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns a paginated list of AWS resources discovered across your connected accounts.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Query Parameters</h4>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                      <thead>
+                        <tr class="border-b border-midnight/60">
+                          <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Name</th>
+                          <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Type</th>
+                          <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Required</th>
+                          <th class="text-left py-2 font-semibold text-slate-gray">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody class="font-mono">
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">page</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">integer</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Page number, default 1</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">limit</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">integer</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Items per page, default 50, max 100</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">awsAccountId</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string (uuid)</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Filter by connected account ID</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">region</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">AWS region, e.g. <code class="text-cloud-gray">eu-west-1</code></td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">service</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">
+                            <span class="font-sans">Service name: </span>
+                            <code class="text-cloud-gray">ec2</code>, <code class="text-cloud-gray">s3</code>, <code class="text-cloud-gray">rds</code>, <code class="text-cloud-gray">lambda</code>, <code class="text-cloud-gray">alb</code>, <code class="text-cloud-gray">acm</code>, <code class="text-cloud-gray">kms</code>, <code class="text-cloud-gray">iam</code>
+                          </td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">state</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Resource state, e.g. <code class="text-cloud-gray">running</code>, <code class="text-cloud-gray">stopped</code>, <code class="text-cloud-gray">available</code></td>
+                        </tr>
+                        <tr>
+                          <td class="py-2.5 pr-4 text-cyber-cyan">costFilter</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans"><code class="text-cloud-gray">all</code> (default), <code class="text-cloud-gray">paid</code>, or <code class="text-cloud-gray">free</code></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Codes</h4>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                      <thead>
+                        <tr class="border-b border-midnight/60">
+                          <th class="text-left py-2 pr-8 font-semibold text-slate-gray">Code</th>
+                          <th class="text-left py-2 font-semibold text-slate-gray">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-8 font-mono text-neon-green">200 OK</td>
+                          <td class="py-2.5 text-slate-gray">Paginated resource list</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-8 font-mono text-warning-orange">401 Unauthorized</td>
+                          <td class="py-2.5 text-slate-gray">Missing or invalid API key</td>
+                        </tr>
+                        <tr>
+                          <td class="py-2.5 pr-8 font-mono text-warning-orange">429 Too Many Requests</td>
+                          <td class="py-2.5 text-slate-gray">Rate limit exceeded</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",    // UUID
+      "orgId": "3f6e4c8a-1d2b-4e5f-9a0b-8c7d6e5f4a3b", // Your org UUID
+      "awsAccountId": "2a1b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d", // Connected account UUID
+      "resourceId": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0abc123def456789",
+      "service": "ec2",                // Service identifier
+      "region": "eu-west-1",           // AWS region
+      "name": "production-web-server", // Resource name or identifier
+      "state": "running",              // Current state
+      "tags": {                        // AWS tags as key-value pairs
+        "env": "production",
+        "team": "platform"
+      },
+      "costEstimateMonthly": "28.50",  // USD, null if free-tier resource
+      "lastSeenAt": "2026-03-13T10:00:00Z",
+      "createdAt": "2026-01-15T09:30:00Z",
+      "updatedAt": "2026-03-13T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 243,
+    "totalPages": 5
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources?service=ec2&region=eu-west-1&limit=10" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resource Stats -->
+          <div id="resource-stats" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources/stats</code>
+                <span class="ml-auto text-xs text-slate-gray">Resource statistics</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns aggregate counts of resources grouped by service, region, and state.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Query Parameters</h4>
+                  <p class="text-slate-gray text-xs italic">None</p>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Codes</h4>
+                  <table class="w-full text-xs">
+                    <tbody>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-neon-green w-40">200 OK</td>
+                        <td class="py-2.5 text-slate-gray">Resource statistics object</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">401 Unauthorized</td>
+                        <td class="py-2.5 text-slate-gray">Missing or invalid API key</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": {
+    "totalResources": 243,
+    "byService": {
+      "ec2": 42,
+      "s3": 18,
+      "rds": 7,
+      "lambda": 56,
+      "alb": 4,
+      "acm": 12,
+      "kms": 8,
+      "iam": 95,
+      "security_groups": 1
+    },
+    "byRegion": {
+      "eu-west-1": 180,
+      "us-east-1": 63
+    },
+    "byState": {
+      "running": 98,
+      "available": 132,
+      "stopped": 13
+    }
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources/stats" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- List Regions -->
+          <div id="list-regions" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources/regions</code>
+                <span class="ml-auto text-xs text-slate-gray">Distinct regions</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns the list of AWS regions that have at least one resource in your organization.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": ["eu-west-1", "us-east-1", "ap-southeast-1"]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources/regions" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- List Services -->
+          <div id="list-services" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources/services</code>
+                <span class="ml-auto text-xs text-slate-gray">Distinct services</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns the list of AWS service identifiers present in your organization's resources.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": ["ec2", "s3", "rds", "lambda", "alb", "acm", "kms", "iam"]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources/services" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Get Resource -->
+          <div id="get-resource" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources/<span class="text-orbit-purple">{`{id}`}</span></code>
+                <span class="ml-auto text-xs text-slate-gray">Get single resource</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns a single resource by its ScanOrbit UUID or its AWS resource ID (ARN or provider identifier).</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Path Parameters</h4>
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="border-b border-midnight/60">
+                        <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Name</th>
+                        <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Type</th>
+                        <th class="text-left py-2 font-semibold text-slate-gray">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody class="font-mono">
+                      <tr>
+                        <td class="py-2.5 pr-4 text-cyber-cyan">id</td>
+                        <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                        <td class="py-2.5 text-slate-gray font-sans">ScanOrbit UUID or AWS resource ID (ARN)</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Codes</h4>
+                  <table class="w-full text-xs">
+                    <tbody>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-neon-green w-40">200 OK</td>
+                        <td class="py-2.5 text-slate-gray">Resource object</td>
+                      </tr>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">401 Unauthorized</td>
+                        <td class="py-2.5 text-slate-gray">Missing or invalid API key</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">404 Not Found</td>
+                        <td class="py-2.5 text-slate-gray">Resource not found</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": {
+    "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "orgId": "3f6e4c8a-1d2b-4e5f-9a0b-8c7d6e5f4a3b",
+    "awsAccountId": "2a1b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "resourceId": "arn:aws:ec2:eu-west-1:123456789012:instance/i-0abc123def456789",
+    "service": "ec2",
+    "region": "eu-west-1",
+    "name": "production-web-server",
+    "state": "running",
+    "tags": { "env": "production", "team": "platform" },
+    "costEstimateMonthly": "28.50",
+    "lastSeenAt": "2026-03-13T10:00:00Z",
+    "createdAt": "2026-01-15T09:30:00Z",
+    "updatedAt": "2026-03-13T10:00:00Z"
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources/f47ac10b-58cc-4372-a567-0e02b2c3d479" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dependencies -->
+          <div id="resource-dependencies" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources/<span class="text-orbit-purple">{`{id}`}</span>/dependencies</code>
+                <span class="ml-auto text-xs text-slate-gray">Resource dependencies</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns the list of resources that the specified resource depends on (i.e., resources it uses or references).</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "a1b2c3d4-...",
+      "service": "rds",
+      "region": "eu-west-1",
+      "name": "production-db",
+      "state": "available",
+      // ... full Resource object
+    }
+  ]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources/f47ac10b-58cc-4372-a567-0e02b2c3d479/dependencies" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dependents -->
+          <div id="resource-dependents" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/resources/<span class="text-orbit-purple">{`{id}`}</span>/dependents</code>
+                <span class="ml-auto text-xs text-slate-gray">Resource dependents</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns the list of resources that depend on the specified resource (i.e., resources that reference or use it).</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "b2c3d4e5-...",
+      "service": "ec2",
+      "region": "eu-west-1",
+      "name": "worker-instance",
+      "state": "running",
+      // ... full Resource object
+    }
+  ]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/resources/f47ac10b-58cc-4372-a567-0e02b2c3d479/dependents" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── FINDINGS ─────────────────────────────────────────── -->
+        <section id="findings" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-2">Findings</h2>
+          <p class="text-slate-gray text-sm mb-8">
+            Security issues, cost optimizations, and compliance violations detected in your AWS infrastructure.
+          </p>
+
+          <!-- List Findings -->
+          <div id="list-findings" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/findings</code>
+                <span class="ml-auto text-xs text-slate-gray">List all findings</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns a paginated list of findings with optional filtering by severity, status, and type.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Query Parameters</h4>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                      <thead>
+                        <tr class="border-b border-midnight/60">
+                          <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Name</th>
+                          <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Type</th>
+                          <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Required</th>
+                          <th class="text-left py-2 font-semibold text-slate-gray">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody class="font-mono">
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">page</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">integer</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Page number, default 1</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">limit</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">integer</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Items per page, default 50, max 100</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">awsAccountId</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string (uuid)</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Filter by connected account</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">resourceId</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string (uuid)</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Filter by resource UUID</td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">severity</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans"><code class="text-cloud-gray">low</code>, <code class="text-cloud-gray">medium</code>, or <code class="text-cloud-gray">high</code></td>
+                        </tr>
+                        <tr class="border-b border-midnight/30">
+                          <td class="py-2.5 pr-4 text-cyber-cyan">status</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans"><code class="text-cloud-gray">open</code>, <code class="text-cloud-gray">resolved</code>, <code class="text-cloud-gray">snoozed</code>, or <code class="text-cloud-gray">ignored</code></td>
+                        </tr>
+                        <tr>
+                          <td class="py-2.5 pr-4 text-cyber-cyan">type</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">string</td>
+                          <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                          <td class="py-2.5 text-slate-gray font-sans">Finding type — see type list below</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Finding types reference -->
+                <div class="bg-midnight/40 rounded-xl p-4 border border-midnight/60">
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Finding Types</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-xs font-mono">
+                    <div><span class="text-cyber-cyan">orphaned_volume</span> <span class="text-slate-gray">— Unattached EBS volume</span></div>
+                    <div><span class="text-cyber-cyan">orphaned_eip</span> <span class="text-slate-gray">— Unassociated Elastic IP</span></div>
+                    <div><span class="text-cyber-cyan">orphaned_snapshot</span> <span class="text-slate-gray">— Unused EBS snapshot</span></div>
+                    <div><span class="text-cyber-cyan">orphaned_ami</span> <span class="text-slate-gray">— Unused AMI image</span></div>
+                    <div><span class="text-cyber-cyan">orphaned_sg</span> <span class="text-slate-gray">— Unused security group</span></div>
+                    <div><span class="text-cyber-cyan">ssl_expiry</span> <span class="text-slate-gray">— Certificate expiring soon</span></div>
+                    <div><span class="text-cyber-cyan">ssl_expired</span> <span class="text-slate-gray">— Certificate already expired</span></div>
+                    <div><span class="text-cyber-cyan">data_residency_violation</span> <span class="text-slate-gray">— Resource outside allowed region</span></div>
+                    <div><span class="text-cyber-cyan">security_group_open_port</span> <span class="text-slate-gray">— Inbound rule open to 0.0.0.0/0</span></div>
+                    <div><span class="text-cyber-cyan">iam_key_old</span> <span class="text-slate-gray">— IAM key not rotated in 90+ days</span></div>
+                    <div><span class="text-cyber-cyan">kms_key_expiring</span> <span class="text-slate-gray">— KMS key scheduled for deletion</span></div>
+                    <div><span class="text-cyber-cyan">public_s3_bucket</span> <span class="text-slate-gray">— S3 bucket with public access</span></div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Codes</h4>
+                  <table class="w-full text-xs">
+                    <tbody>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-neon-green w-40">200 OK</td>
+                        <td class="py-2.5 text-slate-gray">Paginated findings list</td>
+                      </tr>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">401 Unauthorized</td>
+                        <td class="py-2.5 text-slate-gray">Missing or invalid API key</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">429 Too Many Requests</td>
+                        <td class="py-2.5 text-slate-gray">Rate limit exceeded</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "orgId": "3f6e4c8a-1d2b-4e5f-9a0b-8c7d6e5f4a3b",
+      "awsAccountId": "2a1b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "resourceId": "f47ac10b-58cc-4372-a567-0e02b2c3d479", // UUID, null if resource deleted
+      "certificateId": null,                                  // UUID, set for ssl_expiry findings
+      "type": "orphaned_volume",
+      "severity": "medium",
+      "summary": "EBS volume gp3 100 GiB is not attached to any instance",
+      "details": {                     // Type-specific data
+        "volumeSize": 100,
+        "volumeType": "gp3",
+        "availabilityZone": "eu-west-1a"
+      },
+      "status": "open",                // open | resolved | snoozed | ignored
+      "resolvedAt": null,              // ISO 8601 timestamp or null
+      "snoozedUntil": null,            // ISO 8601 timestamp or null
+      "firstDetectedAt": "2026-02-01T00:00:00Z",
+      "lastDetectedAt": "2026-03-13T10:00:00Z",
+      "detectionCount": 42,            // Times seen across scans
+      "lastScanId": "c4d5e6f7-...",
+      "createdAt": "2026-02-01T00:00:00Z",
+      "updatedAt": "2026-03-13T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 87,
+    "totalPages": 2
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/findings?severity=high&status=open&limit=20" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Finding Stats -->
+          <div id="finding-stats" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/findings/stats</code>
+                <span class="ml-auto text-xs text-slate-gray">Finding statistics</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns aggregate finding counts grouped by type, severity, and status.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": {
+    "totalFindings": 87,
+    "byStatus": {
+      "open": 54,
+      "resolved": 23,
+      "snoozed": 6,
+      "ignored": 4
+    },
+    "bySeverity": {
+      "high": 12,
+      "medium": 38,
+      "low": 37
+    },
+    "byType": {
+      "orphaned_volume": 18,
+      "security_group_open_port": 12,
+      "ssl_expiry": 5,
+      "iam_key_old": 9,
+      "orphaned_eip": 7,
+      "data_residency_violation": 3,
+      "orphaned_snapshot": 33
+    }
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/findings/stats" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Get Finding -->
+          <div id="get-finding" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/findings/<span class="text-orbit-purple">{`{id}`}</span></code>
+                <span class="ml-auto text-xs text-slate-gray">Get single finding</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">
+                  Returns a single finding by UUID. Includes the associated <code class="text-cyber-cyan font-mono">resource</code> object and, for SSL findings, the <code class="text-cyber-cyan font-mono">certificate</code> object.
+                </p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Path Parameters</h4>
+                  <table class="w-full text-xs">
+                    <tbody class="font-mono">
+                      <tr>
+                        <td class="py-2.5 pr-4 text-cyber-cyan w-24">id</td>
+                        <td class="py-2.5 pr-4 text-slate-gray">string (uuid)</td>
+                        <td class="py-2.5 text-slate-gray font-sans">Finding UUID</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Codes</h4>
+                  <table class="w-full text-xs">
+                    <tbody>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-neon-green w-40">200 OK</td>
+                        <td class="py-2.5 text-slate-gray">Finding with nested resource and certificate</td>
+                      </tr>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">401 Unauthorized</td>
+                        <td class="py-2.5 text-slate-gray">Missing or invalid API key</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">404 Not Found</td>
+                        <td class="py-2.5 text-slate-gray">Finding not found</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": {
+    "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "orgId": "3f6e4c8a-...",
+    "awsAccountId": "2a1b3c4d-...",
+    "resourceId": "f47ac10b-...",
+    "certificateId": null,
+    "type": "ssl_expiry",
+    "severity": "high",
+    "summary": "TLS certificate for api.example.com expires in 14 days",
+    "details": {
+      "daysUntilExpiry": 14,
+      "domain": "api.example.com"
+    },
+    "status": "open",
+    "resolvedAt": null,
+    "snoozedUntil": null,
+    "firstDetectedAt": "2026-02-28T00:00:00Z",
+    "lastDetectedAt": "2026-03-13T10:00:00Z",
+    "detectionCount": 14,
+    "lastScanId": "c4d5e6f7-...",
+    "createdAt": "2026-02-28T00:00:00Z",
+    "updatedAt": "2026-03-13T10:00:00Z",
+    "resource": {                           // null if resource was deleted
+      "id": "f47ac10b-...",
+      "service": "acm",
+      "region": "eu-west-1",
+      "name": "api.example.com",
+      "state": "issued"
+      // ... full Resource object
+    },
+    "certificate": {                        // null for non-SSL findings
+      "id": "d3e4f5a6-...",
+      "primaryDomain": "api.example.com",
+      "altNames": ["*.example.com"],
+      "notBefore": "2025-03-27T00:00:00Z",
+      "notAfter": "2026-03-27T00:00:00Z",
+      "issuer": "Amazon",
+      "algorithm": "RSA-2048",
+      "source": "acm",
+      "lastSeenAt": "2026-03-13T10:00:00Z"
+    }
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/findings/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── SCANS ─────────────────────────────────────────── -->
+        <section id="scans" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-2">Scans</h2>
+          <p class="text-slate-gray text-sm mb-8">
+            Scan jobs that discover resources and findings across your connected AWS accounts.
+          </p>
+
+          <!-- Active Scans -->
+          <div id="active-scans" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/scans/active</code>
+                <span class="ml-auto text-xs text-slate-gray">Active scans</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">
+                  Returns all scans currently in progress. Statuses included: <code class="text-cyber-cyan font-mono">queued</code>, <code class="text-cyber-cyan font-mono">processing</code>, <code class="text-cyber-cyan font-mono">running</code>, <code class="text-cyber-cyan font-mono">analyzing</code>.
+                </p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "e5f6a7b8-c9d0-1234-5678-9abcdef01234",
+      "orgId": "3f6e4c8a-...",
+      "awsAccountId": "2a1b3c4d-...", // null if account was deleted
+      "status": "running",            // queued | processing | running | analyzing
+      "hasKey": true,                 // false when linked account is deleted
+      "startedAt": "2026-03-13T09:45:00Z",
+      "completedAt": null,            // null while in progress
+      "resourcesDiscovered": 0,
+      "resourcesDelta": 0,
+      "findingsNew": 0,
+      "findingsResolved": 0,
+      "errorMessage": null,
+      "createdAt": "2026-03-13T09:45:00Z"
+    }
+  ]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/scans/active" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Scans -->
+          <div id="recent-scans" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/scans/recent</code>
+                <span class="ml-auto text-xs text-slate-gray">Recent completed scans</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns recently completed scans. Use <code class="text-cyber-cyan font-mono">limit</code> to control how many are returned (default 10, max 100).</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Query Parameters</h4>
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="border-b border-midnight/60">
+                        <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Name</th>
+                        <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Type</th>
+                        <th class="text-left py-2 pr-4 font-semibold text-slate-gray">Required</th>
+                        <th class="text-left py-2 font-semibold text-slate-gray">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody class="font-mono">
+                      <tr>
+                        <td class="py-2.5 pr-4 text-cyber-cyan">limit</td>
+                        <td class="py-2.5 pr-4 text-slate-gray">integer</td>
+                        <td class="py-2.5 pr-4 text-slate-gray">No</td>
+                        <td class="py-2.5 text-slate-gray font-sans">Number of scans to return, default 10, max 100</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+      "orgId": "3f6e4c8a-...",
+      "awsAccountId": "2a1b3c4d-...",
+      "status": "complete",           // complete | partial | error | canceled
+      "hasKey": true,
+      "startedAt": "2026-03-13T08:00:00Z",
+      "completedAt": "2026-03-13T08:04:32Z",
+      "resourcesDiscovered": 243,
+      "resourcesDelta": 2,            // +2 new resources found
+      "findingsNew": 1,
+      "findingsResolved": 0,
+      "errorMessage": null,
+      "createdAt": "2026-03-13T08:00:00Z"
+    }
+  ]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/scans/recent?limit=5" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── ACCOUNTS ─────────────────────────────────────────── -->
+        <section id="accounts" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-2">Accounts</h2>
+          <p class="text-slate-gray text-sm mb-8">
+            AWS accounts connected to your ScanOrbit organization. Sensitive IAM credentials are never exposed.
+          </p>
+
+          <div id="list-accounts" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/accounts</code>
+                <span class="ml-auto text-xs text-slate-gray">List connected accounts</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">
+                  Returns all AWS accounts connected to your organization. The <code class="text-cyber-cyan font-mono">roleArn</code> and <code class="text-cyber-cyan font-mono">externalId</code> fields are always omitted.
+                </p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Codes</h4>
+                  <table class="w-full text-xs">
+                    <tbody>
+                      <tr class="border-b border-midnight/30">
+                        <td class="py-2.5 pr-8 font-mono text-neon-green w-40">200 OK</td>
+                        <td class="py-2.5 text-slate-gray">List of connected accounts</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2.5 pr-8 font-mono text-warning-orange">401 Unauthorized</td>
+                        <td class="py-2.5 text-slate-gray">Missing or invalid API key</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": [
+    {
+      "id": "2a1b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "orgId": "3f6e4c8a-...",
+      "name": "Production AWS",
+      "awsAccountId": "123456789012",  // 12-digit AWS account number
+      "status": "ok",                  // pending | ok | error
+      "lastError": null,               // Error message from last scan attempt
+      "lastScanAt": "2026-03-13T08:04:32Z",
+      "enabledScanners": [             // Active scanner modules
+        "ec2", "rds", "s3", "lambda",
+        "alb", "acm", "kms", "iam",
+        "security_groups", "secrets_manager",
+        "cloudwatch"
+      ],
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-03-13T08:04:32Z"
+    }
+  ]
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/accounts" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── ORGANIZATION ─────────────────────────────────────────── -->
+        <section id="organization" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-2">Organization</h2>
+          <p class="text-slate-gray text-sm mb-8">
+            Basic metadata about your ScanOrbit organization. Billing and subscription details are excluded.
+          </p>
+
+          <div id="get-organization" class="mb-12 scroll-mt-24">
+            <div class="border border-midnight/60 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-3 px-5 py-4 bg-midnight/50 border-b border-midnight/60">
+                <span class="px-2 py-0.5 text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan rounded border border-cyber-cyan/30">GET</span>
+                <code class="text-cloud-gray font-mono text-sm">/organization</code>
+                <span class="ml-auto text-xs text-slate-gray">Organization info</span>
+              </div>
+              <div class="p-5 space-y-6">
+                <p class="text-slate-gray text-sm">Returns basic metadata for the organization that owns the API key. Subscription and billing details are omitted.</p>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Response Schema</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "data": {
+    "id": "3f6e4c8a-1d2b-4e5f-9a0b-8c7d6e5f4a3b",
+    "name": "Acme Corp",
+    "slug": "acme-corp",
+    "tier": "team"        // free | pro | team
+  }
+}`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-xs font-semibold text-slate-gray uppercase tracking-wider mb-3">Example Request</h4>
+                  <div class="relative group">
+                    <pre class="bg-deep-space border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray"><code>{`curl "https://api.scanorbit.cloud/api/v1/organization" \\
+  -H "X-API-Key: sk_live_your_api_key_here"`}</code></pre>
+                    <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-midnight/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── ERRORS ─────────────────────────────────────────── -->
+        <section id="errors" class="mb-16 scroll-mt-24">
+          <h2 class="text-2xl font-bold text-cloud-gray mb-2">Errors</h2>
+          <p class="text-slate-gray text-sm mb-6">
+            All error responses use a consistent JSON format with an <code class="text-cyber-cyan font-mono">error</code> field and an optional <code class="text-cyber-cyan font-mono">message</code> with details.
+          </p>
+
+          <div class="relative group mb-8">
+            <pre class="bg-midnight border border-midnight/60 rounded-xl p-4 overflow-x-auto text-xs font-mono text-cloud-gray leading-relaxed"><code>{`{
+  "error": "RESOURCE_NOT_FOUND",
+  "message": "No resource found with the given ID"
+}`}</code></pre>
+            <button class="copy-btn absolute top-3 right-3 px-2 py-1 text-xs text-slate-gray bg-deep-space/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-cloud-gray">Copy</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-midnight">
+                  <th class="text-left py-3 pr-6 text-xs font-semibold text-slate-gray uppercase tracking-wider">Status</th>
+                  <th class="text-left py-3 pr-6 text-xs font-semibold text-slate-gray uppercase tracking-wider">Name</th>
+                  <th class="text-left py-3 text-xs font-semibold text-slate-gray uppercase tracking-wider">When it occurs</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-midnight/40">
+                  <td class="py-3.5 pr-6 font-mono text-neon-green text-xs">400</td>
+                  <td class="py-3.5 pr-6 font-mono text-cloud-gray text-xs">Bad Request</td>
+                  <td class="py-3.5 text-slate-gray text-xs">Invalid query parameter value or type</td>
+                </tr>
+                <tr class="border-b border-midnight/40">
+                  <td class="py-3.5 pr-6 font-mono text-warning-orange text-xs">401</td>
+                  <td class="py-3.5 pr-6 font-mono text-cloud-gray text-xs">Unauthorized</td>
+                  <td class="py-3.5 text-slate-gray text-xs">Missing, malformed, or revoked API key</td>
+                </tr>
+                <tr class="border-b border-midnight/40">
+                  <td class="py-3.5 pr-6 font-mono text-warning-orange text-xs">403</td>
+                  <td class="py-3.5 pr-6 font-mono text-cloud-gray text-xs">Forbidden</td>
+                  <td class="py-3.5 text-slate-gray text-xs">Organization does not have Team plan access</td>
+                </tr>
+                <tr class="border-b border-midnight/40">
+                  <td class="py-3.5 pr-6 font-mono text-warning-orange text-xs">404</td>
+                  <td class="py-3.5 pr-6 font-mono text-cloud-gray text-xs">Not Found</td>
+                  <td class="py-3.5 text-slate-gray text-xs">The requested resource or finding does not exist</td>
+                </tr>
+                <tr class="border-b border-midnight/40">
+                  <td class="py-3.5 pr-6 font-mono text-alert-red text-xs">429</td>
+                  <td class="py-3.5 pr-6 font-mono text-cloud-gray text-xs">Too Many Requests</td>
+                  <td class="py-3.5 text-slate-gray text-xs">Rate limit of 100 req/min per org exceeded</td>
+                </tr>
+                <tr>
+                  <td class="py-3.5 pr-6 font-mono text-alert-red text-xs">500</td>
+                  <td class="py-3.5 pr-6 font-mono text-cloud-gray text-xs">Internal Server Error</td>
+                  <td class="py-3.5 text-slate-gray text-xs">Unexpected server error — contact support</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <Footer />
+</Layout>
+
+<script>
+  // Copy button functionality
+  document.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const pre = btn.closest('.group')?.querySelector('pre');
+      if (!pre) return;
+      try {
+        await navigator.clipboard.writeText(pre.innerText);
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('text-neon-green');
+        setTimeout(() => {
+          btn.textContent = original;
+          btn.classList.remove('text-neon-green');
+        }, 2000);
+      } catch {
+        // Clipboard not available
+      }
+    });
+  });
+
+  // Active TOC highlight on scroll
+  const tocLinks = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
+  const sectionIds = Array.from(tocLinks).map((l) => l.dataset.section!).filter(Boolean);
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          tocLinks.forEach((link) => {
+            const active = link.dataset.section === id;
+            link.classList.toggle('text-cyber-cyan', active);
+            link.classList.toggle('bg-cyber-cyan/5', active);
+            link.classList.toggle('text-slate-gray', !active);
+          });
+        }
+      });
+    },
+    { rootMargin: '-20% 0% -70% 0%', threshold: 0 }
+  );
+
+  sectionIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
+</script>

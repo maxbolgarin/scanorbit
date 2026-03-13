@@ -516,6 +516,10 @@ export const invitationService = {
       throw new HTTP404Error('Invitation not found');
     }
 
+    if (invitation.status === 'accepted') {
+      throw new HTTP400Error('This invitation has already been accepted');
+    }
+
     if (invitation.status !== 'pending') {
       throw new HTTP400Error('This invitation is no longer valid');
     }
