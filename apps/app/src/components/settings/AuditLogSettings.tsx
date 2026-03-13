@@ -135,6 +135,7 @@ export function AuditLogSettings() {
     userId: "all",
     startDate: "",
     endDate: "",
+    status: "all",
   });
 
   const limit = 25;
