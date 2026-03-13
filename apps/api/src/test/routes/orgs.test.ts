@@ -3,6 +3,9 @@ import { jsonBody } from '../setup.js';
 import { Hono } from 'hono';
 import type { Variables } from '../../types/index.js';
 import { createOrg } from '../helpers/factories.js';
+import { createChain } from '../helpers/mockDb.js';
+
+let dbSelectResult: unknown[] = [];
 
 vi.mock('../../middlewares/auth.js', () => ({
   requireAuth: vi.fn(async (c: any, next: any) => {
@@ -66,17 +69,30 @@ vi.mock('../../lib/metrics.js', () => ({
   errorsTotal: { inc: vi.fn() },
 }));
 
+vi.mock('../../lib/db.js', () => ({
+  db: {
+    select: vi.fn(() => createChain(dbSelectResult)),
+    insert: vi.fn(() => createChain([])),
+    update: vi.fn(() => createChain([])),
+    delete: vi.fn(() => createChain([])),
+  },
+  pool: {},
+}));
+
 import orgsRoute from '../../routes/orgs.js';
 import { errorHandler } from '../../middlewares/errorHandler.js';
 
 describe('Orgs Routes', () => {
   let app: Hono<{ Variables: Variables }>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = new Hono<{ Variables: Variables }>();
     app.route('/orgs', orgsRoute);
     app.onError(errorHandler);
     vi.clearAllMocks();
+    dbSelectResult = [];
+    const { db } = await import('../../lib/db.js');
+    vi.mocked(db.select).mockImplementation(() => createChain(dbSelectResult) as any);
   });
 
   describe('GET /orgs', () => {
@@ -200,6 +216,111 @@ describe('Orgs Routes', () => {
 
       const res = await app.request('/orgs/org-1/subscription');
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /orgs/:id/audit-logs', () => {
+    beforeEach(async () => {
+      const orgServiceModule = await import('../../services/orgService.js');
+      vi.mocked(orgServiceModule.getOrgTier).mockResolvedValue('team' as any);
+    });
+
+    it('returns 403 for non-Team tier', async () => {
+      const orgServiceModule = await import('../../services/orgService.js');
+      vi.mocked(orgServiceModule.getOrgTier).mockResolvedValue('free' as any);
+
+      const res = await app.request('/orgs/org-1/audit-logs');
+      expect(res.status).toBe(403);
+    });
+
+    it('returns empty list when no logs exist', async () => {
+      dbSelectResult = [];
+
+      const res = await app.request('/orgs/org-1/audit-logs');
+      expect(res.status).toBe(200);
+      const body = await jsonBody(res);
+      expect(body.data).toEqual([]);
+      expect(body.pagination.total).toBe(0);
+      expect(body.pagination.totalPages).toBe(0);
+    });
+
+    it('returns logs with user info', async () => {
+      dbSelectResult = [{
+        id: 'log-1',
+        timestamp: new Date('2024-01-15T10:00:00Z'),
+        userId: 'user-1',
+        action: 'login',
+        method: 'POST',
+        path: '/auth/login',
+        statusCode: 200,
+        ipAddress: '127.0.0.1',
+        durationMs: 42,
+        userEmail: 'alice@example.com',
+        userFullName: 'Alice Smith',
+        totalCount: 1,
+      }];
+
+      const res = await app.request('/orgs/org-1/audit-logs');
+      expect(res.status).toBe(200);
+      const body = await jsonBody(res);
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].action).toBe('login');
+      expect(body.data[0].userEmail).toBe('alice@example.com');
+      expect(body.data[0].userFullName).toBe('Alice Smith');
+      expect(body.pagination.total).toBe(1);
+      expect(body.pagination.totalPages).toBe(1);
+    });
+
+    it('accepts action filter', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?action=login');
+      expect(res.status).toBe(200);
+    });
+
+    it('accepts valid userId filter', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?userId=550e8400-e29b-41d4-a716-446655440000');
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects invalid userId (non-UUID)', async () => {
+      const res = await app.request('/orgs/org-1/audit-logs?userId=not-a-uuid');
+      expect(res.status).toBe(400);
+    });
+
+    it('accepts valid date range', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?startDate=2024-01-01T00:00:00Z&endDate=2024-01-31T23:59:59Z');
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects invalid date format (date-only, no time)', async () => {
+      const res = await app.request('/orgs/org-1/audit-logs?startDate=2024-01-01');
+      expect(res.status).toBe(400);
+    });
+
+    it('returns correct pagination for multiple pages', async () => {
+      dbSelectResult = Array.from({ length: 25 }, (_, i) => ({
+        id: `log-${i}`,
+        timestamp: new Date(),
+        userId: 'user-1',
+        action: 'read',
+        method: 'GET',
+        path: '/api/something',
+        statusCode: 200,
+        ipAddress: null,
+        durationMs: 10,
+        userEmail: null,
+        userFullName: null,
+        totalCount: 75,
+      }));
+
+      const res = await app.request('/orgs/org-1/audit-logs?page=1&limit=25');
+      expect(res.status).toBe(200);
+      const body = await jsonBody(res);
+      expect(body.pagination.total).toBe(75);
+      expect(body.pagination.totalPages).toBe(3);
+      expect(body.data).toHaveLength(25);
     });
   });
 });

@@ -12,6 +12,7 @@ import { jwt } from '../lib/jwt.js';
 import { HTTP400Error, HTTP401Error } from '../lib/errors.js';
 import { getClientIP } from '../lib/ip.js';
 import { logger } from '../lib/logger.js';
+import { logAuthEvent } from '../middlewares/auditLog.js';
 import { setAuthTokens } from '../lib/authTokens.js';
 import { listmonkService } from '../services/listmonkService.js';
 import { sendImmediate } from '../services/dripSchedulerService.js';
@@ -191,7 +192,13 @@ authRoute.post(
   async (c) => {
     const { email, password } = c.req.valid('json');
 
-    const result = await authService.login(email, password);
+    let result;
+    try {
+      result = await authService.login(email, password);
+    } catch (err) {
+      logAuthEvent('login_failed', null, getClientIP(c), c.req.header('user-agent') ?? null);
+      throw err;
+    }
 
     // Check if 2FA is required
     if ('requires2FA' in result && result.requires2FA) {
@@ -207,6 +214,8 @@ authRoute.post(
     // Issue new access and refresh tokens
     const { accessToken } = await setAuthTokens(c, user.id, orgs[0]?.id ?? null);
 
+    logAuthEvent('login', user.id, getClientIP(c), c.req.header('user-agent') ?? null);
+
     return c.json({
       user,
       orgs,
@@ -218,15 +227,19 @@ authRoute.post(
 // POST /auth/logout - Revoke refresh token and clear cookies (API call)
 authRoute.post('/logout', async (c) => {
   // Try to revoke the refresh token if present
+  let logoutUserId: string | null = null;
   const refreshToken = getCookie(c, 'refresh_token');
   if (refreshToken) {
     try {
       const payload = await jwt.verifyRefreshToken(refreshToken);
+      logoutUserId = payload.userId;
       await refreshTokenStore.revoke(payload.tokenId);
     } catch {
       // Ignore errors - token may already be invalid
     }
   }
+
+  logAuthEvent('logout', logoutUserId, getClientIP(c), c.req.header('user-agent') ?? null);
 
   // Clear all auth cookies
   clearAuthCookies(c);
@@ -239,15 +252,19 @@ authRoute.post('/logout', async (c) => {
 // and the frontend can't send them via fetch through a proxy
 authRoute.get('/logout', async (c) => {
   // Try to revoke the refresh token if present
+  let logoutUserId: string | null = null;
   const refreshToken = getCookie(c, 'refresh_token');
   if (refreshToken) {
     try {
       const payload = await jwt.verifyRefreshToken(refreshToken);
+      logoutUserId = payload.userId;
       await refreshTokenStore.revoke(payload.tokenId);
     } catch {
       // Ignore errors - token may already be invalid
     }
   }
+
+  logAuthEvent('logout', logoutUserId, getClientIP(c), c.req.header('user-agent') ?? null);
 
   // Clear all auth cookies
   clearAuthCookies(c);
