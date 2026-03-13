@@ -185,7 +185,7 @@ function App() {
             {/* Global routes */}
             <Route path="settings" element={<ErrorBoundary fallback={<PageError />}><Settings /></ErrorBoundary>} />
             <Route path="profile" element={<ErrorBoundary fallback={<PageError />}><Profile /></ErrorBoundary>} />
-            <Route path="api" element={<ErrorBoundary fallback={<PageError />}><Api /></ErrorBoundary>} />
+            <Route path="api-access" element={<ErrorBoundary fallback={<PageError />}><Api /></ErrorBoundary>} />
             <Route path="docs" element={<ErrorBoundary fallback={<PageError />}><Docs /></ErrorBoundary>} />
             <Route path="docs/:articleId" element={<ErrorBoundary fallback={<PageError />}><Docs /></ErrorBoundary>} />
 

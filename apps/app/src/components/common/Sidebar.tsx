@@ -83,7 +83,7 @@ export function Sidebar() {
     },
     {
       label: "API",
-      href: "/api",
+      href: "/api-access",
       icon: Code,
     },
     {
@@ -220,7 +220,7 @@ export function MobileNav() {
     },
     {
       label: "API",
-      href: "/api",
+      href: "/api-access",
       icon: Code,
     },
     {
