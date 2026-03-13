@@ -880,7 +880,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // GET /auth/invite-info/:token — Get invitation info (no auth required)
 authRoute.get('/invite-info/:token', rateLimiters.passwordReset, async (c) => {
   const token = c.req.param('token');
-  if (!UUID_RE.test(token)) {
+  if (!token || !UUID_RE.test(token)) {
     throw new HTTP400Error('Invalid invitation token');
   }
   const info = await invitationService.getInviteInfo(token);
