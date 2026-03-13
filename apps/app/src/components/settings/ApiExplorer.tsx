@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { normalizeApiUrl } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -225,7 +226,7 @@ const ENDPOINT_GROUPS: EndpointGroup[] = [
 // ---------------------------------------------------------------------------
 
 const API_BASE =
-  ((import.meta.env.VITE_API_URL as string) || "").replace(/\/$/, "") +
+  (normalizeApiUrl(import.meta.env.VITE_API_URL) ?? "").replace(/\/$/, "") +
   "/api/v1";
 
 function buildUrl(path: string, pathValues: Record<string, string>, queryValues: Record<string, string>): string {

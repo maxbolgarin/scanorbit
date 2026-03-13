@@ -40,7 +40,7 @@ import type {
   CreateApiKeyResponse,
 } from "@/types";
 
-function normalizeApiUrl(value: unknown): string | undefined {
+export function normalizeApiUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const v = value.trim();
   if (!v) return undefined;
