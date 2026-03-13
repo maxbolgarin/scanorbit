@@ -78,7 +78,7 @@ export function ScanStatusCard({
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Scan Status
           </CardTitle>
         </CardHeader>
@@ -111,7 +111,7 @@ export function ScanStatusCard({
           ? `Next scan available in ${cooldownTimeLeft}`
           : (tier === "free" ? "Free tier limit reached" : scanReason || "Scanning not available"),
         bgColor: "bg-muted",
-        borderColor: "border-status-warning/30",
+        borderColor: "border-status-warning/40",
         iconColor: "text-status-warning",
         icon: cooldownTimeLeft ? Timer : Lock,
         animate: false,
@@ -121,7 +121,7 @@ export function ScanStatusCard({
         label: "Scanning",
         description: `${activeScans.length} scan${activeScans.length > 1 ? "s" : ""} in progress`,
         bgColor: "bg-muted",
-        borderColor: "border-status-info/30",
+        borderColor: "border-status-info/40",
         iconColor: "text-status-info",
         icon: Loader2,
         animate: true,
@@ -131,7 +131,7 @@ export function ScanStatusCard({
         label: "Error",
         description: lastScan.errorMessage || "Last scan failed",
         bgColor: "bg-muted",
-        borderColor: "border-status-critical/30",
+        borderColor: "border-status-critical/40",
         iconColor: "text-status-critical",
         icon: AlertCircle,
         animate: false,
@@ -142,7 +142,7 @@ export function ScanStatusCard({
           ? `Last scan ${formatDistanceToNow(new Date(lastScanTime), { addSuffix: true })}`
           : "No scans yet",
         bgColor: "bg-muted",
-        borderColor: "border-status-success/30",
+        borderColor: "border-status-success/40",
         iconColor: "text-status-success",
         icon: CheckCircle2,
         animate: false,
@@ -167,7 +167,7 @@ export function ScanStatusCard({
   return (
     <Card className={cn("h-full transition-colors", statusConfig.borderColor, "border")}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
           <RefreshCw className="h-4 w-4" />
           Scan Status
         </CardTitle>

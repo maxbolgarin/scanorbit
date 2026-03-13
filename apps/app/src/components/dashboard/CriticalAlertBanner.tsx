@@ -87,7 +87,7 @@ export function CriticalAlertBanner({ summary, accountId, onDismiss }: CriticalA
             key={alert.id}
             variant="destructive"
             className={cn(
-              "relative border-status-critical/50 bg-status-critical/10",
+              "relative border-status-critical/50 bg-status-critical/15",
               "animate-in fade-in slide-in-from-top-2 duration-300"
             )}
           >
@@ -109,7 +109,7 @@ export function CriticalAlertBanner({ summary, accountId, onDismiss }: CriticalA
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-2 top-2 h-6 w-6 text-status-critical/70 hover:text-status-critical hover:bg-status-critical/10"
+              className="absolute right-2 top-2 h-6 w-6 text-status-critical/70 hover:text-status-critical hover:bg-status-critical/15"
               onClick={() => handleDismiss(alert.id)}
             >
               <X className="h-4 w-4" />

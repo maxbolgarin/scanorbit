@@ -23,16 +23,16 @@ function getAlarmStateConfig(state: string | null): {
       return {
         variant: 'destructive',
         icon: <AlertTriangle className="h-5 w-5 text-status-critical shrink-0" />,
-        bgClass: 'bg-status-critical/10',
-        borderClass: 'border-status-critical/20',
+        bgClass: 'bg-status-critical/15',
+        borderClass: 'border-status-critical/30',
         textClass: 'text-status-critical',
       };
     case 'OK':
       return {
         variant: 'default',
         icon: <CheckCircle className="h-5 w-5 text-status-success shrink-0" />,
-        bgClass: 'bg-status-success/10',
-        borderClass: 'border-status-success/20',
+        bgClass: 'bg-status-success/15',
+        borderClass: 'border-status-success/30',
         textClass: 'text-status-success',
       };
     case 'INSUFFICIENT_DATA':
@@ -40,8 +40,8 @@ function getAlarmStateConfig(state: string | null): {
       return {
         variant: 'secondary',
         icon: <HelpCircle className="h-5 w-5 text-status-warning shrink-0" />,
-        bgClass: 'bg-status-warning/10',
-        borderClass: 'border-status-warning/20',
+        bgClass: 'bg-status-warning/15',
+        borderClass: 'border-status-warning/30',
         textClass: 'text-status-warning',
       };
   }

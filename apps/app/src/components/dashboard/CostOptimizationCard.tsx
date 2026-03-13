@@ -42,7 +42,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Cost Optimization
           </CardTitle>
         </CardHeader>
@@ -71,7 +71,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             Cost Optimization
           </CardTitle>
@@ -79,7 +79,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
         <CardContent>
           {hasOptimizations ? (
             <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
-              <div className="rounded-full bg-status-warning/10 p-3">
+              <div className="rounded-full bg-status-warning/15 p-3">
                 <Lock className="h-6 w-6 text-status-warning" />
               </div>
               <div>
@@ -98,7 +98,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-4 text-center space-y-2">
-              <div className="rounded-full bg-status-success/10 p-3">
+              <div className="rounded-full bg-status-success/15 p-3">
                 <CheckCircle2 className="h-6 w-6 text-status-success" />
               </div>
               <p className="text-sm text-muted-foreground">
@@ -137,7 +137,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             Cost Optimization

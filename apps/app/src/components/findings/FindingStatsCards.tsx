@@ -178,7 +178,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
           <CardContent className="p-5">
             <div className="flex items-center gap-1.5 mb-2">
               <AlertTriangle className="h-3.5 w-3.5 text-status-warning" />
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Open Findings
               </p>
             </div>
@@ -189,7 +189,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
         {/* By Category */}
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               By Category
             </p>
             <div className="flex items-baseline gap-1">
@@ -208,7 +208,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
           <CardContent className="p-5">
             <div className="flex items-center gap-1.5 mb-2">
               <CheckCircle className="h-3.5 w-3.5 text-status-success" />
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Resolved
               </p>
             </div>
@@ -219,7 +219,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
         {/* Snoozed & Ignored */}
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Deferred
             </p>
             <div className="flex items-baseline gap-5">
@@ -248,7 +248,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
           {/* By Severity */}
           <Card>
             <CardContent className="p-5">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Findings by Severity
               </h3>
               <div className="space-y-2.5">
@@ -282,7 +282,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Top Finding Types
                 </h3>
                 {typeTotalPages > 1 && (

@@ -145,7 +145,7 @@ function ResourceNodeComponentInner({ data, selected }: NodeProps<ResourceNode>)
 
             {/* Findings */}
             {nodeData.findingsCount > 0 && (
-              <div className="flex items-center gap-2 bg-status-high/10 rounded px-2 py-1.5">
+              <div className="flex items-center gap-2 bg-status-high/15 rounded px-2 py-1.5">
                 <span className="text-sm font-medium text-status-high">
                   ⚠ {nodeData.findingsCount} open finding{nodeData.findingsCount !== 1 ? 's' : ''}
                 </span>

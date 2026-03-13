@@ -215,7 +215,7 @@ export function ScannerConfigModal({
           <div className="space-y-4 mt-4">
             {/* Warning about IAM policy */}
             {hasChanges && (
-              <div className="rounded-lg border border-status-warning/50 bg-status-warning/10 p-3 text-sm flex items-start gap-2">
+              <div className="rounded-lg border border-status-warning/50 bg-status-warning/15 p-3 text-sm flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-status-warning mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-status-warning">IAM Policy Update Required</p>
@@ -227,7 +227,7 @@ export function ScannerConfigModal({
             )}
 
             {error && (
-              <div className="rounded-lg border border-status-critical/50 bg-status-critical/10 p-3 text-sm text-status-critical">
+              <div className="rounded-lg border border-status-critical/50 bg-status-critical/15 p-3 text-sm text-status-critical">
                 {error}
               </div>
             )}
@@ -306,7 +306,7 @@ export function ScannerConfigModal({
           </div>
         ) : (
           <div className="space-y-4 mt-4">
-            <div className="rounded-lg border border-status-success/50 bg-status-success/10 p-3 text-sm flex items-start gap-2">
+            <div className="rounded-lg border border-status-success/50 bg-status-success/15 p-3 text-sm flex items-start gap-2">
               <CheckCircle2 className="h-4 w-4 text-status-success mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium text-status-success">Configuration Saved</p>
@@ -437,8 +437,8 @@ export function ScannerConfigModal({
                   {testResult && (
                     <div className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${
                       testResult.success
-                        ? "border-status-success/50 bg-status-success/10"
-                        : "border-status-critical/50 bg-status-critical/10"
+                        ? "border-status-success/50 bg-status-success/15"
+                        : "border-status-critical/50 bg-status-critical/15"
                     }`}>
                       {testResult.success ? (
                         <CheckCircle2 className="h-4 w-4 text-status-success mt-0.5 flex-shrink-0" />

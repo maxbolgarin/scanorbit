@@ -13,32 +13,32 @@ const statusConfig = {
   excellent: {
     label: "Excellent",
     color: "text-status-success",
-    bgColor: "bg-status-success/10",
-    borderColor: "border-status-success/30",
+    bgColor: "bg-status-success/15",
+    borderColor: "border-status-success/40",
     icon: ShieldCheck,
     progressColor: "bg-status-success",
   },
   good: {
     label: "Good",
     color: "text-status-info",
-    bgColor: "bg-status-info/10",
-    borderColor: "border-status-info/30",
+    bgColor: "bg-status-info/15",
+    borderColor: "border-status-info/40",
     icon: Shield,
     progressColor: "bg-status-info",
   },
   fair: {
     label: "Fair",
     color: "text-status-warning",
-    bgColor: "bg-status-warning/10",
-    borderColor: "border-status-warning/30",
+    bgColor: "bg-status-warning/15",
+    borderColor: "border-status-warning/40",
     icon: ShieldAlert,
     progressColor: "bg-status-warning",
   },
   needs_attention: {
     label: "Needs Attention",
     color: "text-status-critical",
-    bgColor: "bg-status-critical/10",
-    borderColor: "border-status-critical/30",
+    bgColor: "bg-status-critical/15",
+    borderColor: "border-status-critical/40",
     icon: ShieldX,
     progressColor: "bg-status-critical",
   },
@@ -55,7 +55,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Infrastructure Health
           </CardTitle>
         </CardHeader>
@@ -89,7 +89,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
   return (
     <Card className={cn("h-full transition-colors", config.borderColor, "border")}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
           <Shield className="h-4 w-4" />
           <span className="sm:hidden">Health</span>
           <span className="hidden sm:inline">Infrastructure Health</span>

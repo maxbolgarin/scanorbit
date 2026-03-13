@@ -69,7 +69,7 @@ export function PriorityActionsCard({ findings, summary, isLoading, accountId }:
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
             Priority Actions
           </CardTitle>
         </CardHeader>
@@ -115,7 +115,7 @@ export function PriorityActionsCard({ findings, summary, isLoading, accountId }:
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ListTodo className="h-4 w-4" />
             Priority Actions

@@ -18,10 +18,10 @@ const EDGE_TYPES = [
 ];
 
 const CRITICALITY_LEVELS = [
-  { label: 'Critical', color: 'border-status-critical', bg: 'bg-status-critical/10' },
-  { label: 'High', color: 'border-status-high', bg: 'bg-status-high/10' },
-  { label: 'Medium', color: 'border-status-warning', bg: 'bg-status-warning/10' },
-  { label: 'Low', color: 'border-status-info', bg: 'bg-status-info/10' },
+  { label: 'Critical', color: 'border-status-critical', bg: 'bg-status-critical/15' },
+  { label: 'High', color: 'border-status-high', bg: 'bg-status-high/15' },
+  { label: 'Medium', color: 'border-status-warning', bg: 'bg-status-warning/15' },
+  { label: 'Low', color: 'border-status-info', bg: 'bg-status-info/15' },
 ];
 
 export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
@@ -63,7 +63,7 @@ export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
             <div className="font-semibold">{stats.totalEdges}</div>
           </div>
           {stats.nodesWithFindings > 0 && (
-            <div className="bg-status-high/10 rounded px-2 py-1.5 col-span-2">
+            <div className="bg-status-high/15 rounded px-2 py-1.5 col-span-2">
               <div className="text-status-high">With Findings</div>
               <div className="font-semibold text-status-high">{stats.nodesWithFindings}</div>
             </div>
@@ -72,7 +72,7 @@ export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
 
         {/* Edge Types */}
         <div className="space-y-1.5">
-          <div className="text-xs font-medium text-muted-foreground">Connection Types</div>
+          <div className="text-xs font-semibold text-muted-foreground">Connection Types</div>
           {EDGE_TYPES.map((type) => (
             <div key={type.label} className="flex items-center gap-2">
               <div
@@ -90,7 +90,7 @@ export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
 
         {/* Criticality Levels */}
         <div className="space-y-1.5">
-          <div className="text-xs font-medium text-muted-foreground">Finding Severity</div>
+          <div className="text-xs font-semibold text-muted-foreground">Finding Severity</div>
           {CRITICALITY_LEVELS.map((level) => (
             <div key={level.label} className="flex items-center gap-2">
               <div className={`w-4 h-4 rounded border-2 ${level.color} ${level.bg}`} />
@@ -102,7 +102,7 @@ export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
         {/* Service Breakdown */}
         {Object.keys(stats.nodesByService).length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-xs font-medium text-muted-foreground">Resources by Type</div>
+            <div className="text-xs font-semibold text-muted-foreground">Resources by Type</div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(stats.nodesByService)
                 .sort((a, b) => b[1] - a[1])

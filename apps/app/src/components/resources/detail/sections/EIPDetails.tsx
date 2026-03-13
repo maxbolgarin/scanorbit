@@ -20,7 +20,7 @@ export function EIPDetails({ resource }: EIPDetailsProps) {
   return (
     <div className="space-y-4">
       {isUnattached && (
-        <div className="flex items-center gap-2 p-3 bg-status-high/10 border border-status-high/20 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-status-high/15 border border-status-high/30 rounded-lg">
           <AlertTriangle className="h-5 w-5 text-status-high shrink-0" />
           <div>
             <p className="text-sm font-medium text-status-high">Unattached Elastic IP</p>
