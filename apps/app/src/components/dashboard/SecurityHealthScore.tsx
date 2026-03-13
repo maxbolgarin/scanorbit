@@ -72,10 +72,10 @@ export function SecurityHealthScore({ summary, isLoading, hasAccounts, hasScanIn
 
   // Determine health status
   const getHealthStatus = (score: number) => {
-    if (score >= 90) return { label: "Excellent", color: "text-green-500", bgColor: "bg-green-500", Icon: ShieldCheck };
-    if (score >= 70) return { label: "Good", color: "text-blue-500", bgColor: "bg-blue-500", Icon: Shield };
-    if (score >= 50) return { label: "Fair", color: "text-yellow-500", bgColor: "bg-yellow-500", Icon: ShieldAlert };
-    return { label: "Needs Attention", color: "text-red-500", bgColor: "bg-red-500", Icon: ShieldX };
+    if (score >= 90) return { label: "Excellent", color: "text-status-success", bgColor: "bg-status-success", Icon: ShieldCheck };
+    if (score >= 70) return { label: "Good", color: "text-status-info", bgColor: "bg-status-info", Icon: Shield };
+    if (score >= 50) return { label: "Fair", color: "text-status-warning", bgColor: "bg-status-warning", Icon: ShieldAlert };
+    return { label: "Needs Attention", color: "text-status-critical", bgColor: "bg-status-critical", Icon: ShieldX };
   };
 
   const status = getHealthStatus(healthScore);
@@ -179,10 +179,10 @@ export function SecurityHealthScore({ summary, isLoading, hasAccounts, hasScanIn
                     <span
                       className={
                         item.status === "good"
-                          ? "text-green-500"
+                          ? "text-status-success"
                           : item.status === "critical"
-                            ? "text-red-500"
-                            : "text-yellow-500"
+                            ? "text-status-critical"
+                            : "text-status-warning"
                       }
                     >
                       {item.value}

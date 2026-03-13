@@ -18,10 +18,10 @@ const EDGE_TYPES = [
 ];
 
 const CRITICALITY_LEVELS = [
-  { label: 'Critical', color: 'border-red-500', bg: 'bg-red-500/10' },
-  { label: 'High', color: 'border-orange-500', bg: 'bg-orange-500/10' },
-  { label: 'Medium', color: 'border-yellow-500', bg: 'bg-yellow-500/10' },
-  { label: 'Low', color: 'border-blue-500', bg: 'bg-blue-500/10' },
+  { label: 'Critical', color: 'border-status-critical', bg: 'bg-status-critical/10' },
+  { label: 'High', color: 'border-status-high', bg: 'bg-status-high/10' },
+  { label: 'Medium', color: 'border-status-warning', bg: 'bg-status-warning/10' },
+  { label: 'Low', color: 'border-status-info', bg: 'bg-status-info/10' },
 ];
 
 export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
@@ -63,9 +63,9 @@ export function MapLegend({ stats, isCollapsed, onToggle }: MapLegendProps) {
             <div className="font-semibold">{stats.totalEdges}</div>
           </div>
           {stats.nodesWithFindings > 0 && (
-            <div className="bg-orange-500/10 rounded px-2 py-1.5 col-span-2">
-              <div className="text-orange-500">With Findings</div>
-              <div className="font-semibold text-orange-500">{stats.nodesWithFindings}</div>
+            <div className="bg-status-high/10 rounded px-2 py-1.5 col-span-2">
+              <div className="text-status-high">With Findings</div>
+              <div className="font-semibold text-status-high">{stats.nodesWithFindings}</div>
             </div>
           )}
         </div>

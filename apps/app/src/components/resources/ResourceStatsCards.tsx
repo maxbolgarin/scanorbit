@@ -136,8 +136,8 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                   {formatCurrency(totalEstimatedCost)}
                 </p>
               </div>
-              <div className="rounded-full bg-amber-500/10 p-3">
-                <DollarSign className="h-6 w-6 text-amber-500" />
+              <div className="rounded-full bg-muted p-3">
+                <DollarSign className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
@@ -153,8 +153,8 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                 </p>
                 <p className="mt-1 text-3xl font-bold">{regionCount}</p>
               </div>
-              <div className="rounded-full bg-green-500/10 p-3">
-                <Globe className="h-6 w-6 text-green-500" />
+              <div className="rounded-full bg-muted p-3">
+                <Globe className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
@@ -170,7 +170,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                 </p>
                 <p className="mt-1 text-3xl font-bold">
                   <span
-                    className="text-green-600 cursor-pointer hover:underline"
+                    className="text-status-success cursor-pointer hover:underline"
                     onClick={() => handleStateClick("running")}
                     title="Click to filter running resources"
                   >
@@ -189,8 +189,8 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                   EC2, Lambda, EBS, EIP
                 </p>
               </div>
-              <div className="rounded-full bg-orange-500/10 p-3">
-                <Activity className="h-6 w-6 text-orange-500" />
+              <div className="rounded-full bg-muted p-3">
+                <Activity className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
@@ -255,14 +255,14 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                           <span className="text-sm text-muted-foreground">
                             {data.count}
                           </span>
-                          <span className="text-sm font-medium text-amber-600">
+                          <span className="text-sm font-medium text-muted-foreground">
                             {formatCurrency(data.totalCost)}
                           </span>
                         </div>
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                          className="h-full rounded-full bg-status-warning transition-all duration-300"
                           style={{ width: `${costPercentage}%` }}
                         />
                       </div>
@@ -331,7 +331,7 @@ export function ResourceStatsCards({ stats, isLoading, onFilterSelect }: Resourc
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-green-500 transition-all duration-300"
+                          className="h-full rounded-full bg-primary transition-all duration-300"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>

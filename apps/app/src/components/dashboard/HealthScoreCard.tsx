@@ -12,35 +12,35 @@ interface HealthScoreCardProps {
 const statusConfig = {
   excellent: {
     label: "Excellent",
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
-    borderColor: "border-green-500/30",
+    color: "text-status-success",
+    bgColor: "bg-status-success/10",
+    borderColor: "border-status-success/30",
     icon: ShieldCheck,
-    progressColor: "bg-green-500",
+    progressColor: "bg-status-success",
   },
   good: {
     label: "Good",
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/30",
+    color: "text-status-info",
+    bgColor: "bg-status-info/10",
+    borderColor: "border-status-info/30",
     icon: Shield,
-    progressColor: "bg-blue-500",
+    progressColor: "bg-status-info",
   },
   fair: {
     label: "Fair",
-    color: "text-yellow-500",
-    bgColor: "bg-yellow-500/10",
-    borderColor: "border-yellow-500/30",
+    color: "text-status-warning",
+    bgColor: "bg-status-warning/10",
+    borderColor: "border-status-warning/30",
     icon: ShieldAlert,
-    progressColor: "bg-yellow-500",
+    progressColor: "bg-status-warning",
   },
   needs_attention: {
     label: "Needs Attention",
-    color: "text-red-500",
-    bgColor: "bg-red-500/10",
-    borderColor: "border-red-500/30",
+    color: "text-status-critical",
+    bgColor: "bg-status-critical/10",
+    borderColor: "border-status-critical/30",
     icon: ShieldX,
-    progressColor: "bg-red-500",
+    progressColor: "bg-status-critical",
   },
 };
 
@@ -114,7 +114,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
               {trend !== 0 && (
                 <span className={cn(
                   "flex items-center text-xs",
-                  trend > 0 ? "text-green-500" : "text-red-500"
+                  trend > 0 ? "text-status-success" : "text-status-critical"
                 )}>
                   {trend > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
                   {trend > 0 ? "+" : ""}{trend}
@@ -143,7 +143,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
         <div className="space-y-1.5 sm:space-y-2">
           {(["security", "compliance", "costEfficiency"] as const).map((category) => {
             const score = healthScores[category];
-            const progressColor = score >= 90 ? "bg-green-500" : score >= 70 ? "bg-blue-500" : score >= 50 ? "bg-yellow-500" : "bg-red-500";
+            const progressColor = score >= 90 ? "bg-status-success" : score >= 70 ? "bg-status-info" : score >= 50 ? "bg-status-warning" : "bg-status-critical";
 
             return (
               <div key={category} className="space-y-1">

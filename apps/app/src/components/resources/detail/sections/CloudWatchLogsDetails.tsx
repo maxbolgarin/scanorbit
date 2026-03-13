@@ -22,10 +22,10 @@ export function CloudWatchLogsDetails({ resource }: CloudWatchLogsDetailsProps) 
   return (
     <div className="space-y-4">
       {hasNoRetention && (
-        <div className="flex items-center gap-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-          <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0" />
+        <div className="flex items-center gap-2 p-3 bg-status-high/10 border border-status-high/20 rounded-lg">
+          <AlertTriangle className="h-5 w-5 text-status-high shrink-0" />
           <div>
-            <p className="text-sm font-medium text-orange-500">No Retention Policy</p>
+            <p className="text-sm font-medium text-status-high">No Retention Policy</p>
             <p className="text-sm text-muted-foreground">
               Logs are retained indefinitely. Consider setting a retention policy to manage costs.
             </p>

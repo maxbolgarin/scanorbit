@@ -110,9 +110,9 @@ export function ScanStatusCard({
         description: cooldownTimeLeft
           ? `Next scan available in ${cooldownTimeLeft}`
           : (tier === "free" ? "Free tier limit reached" : scanReason || "Scanning not available"),
-        bgColor: "bg-amber-500/10",
-        borderColor: "border-amber-500/30",
-        iconColor: "text-amber-500",
+        bgColor: "bg-muted",
+        borderColor: "border-status-warning/30",
+        iconColor: "text-status-warning",
         icon: cooldownTimeLeft ? Timer : Lock,
         animate: false,
       }
@@ -120,9 +120,9 @@ export function ScanStatusCard({
     ? {
         label: "Scanning",
         description: `${activeScans.length} scan${activeScans.length > 1 ? "s" : ""} in progress`,
-        bgColor: "bg-blue-500/10",
-        borderColor: "border-blue-500/30",
-        iconColor: "text-blue-500",
+        bgColor: "bg-muted",
+        borderColor: "border-status-info/30",
+        iconColor: "text-status-info",
         icon: Loader2,
         animate: true,
       }
@@ -130,9 +130,9 @@ export function ScanStatusCard({
     ? {
         label: "Error",
         description: lastScan.errorMessage || "Last scan failed",
-        bgColor: "bg-red-500/10",
-        borderColor: "border-red-500/30",
-        iconColor: "text-red-500",
+        bgColor: "bg-muted",
+        borderColor: "border-status-critical/30",
+        iconColor: "text-status-critical",
         icon: AlertCircle,
         animate: false,
       }
@@ -141,9 +141,9 @@ export function ScanStatusCard({
         description: lastScanTime
           ? `Last scan ${formatDistanceToNow(new Date(lastScanTime), { addSuffix: true })}`
           : "No scans yet",
-        bgColor: "bg-green-500/10",
-        borderColor: "border-green-500/30",
-        iconColor: "text-green-500",
+        bgColor: "bg-muted",
+        borderColor: "border-status-success/30",
+        iconColor: "text-status-success",
         icon: CheckCircle2,
         animate: false,
       };
@@ -234,7 +234,7 @@ export function ScanStatusCard({
               const account = accounts.find(a => a.id === scan.awsAccountId);
               return (
                 <div key={scan.id} className="flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                  <Loader2 className="h-3 w-3 animate-spin text-status-info" />
                   <span className="truncate">{account?.name || "Unknown"}: {scan.status}</span>
                 </div>
               );

@@ -30,31 +30,31 @@ const findingCategories: Record<string, { label: string; icon: React.ElementType
   security: {
     label: "Security",
     icon: Shield,
-    color: "text-red-500",
+    color: "text-status-critical",
     types: ["unencrypted_resource", "public_access", "permissive_security_group", "open_all_ports", "publicly_accessible_rds", "public_snapshot", "insecure_tls"],
   },
   cost: {
     label: "Cost",
     icon: DollarSign,
-    color: "text-green-500",
+    color: "text-status-success",
     types: ["orphaned_volume", "orphaned_eip", "orphaned_snapshot", "unused_resource", "stopped_instance", "unused_log_group", "idle_nat_gateway", "oversized_instance"],
   },
   compliance: {
     label: "Compliance",
     icon: CheckCircle,
-    color: "text-blue-500",
+    color: "text-status-info",
     types: ["data_residency_violation", "ssl_expiry", "cloudtrail_disabled", "vpc_flow_logs_disabled", "backup_not_configured"],
   },
   iam: {
     label: "IAM",
     icon: Key,
-    color: "text-purple-500",
+    color: "text-primary",
     types: ["old_access_key", "unused_access_key", "unused_iam_role", "user_without_mfa", "root_account_usage", "overly_permissive_policy", "cross_account_trust"],
   },
   tagging: {
     label: "Tagging",
     icon: Tag,
-    color: "text-orange-500",
+    color: "text-status-high",
     types: ["missing_tag"],
   },
 };
@@ -104,11 +104,11 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
 
   // Severity items for the progress bar display
   const severityItems = [
-    { key: "critical", label: "Critical", count: criticalCount, textColor: "text-red-600", barColor: "bg-red-600" },
-    { key: "high", label: "High", count: highCount, textColor: "text-red-500", barColor: "bg-red-500" },
-    { key: "medium", label: "Medium", count: mediumCount, textColor: "text-yellow-500", barColor: "bg-yellow-500" },
-    { key: "low", label: "Low", count: lowCount, textColor: "text-blue-500", barColor: "bg-blue-500" },
-    { key: "trivial", label: "Trivial", count: trivialCount, textColor: "text-muted-foreground", barColor: "bg-muted-foreground" },
+    { key: "critical", label: "Critical", count: criticalCount, textColor: "text-status-critical", barColor: "bg-status-critical" },
+    { key: "high", label: "High", count: highCount, textColor: "text-status-high", barColor: "bg-status-high" },
+    { key: "medium", label: "Medium", count: mediumCount, textColor: "text-status-warning", barColor: "bg-status-warning" },
+    { key: "low", label: "Low", count: lowCount, textColor: "text-status-info", barColor: "bg-status-info" },
+    { key: "trivial", label: "Trivial", count: trivialCount, textColor: "text-status-trivial", barColor: "bg-status-trivial" },
   ];
 
   // Calculate max counts for progress bar scaling
@@ -118,38 +118,38 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
   // Map finding types to their default severity for coloring
   const typeSeverityMap: Record<string, { barColor: string }> = {
     // Critical
-    ssl_expiry: { barColor: "bg-red-600" },
-    publicly_accessible_rds: { barColor: "bg-red-600" },
-    public_snapshot: { barColor: "bg-red-600" },
-    root_account_usage: { barColor: "bg-red-600" },
+    ssl_expiry: { barColor: "bg-status-critical" },
+    publicly_accessible_rds: { barColor: "bg-status-critical" },
+    public_snapshot: { barColor: "bg-status-critical" },
+    root_account_usage: { barColor: "bg-status-critical" },
     // High
-    user_without_mfa: { barColor: "bg-red-500" },
-    public_access: { barColor: "bg-red-500" },
-    permissive_security_group: { barColor: "bg-red-500" },
-    open_all_ports: { barColor: "bg-red-500" },
-    data_residency_violation: { barColor: "bg-red-500" },
-    overly_permissive_policy: { barColor: "bg-red-500" },
-    cloudtrail_disabled: { barColor: "bg-red-500" },
-    cross_account_trust: { barColor: "bg-red-500" },
+    user_without_mfa: { barColor: "bg-status-high" },
+    public_access: { barColor: "bg-status-high" },
+    permissive_security_group: { barColor: "bg-status-high" },
+    open_all_ports: { barColor: "bg-status-high" },
+    data_residency_violation: { barColor: "bg-status-high" },
+    overly_permissive_policy: { barColor: "bg-status-high" },
+    cloudtrail_disabled: { barColor: "bg-status-high" },
+    cross_account_trust: { barColor: "bg-status-high" },
     // Medium
-    unencrypted_resource: { barColor: "bg-yellow-500" },
-    old_access_key: { barColor: "bg-yellow-500" },
-    orphaned_volume: { barColor: "bg-yellow-500" },
-    insecure_tls: { barColor: "bg-yellow-500" },
-    vpc_flow_logs_disabled: { barColor: "bg-yellow-500" },
-    backup_not_configured: { barColor: "bg-yellow-500" },
+    unencrypted_resource: { barColor: "bg-status-warning" },
+    old_access_key: { barColor: "bg-status-warning" },
+    orphaned_volume: { barColor: "bg-status-warning" },
+    insecure_tls: { barColor: "bg-status-warning" },
+    vpc_flow_logs_disabled: { barColor: "bg-status-warning" },
+    backup_not_configured: { barColor: "bg-status-warning" },
     // Low
-    orphaned_eip: { barColor: "bg-blue-500" },
-    orphaned_snapshot: { barColor: "bg-blue-500" },
-    unused_access_key: { barColor: "bg-blue-500" },
-    unused_iam_role: { barColor: "bg-blue-500" },
-    unused_resource: { barColor: "bg-blue-500" },
-    stopped_instance: { barColor: "bg-blue-500" },
-    idle_nat_gateway: { barColor: "bg-blue-500" },
-    oversized_instance: { barColor: "bg-blue-500" },
+    orphaned_eip: { barColor: "bg-status-info" },
+    orphaned_snapshot: { barColor: "bg-status-info" },
+    unused_access_key: { barColor: "bg-status-info" },
+    unused_iam_role: { barColor: "bg-status-info" },
+    unused_resource: { barColor: "bg-status-info" },
+    stopped_instance: { barColor: "bg-status-info" },
+    idle_nat_gateway: { barColor: "bg-status-info" },
+    oversized_instance: { barColor: "bg-status-info" },
     // Trivial
-    missing_tag: { barColor: "bg-muted-foreground" },
-    unused_log_group: { barColor: "bg-muted-foreground" },
+    missing_tag: { barColor: "bg-status-trivial" },
+    unused_log_group: { barColor: "bg-status-trivial" },
   };
 
   const getTypeSeverity = (type: string) => {
@@ -174,10 +174,10 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
       {/* Main stats row */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Open Findings */}
-        <Card className="border-l-2 border-l-yellow-500">
+        <Card className="border-l-2 border-l-status-warning">
           <CardContent className="p-5">
             <div className="flex items-center gap-1.5 mb-2">
-              <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+              <AlertTriangle className="h-3.5 w-3.5 text-status-warning" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Open Findings
               </p>
@@ -204,15 +204,15 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
         </Card>
 
         {/* Resolved */}
-        <Card className="border-l-2 border-l-green-500">
+        <Card className="border-l-2 border-l-status-success">
           <CardContent className="p-5">
             <div className="flex items-center gap-1.5 mb-2">
-              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+              <CheckCircle className="h-3.5 w-3.5 text-status-success" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Resolved
               </p>
             </div>
-            <p className="text-2xl font-bold text-green-500">{resolvedCount}</p>
+            <p className="text-2xl font-bold text-status-success">{resolvedCount}</p>
           </CardContent>
         </Card>
 
@@ -224,7 +224,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
             </p>
             <div className="flex items-baseline gap-5">
               <div className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                <Clock className="h-3.5 w-3.5 text-status-warning shrink-0" />
                 <div>
                   <p className="text-2xl font-bold">{snoozedCount}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Snoozed</p>

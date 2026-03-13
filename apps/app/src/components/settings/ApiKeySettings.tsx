@@ -31,7 +31,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import { useApiKeys, useCreateApiKey, useRevokeApiKey } from "@/hooks/use-api-keys";
 import { useOrgMembers } from "@/hooks/use-members";
-import { Key, Plus, Trash2, Copy, Check, Code, AlertTriangle, Lock } from "lucide-react";
+import { Key, Plus, Trash2, Copy, Check, AlertTriangle, Lock } from "lucide-react";
 import { TIER_LIMITS } from "@/types";
 import type { ApiKeyInfo } from "@/types";
 
@@ -285,90 +285,6 @@ export function ApiKeySettings() {
         </Card>
         </>
       )}
-
-      {/* API Documentation */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Code className="h-5 w-5" />
-            API Documentation
-          </CardTitle>
-          <CardDescription>
-            Use your API key to access ScanOrbit data programmatically
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Authentication</h4>
-            <p className="text-sm text-muted-foreground mb-2">
-              Include your API key in the <code className="bg-muted px-1 py-0.5 rounded text-xs">X-API-Key</code> header with every request.
-            </p>
-            <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
-{`curl -H "X-API-Key: sk_live_your_key_here" \\
-  https://api.scanorbit.cloud/api/v1/resources`}
-            </pre>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Available Endpoints</h4>
-            <div className="space-y-1.5 text-sm">
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/resources</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/resources/stats</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/resources/:id</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/resources/:id/dependencies</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/resources/:id/dependents</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/findings</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/findings/stats</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/findings/:id</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/scans/active</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/scans/recent</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/accounts</code>
-                <Badge variant="outline" className="text-xs font-mono justify-self-start">GET</Badge>
-                <code className="text-xs">/api/v1/organization</code>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Examples</h4>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">List open findings</p>
-                <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
-{`curl -H "X-API-Key: sk_live_your_key_here" \\
-  "https://api.scanorbit.cloud/api/v1/findings?status=open&severity=high"`}
-                </pre>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Get resource details</p>
-                <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
-{`curl -H "X-API-Key: sk_live_your_key_here" \\
-  https://api.scanorbit.cloud/api/v1/resources/{resource_id}`}
-                </pre>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Rate Limits</h4>
-            <p className="text-sm text-muted-foreground">
-              100 requests per minute per organization. All endpoints are read-only (GET).
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Key Reveal Dialog */}
       <Dialog open={!!revealedKey} onOpenChange={() => { setRevealedKey(null); setCopied(false); }}>

@@ -37,13 +37,13 @@ export function MetricCard({
             {trend !== undefined && (
               <div className="flex items-center gap-1 text-sm">
                 {trend >= 0 ? (
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <TrendingUp className="h-4 w-4 text-status-success" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-status-critical" />
                 )}
                 <span
                   className={cn(
-                    trend >= 0 ? "text-green-500" : "text-red-500"
+                    trend >= 0 ? "text-status-success" : "text-status-critical"
                   )}
                 >
                   {trend >= 0 ? "+" : ""}

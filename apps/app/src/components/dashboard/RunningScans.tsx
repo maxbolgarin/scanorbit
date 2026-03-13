@@ -29,19 +29,19 @@ export function RunningScans({ scans, accounts }: RunningScansProps) {
   const getStatusIcon = (status: Scan["status"]) => {
     switch (status) {
       case "queued":
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <Clock className="h-4 w-4 text-status-warning" />;
       case "processing":
-        return <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />;
+        return <Loader2 className="h-4 w-4 animate-spin text-status-warning" />;
       case "running":
         return <Radar className="h-4 w-4 animate-pulse text-primary" />;
       case "analyzing":
         return <Search className="h-4 w-4 animate-pulse text-primary" />;
       case "complete":
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+        return <CheckCircle2 className="h-4 w-4 text-status-success" />;
       case "partial":
-        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+        return <AlertTriangle className="h-4 w-4 text-status-high" />;
       case "error":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-status-critical" />;
       case "canceled":
         return <Ban className="h-4 w-4 text-muted-foreground" />;
     }

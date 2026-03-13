@@ -85,7 +85,7 @@ export function EBSDetails({ resource }: EBSDetailsProps) {
           </div>
         ) : (
           <div className="py-4 text-center">
-            <Badge variant="outline" className="text-orange-500 border-orange-500">
+            <Badge variant="outline" className="text-status-high border-status-high">
               Unattached
             </Badge>
             <p className="text-sm text-muted-foreground mt-2">

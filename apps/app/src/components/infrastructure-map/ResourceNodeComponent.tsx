@@ -17,13 +17,13 @@ import type { ResourceNodeData, CriticalityLevel, ResourceNode } from '@/types/g
 function getCriticalityBorderClass(criticality: CriticalityLevel): string {
   switch (criticality) {
     case 'critical':
-      return 'border-red-500 border-2';
+      return 'border-status-critical border-2';
     case 'high':
-      return 'border-orange-500 border-2';
+      return 'border-status-high border-2';
     case 'medium':
-      return 'border-yellow-500';
+      return 'border-status-warning';
     case 'low':
-      return 'border-blue-500';
+      return 'border-status-info';
     default:
       return 'border-border';
   }
@@ -145,8 +145,8 @@ function ResourceNodeComponentInner({ data, selected }: NodeProps<ResourceNode>)
 
             {/* Findings */}
             {nodeData.findingsCount > 0 && (
-              <div className="flex items-center gap-2 bg-orange-500/10 rounded px-2 py-1.5">
-                <span className="text-sm font-medium text-orange-500">
+              <div className="flex items-center gap-2 bg-status-high/10 rounded px-2 py-1.5">
+                <span className="text-sm font-medium text-status-high">
                   ⚠ {nodeData.findingsCount} open finding{nodeData.findingsCount !== 1 ? 's' : ''}
                 </span>
               </div>

@@ -162,7 +162,7 @@ export function FindingDetailModal({
     <div className="space-y-6">
       <div className="flex flex-col items-center text-center">
         <div className="mb-4 rounded-full bg-green-100 p-3 dark:bg-green-900/30">
-          <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+          <CheckCircle className="h-8 w-8 text-status-success dark:text-status-success" />
         </div>
         <h3 className="text-lg font-semibold">Mark as Resolved?</h3>
         <p className="mt-2 text-sm text-muted-foreground max-w-md">
@@ -173,7 +173,7 @@ export function FindingDetailModal({
 
       <div className="rounded-lg border bg-muted/30 p-4">
         <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <Info className="h-5 w-5 text-status-info mt-0.5 flex-shrink-0" />
           <div>
             <p className="font-medium text-sm">When to use this</p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -193,7 +193,7 @@ export function FindingDetailModal({
         <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
           Cancel
         </Button>
-        <Button onClick={handleResolve} disabled={isUpdating} className="bg-green-600 hover:bg-green-700">
+        <Button onClick={handleResolve} disabled={isUpdating} className="bg-status-success hover:bg-status-success/80">
           <CheckCircle className="mr-2 h-4 w-4" />
           Mark Resolved
         </Button>
@@ -215,11 +215,11 @@ export function FindingDetailModal({
         </p>
       </div>
 
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+      <div className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+          <AlertTriangle className="h-5 w-5 text-status-warning mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium text-sm text-amber-500">Permanent action</p>
+            <p className="font-medium text-sm text-status-warning">Permanent action</p>
             <p className="text-sm text-muted-foreground mt-1">
               Future scans will skip this finding. You can reopen it manually at any time.
             </p>
@@ -269,7 +269,7 @@ export function FindingDetailModal({
       <div className="space-y-6">
         <div className="flex flex-col items-center text-center">
           <div className="mb-4 rounded-full bg-amber-100 p-3 dark:bg-amber-900/30">
-            <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+            <Clock className="h-8 w-8 text-status-warning dark:text-status-warning" />
           </div>
           <h3 className="text-lg font-semibold">Snooze this Finding?</h3>
           <p className="mt-2 text-sm text-muted-foreground max-w-md">
@@ -295,8 +295,8 @@ export function FindingDetailModal({
             </Select>
           </div>
 
-          <div className="flex items-center gap-3 rounded-md bg-amber-500/10 p-3">
-            <Clock className="h-5 w-5 text-amber-500 flex-shrink-0" />
+          <div className="flex items-center gap-3 rounded-md bg-status-warning/10 p-3">
+            <Clock className="h-5 w-5 text-status-warning flex-shrink-0" />
             <div>
               <p className="text-sm font-medium">Reopens on {reopenDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
               {(finding.detectionCount || 1) > 1 && (
@@ -317,7 +317,7 @@ export function FindingDetailModal({
           <Button variant="outline" onClick={handleBackToDetails} disabled={isUpdating}>
             Cancel
           </Button>
-          <Button onClick={handleSnooze} disabled={isUpdating} className="bg-amber-600 hover:bg-amber-700">
+          <Button onClick={handleSnooze} disabled={isUpdating} className="bg-status-warning hover:bg-status-warning/80">
             <Clock className="mr-2 h-4 w-4" />
             Snooze Finding
           </Button>
@@ -362,16 +362,16 @@ export function FindingDetailModal({
 
           return (
             <>
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+              <div className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
                 <div className="mb-2 flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-amber-500" />
+                  <Wrench className="h-4 w-4 text-status-warning" />
                   <h4 className="font-medium">How to Fix</h4>
                   {docUrl && (
                     <a
                       href={docUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-auto flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                      className="ml-auto flex items-center gap-1 text-xs text-status-info hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />
                       AWS Docs
@@ -421,7 +421,7 @@ export function FindingDetailModal({
         {/* Detection Lifecycle */}
         <div className="rounded-lg border bg-muted/30 p-4">
           <h4 className="mb-3 flex items-center gap-2 font-medium">
-            <History className="h-4 w-4 text-blue-500" />
+            <History className="h-4 w-4 text-status-info" />
             Detection History
           </h4>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -441,7 +441,7 @@ export function FindingDetailModal({
               <p className="mt-1">
                 {finding.detectionCount || 1}
                 {(finding.detectionCount || 1) > 1 && (
-                  <span className="ml-2 text-xs text-amber-600">Recurring issue</span>
+                  <span className="ml-2 text-xs text-status-warning">Recurring issue</span>
                 )}
               </p>
             </div>
@@ -479,7 +479,7 @@ export function FindingDetailModal({
               <p className="text-sm font-medium text-muted-foreground">
                 Estimated Savings
               </p>
-              <p className="mt-1 text-green-600 font-medium">
+              <p className="mt-1 text-status-success font-medium">
                 {formatCurrency(estimatedSavings)}/month
               </p>
             </div>

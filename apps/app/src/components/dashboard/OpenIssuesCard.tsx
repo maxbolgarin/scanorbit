@@ -15,32 +15,32 @@ const severityConfig = {
   critical: {
     label: "Critical",
     shortLabel: "Crit",
-    color: "bg-red-500",
-    textColor: "text-red-500",
+    color: "bg-status-critical",
+    textColor: "text-status-critical",
   },
   high: {
     label: "High",
     shortLabel: "High",
-    color: "bg-orange-500",
-    textColor: "text-orange-500",
+    color: "bg-status-high",
+    textColor: "text-status-high",
   },
   medium: {
     label: "Med",
     shortLabel: "Med",
-    color: "bg-yellow-500",
-    textColor: "text-yellow-500",
+    color: "bg-status-warning",
+    textColor: "text-status-warning",
   },
   low: {
     label: "Low",
     shortLabel: "Low",
-    color: "bg-blue-500",
-    textColor: "text-blue-500",
+    color: "bg-status-info",
+    textColor: "text-status-info",
   },
   trivial: {
     label: "Trivial",
     shortLabel: "Triv",
-    color: "bg-slate-400",
-    textColor: "text-slate-400",
+    color: "bg-status-trivial",
+    textColor: "text-status-trivial",
   },
 };
 
@@ -98,10 +98,10 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
         : "good";
 
   const statusConfig = {
-    critical: { text: "Needs Attention", color: "text-red-500" },
-    warning: { text: "Action Required", color: "text-orange-500" },
-    fair: { text: "Stable", color: "text-yellow-500" },
-    good: { text: "Excellent", color: "text-green-500" },
+    critical: { text: "Needs Attention", color: "text-status-critical" },
+    warning: { text: "Action Required", color: "text-status-high" },
+    fair: { text: "Stable", color: "text-status-warning" },
+    good: { text: "Excellent", color: "text-status-success" },
   };
 
   return (
@@ -163,16 +163,16 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.critical > 0
-                  ? "bg-red-500/10 border-red-500/20"
+                  ? "bg-status-critical/10 border-status-critical/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <AlertOctagon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-500" />
+                <AlertOctagon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-status-critical" />
               </div>
               <div className={cn(
                 "text-base sm:text-lg font-semibold",
-                findingCounts.critical > 0 ? "text-red-500" : "text-muted-foreground"
+                findingCounts.critical > 0 ? "text-status-critical" : "text-muted-foreground"
               )}>
                 {findingCounts.critical}
               </div>
@@ -188,16 +188,16 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.high > 0
-                  ? "bg-orange-500/10 border-orange-500/20"
+                  ? "bg-status-high/10 border-status-high/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-500" />
+                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-status-high" />
               </div>
               <div className={cn(
                 "text-base sm:text-lg font-semibold",
-                findingCounts.high > 0 ? "text-orange-500" : "text-muted-foreground"
+                findingCounts.high > 0 ? "text-status-high" : "text-muted-foreground"
               )}>
                 {findingCounts.high}
               </div>
@@ -210,16 +210,16 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.medium > 0
-                  ? "bg-yellow-500/10 border-yellow-500/20"
+                  ? "bg-status-warning/10 border-status-warning/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-yellow-500" />
+                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-status-warning" />
               </div>
               <div className={cn(
                 "text-base sm:text-lg font-semibold",
-                findingCounts.medium > 0 ? "text-yellow-500" : "text-muted-foreground"
+                findingCounts.medium > 0 ? "text-status-warning" : "text-muted-foreground"
               )}>
                 {findingCounts.medium}
               </div>
@@ -232,16 +232,16 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
               className={cn(
                 "text-center p-1.5 sm:p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
                 findingCounts.low > 0
-                  ? "bg-blue-500/10 border-blue-500/20"
+                  ? "bg-status-info/10 border-status-info/20"
                   : "bg-muted/50 border-border"
               )}
             >
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500" />
+                <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-status-info" />
               </div>
               <div className={cn(
                 "text-base sm:text-lg font-semibold",
-                findingCounts.low > 0 ? "text-blue-500" : "text-muted-foreground"
+                findingCounts.low > 0 ? "text-status-info" : "text-muted-foreground"
               )}>
                 {findingCounts.low}
               </div>

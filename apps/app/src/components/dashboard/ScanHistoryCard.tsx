@@ -138,11 +138,11 @@ export function ScanHistoryCard({ scans, accounts, baseUrl: _baseUrl }: ScanHist
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   <div className={
                     scan.status === "error" ? "text-destructive" :
-                    scan.status === "complete" ? "text-green-500" :
-                    scan.status === "partial" ? "text-orange-500" :
+                    scan.status === "complete" ? "text-status-success" :
+                    scan.status === "partial" ? "text-status-high" :
                     scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
                     scan.status === "canceled" ? "text-muted-foreground" :
-                    "text-yellow-500"
+                    "text-status-warning"
                   }>
                     {config.icon}
                   </div>
@@ -164,7 +164,7 @@ export function ScanHistoryCard({ scans, accounts, baseUrl: _baseUrl }: ScanHist
                           {scan.resourcesDelta !== 0 && (
                             <Badge
                               variant="outline"
-                              className={`text-xs ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                              className={`text-xs ${scan.resourcesDelta > 0 ? "text-status-success border-status-success" : "text-status-high border-status-high"}`}
                             >
                               {scan.resourcesDelta > 0 ? (
                                 <TrendingUp className="h-3 w-3 mr-1" />
@@ -175,13 +175,13 @@ export function ScanHistoryCard({ scans, accounts, baseUrl: _baseUrl }: ScanHist
                             </Badge>
                           )}
                           {scan.findingsNew > 0 && (
-                            <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                            <Badge variant="outline" className="text-xs text-status-warning border-status-warning">
                               <AlertCircle className="h-3 w-3 mr-1" />
                               {scan.findingsNew} new
                             </Badge>
                           )}
                           {scan.findingsResolved > 0 && (
-                            <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                            <Badge variant="outline" className="text-xs text-status-success border-status-success">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               {scan.findingsResolved} resolved
                             </Badge>

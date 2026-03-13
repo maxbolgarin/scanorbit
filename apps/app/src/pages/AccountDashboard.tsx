@@ -100,7 +100,7 @@ export default function AccountDashboard() {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">{account.name}</h1>
               {account.status === "ok" && (
-                <Badge variant="outline" className="text-green-600 border-green-600">
+                <Badge variant="outline" className="text-status-success border-status-success">
                   Connected
                 </Badge>
               )}

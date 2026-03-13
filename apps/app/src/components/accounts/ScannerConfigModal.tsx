@@ -215,10 +215,10 @@ export function ScannerConfigModal({
           <div className="space-y-4 mt-4">
             {/* Warning about IAM policy */}
             {hasChanges && (
-              <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div className="rounded-lg border border-status-warning/50 bg-status-warning/10 p-3 text-sm flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-status-warning mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-yellow-600">IAM Policy Update Required</p>
+                  <p className="font-medium text-status-warning">IAM Policy Update Required</p>
                   <p className="text-muted-foreground">
                     After saving, you'll need to update your IAM policy in AWS to match the new configuration.
                   </p>
@@ -227,7 +227,7 @@ export function ScannerConfigModal({
             )}
 
             {error && (
-              <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-600">
+              <div className="rounded-lg border border-status-critical/50 bg-status-critical/10 p-3 text-sm text-status-critical">
                 {error}
               </div>
             )}
@@ -259,7 +259,7 @@ export function ScannerConfigModal({
                         <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span className="font-medium text-sm">{category.label}</span>
                         {isNew && (
-                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                          <Badge variant="outline" className="text-xs text-status-warning border-status-warning">
                             New
                           </Badge>
                         )}
@@ -306,10 +306,10 @@ export function ScannerConfigModal({
           </div>
         ) : (
           <div className="space-y-4 mt-4">
-            <div className="rounded-lg border border-green-500/50 bg-green-500/10 p-3 text-sm flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <div className="rounded-lg border border-status-success/50 bg-status-success/10 p-3 text-sm flex items-start gap-2">
+              <CheckCircle2 className="h-4 w-4 text-status-success mt-0.5 flex-shrink-0" />
               <div>
-                <p className="font-medium text-green-600">Configuration Saved</p>
+                <p className="font-medium text-status-success">Configuration Saved</p>
                 <p className="text-muted-foreground">
                   Now update your IAM policy to set the required permissions.
                 </p>
@@ -384,7 +384,7 @@ export function ScannerConfigModal({
                             >
                               {copiedPolicy ? (
                                 <>
-                                  <Check className="mr-1 h-4 w-4 text-green-500" />
+                                  <Check className="mr-1 h-4 w-4 text-status-success" />
                                   Copied!
                                 </>
                               ) : (
@@ -437,16 +437,16 @@ export function ScannerConfigModal({
                   {testResult && (
                     <div className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${
                       testResult.success
-                        ? "border-green-500/50 bg-green-500/10"
-                        : "border-red-500/50 bg-red-500/10"
+                        ? "border-status-success/50 bg-status-success/10"
+                        : "border-status-critical/50 bg-status-critical/10"
                     }`}>
                       {testResult.success ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-status-success mt-0.5 flex-shrink-0" />
                       ) : (
-                        <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <AlertTriangle className="h-4 w-4 text-status-critical mt-0.5 flex-shrink-0" />
                       )}
                       <div>
-                        <p className={`font-medium ${testResult.success ? "text-green-600" : "text-red-600"}`}>
+                        <p className={`font-medium ${testResult.success ? "text-status-success" : "text-status-critical"}`}>
                           {testResult.success ? "Connection Successful" : "Connection Failed"}
                         </p>
                         <p className="text-muted-foreground">{testResult.message}</p>

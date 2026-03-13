@@ -22,11 +22,11 @@ export function ScannerWarning({ accounts }: ScannerWarningProps) {
   }
 
   return (
-    <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+    <div className="rounded-lg border border-status-warning/50 bg-status-warning/10 p-4">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+        <AlertTriangle className="h-5 w-5 text-status-warning mt-0.5 flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-yellow-600">Limited Scanner Configuration</h4>
+          <h4 className="font-medium text-status-warning">Limited Scanner Configuration</h4>
           <p className="text-sm text-muted-foreground mt-1">
             {accountsWithLimitedScanners.length === 1
               ? "One AWS account has"

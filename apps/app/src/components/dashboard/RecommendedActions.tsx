@@ -32,7 +32,7 @@ export function RecommendedActions({ findings }: RecommendedActionsProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Lightbulb className="h-5 w-5 text-yellow-500" />
+            <Lightbulb className="h-5 w-5 text-status-warning" />
             Recommended Actions
           </CardTitle>
           <CardDescription>Quick wins to improve your infrastructure</CardDescription>
@@ -50,7 +50,7 @@ export function RecommendedActions({ findings }: RecommendedActionsProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-yellow-500" />
+          <Lightbulb className="h-5 w-5 text-status-warning" />
           Recommended Actions
         </CardTitle>
         <CardDescription>Quick wins to improve your infrastructure</CardDescription>

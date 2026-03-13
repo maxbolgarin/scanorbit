@@ -381,7 +381,7 @@ export default function ResourceDetail() {
                         <SeverityBadge severity={finding.severity} />
                         {(finding.detectionCount || 1) > 1 && (
                           <span
-                            className="flex items-center gap-1 text-xs text-amber-600"
+                            className="flex items-center gap-1 text-xs text-status-warning"
                             title={`Detected ${finding.detectionCount} times`}
                           >
                             <RefreshCw className="h-3 w-3" />

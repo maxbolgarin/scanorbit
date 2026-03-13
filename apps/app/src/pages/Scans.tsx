@@ -458,11 +458,11 @@ export default function Scans() {
                         >
                           <span className={
                             scan.status === "error" ? "text-destructive" :
-                            scan.status === "complete" ? "text-green-500" :
-                            scan.status === "partial" ? "text-orange-500" :
+                            scan.status === "complete" ? "text-status-success" :
+                            scan.status === "partial" ? "text-status-high" :
                             scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
                             scan.status === "canceled" ? "text-muted-foreground" :
-                            "text-yellow-500"
+                            "text-status-warning"
                           }>
                             {config.icon}
                           </span>
@@ -488,20 +488,20 @@ export default function Scans() {
                           {scan.resourcesDelta !== 0 && (
                             <Badge
                               variant="outline"
-                              className={`text-xs ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                              className={`text-xs ${scan.resourcesDelta > 0 ? "text-status-success border-status-success" : "text-status-high border-status-high"}`}
                             >
                               {scan.resourcesDelta > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                               {scan.resourcesDelta > 0 ? "+" : ""}{scan.resourcesDelta}
                             </Badge>
                           )}
                           {scan.findingsNew > 0 && (
-                            <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                            <Badge variant="outline" className="text-xs text-status-warning border-status-warning">
                               <AlertCircle className="h-3 w-3 mr-1" />
                               +{scan.findingsNew}
                             </Badge>
                           )}
                           {scan.findingsResolved > 0 && (
-                            <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                            <Badge variant="outline" className="text-xs text-status-success border-status-success">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               -{scan.findingsResolved}
                             </Badge>
@@ -560,11 +560,11 @@ export default function Scans() {
                             >
                               <span className={
                                 scan.status === "error" ? "text-destructive" :
-                                scan.status === "complete" ? "text-green-500" :
-                                scan.status === "partial" ? "text-orange-500" :
+                                scan.status === "complete" ? "text-status-success" :
+                                scan.status === "partial" ? "text-status-high" :
                                 scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
                                 scan.status === "canceled" ? "text-muted-foreground" :
-                                "text-yellow-500"
+                                "text-status-warning"
                               }>
                                 {config.icon}
                               </span>
@@ -600,7 +600,7 @@ export default function Scans() {
                             {(scan.status === "complete" || scan.status === "partial") && scan.resourcesDelta !== 0 ? (
                               <Badge
                                 variant="outline"
-                                className={`text-xs ${scan.resourcesDelta > 0 ? "text-green-600 border-green-600" : "text-orange-600 border-orange-600"}`}
+                                className={`text-xs ${scan.resourcesDelta > 0 ? "text-status-success border-status-success" : "text-status-high border-status-high"}`}
                               >
                                 {scan.resourcesDelta > 0 ? (
                                   <TrendingUp className="h-3 w-3 mr-1" />
@@ -616,13 +616,13 @@ export default function Scans() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               {(scan.status === "complete" || scan.status === "partial") && scan.findingsNew > 0 && (
-                                <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                                <Badge variant="outline" className="text-xs text-status-warning border-status-warning">
                                   <AlertCircle className="h-3 w-3 mr-1" />
                                   +{scan.findingsNew}
                                 </Badge>
                               )}
                               {(scan.status === "complete" || scan.status === "partial") && scan.findingsResolved > 0 && (
-                                <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                <Badge variant="outline" className="text-xs text-status-success border-status-success">
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   -{scan.findingsResolved}
                                 </Badge>
