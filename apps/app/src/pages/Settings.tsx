@@ -7,20 +7,16 @@ import { ViewingSettings } from "@/components/settings/ViewingSettings";
 import { SubscriptionSettings } from "@/components/settings/SubscriptionSettings";
 import { DataPrivacySettings } from "@/components/settings/DataPrivacySettings";
 import { AuditLogSettings } from "@/components/settings/AuditLogSettings";
-import { TeamSettings } from "@/components/settings/TeamSettings";
-import { ApiKeySettings } from "@/components/settings/ApiKeySettings";
 import { useAuthStore } from "@/stores/auth-store";
 import { TIER_LIMITS } from "@/types";
-import { Settings2, Shield, SlidersHorizontal, CreditCard, FileText, ScrollText, Users, Code } from "lucide-react";
+import { Settings2, Shield, SlidersHorizontal, CreditCard, FileText, ScrollText } from "lucide-react";
 
 export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") || "general";
   const { org } = useAuthStore();
   const tier = org?.tier || 'free';
-  const canInviteMembers = TIER_LIMITS[tier].canInviteMembers;
   const canViewAuditLogs = TIER_LIMITS[tier].canViewAuditLogs;
-  const canUseApiKeys = TIER_LIMITS[tier].canUseApiKeys;
 
   return (
     <div className="space-y-6">
@@ -59,18 +55,6 @@ export default function Settings() {
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Data & Privacy</span>
           </TabsTrigger>
-          {canInviteMembers && (
-            <TabsTrigger value="team" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Team</span>
-            </TabsTrigger>
-          )}
-          {canUseApiKeys && (
-            <TabsTrigger value="api" className="gap-2">
-              <Code className="h-4 w-4" />
-              <span className="hidden sm:inline">API</span>
-            </TabsTrigger>
-          )}
           {canViewAuditLogs && (
             <TabsTrigger value="audit" className="gap-2">
               <ScrollText className="h-4 w-4" />
@@ -98,18 +82,6 @@ export default function Settings() {
         <TabsContent value="privacy">
           <DataPrivacySettings />
         </TabsContent>
-
-        {canInviteMembers && (
-          <TabsContent value="team">
-            <TeamSettings />
-          </TabsContent>
-        )}
-
-        {canUseApiKeys && (
-          <TabsContent value="api">
-            <ApiKeySettings />
-          </TabsContent>
-        )}
 
         {canViewAuditLogs && (
           <TabsContent value="audit">

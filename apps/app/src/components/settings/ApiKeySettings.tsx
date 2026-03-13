@@ -31,7 +31,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import { useApiKeys, useCreateApiKey, useRevokeApiKey } from "@/hooks/use-api-keys";
 import { useOrgMembers } from "@/hooks/use-members";
-import { Key, Plus, Trash2, Copy, Check, Code, AlertTriangle } from "lucide-react";
+import { Key, Plus, Trash2, Copy, Check, Code, AlertTriangle, Lock } from "lucide-react";
+import { TIER_LIMITS } from "@/types";
 import type { ApiKeyInfo } from "@/types";
 
 const MAX_API_KEYS = 5;
@@ -58,7 +59,9 @@ function formatRelative(ts: string | null) {
 }
 
 export function ApiKeySettings() {
-  const { user } = useAuthStore();
+  const { user, org } = useAuthStore();
+  const tier = org?.tier || "free";
+  const canUseApiKeys = TIER_LIMITS[tier].canUseApiKeys;
   const { data: keys, isLoading } = useApiKeys();
   const { data: members } = useOrgMembers();
   const createApiKey = useCreateApiKey();
@@ -122,7 +125,7 @@ export function ApiKeySettings() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (isLoading) {
+  if (canUseApiKeys && isLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
@@ -136,17 +139,29 @@ export function ApiKeySettings() {
 
   return (
     <div className="space-y-6">
-      {/* Key Usage Banner */}
-      <Alert>
-        <Key className="h-4 w-4" />
-        <AlertDescription>
-          Using <strong>{keyCount}</strong> of <strong>{MAX_API_KEYS}</strong> API keys.
-          API keys provide read-only access to your organization's data via the public API.
-        </AlertDescription>
-      </Alert>
+      {!canUseApiKeys ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <Lock className="h-8 w-8 text-muted-foreground" />
+            <p className="font-medium">API Key Management</p>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Upgrade to the Team plan to create and manage API keys for programmatic access to your data.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Key Usage Banner */}
+          <Alert>
+            <Key className="h-4 w-4" />
+            <AlertDescription>
+              Using <strong>{keyCount}</strong> of <strong>{MAX_API_KEYS}</strong> API keys.
+              API keys provide read-only access to your organization's data via the public API.
+            </AlertDescription>
+          </Alert>
 
-      {/* Existing Keys */}
-      <Card>
+          {/* Existing Keys */}
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
@@ -268,6 +283,7 @@ export function ApiKeySettings() {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
 
       {/* API Documentation */}

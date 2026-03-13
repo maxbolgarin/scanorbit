@@ -73,6 +73,8 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
       { text: "Dashboard statistics", included: true },
       { text: "Resource & finding lists", included: true },
       { text: "Infrastructure map", included: true },
+      { text: "All data without constraints", included: true },
+      { text: "Email support", included: true },
     ],
   },
   team: {
@@ -87,7 +89,7 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
       { text: "Unlimited scans with priority", included: true },
       { text: "Data export (CSV/JSON)", included: true },
       { text: "5 team members included (+$10/seat)", included: true },
-      { text: "Webhook notifications", included: true },
+      { text: "Access to API", included: true },
       { text: "Audit logs", included: true },
       { text: "180+ days data retention", included: true },
     ],
