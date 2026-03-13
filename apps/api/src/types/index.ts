@@ -24,6 +24,7 @@ export interface TierLimits {
   canViewAuditLogs: boolean;
   canInviteMembers: boolean;
   canConfigureWebhooks: boolean;
+  canUseApiKeys: boolean;
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
@@ -40,6 +41,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: false,
     canInviteMembers: false,
     canConfigureWebhooks: false,
+    canUseApiKeys: false,
   },
   pro: {
     scanCooldownMinutes: 60, // 1 hour cooldown
@@ -54,6 +56,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: false,
     canInviteMembers: false,
     canConfigureWebhooks: false,
+    canUseApiKeys: false,
   },
   team: {
     scanCooldownMinutes: null, // Unlimited
@@ -68,6 +71,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: true,
     canInviteMembers: true,
     canConfigureWebhooks: true,
+    canUseApiKeys: true,
   },
 } as const;
 

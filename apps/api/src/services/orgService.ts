@@ -452,4 +452,26 @@ export const orgService = {
 
     return { tier: updated.tier as SubscriptionTier };
   },
+
+  /**
+   * Get limited org info for public API (no subscription/stripe details)
+   */
+  async getOrgPublic(orgId: string) {
+    const [org] = await db
+      .select({
+        id: orgs.id,
+        name: orgs.name,
+        slug: orgs.slug,
+        tier: orgs.tier,
+      })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (!org) {
+      throw new HTTP404Error('Organization not found');
+    }
+
+    return org;
+  },
 };

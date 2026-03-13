@@ -40,6 +40,7 @@ export interface TierLimits {
   canViewAuditLogs: boolean;
   canInviteMembers: boolean;
   canConfigureWebhooks: boolean;
+  canUseApiKeys: boolean;
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
@@ -56,6 +57,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: false,
     canInviteMembers: false,
     canConfigureWebhooks: false,
+    canUseApiKeys: false,
   },
   pro: {
     scanCooldownMinutes: 60,
@@ -70,6 +72,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: false,
     canInviteMembers: false,
     canConfigureWebhooks: false,
+    canUseApiKeys: false,
   },
   team: {
     scanCooldownMinutes: null,
@@ -84,6 +87,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: true,
     canInviteMembers: true,
     canConfigureWebhooks: true,
+    canUseApiKeys: true,
   },
 };
 
@@ -906,4 +910,22 @@ export interface FindingTimelineEntry {
       completedAt: string | null;
     };
   }>;
+}
+
+// API Keys
+export interface ApiKeyInfo {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  keyPrefix: string;
+  createdBy: string | null;
+  creatorName: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateApiKeyResponse {
+  apiKey: ApiKeyInfo;
+  rawKey: string;
 }

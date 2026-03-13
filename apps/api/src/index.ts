@@ -61,7 +61,7 @@ app.use(
     origin: config.frontendUrl,
     credentials: true,
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-trace-id', 'x-span-id'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'x-request-id', 'x-trace-id', 'x-span-id'],
     exposeHeaders: ['Set-Cookie', 'x-request-id', 'x-trace-id'],
     maxAge: 86400,
   })
