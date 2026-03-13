@@ -77,6 +77,7 @@ export const orgs = pgTable('orgs', {
 export const orgsRelations = relations(orgs, ({ many }) => ({
   members: many(userOrgMembers),
   invitations: many(orgInvitations),
+  apiKeys: many(apiKeys),
   awsAccounts: many(awsAccounts),
   resources: many(resources),
   resourceDependencies: many(resourceDependencies),
@@ -582,6 +583,33 @@ export const orgSettingsRelations = relations(orgSettings, ({ one }) => ({
   }),
 }));
 
+// API Keys (for public API access)
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  description: varchar('description', { length: 500 }),
+  keyHash: varchar('key_hash', { length: 64 }).notNull().unique(), // SHA-256 hex
+  keyPrefix: varchar('key_prefix', { length: 12 }).notNull(), // first 8 hex chars for display
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('api_keys_org_id_idx').on(table.orgId),
+  index('api_keys_key_hash_idx').on(table.keyHash),
+]);
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  org: one(orgs, {
+    fields: [apiKeys.orgId],
+    references: [orgs.id],
+  }),
+  creator: one(users, {
+    fields: [apiKeys.createdBy],
+    references: [users.id],
+  }),
+}));
+
 // Drip Email Campaign Log (deduplication for drip scheduler)
 export const dripLog = pgTable('drip_log', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -637,3 +665,5 @@ export type UserOauthAccount = typeof userOauthAccounts.$inferSelect;
 export type NewUserOauthAccount = typeof userOauthAccounts.$inferInsert;
 export type DripLog = typeof dripLog.$inferSelect;
 export type NewDripLog = typeof dripLog.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;

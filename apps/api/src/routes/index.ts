@@ -9,6 +9,7 @@ import gdprRoute from './gdpr.js';
 import stripeRoute from './stripe.js';
 import newsletterRoute from './newsletter.js';
 import webhooksRoute from './webhooks.js';
+import publicApiRoute from './publicApi.js';
 import type { Variables } from '../types/index.js';
 
 const routes = new Hono<{ Variables: Variables }>();
@@ -32,5 +33,8 @@ routes.route('/newsletter', newsletterRoute);
 
 // Webhook bridges (Scaleway bounce → Listmonk)
 routes.route('/webhooks', webhooksRoute);
+
+// Public API v1 (API key authentication)
+routes.route('/api/v1', publicApiRoute);
 
 export default routes;

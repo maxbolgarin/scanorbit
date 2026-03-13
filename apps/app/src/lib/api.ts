@@ -36,6 +36,8 @@ import type {
   SeatInfo,
   SeatBillingPreview,
   InviteInfo,
+  ApiKeyInfo,
+  CreateApiKeyResponse,
 } from "@/types";
 
 function normalizeApiUrl(value: unknown): string | undefined {
@@ -586,6 +588,43 @@ export async function getSeatInfo(orgId: string): Promise<SeatInfo> {
   try {
     const { data } = await api.get<{ data: SeatInfo }>(`/orgs/${orgId}/seats`);
     return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// API Keys
+// ============================================
+
+export async function getApiKeys(orgId: string): Promise<ApiKeyInfo[]> {
+  try {
+    const { data } = await api.get<{ data: ApiKeyInfo[] }>(`/orgs/${orgId}/api-keys`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function createApiKey(
+  orgId: string,
+  name: string,
+  description?: string
+): Promise<CreateApiKeyResponse> {
+  try {
+    const { data } = await api.post<{ data: CreateApiKeyResponse }>(
+      `/orgs/${orgId}/api-keys`,
+      { name, description }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function revokeApiKey(orgId: string, keyId: string): Promise<void> {
+  try {
+    await api.delete(`/orgs/${orgId}/api-keys/${keyId}`);
   } catch (error) {
     handleApiError(error);
   }

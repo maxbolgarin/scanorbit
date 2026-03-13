@@ -7,6 +7,7 @@ import { requireNoProcessingRestriction } from '../middlewares/processingRestric
 import { orgService, getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
 import { invitationService } from '../services/invitationService.js';
+import { apiKeyService } from '../services/apiKeyService.js';
 import { setAuthTokens } from '../lib/authTokens.js';
 import { db } from '../lib/db.js';
 import { auditLogs, userOrgMembers, users } from '../db/schema.js';
@@ -284,6 +285,53 @@ orgsRoute.get('/:id/seats', async (c) => {
 
   const seatInfo = await invitationService.getSeatInfo(orgId);
   return c.json({ data: seatInfo });
+});
+
+// =============================================================================
+// API Keys (Team-only)
+// =============================================================================
+
+const createApiKeySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name must be at most 100 characters'),
+  description: z.string().max(500).optional(),
+});
+
+// POST /orgs/:id/api-keys — Create API key (admin, Team-only)
+orgsRoute.post('/:id/api-keys', zValidator('json', createApiKeySchema), async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const { name, description } = c.req.valid('json');
+
+  const result = await apiKeyService.createApiKey(orgId, userId, name, description);
+  return c.json({ data: result }, 201);
+});
+
+// GET /orgs/:id/api-keys — List API keys (any member, Team-only)
+orgsRoute.get('/:id/api-keys', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+
+  // Verify membership (any role)
+  await orgService.getOrg(orgId, userId);
+
+  // Check tier
+  const tier = await getOrgTier(orgId);
+  if (!TIER_LIMITS[tier].canUseApiKeys) {
+    throw new HTTP403Error('API keys are available on the Team plan only.');
+  }
+
+  const keys = await apiKeyService.listApiKeys(orgId);
+  return c.json({ data: keys });
+});
+
+// DELETE /orgs/:id/api-keys/:keyId — Revoke API key (admin, Team-only)
+orgsRoute.delete('/:id/api-keys/:keyId', async (c) => {
+  const orgId = c.req.param('id');
+  const userId = c.get('userId');
+  const keyId = c.req.param('keyId');
+
+  await apiKeyService.revokeApiKey(orgId, userId, keyId);
+  return c.json({ data: { revoked: true } });
 });
 
 // =============================================================================
