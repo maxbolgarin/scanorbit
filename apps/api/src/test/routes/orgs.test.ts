@@ -299,6 +299,40 @@ describe('Orgs Routes', () => {
       expect(res.status).toBe(400);
     });
 
+    it('accepts sortOrder=asc', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?sortOrder=asc');
+      expect(res.status).toBe(200);
+    });
+
+    it('accepts sortOrder=desc', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?sortOrder=desc');
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects invalid sortOrder', async () => {
+      const res = await app.request('/orgs/org-1/audit-logs?sortOrder=random');
+      expect(res.status).toBe(400);
+    });
+
+    it('accepts status=2xx', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?status=2xx');
+      expect(res.status).toBe(200);
+    });
+
+    it('accepts status=4xx', async () => {
+      dbSelectResult = [];
+      const res = await app.request('/orgs/org-1/audit-logs?status=4xx');
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects invalid status value', async () => {
+      const res = await app.request('/orgs/org-1/audit-logs?status=1xx');
+      expect(res.status).toBe(400);
+    });
+
     it('returns correct pagination for multiple pages', async () => {
       dbSelectResult = Array.from({ length: 25 }, (_, i) => ({
         id: `log-${i}`,

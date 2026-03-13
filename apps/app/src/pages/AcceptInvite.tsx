@@ -19,7 +19,7 @@ import type { InviteInfo } from "@/types";
 export default function AcceptInvite() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, refreshAuth } = useAuthStore();
+  const { isAuthenticated, user, logout, refreshAuth } = useAuthStore();
 
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,7 +97,25 @@ export default function AcceptInvite() {
 
         {!error && inviteInfo && (
           <CardContent>
-            {isAuthenticated ? (
+            {isAuthenticated && user?.email?.toLowerCase() !== inviteInfo.email.toLowerCase() ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  You are signed in as <strong>{user?.email}</strong>. This invitation was sent to{" "}
+                  <strong>{inviteInfo.email}</strong>. Please sign out and sign in with the correct account.
+                </p>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  size="lg"
+                  onClick={async () => {
+                    await logout();
+                    navigate(`/login`, { state: { from: { pathname: `/invite/${token}` } } });
+                  }}
+                >
+                  Sign Out & Switch Account
+                </Button>
+              </div>
+            ) : isAuthenticated ? (
               <Button
                 onClick={handleAccept}
                 disabled={accepting}

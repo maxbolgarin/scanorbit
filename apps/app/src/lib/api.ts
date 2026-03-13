@@ -646,7 +646,7 @@ export interface AuditLogEntry {
 
 export async function getAuditLogs(
   orgId: string,
-  params?: { page?: number; limit?: number; action?: string; userId?: string; startDate?: string; endDate?: string }
+  params?: { page?: number; limit?: number; action?: string; userId?: string; startDate?: string; endDate?: string; sortOrder?: 'asc' | 'desc'; status?: string }
 ): Promise<PaginatedResponse<AuditLogEntry>> {
   try {
     const searchParams = new URLSearchParams();
@@ -656,6 +656,8 @@ export async function getAuditLogs(
     if (params?.userId) searchParams.set("userId", params.userId);
     if (params?.startDate) searchParams.set("startDate", params.startDate);
     if (params?.endDate) searchParams.set("endDate", params.endDate);
+    if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+    if (params?.status) searchParams.set("status", params.status);
     const { data } = await api.get<PaginatedResponse<AuditLogEntry>>(
       `/orgs/${orgId}/audit-logs?${searchParams.toString()}`
     );
