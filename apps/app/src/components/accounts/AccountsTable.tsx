@@ -26,6 +26,7 @@ interface AccountsTableProps {
   onEdit?: (accountId: string) => void;
   onViewHistory: (accountId: string) => void;
   onDisconnect?: (accountId: string) => void;
+  onViewDetails?: (account: AwsAccount) => void;
 }
 
 export function AccountsTable({
@@ -33,6 +34,7 @@ export function AccountsTable({
   onEdit,
   onViewHistory,
   onDisconnect,
+  onViewDetails,
 }: AccountsTableProps) {
   const navigate = useNavigate();
 
@@ -135,14 +137,15 @@ export function AccountsTable({
           </TableHeader>
           <TableBody>
             {accounts.map((account) => (
-              <TableRow key={account.id}>
+              <TableRow
+                key={account.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => onViewDetails ? onViewDetails(account) : navigate(`/accounts/${account.id}`)}
+              >
                 <TableCell className="font-medium">
-                  <button
-                    onClick={() => navigate(`/accounts/${account.id}`)}
-                    className="hover:text-primary hover:underline text-left"
-                  >
+                  <span className="hover:text-primary hover:underline">
                     {account.name}
-                  </button>
+                  </span>
                 </TableCell>
                 <TableCell className="font-mono text-sm">
                   {account.awsAccountId}
@@ -160,7 +163,7 @@ export function AccountsTable({
                     ? formatRelativeTime(account.lastScanAt)
                     : "Never"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-2">
                     {onEdit && (
                       <Button

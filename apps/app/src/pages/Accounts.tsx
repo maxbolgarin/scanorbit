@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { AccountsTable } from "@/components/accounts/AccountsTable";
 import { ScanHistory } from "@/components/accounts/ScanHistory";
 import { ScannerConfigModal } from "@/components/accounts/ScannerConfigModal";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { AccountStatusBadge } from "@/components/shared/StatusBadge";
 import { useAwsAccounts } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAccountContextStore } from "@/stores/account-context-store";
 import { toast } from "@/hooks/use-toast";
-import { TIER_LIMITS } from "@/types";
-import { Cloud, Plus, Info } from "lucide-react";
+import { TIER_LIMITS, ALL_SCANNER_TYPES } from "@/types";
+import type { AwsAccount } from "@/types";
+import { formatRelativeTime, formatDateTime } from "@/lib/utils";
+import { Cloud, Plus, Info, LayoutDashboard, History, ScanLine, Settings2, AlertTriangle, Copy, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +26,159 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+function AccountDetailModal({
+  account,
+  onClose,
+  onEdit,
+  onViewHistory,
+  isAdmin,
+}: {
+  account: AwsAccount | null;
+  onClose: () => void;
+  onEdit?: (id: string) => void;
+  onViewHistory: (id: string) => void;
+  isAdmin: boolean;
+}) {
+  const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+
+  if (!account) return null;
+
+  const copyArn = () => {
+    navigator.clipboard.writeText(account.roleArn);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Dialog open={!!account} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-primary" />
+            {account.name}
+          </DialogTitle>
+          <DialogDescription className="font-mono text-xs">{account.awsAccountId}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Status */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Status</span>
+            <AccountStatusBadge status={account.status} />
+          </div>
+
+          {/* Error */}
+          {account.status === "error" && account.lastError && (
+            <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive break-words">{account.lastError}</p>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Connection */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Connection</p>
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm text-muted-foreground shrink-0">Role ARN</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs font-mono text-right truncate max-w-[260px]" title={account.roleArn}>
+                  {account.roleArn}
+                </span>
+                <button onClick={copyArn} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+                  {copied ? <Check className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+            {account.externalId && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">External ID</span>
+                <span className="text-xs font-mono">{account.externalId}</span>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Scan info */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Scan Info</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Last scan</span>
+              <span className="text-sm">
+                {account.lastScanAt ? formatRelativeTime(account.lastScanAt) : "Never"}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm text-muted-foreground shrink-0">
+                Scanners ({account.enabledScanners.length}/{ALL_SCANNER_TYPES.length})
+              </span>
+              <div className="flex flex-wrap gap-1 justify-end">
+                {account.enabledScanners.map((s) => (
+                  <Badge key={s} variant="secondary" className="text-xs py-0">{s}</Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Timestamps */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Connected</span>
+              <span className="text-sm">{formatDateTime(account.createdAt)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Updated</span>
+              <span className="text-sm">{formatDateTime(account.updatedAt)}</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+              onClick={() => { onClose(); navigate(`/accounts/${account.id}`); }}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Dashboard
+            </button>
+            <button
+              className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+              onClick={() => { onClose(); navigate(`/accounts/${account.id}/scans`); }}
+            >
+              <ScanLine className="h-3.5 w-3.5" />
+              Scans
+            </button>
+            <button
+              className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+              onClick={() => { onClose(); onViewHistory(account.id); }}
+            >
+              <History className="h-3.5 w-3.5" />
+              Scan History
+            </button>
+            {isAdmin && onEdit && (
+              <button
+                className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                onClick={() => { onClose(); onEdit(account.id); }}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Edit Scanners
+              </button>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Accounts() {
   const navigate = useNavigate();
@@ -37,6 +194,7 @@ export default function Accounts() {
   const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [historyAccountId, setHistoryAccountId] = useState<string | null>(null);
   const [disconnectAccountId, setDisconnectAccountId] = useState<string | null>(null);
+  const [detailAccount, setDetailAccount] = useState<AwsAccount | null>(null);
 
   const handleDisconnect = async () => {
     if (!disconnectAccountId) return;
@@ -132,6 +290,7 @@ export default function Accounts() {
           onEdit={isAdmin ? setEditAccountId : undefined}
           onViewHistory={setHistoryAccountId}
           onDisconnect={isAdmin ? setDisconnectAccountId : undefined}
+          onViewDetails={setDetailAccount}
         />
       ) : (
         <EmptyState
@@ -142,6 +301,15 @@ export default function Accounts() {
           onAction={isAdmin ? () => navigate("/onboarding/aws") : undefined}
         />
       )}
+
+      {/* Account Detail Modal */}
+      <AccountDetailModal
+        account={detailAccount}
+        onClose={() => setDetailAccount(null)}
+        onEdit={isAdmin ? setEditAccountId : undefined}
+        onViewHistory={setHistoryAccountId}
+        isAdmin={isAdmin}
+      />
 
       {/* Scanner Configuration Modal */}
       {editAccount && (

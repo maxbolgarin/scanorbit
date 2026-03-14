@@ -185,10 +185,20 @@ export default function Findings() {
     }
   };
 
-  const handleStatsFilterSelect = (filter: { type?: Filters["type"] }) => {
-    if (filter.type) {
-      setFilters(prev => ({ ...prev, type: filter.type }));
-    }
+  const handleStatsFilterSelect = (filter: { type?: Filters["type"]; types?: Filters["types"]; severity?: Filters["severity"]; status?: Filters["status"] }) => {
+    setFilters(prev => {
+      const next = { ...prev };
+      if (filter.type) {
+        next.type = filter.type;
+        next.types = undefined;
+      } else if (filter.types) {
+        next.types = filter.types;
+        next.type = undefined;
+      }
+      if (filter.severity) next.severity = filter.severity;
+      if (filter.status) next.status = filter.status;
+      return next;
+    });
   };
 
   const handleScanAll = async () => {
