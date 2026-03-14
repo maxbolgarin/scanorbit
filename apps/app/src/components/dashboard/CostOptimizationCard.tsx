@@ -42,7 +42,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-foreground">
             Cost Optimization
           </CardTitle>
         </CardHeader>
@@ -71,7 +71,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+          <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             Cost Optimization
           </CardTitle>
@@ -137,7 +137,7 @@ export function CostOptimizationCard({ summary, isLoading, accountId }: CostOpti
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             Cost Optimization

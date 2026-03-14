@@ -29,7 +29,7 @@ export function MetricCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-muted-foreground">{title}</p>
+            <p className="text-sm font-semibold text-foreground">{title}</p>
             <p className="text-2xl font-bold">{value}</p>
             {subtitle && (
               <p className="text-sm text-muted-foreground">{subtitle}</p>

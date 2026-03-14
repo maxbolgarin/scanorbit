@@ -53,7 +53,7 @@ export function DashboardSummaryCards({ summary, isLoading }: DashboardSummaryCa
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground">
                 Total Resources
               </p>
               <p className="text-3xl font-bold">
@@ -87,7 +87,7 @@ export function DashboardSummaryCards({ summary, isLoading }: DashboardSummaryCa
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground">
                 Orphaned Resources
               </p>
               <p className={`text-3xl font-bold ${hasOrphanedIssues ? "text-status-high" : ""}`}>
@@ -114,7 +114,7 @@ export function DashboardSummaryCards({ summary, isLoading }: DashboardSummaryCa
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground">
                 Expiring Certificates
               </p>
               <p className={`text-3xl font-bold ${urgentCertificates > 0 ? "text-status-critical" : hasCertificateIssues ? "text-status-warning" : ""}`}>
@@ -142,7 +142,7 @@ export function DashboardSummaryCards({ summary, isLoading }: DashboardSummaryCa
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground">
                 Residency Violations
               </p>
               <p className={`text-3xl font-bold ${hasResidencyIssues ? "text-status-critical" : ""}`}>

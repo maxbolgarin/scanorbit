@@ -113,7 +113,7 @@ export function SecurityHealthScore({ summary, isLoading, hasAccounts, hasScanIn
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base font-medium">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Shield className="h-5 w-5" />
           Infrastructure Health
         </CardTitle>

@@ -13,9 +13,10 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/shared/TierBadge";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, LogOut, Orbit, Settings, User, Building2, Cloud, Plus, Lock, Check } from "lucide-react";
+import { ChevronDown, LogOut, Orbit, Settings, User, Building2, Cloud, Plus, Lock, Check, Sun, Moon, Monitor } from "lucide-react";
 import { getInitials, cn } from "@/lib/utils";
 import { useAccountContext } from "@/hooks/use-account-context";
+import { useThemeStore } from "@/stores/theme-store";
 import { TIER_LIMITS } from "@/types";
 
 export function Header() {
@@ -29,11 +30,19 @@ export function Header() {
     switchToAccount,
   } = useAccountContext();
 
+  const { theme, setTheme } = useThemeStore();
   const tier = org?.tier || 'free';
   const tierLimits = TIER_LIMITS[tier];
   const canViewOrgOverview = tierLimits.canViewOrgOverview;
   const isTeamTier = tier === 'team';
   const hasAccounts = accounts.length > 0;
+
+  const cycleTheme = () => {
+    const next = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
+    setTheme(next);
+  };
+
+  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
 
   const handleLogout = () => {
     // Clear local auth state first (before navigating away)
@@ -75,6 +84,17 @@ export function Header() {
 
         {/* Right side */}
         <div className="flex items-center gap-2 md:gap-4">
+          {/* Theme Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cycleTheme}
+            className="h-8 w-8 p-0"
+            title={`Theme: ${theme}`}
+          >
+            <ThemeIcon className="h-4 w-4" />
+          </Button>
+
           {/* Mobile Account Switcher */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

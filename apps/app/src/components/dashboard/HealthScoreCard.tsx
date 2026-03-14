@@ -55,7 +55,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-foreground">
             Infrastructure Health
           </CardTitle>
         </CardHeader>
@@ -89,7 +89,7 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
   return (
     <Card className={cn("h-full transition-colors", config.borderColor, "border")}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Shield className="h-4 w-4" />
           <span className="sm:hidden">Health</span>
           <span className="hidden sm:inline">Infrastructure Health</span>
