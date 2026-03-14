@@ -31,6 +31,7 @@ const querySchema = z.object({
   type: z.string().optional(),
   severity: z.enum(['low', 'medium', 'high']).optional(),
   status: z.enum(['open', 'resolved', 'snoozed', 'ignored']).optional(),
+  sortBy: z.enum(['createdAt', 'updatedAt']).optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -68,6 +69,15 @@ function sanitizeCsvCell(value: string): string {
     return `"'${escaped}"`;
   }
   return `"${escaped}"`;
+}
+
+// Format date compactly for CSV: "2026-03-14 08:54:04 UTC"
+function formatCsvDate(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value as any);
+  if (isNaN(d.getTime())) return String(value);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
 }
 
 // GET /findings/export - Export all findings as CSV or JSON (Team-only)
@@ -113,11 +123,11 @@ findingsRoute.get('/export', zValidator('query', z.object({
     sanitizeCsvCell(f.severity),
     sanitizeCsvCell(f.status),
     sanitizeCsvCell(f.summary ?? ''),
-    sanitizeCsvCell(String(f.firstDetectedAt ?? '')),
-    sanitizeCsvCell(String(f.lastDetectedAt ?? '')),
+    sanitizeCsvCell(formatCsvDate(f.firstDetectedAt)),
+    sanitizeCsvCell(formatCsvDate(f.lastDetectedAt)),
     sanitizeCsvCell(String(f.detectionCount ?? 0)),
-    sanitizeCsvCell(String(f.resolvedAt ?? '')),
-    sanitizeCsvCell(String(f.createdAt)),
+    sanitizeCsvCell(formatCsvDate(f.resolvedAt)),
+    sanitizeCsvCell(formatCsvDate(f.createdAt)),
   ].join(','));
 
   const csv = [csvHeaders.join(','), ...csvRows].join('\n');

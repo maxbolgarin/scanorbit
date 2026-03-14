@@ -102,7 +102,7 @@ export default function Resources() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `scanorbit-resources.${format}`;
+      a.download = `scanorbit-resources-${new Date().toISOString().split('T')[0]}.${format}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {

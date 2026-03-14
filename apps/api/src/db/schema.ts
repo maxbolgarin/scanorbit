@@ -610,6 +610,36 @@ export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   }),
 }));
 
+// Bug Reports
+export const bugReports = pgTable('bug_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description').notNull(),
+  category: varchar('category', { length: 50 }).notNull(), // 'ui_bug', 'scan_issue', 'data_incorrect', 'performance', 'feature_request', 'other'
+  status: varchar('status', { length: 50 }).default('open').notNull(),
+  screenshotUrl: varchar('screenshot_url', { length: 500 }),
+  metadata: jsonb('metadata').default({}).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('bug_reports_org_id_idx').on(table.orgId),
+  index('bug_reports_user_id_idx').on(table.userId),
+  index('bug_reports_status_idx').on(table.status),
+]);
+
+export const bugReportsRelations = relations(bugReports, ({ one }) => ({
+  org: one(orgs, {
+    fields: [bugReports.orgId],
+    references: [orgs.id],
+  }),
+  user: one(users, {
+    fields: [bugReports.userId],
+    references: [users.id],
+  }),
+}));
+
 // Drip Email Campaign Log (deduplication for drip scheduler)
 export const dripLog = pgTable('drip_log', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -667,3 +697,5 @@ export type DripLog = typeof dripLog.$inferSelect;
 export type NewDripLog = typeof dripLog.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
+export type BugReport = typeof bugReports.$inferSelect;
+export type NewBugReport = typeof bugReports.$inferInsert;

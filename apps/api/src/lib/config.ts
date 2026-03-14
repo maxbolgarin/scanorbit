@@ -94,6 +94,9 @@ export const config = {
     },
   },
 
+  // Bug report notification recipient
+  bugReportEmail: process.env.BUG_REPORT_EMAIL || 'support@scanorbit.cloud',
+
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
 

@@ -175,7 +175,7 @@ export default function Findings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `scanorbit-findings.${format}`;
+      a.download = `scanorbit-findings-${new Date().toISOString().split('T')[0]}.${format}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {

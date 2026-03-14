@@ -1,20 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, CheckCircle2, AlertTriangle, RefreshCw, Server, XCircle, Clock } from "lucide-react";
+import { Activity, CheckCircle2, AlertTriangle, RefreshCw, Server, XCircle, Clock, Shield, WifiOff, BellOff, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
-import type { Scan, AwsAccount } from "@/types";
+import { formatDistanceToNow, format } from "date-fns";
+import type { Scan, AwsAccount, Finding } from "@/types";
 
 interface RecentActivityCardProps {
   scans: Scan[] | undefined;
   accounts: AwsAccount[];
+  actionedFindings?: Finding[];
   isLoading?: boolean;
   accountId?: string;
 }
 
 interface ActivityItem {
   id: string;
-  type: "scan_complete" | "scan_started" | "scan_error" | "findings_new" | "findings_resolved" | "resources_discovered";
+  type: "scan_complete" | "scan_started" | "scan_error" | "findings_new" | "findings_resolved" | "resources_discovered" | "account_connected" | "account_error" | "finding_resolved" | "finding_snoozed" | "finding_ignored";
   icon: typeof CheckCircle2;
   iconColor: string;
   title: string;
@@ -23,7 +24,7 @@ interface ActivityItem {
   link?: string;
 }
 
-export function RecentActivityCard({ scans, accounts, isLoading, accountId }: RecentActivityCardProps) {
+export function RecentActivityCard({ scans, accounts, actionedFindings, isLoading, accountId }: RecentActivityCardProps) {
   if (isLoading || !scans) {
     return (
       <Card className="h-full">
@@ -138,10 +139,82 @@ export function RecentActivityCard({ scans, accounts, isLoading, accountId }: Re
     }
   });
 
-  // Sort by timestamp and take top 8
+  // Build activity items from accounts
+  accounts.forEach((account) => {
+    // Account connected
+    activities.push({
+      id: `account-${account.id}-connected`,
+      type: "account_connected",
+      icon: Shield,
+      iconColor: "text-status-info",
+      title: `${account.name} connected`,
+      description: `AWS account ${account.awsAccountId}`,
+      timestamp: new Date(account.createdAt),
+    });
+
+    // Account error
+    if (account.status === "error") {
+      activities.push({
+        id: `account-${account.id}-error`,
+        type: "account_error",
+        icon: WifiOff,
+        iconColor: "text-status-critical",
+        title: `${account.name} connection error`,
+        description: account.lastError || "Failed to connect to AWS account",
+        timestamp: new Date(account.updatedAt),
+      });
+    }
+  });
+
+  // Build activity items from actioned findings (resolved / snoozed / ignored)
+  (actionedFindings ?? []).forEach((finding) => {
+    const account = accounts.find(a => a.id === finding.awsAccountId);
+    const accountName = account?.name || "Unknown account";
+    const findingLink = accountId
+      ? `/accounts/${accountId}/findings/${finding.id}`
+      : `/overview/findings/${finding.id}`;
+
+    if (finding.status === "resolved") {
+      activities.push({
+        id: `finding-${finding.id}-resolved`,
+        type: "finding_resolved",
+        icon: CheckCircle2,
+        iconColor: "text-status-success",
+        title: "Finding resolved",
+        description: `${finding.summary} · ${accountName}`,
+        timestamp: new Date(finding.resolvedAt || finding.updatedAt),
+        link: findingLink,
+      });
+    } else if (finding.status === "snoozed") {
+      const until = finding.snoozedUntil ? ` until ${format(new Date(finding.snoozedUntil), "MMM d")}` : "";
+      activities.push({
+        id: `finding-${finding.id}-snoozed`,
+        type: "finding_snoozed",
+        icon: BellOff,
+        iconColor: "text-status-warning",
+        title: `Finding snoozed${until}`,
+        description: `${finding.summary} · ${accountName}`,
+        timestamp: new Date(finding.updatedAt),
+        link: findingLink,
+      });
+    } else if (finding.status === "ignored") {
+      activities.push({
+        id: `finding-${finding.id}-ignored`,
+        type: "finding_ignored",
+        icon: EyeOff,
+        iconColor: "text-muted-foreground",
+        title: "Finding ignored",
+        description: `${finding.summary} · ${accountName}`,
+        timestamp: new Date(finding.updatedAt),
+        link: findingLink,
+      });
+    }
+  });
+
+  // Sort by timestamp and take top 10
   const sortedActivities = activities
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-    .slice(0, 8);
+    .slice(0, 10);
 
   return (
     <Card className="h-full">

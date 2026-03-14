@@ -1,4 +1,4 @@
-import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
+import { eq, and, desc, count, inArray, sql, asc } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { findings, resources, certificates, findingScans, scans } from '../db/schema.js';
@@ -50,11 +50,12 @@ export const findingService = {
     const total = countResult?.count ?? 0;
 
     // Get paginated data
+    const orderCol = filters.sortBy === "updatedAt" ? findings.updatedAt : findings.createdAt;
     const data = await db
       .select()
       .from(findings)
       .where(and(...conditions))
-      .orderBy(desc(findings.createdAt))
+      .orderBy(desc(orderCol))
       .limit(limit)
       .offset(offset);
 
