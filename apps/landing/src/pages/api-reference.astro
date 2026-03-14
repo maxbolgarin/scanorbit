@@ -1358,7 +1358,7 @@ const sections = [
 
   // Active TOC highlight on scroll
   const tocLinks = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
-  const sectionIds = Array.from(tocLinks).map((l) => l.dataset.section!).filter(Boolean);
+  const sectionIds = Array.from(tocLinks).map((l) => l.dataset.section ?? '').filter(Boolean);
 
   const observer = new IntersectionObserver(
     (entries) => {
