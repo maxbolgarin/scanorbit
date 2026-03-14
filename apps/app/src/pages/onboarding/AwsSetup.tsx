@@ -251,12 +251,12 @@ export default function AwsSetup() {
     step === "role" ? 4 : 5;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-3 sm:p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-3 sm:p-4">
       <div className="w-full max-w-lg">
         {/* Logo */}
-        <div className="mb-6 sm:mb-8 flex items-center justify-center gap-2">
+        <div className="mb-6 sm:mb-8 flex items-center justify-center gap-3">
           <Orbit className="h-8 w-8 sm:h-10 sm:w-10 text-cyber-cyan" />
-          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyber-cyan to-orbit-purple bg-clip-text text-transparent">
             ScanOrbit
           </span>
         </div>

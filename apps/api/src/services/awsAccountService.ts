@@ -112,7 +112,7 @@ export const awsAccountService = {
 
         if (accountCount >= maxAccounts) {
           throw new HTTP403Error(
-            `Your ${tier} plan allows up to ${maxAccounts} AWS account${maxAccounts === 1 ? '' : 's'}. Upgrade to Team for unlimited accounts.`
+            `Your ${tier} plan allows up to ${maxAccounts} AWS account${maxAccounts === 1 ? '' : 's'}. Upgrade your plan to add more AWS accounts.`
           );
         }
       }

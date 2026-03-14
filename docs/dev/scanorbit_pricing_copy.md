@@ -14,24 +14,24 @@ Start free. Upgrade anytime.
 
 ## **Pricing Cards**
 
-### **Plus – €19/month**
-*For solo DevOps engineers & small teams*
+### **Pro – €19/month**
+*For individuals and small teams*
 
-✓ 1 AWS account  
-✓ All scanner types (orphans, SSL, data residency)  
-✓ Unlimited scans  
-✓ 30-day data retention  
-✓ Email alerts  
-✓ Community support  
+✓ 3 AWS accounts
+✓ All scanner types (orphans, SSL, data residency)
+✓ Scans every hour
+✓ Resource & finding lists
+✓ Infrastructure map
+✓ Email support
 
 [Start Free Trial]
 
 ---
 
-### **Pro – €79/month**
-*For growing teams with multiple AWS environments*
+### **Team – €79/month**
+*For growing organizations*
 
-✓ 5 AWS accounts  
+✓ Up to 10 AWS accounts
 ✓ All scanner types  
 ✓ Unlimited scans  
 ✓ 90-day data retention  
@@ -48,19 +48,20 @@ Start free. Upgrade anytime.
 
 ## **Feature Comparison Table** (optional, if you want to include on landing)
 
-| Feature | Plus | Pro |
-|---------|------|-----|
-| AWS Accounts | 1 | 5 |
-| Scanner Types | All | All |
-| Scan Frequency | Unlimited | Unlimited |
-| Data Retention | 30 days | 90 days |
-| Email Alerts | ✓ | ✓ |
-| Slack & Webhooks | — | ✓ |
-| **API Access** | — | ✓ |
-| **Scan Priority** | — | ✓ |
-| Support | Community | Priority Email |
-| Custom Schedules | — | ✓ |
-| Team Features | — | ✓ |
+| Feature | Free | Pro | Team |
+|---------|------|-----|------|
+| AWS Accounts | 1 | 3 | 10 |
+| Scanner Types | All | All | All |
+| Scan Frequency | 1 (one-time) | 1/hour | Unlimited |
+| Resource & Finding Lists | — | ✓ | ✓ |
+| Infrastructure Map | — | ✓ | ✓ |
+| Data Export | — | — | ✓ |
+| Email Alerts | — | ✓ | ✓ |
+| Slack & Webhooks | — | — | ✓ |
+| **API Access** | — | — | ✓ |
+| **Scan Priority** | — | — | ✓ |
+| Audit Logs | — | — | ✓ |
+| Team Members | — | — | 5 included (+$10/seat) |
 
 ---
 
@@ -68,20 +69,19 @@ Start free. Upgrade anytime.
 
 ### *What's included in the free trial?*
 ```
-Your 7-day free trial includes full Pro features—5 AWS accounts, API access,
-priority support, everything. Enter your card to start — you won't be charged during the trial.
+Your 7-day free trial includes full plan features. Enter your card to start — you won't be charged during the trial.
 ```
 
-### *Can I upgrade from Plus to Pro?*
+### *Can I upgrade from Pro to Team?*
 ```
-Yes. Upgrade anytime from your account settings. You'll be charged the difference, 
+Yes. Upgrade anytime from your account settings. You'll be charged the difference,
 prorated to your billing cycle.
 ```
 
-### *What happens when I outgrow 1 AWS account (Plus)?*
+### *What happens when I outgrow 3 AWS accounts (Pro)?*
 ```
-When you need to monitor more AWS accounts, upgrade to Pro. You get 5 accounts 
-plus API access to automate scans in your CI/CD pipeline.
+When you need to monitor more AWS accounts, upgrade to Team. You get up to 10 accounts
+plus API access, audit logs, data export, and team collaboration.
 ```
 
 ### *What's the API for?*
@@ -108,9 +108,9 @@ Not yet—we'll be adding annual plans once we hit product-market fit. For now,
 we offer monthly billing to keep things flexible as you evaluate ScanOrbit.
 ```
 
-### *What if I need more than 5 AWS accounts?*
+### *What if I need more than 10 AWS accounts?*
 ```
-Contact our sales team at [sales@scanorbit.io] for a custom quote. 
+Contact our sales team at [sales@scanorbit.io] for a custom quote.
 We'll work with you on volume pricing.
 ```
 
@@ -118,18 +118,18 @@ We'll work with you on volume pricing.
 
 ## **Email/Landing Page Sections**
 
-### **Why Two Tiers?**
+### **Why Three Tiers?**
 
 ```
 We kept pricing simple on purpose.
 
-Plus is built for solo engineers—one AWS account, all the core scanning tools, 
-30 days of findings history. Perfect for testing ScanOrbit.
+Free is built for trying out ScanOrbit—one AWS account, one successful scan, dashboard statistics.
 
-Pro is for teams managing multiple AWS accounts and who need automation—
-API access, faster scans, team collaboration, and 90-day retention.
+Pro is for individuals and small teams—3 AWS accounts, hourly scans, full resource and finding lists, infrastructure map.
 
-Most engineers start with Plus and upgrade to Pro as their teams grow. 
+Team is for growing organizations—up to 10 AWS accounts, unlimited scans with priority, team collaboration, API access, and audit logs.
+
+Most engineers start with Pro and upgrade to Team as their teams grow.
 We don't believe in forcing you to pay for features you don't need.
 ```
 
@@ -146,12 +146,12 @@ We don't believe in forcing you to pay for features you don't need.
 ### **Popular Upgrade Reasons**
 
 ```
-**Why do Plus customers upgrade to Pro?**
+**Why do Pro customers upgrade to Team?**
 
-1. **Multiple AWS accounts** – They grew beyond 1 account and needed to centralize monitoring
-2. **Team collaboration** – Shared findings and custom scan schedules across the team
+1. **More AWS accounts** – They grew beyond 3 accounts and needed to centralize monitoring
+2. **Team collaboration** – Invite members, shared findings across the team
 3. **Automation** – API access to trigger scans from CI/CD pipelines and Terraform
-4. **Compliance** – Longer retention (90 days) for audit trails and regulatory requirements
+4. **Compliance** – Audit logs and data export for audit trails and regulatory requirements
 ```
 
 ---
@@ -159,9 +159,9 @@ We don't believe in forcing you to pay for features you don't need.
 ## **Tier Comparison – Short Version** (for social/ads)
 
 ```
-Plus (€19/month): 1 AWS account, all scanners, 30-day retention. Perfect to start.
+Pro (€19/month): 3 AWS accounts, all scanners, hourly scans. Perfect for individuals.
 
-Pro (€79/month): 5 AWS accounts, API, priority support, 90-day retention. Built for teams.
+Team (€79/month): 10 AWS accounts, API, audit logs, data export, team members. Built for teams.
 
 7-day free trial. GDPR compliant.
 ```
@@ -189,10 +189,10 @@ Pro (€79/month): 5 AWS accounts, API, priority support, 90-day retention. Buil
 ```
 🔍 Scanning your AWS infrastructure the wrong way?
 
-ScanOrbit finds orphaned resources, expiring SSL certs, and data residency violations 
+ScanOrbit finds orphaned resources, expiring SSL certs, and data residency violations
 in minutes—not weeks.
 
-📊 €19/month for solo engineers. €79 for teams.
+📊 €19/month for Pro (3 accounts). €79 for Team (10 accounts).
 🎯 7-day free trial.
 🇪🇺 GDPR compliant. EU-hosted.
 
@@ -207,7 +207,7 @@ Start scanning → [link]
 
 🚀 ScanOrbit finds hidden AWS costs + security risks before they become problems.
 
-Plus: €19  |  Pro: €79  |  Free trial available
+Pro: €19  |  Team: €79  |  Free trial available
 
 [Learn More]
 ```
@@ -217,22 +217,22 @@ Plus: €19  |  Pro: €79  |  Free trial available
 ## **Internal Talking Points** (for your sales/outreach conversations)
 
 ```
-Plus (€19):
-- Entry point for solo engineers and small teams
-- Test the product with minimal risk
+Pro (€19):
+- Entry point for individuals and small teams (up to 3 AWS accounts)
+- Hourly scans, full resource/finding lists, infrastructure map
 - All core scanning features included
-- Most upgrade to Pro within 3-6 months as their org grows
+- Most upgrade to Team within 3-6 months as their org grows
 
-Pro (€79):
-- Sweet spot for DevOps/SRE teams (5-30 people)
+Team (€79):
+- Sweet spot for DevOps/SRE teams (up to 10 AWS accounts)
 - API access enables full CI/CD integration
 - Scan priority = guaranteed speed during busy times
-- 90-day retention supports compliance audits
-- Includes priority support
+- Audit logs and data export support compliance requirements
+- 5 team members included (+$10/seat)
 
 Enterprise:
 - Currently handled case-by-case (note: save this for later)
-- Unlimited AWS accounts, custom retention, dedicated support
+- Custom account limits, custom retention, dedicated support
 - Contact sales for custom quote
 ```
 

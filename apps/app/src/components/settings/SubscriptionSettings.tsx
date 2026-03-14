@@ -68,7 +68,7 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
     icon: Sparkles,
     popular: true,
     features: [
-      { text: "1 AWS account", included: true },
+      { text: "3 AWS accounts", included: true },
       { text: "Scans every hour", included: true },
       { text: "Dashboard statistics", included: true },
       { text: "Resource & finding lists", included: true },
@@ -85,7 +85,7 @@ const planConfigs: Record<SubscriptionTier, PlanConfig> = {
     icon: Crown,
     features: [
       { text: "Everything in Pro", included: true },
-      { text: "Unlimited AWS accounts", included: true },
+      { text: "Up to 10 AWS accounts", included: true },
       { text: "Unlimited scans with priority", included: true },
       { text: "Data export (CSV/JSON)", included: true },
       { text: "5 team members included (+$10/seat)", included: true },

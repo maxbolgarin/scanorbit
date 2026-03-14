@@ -87,12 +87,12 @@ export default function ResetPassword() {
   // No token state
   if (!token && !isSuccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
           {/* Logo */}
-          <div className="mb-8 flex items-center justify-center gap-2">
+          <div className="mb-8 flex items-center justify-center gap-3">
             <Orbit className="h-10 w-10 text-cyber-cyan" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+            <span className="text-3xl font-bold bg-gradient-to-r from-cyber-cyan to-orbit-purple bg-clip-text text-transparent">
               ScanOrbit
             </span>
           </div>
@@ -128,12 +128,12 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="mb-8 flex items-center justify-center gap-2">
+        <div className="mb-8 flex items-center justify-center gap-3">
           <Orbit className="h-10 w-10 text-cyber-cyan" />
-          <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+          <span className="text-3xl font-bold bg-gradient-to-r from-cyber-cyan to-orbit-purple bg-clip-text text-transparent">
             ScanOrbit
           </span>
         </div>
