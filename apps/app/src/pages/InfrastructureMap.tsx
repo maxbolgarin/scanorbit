@@ -44,7 +44,7 @@ import { MapLegend } from '@/components/infrastructure-map/MapLegend';
 import { PaywallBlocker } from '@/components/shared/PaywallBlocker';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { RefreshCw, Network, RotateCcw, Layout, GitBranch, Waypoints, Globe, EyeOff, Cloud } from 'lucide-react';
+import { RefreshCw, Network, RotateCcw, Layout, GitBranch, Waypoints, Globe, EyeOff, Cloud, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import type { ServiceType, Resource } from '@/types';
 import { TIER_LIMITS } from '@/types';
@@ -71,6 +71,7 @@ const LAYOUT_PRESET_KEY = 'infrastructure-map:layout-preset';
 const VIEW_MODE_KEY = 'infrastructure-map:view-mode';
 const COLLAPSED_STATE_KEY = 'infrastructure-map:collapsed-state';
 const NETWORK_SETTINGS_KEY = 'infrastructure-map:network-settings';
+const CONTROLS_VISIBLE_KEY = 'infrastructure-map:controls-visible';
 
 // Type for stored positions
 type NodePositions = Record<string, XYPosition>;
@@ -191,6 +192,28 @@ function saveNetworkSettings(settings: NetworkViewSettings): void {
   }
 }
 
+// Load controls visibility from localStorage
+function loadControlsVisible(): boolean {
+  try {
+    const saved = localStorage.getItem(CONTROLS_VISIBLE_KEY);
+    if (saved !== null) {
+      return saved === 'true';
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return true;
+}
+
+// Save controls visibility to localStorage
+function saveControlsVisible(visible: boolean): void {
+  try {
+    localStorage.setItem(CONTROLS_VISIBLE_KEY, String(visible));
+  } catch {
+    warnStorageError();
+  }
+}
+
 // Apply saved positions to nodes
 function applyPositionsToNodes<T extends Node>(nodes: T[], positions: NodePositions): T[] {
   return nodes.map((node) => {
@@ -306,6 +329,7 @@ export default function InfrastructureMap() {
   const [viewMode, setViewModeState] = useState<MapViewMode>(loadViewMode);
   const [collapsedState, setCollapsedStateState] = useState<ContainerCollapsedState>(loadCollapsedState);
   const [networkSettings, setNetworkSettingsState] = useState<NetworkViewSettings>(loadNetworkSettings);
+  const [controlsVisible, setControlsVisibleState] = useState<boolean>(loadControlsVisible);
 
   // Wrapper to save layout preset when changed
   const setLayoutPreset = useCallback((preset: LayoutPreset) => {
@@ -332,6 +356,15 @@ export default function InfrastructureMap() {
   const setNetworkSettings = useCallback((settings: NetworkViewSettings) => {
     setNetworkSettingsState(settings);
     saveNetworkSettings(settings);
+  }, []);
+
+  // Toggle controls visibility
+  const toggleControls = useCallback(() => {
+    setControlsVisibleState((prev) => {
+      const next = !prev;
+      saveControlsVisible(next);
+      return next;
+    });
   }, []);
 
   // Toggle global resources visibility
@@ -619,9 +652,25 @@ export default function InfrastructureMap() {
                 onToggle={() => setLegendCollapsed(!legendCollapsed)}
               />
             </div>
+
+            {/* Controls visibility toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleControls}
+              className="h-7 w-7 p-0 bg-card/95 backdrop-blur-sm border rounded-lg"
+              title={controlsVisible ? 'Hide toolbar' : 'Show toolbar'}
+            >
+              {controlsVisible ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
 
           {/* Controls row */}
+          {controlsVisible && (
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <MapFiltersComponent
               filters={filters}
@@ -729,6 +778,7 @@ export default function InfrastructureMap() {
               </Button>
             )}
           </div>
+          )}
         </Panel>
 
         {/* Top Right Panel - Legend (desktop only) */}
