@@ -9,8 +9,9 @@ const steps = [
     title: "Connect AWS",
     subtitle: "5 minute setup",
     description: "Create a read-only IAM role with only the permissions you need. Choose which scanners to enable — we generate a customized policy. No agents, no SSH, no network access required.",
-    screenshot: "/screenshots/dashboard.jpg",
-    screenshotAlt: "ScanOrbit dashboard with health score, open issues, resource health, and compliance status",
+    screenshotDark: "/screenshots/account_black.jpg",
+    screenshotLight: "/screenshots/account_white.jpg",
+    screenshotAlt: "ScanOrbit add new account wizard showing IAM policy creation steps",
     color: "cyber-cyan",
     features: [
       { icon: "lucide:shield-check", label: "Read-only access" },
@@ -21,18 +22,19 @@ const steps = [
   },
   {
     number: "02",
-    icon: "lucide:scan",
-    title: "Automatic Scan",
-    subtitle: "Discovers everything",
-    description: "Our scanner analyzes all your resources across every enabled region. It builds a complete dependency graph — mapping VPCs, subnets, instances, security groups, and their connections.",
-    screenshot: "/screenshots/map.jpg",
-    screenshotAlt: "Infrastructure map showing VPCs, subnets, EC2 instances, and IAM resources with connections",
+    icon: "lucide:layout-dashboard",
+    title: "See Dashboard",
+    subtitle: "Instant overview",
+    description: "Get a complete overview of your infrastructure health, open issues, resource status, and compliance posture — all in one place. See exactly where you stand.",
+    screenshotDark: "/screenshots/dashboard_black.jpeg",
+    screenshotLight: "/screenshots/dashboard_white.jpeg",
+    screenshotAlt: "ScanOrbit dashboard with health score, open issues, resource health, and compliance status",
     color: "orbit-purple",
     features: [
-      { icon: "lucide:globe", label: "Multi-region" },
-      { icon: "lucide:zap", label: "Parallel processing" },
-      { icon: "lucide:shield-check", label: "Zero impact" },
-      { icon: "lucide:list", label: "Complete inventory" },
+      { icon: "lucide:heart-pulse", label: "Health score" },
+      { icon: "lucide:alert-triangle", label: "Open issues" },
+      { icon: "lucide:server", label: "Resource health" },
+      { icon: "lucide:shield-check", label: "Compliance status" },
     ],
   },
   {
@@ -41,7 +43,8 @@ const steps = [
     title: "Get Findings",
     subtitle: "Actionable results",
     description: "Review prioritized findings with severity levels, detection history, and step-by-step remediation guidance. Track issues over time and see how your security posture improves.",
-    screenshot: "/screenshots/finding.jpg",
+    screenshotDark: "/screenshots/finding_black.jpeg",
+    screenshotLight: "/screenshots/finding_white.jpeg",
     screenshotAlt: "Finding detail with severity, fix instructions, and detection history",
     color: "neon-green",
     features: [
@@ -49,6 +52,23 @@ const steps = [
       { icon: "lucide:shield-alert", label: "SSL expiry alerts" },
       { icon: "lucide:globe", label: "Data residency issues" },
       { icon: "lucide:lock", label: "Security vulnerabilities" },
+    ],
+  },
+  {
+    number: "04",
+    icon: "lucide:network",
+    title: "Explore Map",
+    subtitle: "Full visibility",
+    description: "Visualize your entire AWS infrastructure as an interactive dependency graph. See how VPCs, subnets, instances, security groups, and IAM roles connect across regions.",
+    screenshotDark: "/screenshots/map_black.jpeg",
+    screenshotLight: "/screenshots/map_white.jpeg",
+    screenshotAlt: "Infrastructure map showing VPCs, subnets, EC2 instances, and IAM resources with connections",
+    color: "cyber-cyan",
+    features: [
+      { icon: "lucide:globe", label: "Multi-region" },
+      { icon: "lucide:git-branch", label: "Dependencies" },
+      { icon: "lucide:search", label: "Interactive search" },
+      { icon: "lucide:list", label: "Complete inventory" },
     ],
   },
 ];
@@ -101,9 +121,9 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
     </div>
 
     <!-- Stepper bar -->
-    <div class="relative flex items-start justify-between max-w-3xl mx-auto mb-12 px-4">
+    <div class="relative flex items-start justify-between max-w-4xl mx-auto mb-12 px-2 md:px-4">
       <!-- Progress line track -->
-      <div class="absolute top-6 left-[calc(16.67%)] right-[calc(16.67%)] h-0.5 bg-slate-gray/20 hidden md:block">
+      <div class="absolute top-6 left-[calc(12.5%)] right-[calc(12.5%)] h-0.5 bg-slate-gray/20 hidden md:block">
         <div class="step-progress-fill h-full bg-gradient-to-r from-cyber-cyan to-cyber-cyan transition-all duration-500 ease-out" style="width: 0%"></div>
       </div>
 
@@ -111,7 +131,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
         const colors = colorMap[step.color];
         return (
           <button
-            class="step-trigger group relative z-10 flex flex-col items-center gap-3 cursor-pointer bg-transparent border-0 px-2 md:px-4 flex-1"
+            class="step-trigger group relative z-10 flex flex-col items-center gap-3 cursor-pointer bg-transparent border-0 px-1 md:px-4 flex-1"
             data-step-index={index}
             data-step-color={step.color}
             data-state={index === 0 ? "active" : "inactive"}
@@ -185,8 +205,8 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
               </div>
 
               {/* Right: Screenshot in browser chrome */}
-              <div class="browser-chrome-frame rounded-2xl overflow-hidden border border-slate-gray/10 bg-deep-space shadow-2xl shadow-black/20">
-                <div class="flex items-center justify-between px-4 py-3 bg-deep-space border-b border-slate-gray/10">
+              <div class="browser-chrome-frame rounded-2xl overflow-hidden border border-slate-gray/10 shadow-2xl shadow-black/20">
+                <div class="browser-chrome-bar flex items-center justify-between px-4 py-3 border-b border-slate-gray/10">
                   <div class="flex items-center gap-2">
                     <div class="w-3 h-3 rounded-full bg-alert-red/80"></div>
                     <div class="w-3 h-3 rounded-full bg-warning-orange/80"></div>
@@ -195,12 +215,20 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
                   <span class="text-xs text-slate-gray/60 font-mono">app.scanorbit.cloud</span>
                   <div class="w-16"></div>
                 </div>
-                <img
-                  src={step.screenshot}
-                  alt={step.screenshotAlt}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  class="w-full h-auto block"
-                />
+                <div class="relative">
+                  <img
+                    src={step.screenshotDark}
+                    alt={step.screenshotAlt}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    class="screenshot-dark w-full h-auto block"
+                  />
+                  <img
+                    src={step.screenshotLight}
+                    alt={step.screenshotAlt}
+                    loading="lazy"
+                    class="screenshot-light w-full h-auto block absolute inset-0"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -225,6 +253,23 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
 </section>
 
 <style>
+  /* Theme-aware screenshots */
+  html[data-theme="dark"] .screenshot-dark,
+  html:not([data-theme]) .screenshot-dark {
+    display: block;
+  }
+  html[data-theme="dark"] .screenshot-light,
+  html:not([data-theme]) .screenshot-light {
+    display: none;
+  }
+  html[data-theme="light"] .screenshot-dark {
+    display: none;
+  }
+  html[data-theme="light"] .screenshot-light {
+    position: relative;
+    display: block;
+  }
+
   /* No-JS: all panels visible, stacked */
   .step-panel {
     margin-bottom: 2rem;
@@ -273,7 +318,6 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
     display: block;
   }
 
-  /* Active state colors are set per-step via JS updating classes */
   .step-trigger[data-state="active"] .step-circle {
     transform: scale(1.1);
   }
@@ -331,7 +375,6 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
         const config = colorConfig[color];
 
         if (circle) {
-          // Remove all dynamic color classes
           Object.values(colorConfig).forEach((c) => {
             circle.classList.remove(c.bg, c.border, c.glow);
           });
@@ -360,15 +403,12 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
         const pct = stepTriggers.length > 1 ? (index / (stepTriggers.length - 1)) * 100 : 0;
         progressFill.style.width = `${pct}%`;
 
-        // Update gradient based on active step color
-        const activeColor = stepTriggers[index]?.getAttribute("data-step-color");
-        if (activeColor === "orbit-purple") {
-          progressFill.style.background = "linear-gradient(to right, var(--brand-cyber-cyan), var(--brand-orbit-purple))";
-        } else if (activeColor === "neon-green") {
-          progressFill.style.background = "linear-gradient(to right, var(--brand-cyber-cyan), var(--brand-orbit-purple), var(--brand-neon-green))";
-        } else {
-          progressFill.style.background = "var(--brand-cyber-cyan)";
-        }
+        // Update gradient based on progress
+        const colors = ["var(--brand-cyber-cyan)", "var(--brand-orbit-purple)", "var(--brand-neon-green)", "var(--brand-cyber-cyan)"];
+        const gradientStops = colors.slice(0, index + 1).join(", ");
+        progressFill.style.background = index === 0
+          ? colors[0]
+          : `linear-gradient(to right, ${gradientStops})`;
       }
     }
 
@@ -390,7 +430,6 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
       });
     });
 
-    // Initialize
     setActiveStep(0);
   }
 </script>

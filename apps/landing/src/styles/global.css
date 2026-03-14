@@ -177,13 +177,11 @@ h1, h2, h3, h4, h5, h6 {
   background-clip: text;
 }
 
-/* Browser chrome frame - keeps dark appearance in both themes (app screenshots are dark) */
+/* Browser chrome frame - theme-aware */
 .browser-chrome-frame {
-  background-color: #08080f;
-  border-color: rgba(255, 255, 255, 0.06);
+  background-color: var(--bg-deep-space);
 }
 
-.browser-chrome-frame > div:first-child {
-  background-color: #08080f;
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+.browser-chrome-bar {
+  background-color: var(--bg-deep-space);
 }
