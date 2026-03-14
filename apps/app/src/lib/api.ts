@@ -96,6 +96,8 @@ let refreshSubscribers: ((success: boolean) => void)[] = [];
 let accessToken: string | null = null;
 // Track when the token expires for proactive refresh
 let tokenExpiresAt: number | null = null;
+// Track the current org ID for refresh token requests
+let currentOrgId: string | null = null;
 
 // Token timing constants (must match backend ACCESS_TOKEN_EXPIRY_MINUTES)
 const ACCESS_TOKEN_TTL_MINUTES = parseInt(import.meta.env.VITE_ACCESS_TOKEN_TTL_MINUTES || '5', 10);
@@ -116,6 +118,13 @@ export function setAccessToken(token: string | null) {
  */
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+/**
+ * Set the current org ID so refresh token requests preserve org context
+ */
+export function setCurrentOrgId(orgId: string | null) {
+  currentOrgId = orgId;
 }
 
 /**
@@ -160,7 +169,8 @@ async function doRefreshToken(): Promise<boolean> {
   isRefreshing = true;
 
   try {
-    const { data } = await api.post<{ accessToken: string }>('/auth/refresh');
+    const refreshUrl = currentOrgId ? `/auth/refresh?orgId=${currentOrgId}` : '/auth/refresh';
+    const { data } = await api.post<{ accessToken: string }>(refreshUrl);
     setAccessToken(data.accessToken);
     notifyRefreshSubscribers(true);
     return true;

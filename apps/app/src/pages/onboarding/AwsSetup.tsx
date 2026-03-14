@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { Cloud, Orbit, X } from "lucide-react";
 import type { CreateAwsAccountInput, ScannerType } from "@/types";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useAuthStore } from "@/stores/auth-store";
 
 type Step = "details" | "scanners" | "policy" | "role" | "connect";
 
@@ -66,6 +68,7 @@ function clearOnboardingState() {
 
 export default function AwsSetup() {
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
   const { accounts, createAccount, testConnection, deleteAccount, isCreating, isTesting } = useAwsAccounts();
   const triggerScan = useTriggerScan();
 
@@ -88,6 +91,14 @@ export default function AwsSetup() {
   const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  // Redirect members — only admins can add accounts
+  const { org } = useAuthStore((s) => ({ org: s.org }));
+  useEffect(() => {
+    if (org && !isAdmin) {
+      navigate("/accounts", { replace: true });
+    }
+  }, [org, isAdmin, navigate]);
 
   // Save state to localStorage whenever it changes
   useEffect(() => {

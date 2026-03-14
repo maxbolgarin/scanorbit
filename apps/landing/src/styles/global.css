@@ -1,18 +1,69 @@
 @import "tailwindcss";
 
+/* ---- Theme color definitions ---- */
+
+/* Default / Dark theme */
+:root,
+html[data-theme="dark"] {
+  --bg-deep-space: #08080f;
+  --bg-midnight: #131520;
+  --brand-orbit-purple: #6b46c1;
+  --brand-cyber-cyan: #00b8e6;
+  --brand-neon-green: #10b981;
+  --brand-warning-orange: #f59e0b;
+  --brand-alert-red: #ef4444;
+  --text-cloud-gray: #e2e8f0;
+  --text-slate-gray: #94a3b8;
+
+  /* Hero heading gradient */
+  --hero-heading-from: #e2e8f0;
+  --hero-heading-via: #ffffff;
+  --hero-heading-to: #e2e8f0;
+
+  /* Legal page borders */
+  --legal-border: rgba(148, 163, 184, 0.2);
+  --legal-border-strong: rgba(148, 163, 184, 0.3);
+  --legal-border-subtle: rgba(148, 163, 184, 0.1);
+  --legal-hover-bg: rgba(26, 31, 58, 0.5);
+}
+
+/* Light theme */
+html[data-theme="light"] {
+  --bg-deep-space: #ffffff;
+  --bg-midnight: #f5f5f7;
+  --brand-orbit-purple: #5b37b0;
+  --brand-cyber-cyan: #0891b2;
+  --brand-neon-green: #059669;
+  --brand-warning-orange: #d97706;
+  --brand-alert-red: #dc2626;
+  --text-cloud-gray: #1e293b;
+  --text-slate-gray: #64748b;
+
+  /* Hero heading gradient */
+  --hero-heading-from: #0f172a;
+  --hero-heading-via: #334155;
+  --hero-heading-to: #0f172a;
+
+  /* Legal page borders */
+  --legal-border: rgba(100, 116, 139, 0.2);
+  --legal-border-strong: rgba(100, 116, 139, 0.3);
+  --legal-border-subtle: rgba(100, 116, 139, 0.1);
+  --legal-hover-bg: rgba(241, 245, 249, 0.8);
+}
+
 /* Tailwind v4 theme tokens.
    This enables utilities like `bg-orbit-purple`, `text-cloud-gray`, `animate-float`, etc. */
 @theme {
-  /* Colors - ScanOrbit Brand Palette */
-  --color-deep-space: #08080f;
-  --color-midnight: #131520;
-  --color-orbit-purple: #6b46c1;
-  --color-cyber-cyan: #00b8e6;
-  --color-neon-green: #10b981;
-  --color-warning-orange: #f59e0b;
-  --color-alert-red: #ef4444;
-  --color-cloud-gray: #e2e8f0;
-  --color-slate-gray: #94a3b8;
+  /* Colors - ScanOrbit Brand Palette (referencing theme-switched CSS variables) */
+  --color-deep-space: var(--bg-deep-space);
+  --color-midnight: var(--bg-midnight);
+  --color-orbit-purple: var(--brand-orbit-purple);
+  --color-cyber-cyan: var(--brand-cyber-cyan);
+  --color-neon-green: var(--brand-neon-green);
+  --color-warning-orange: var(--brand-warning-orange);
+  --color-alert-red: var(--brand-alert-red);
+  --color-cloud-gray: var(--text-cloud-gray);
+  --color-slate-gray: var(--text-slate-gray);
 
   /* Fonts */
   --font-sans: "Geist Sans", system-ui, sans-serif;
@@ -111,3 +162,10 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
 }
 
+/* Hero heading gradient (theme-aware) */
+.hero-heading-primary {
+  background: linear-gradient(to right, var(--hero-heading-from), var(--hero-heading-via), var(--hero-heading-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

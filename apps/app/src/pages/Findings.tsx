@@ -16,6 +16,7 @@ import {
 } from "@/hooks/use-findings";
 import { useAwsAccounts, useRecentScans, useTriggerScan, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
 import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES, TIER_LIMITS } from "@/types";
@@ -27,6 +28,7 @@ export default function Findings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { org } = useAuthStore();
+  const isAdmin = useIsAdmin();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useLocalStorage<Filters>("findings:filters", {});
   const [searchQuery, setSearchQuery] = useLocalStorage<string>("findings:search", "");
@@ -410,7 +412,7 @@ export default function Findings() {
       <FindingDetailModal
         finding={selectedFinding}
         onClose={handleCloseModal}
-        onUpdateStatus={handleUpdateStatus}
+        onUpdateStatus={isAdmin ? handleUpdateStatus : undefined}
         isUpdating={updateStatus.isPending}
         resourcePathPrefix="/overview"
       />

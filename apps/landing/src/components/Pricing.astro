@@ -27,7 +27,7 @@ const plans = [
 ];
 
 const features = [
-  { name: "AWS Accounts", free: "Single", pro: "Single", team: "Unlimited" },
+  { name: "AWS Accounts", free: "1", pro: "3", team: "10" },
   { name: "Scan Frequency", free: "Single scan", pro: "1 hour cooldown", team: "Unlimited" },
   { name: "Data Retention", free: "7 days", pro: "90 days", team: "180+ days" },
   { name: "Infrastructure Health", free: true, pro: true, team: true },
@@ -44,13 +44,13 @@ const features = [
 const planKeys = ["free", "pro", "team"] as const;
 ---
 
-<section id="pricing" class="py-24 bg-midnight relative overflow-hidden">
+<section id="pricing" class="py-16 bg-midnight relative overflow-hidden">
   <!-- Background decoration -->
   <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orbit-purple/5 rounded-full blur-3xl"></div>
 
   <div class="container mx-auto px-6 relative z-10">
     <!-- Section header -->
-    <div class="text-center mb-16">
+    <div class="text-center mb-10">
       <h2 class="text-3xl md:text-5xl font-bold mb-6">
         <span class="text-cloud-gray">Simple, </span>
         <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
@@ -67,7 +67,7 @@ const planKeys = ["free", "pro", "team"] as const;
       {plans.map((plan, planIndex) => (
         <div class={`bg-deep-space rounded-2xl border ${plan.highlight ? 'border-orbit-purple' : 'border-slate-gray/10'} overflow-hidden`}>
           {/* Plan header */}
-          <div class={`p-6 text-center ${plan.highlight ? 'bg-orbit-purple/10' : ''}`}>
+          <div class={`p-4 text-center ${plan.highlight ? 'bg-orbit-purple/10' : ''}`}>
             {plan.highlight && (
               <span class="inline-block px-3 py-1 mb-3 text-xs font-semibold text-orbit-purple bg-orbit-purple/20 rounded-full">
                 Most Popular
@@ -81,7 +81,7 @@ const planKeys = ["free", "pro", "team"] as const;
           </div>
 
           {/* Features list */}
-          <div class="px-6 py-4">
+          <div class="px-4 py-3">
             <ul class="space-y-3">
               {features.map((feature) => {
                 const value = feature[planKeys[planIndex]];
@@ -106,7 +106,7 @@ const planKeys = ["free", "pro", "team"] as const;
           </div>
 
           {/* CTA button */}
-          <div class="p-6 pt-2">
+          <div class="p-4 pt-2">
             <a
               href={plan.ctaLink}
               target="_blank"
@@ -132,11 +132,11 @@ const planKeys = ["free", "pro", "team"] as const;
             <!-- Header with plan names and prices -->
             <thead>
               <tr class="border-b border-slate-gray/10">
-                <th class="text-left py-6 px-6 text-slate-gray font-medium">
+                <th class="text-left py-4 px-6 text-slate-gray font-medium">
                   Feature
                 </th>
                 {plans.map((plan) => (
-                  <th class="py-6 px-6 text-center min-w-[140px]">
+                  <th class="py-4 px-6 text-center min-w-[140px]">
                     <div class="flex flex-col items-center gap-2">
                       <span class="text-lg font-bold text-cloud-gray">{plan.name}</span>
                       <div class="flex items-baseline gap-0.5">
@@ -151,11 +151,11 @@ const planKeys = ["free", "pro", "team"] as const;
             <tbody>
               {features.map((feature, index) => (
                 <tr class={index % 2 === 0 ? "bg-midnight/30" : ""}>
-                  <td class="py-4 px-6 text-cloud-gray">{feature.name}</td>
+                  <td class="py-3 px-6 text-cloud-gray">{feature.name}</td>
                   {planKeys.map((plan) => {
                     const value = feature[plan];
                     return (
-                      <td class="py-4 px-6 text-center">
+                      <td class="py-3 px-6 text-center">
                         {typeof value === "boolean" ? (
                           value ? (
                             <div class="flex justify-center">
@@ -176,9 +176,9 @@ const planKeys = ["free", "pro", "team"] as const;
             <!-- CTA row -->
             <tfoot>
               <tr class="border-t border-slate-gray/10">
-                <td class="py-6 px-6"></td>
+                <td class="py-4 px-6"></td>
                 {plans.map((plan) => (
-                  <td class="py-6 px-6 text-center">
+                  <td class="py-4 px-6 text-center">
                     <a
                       href={plan.ctaLink}
                       target="_blank"

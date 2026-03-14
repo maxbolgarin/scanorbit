@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User, Org, LoginResponseSuccess } from "@/types";
 import * as api from "@/lib/api";
-import { setAccessToken, ensureAccessToken } from "@/lib/api";
+import { setAccessToken, setCurrentOrgId, ensureAccessToken } from "@/lib/api";
 
 // Deduplicate concurrent checkAuth calls - only one request at a time
 let checkAuthPromise: Promise<void> | null = null;
@@ -75,6 +75,7 @@ export const useAuthStore = create<AuthState>()(
           // Store access token for API requests
           setAccessToken(successResponse.accessToken);
           const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
+          setCurrentOrgId(activeOrg?.id ?? null);
           set({
             user: successResponse.user,
             org: activeOrg,
@@ -126,8 +127,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           await api.logout();
         } finally {
-          // Clear access token
+          // Clear access token and org context
           setAccessToken(null);
+          setCurrentOrgId(null);
           set({
             user: null,
             org: null,
@@ -152,6 +154,8 @@ export const useAuthStore = create<AuthState>()(
 
         checkAuthPromise = (async () => {
           try {
+            // Set org context before refreshing so the new token is scoped to the persisted org
+            setCurrentOrgId(get().org?.id ?? null);
             // Ensure we have a valid access token (refresh if needed after page reload)
             const hasToken = await ensureAccessToken();
             if (!hasToken) {
@@ -216,6 +220,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await api.switchOrg(orgId);
           // Store the new access token with the updated orgId
           setAccessToken(response.accessToken);
+          setCurrentOrgId(orgId);
           const orgs = get().orgs;
           const newOrg = orgs.find(o => o.id === orgId);
           if (newOrg) {
@@ -285,6 +290,7 @@ export const useAuthStore = create<AuthState>()(
           // Store access token for API requests
           setAccessToken(successResponse.accessToken);
           const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
+          setCurrentOrgId(activeOrg?.id ?? null);
           set({
             user: successResponse.user,
             org: activeOrg,
@@ -324,6 +330,7 @@ export const useAuthStore = create<AuthState>()(
           // Store access token for API requests
           setAccessToken(successResponse.accessToken);
           const activeOrg = successResponse.orgs.length > 0 ? successResponse.orgs[0] : null;
+          setCurrentOrgId(activeOrg?.id ?? null);
           set({
             user: successResponse.user,
             org: activeOrg,
@@ -357,6 +364,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         hasOrg: state.hasOrg,
+        org: state.org,
       }),
     }
   )

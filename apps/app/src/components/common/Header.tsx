@@ -209,7 +209,7 @@ export function Header() {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="h-8 w-8 p-0 text-red-600 hover:text-red-600 hover:bg-red-600/10"
+              className="h-8 w-8 p-0 text-red-600 hover:text-red-600 hover:!bg-red-600/10"
               title="Log out"
             >
               <LogOut className="h-4 w-4" />

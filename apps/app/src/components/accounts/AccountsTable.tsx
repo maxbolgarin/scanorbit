@@ -23,9 +23,9 @@ import { MoreHorizontal, History, Trash2, LayoutDashboard, Settings2 } from "luc
 
 interface AccountsTableProps {
   accounts: AwsAccount[];
-  onEdit: (accountId: string) => void;
+  onEdit?: (accountId: string) => void;
   onViewHistory: (accountId: string) => void;
-  onDisconnect: (accountId: string) => void;
+  onDisconnect?: (accountId: string) => void;
 }
 
 export function AccountsTable({
@@ -81,13 +81,15 @@ export function AccountsTable({
                 <LayoutDashboard className="mr-1.5 h-4 w-4" />
                 Dashboard
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(account.id)}
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
+              {onEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEdit(account.id)}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -99,14 +101,18 @@ export function AccountsTable({
                     <History className="mr-2 h-4 w-4" />
                     View scan history
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDisconnect(account.id)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Disconnect
-                  </DropdownMenuItem>
+                  {onDisconnect && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => onDisconnect(account.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -156,14 +162,16 @@ export function AccountsTable({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(account.id)}
-                    >
-                      <Settings2 className="mr-1 h-4 w-4" />
-                      <span className="hidden sm:inline">Edit</span>
-                    </Button>
+                    {onEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(account.id)}
+                      >
+                        <Settings2 className="mr-1 h-4 w-4" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </Button>
+                    )}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -179,14 +187,18 @@ export function AccountsTable({
                           <History className="mr-2 h-4 w-4" />
                           View scan history
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onDisconnect(account.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Disconnect
-                        </DropdownMenuItem>
+                        {onDisconnect && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => onDisconnect(account.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Disconnect
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

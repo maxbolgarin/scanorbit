@@ -7,7 +7,7 @@ import { requireNoProcessingRestriction } from '../middlewares/processingRestric
 import { findingService } from '../services/findingService.js';
 import { HTTP403Error } from '../lib/errors.js';
 import { TIER_LIMITS, type Variables, type FindingStatus } from '../types/index.js';
-import { getOrgTier } from '../services/orgService.js';
+import { getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 
 const findingsRoute = new Hono<{ Variables: Variables }>();
 
@@ -139,6 +139,8 @@ findingsRoute.post(
   zValidator('json', bulkUpdateSchema),
   async (c) => {
     const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    await verifyOrgAdmin(orgId, userId);
     const { findingIds, status } = c.req.valid('json');
     const updatedCount = await findingService.bulkUpdateStatus(
       orgId,
@@ -163,6 +165,8 @@ findingsRoute.patch(
   zValidator('json', updateStatusSchema),
   async (c) => {
     const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    await verifyOrgAdmin(orgId, userId);
     const findingId = c.req.param('id');
     const data = c.req.valid('json');
     const finding = await findingService.updateFinding(orgId, findingId, {

@@ -11,7 +11,7 @@ import { HTTP400Error, HTTP403Error } from '../lib/errors.js';
 import { db } from '../lib/db.js';
 import { resourceScans, scans, resources } from '../db/schema.js';
 import { TIER_LIMITS, type Variables } from '../types/index.js';
-import { getOrgTier } from '../services/orgService.js';
+import { getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 
 const resourcesRoute = new Hono<{ Variables: Variables }>();
 
@@ -214,6 +214,8 @@ resourcesRoute.patch(
   zValidator('json', updateTagsSchema),
   async (c) => {
     const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    await verifyOrgAdmin(orgId, userId);
     const resourceId = c.req.param('id');
 
     const data = c.req.valid('json');

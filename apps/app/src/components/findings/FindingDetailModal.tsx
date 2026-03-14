@@ -40,7 +40,7 @@ import {
 interface FindingDetailModalProps {
   finding: Finding | null;
   onClose: () => void;
-  onUpdateStatus: (id: string, status: FindingStatus, snoozedUntil?: Date) => void;
+  onUpdateStatus?: (id: string, status: FindingStatus, snoozedUntil?: Date) => void;
   isUpdating?: boolean;
   resourcePathPrefix?: string;
 }
@@ -135,22 +135,22 @@ export function FindingDetailModal({
   };
 
   const handleResolve = () => {
-    onUpdateStatus(finding.id, "resolved");
+    onUpdateStatus?.(finding.id, "resolved");
   };
 
   const handleSnooze = () => {
     const days = parseInt(snoozeDays, 10);
     const snoozedUntil = new Date();
     snoozedUntil.setDate(snoozedUntil.getDate() + days);
-    onUpdateStatus(finding.id, "snoozed", snoozedUntil);
+    onUpdateStatus?.(finding.id, "snoozed", snoozedUntil);
   };
 
   const handleIgnore = () => {
-    onUpdateStatus(finding.id, "ignored");
+    onUpdateStatus?.(finding.id, "ignored");
   };
 
   const handleReopen = () => {
-    onUpdateStatus(finding.id, "open");
+    onUpdateStatus?.(finding.id, "open");
   };
 
   const handleBackToDetails = () => {
@@ -496,7 +496,7 @@ export function FindingDetailModal({
 
       </div>
 
-      {finding.status === "open" && (
+      {finding.status === "open" && onUpdateStatus && (
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button
             variant="outline"
@@ -521,7 +521,7 @@ export function FindingDetailModal({
         </DialogFooter>
       )}
 
-      {finding.status !== "open" && (
+      {finding.status !== "open" && onUpdateStatus && (
         <DialogFooter>
           <Button variant="outline" onClick={handleReopen} disabled={isUpdating}>
             <Undo2 className="mr-2 h-4 w-4" />
