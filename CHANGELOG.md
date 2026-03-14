@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.27.0](https://github.com/maxbolgarin/scanorbit/compare/v1.26.0...v1.27.0) (2026-03-14)
+
+### Features
+
+* **accounts:** add clickable account rows with details view and improve table interactivity ([d38f6e0](https://github.com/maxbolgarin/scanorbit/commit/d38f6e08cc355527a9328b19684b38035ab9ca73))
+* **api:** add admin verification to aws account operations ([5e08f2f](https://github.com/maxbolgarin/scanorbit/commit/5e08f2f882169d4213f15346bfbb50e0d968ebed))
+* **api:** add user filter to audit logs query and enhance audit log ui with member selection ([a97d78e](https://github.com/maxbolgarin/scanorbit/commit/a97d78e808860443c1dc45ea2d4b5c7689569c98))
+* **api:** exclude login and logout routes from automatic audit logging ([f018881](https://github.com/maxbolgarin/scanorbit/commit/f0188810372d11fe596465432162cb5d2aaf9634))
+* **app:** add theme toggle with dark, light, and system mode support ([a572077](https://github.com/maxbolgarin/scanorbit/commit/a572077c084d353ee2bda872180f1a2bc27552ee))
+* **auditlogsettings:** add status filter initialization to audit log query state ([fbc6b0e](https://github.com/maxbolgarin/scanorbit/commit/fbc6b0e6bf3f0504073a503669e557ab42ac264b))
+* **auth:** add invitation management with pending invitations retrieval and decline functionality ([9dca62a](https://github.com/maxbolgarin/scanorbit/commit/9dca62ad6495b26d945919f37a7aa22f848e3327))
+* **bug-reports:** add bug report submission with email notifications and dashboard integration ([50bf0a6](https://github.com/maxbolgarin/scanorbit/commit/50bf0a6a7dfae30e87dcbed6a41f283364b21147))
+* **ci:** migrate semantic-release to action-based workflow and add markdown to telegram html conversion ([17f34a3](https://github.com/maxbolgarin/scanorbit/commit/17f34a378ee553071f6c2690a4f2c23c986e8208))
+* **components:** add admin verification to account switcher and header for aws setup access ([550bcb1](https://github.com/maxbolgarin/scanorbit/commit/550bcb1e0590160cc3f6327244b66764455db8ed))
+* **invitations:** prevent accepting already accepted invitations and improve redirect flow ([aea20d9](https://github.com/maxbolgarin/scanorbit/commit/aea20d9eb3e865ef7509b04262841343183e7df3))
+* **landing:** add dark mode support for product screenshots and enhance hero layout ([d374f34](https://github.com/maxbolgarin/scanorbit/commit/d374f347ac31ea77cb963b3aee38a72fe65b0436))
+* **landing:** add product screenshots and enhance hero section layout ([9999cd1](https://github.com/maxbolgarin/scanorbit/commit/9999cd19c61257f0ef66af65e276744791f4510a))
+* **pages:** add dedicated api key management page with sidebar navigation ([3d61fd4](https://github.com/maxbolgarin/scanorbit/commit/3d61fd458fa1fbd876c5dfee985f4a18962e58c3))
+* **resources:** add health status filtering to resource queries ([64d624c](https://github.com/maxbolgarin/scanorbit/commit/64d624cbf47cd639c80ace8103b273e75844ba03))
+* **routes:** add sort order and http status filtering to audit logs query ([023333b](https://github.com/maxbolgarin/scanorbit/commit/023333b13dd4aefbb5bd6aa1d58d315e3d63f0c5))
+* **services:** add api key management system with generation, validation and usage tracking ([9a421ec](https://github.com/maxbolgarin/scanorbit/commit/9a421ecfe991d4b2e11e971194ecdba12ada942f))
+* **services:** add organization invitation system with email notifications and acceptance workflow ([a0f351c](https://github.com/maxbolgarin/scanorbit/commit/a0f351cc257ee751e2df96a326eb7d9ab5f2b517))
+
+### Bug Fixes
+
+* **bug-reports:** specify string keys in metadata record schema and remove unused import ([afa66c3](https://github.com/maxbolgarin/scanorbit/commit/afa66c3c46fd9e23b809f4d277def52f69605238))
+* **components:** correct fragment nesting and remove unused badge import in api key settings ([966c67b](https://github.com/maxbolgarin/scanorbit/commit/966c67bf5c9c3b5661822bfa5cda7404beed6ef1))
+* **deploy:** separate umami analytics send endpoint routing in caddyfile and add finding types documentation note ([c29a6dd](https://github.com/maxbolgarin/scanorbit/commit/c29a6dd1d871796ec0ecc1a1030bca4bcd62e7fa))
+* **routes:** add null check for invitation token before regex validation ([0b4d3a7](https://github.com/maxbolgarin/scanorbit/commit/0b4d3a78dfc6b107b5b24a082c6f4995e40eefea))
+
+### Code Refactoring
+
+* **app:** rename api route to api-access for clarity ([cee9070](https://github.com/maxbolgarin/scanorbit/commit/cee9070c6a4ff4685b3c8682e303899b41bf7ea5))
+* **components:** improve finding stats cards layout, bug report validation, and header logout styling ([c3be372](https://github.com/maxbolgarin/scanorbit/commit/c3be372d16f46cb4e7696158838a65e4dcd1e194))
+* **components:** increase semantic status color opacity from 10% to 15% for better visibility ([f391f32](https://github.com/maxbolgarin/scanorbit/commit/f391f32b1a42b03c5c0c20d415446559be05d636))
+* **components:** migrate hardcoded color classes to semantic status color tokens ([d344e35](https://github.com/maxbolgarin/scanorbit/commit/d344e35e7807c8a560f39e821e53235306483484))
+* **landing:** replace var with const and improve optional chaining in theme and api reference scripts ([a9ddc7f](https://github.com/maxbolgarin/scanorbit/commit/a9ddc7f51c19ffa5aaaedeb91db81f7003d98d38))
+* **landing:** update border colors to use border-subtle design token ([dd1fcb3](https://github.com/maxbolgarin/scanorbit/commit/dd1fcb3720582f33e5a60deec2bcc6186ec0ea37))
+* update pricing tiers, error messages, and gradient direction for brand consistency ([53dced4](https://github.com/maxbolgarin/scanorbit/commit/53dced4261bfe39d1bf751f7ddfbc0390583d45e))
+
+### Docs
+
+* **types:** expand finding types with security, compliance, cost, tagging and iam categories and update documentation ([26ca4c8](https://github.com/maxbolgarin/scanorbit/commit/26ca4c866c58ce4e649dd6b738f95db4b2a0b5a3))
+
 ## [1.26.0](https://github.com/maxbolgarin/scanorbit/compare/v1.25.0...v1.26.0) (2026-03-12)
 
 ### Features
