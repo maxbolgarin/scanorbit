@@ -2,9 +2,9 @@
 @config "../../tailwind.config.js";
 
 @layer base {
-  /* ── Light Theme (default) ─── Stripe/Datadog-inspired clean white ── */
+  /* ── Light Theme (default) ─── Stripe/Datadog-inspired soft gray ── */
   :root {
-    --background: 0 0% 100%;
+    --background: 220 14% 96%;
     --foreground: 240 10% 4%;
 
     --card: 0 0% 100%;
@@ -40,7 +40,7 @@
     --radius: 0.5rem;
 
     /* Brand colors — light */
-    --deep-space: 0 0% 100%;
+    --deep-space: 220 14% 96%;
     --midnight: 240 5% 96%;
     --orbit-purple: 262 50% 51%;
     --cyber-cyan: 195 80% 40%;

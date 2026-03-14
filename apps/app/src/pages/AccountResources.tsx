@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ResourceFiltersAdvanced } from "@/components/resources/ResourceFiltersAdvanced";
 import { ResourcesTableAdvanced } from "@/components/resources/ResourcesTableAdvanced";
 import { ResourceStatsCards } from "@/components/resources/ResourceStatsCards";
@@ -21,7 +21,7 @@ import { useAwsAccount, useScanHistory, useScanCompletionRefresh } from "@/hooks
 import { useAuthStore } from "@/stores/auth-store";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { formatCurrency } from "@/lib/utils";
-import type { ResourceFilters as Filters, ServiceType, Resource } from "@/types";
+import type { ResourceFilters as Filters, ResourceHealthFilter, ServiceType, Resource } from "@/types";
 import { ACTIVE_SCAN_STATUSES, TIER_LIMITS } from "@/types";
 import { Server, RefreshCw, LayoutGrid, List, Cloud, Download } from "lucide-react";
 import * as api from "@/lib/api";
@@ -32,8 +32,11 @@ type ViewMode = "table" | "grid";
 type SortField = "name" | "service" | "region" | "state" | "cost" | "lastSeen";
 type SortDirection = "asc" | "desc";
 
+const VALID_HEALTH_VALUES: ResourceHealthFilter[] = ['healthy', 'warning', 'critical', 'orphaned'];
+
 export default function AccountResources() {
   const { accountId } = useParams<{ accountId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { org } = useAuthStore();
 
@@ -48,6 +51,16 @@ export default function AccountResources() {
   const [searchQuery, setSearchQuery] = useLocalStorage<string>(`resources:search:${accountId}`, "");
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>("resources:viewMode", "table");
   const [sortOverride, setSortOverride] = useState<{ field: SortField; direction: SortDirection } | null>(null);
+
+  // Read health filter from URL params on mount
+  useEffect(() => {
+    const healthParam = searchParams.get("health") as ResourceHealthFilter | null;
+    if (healthParam && VALID_HEALTH_VALUES.includes(healthParam)) {
+      setBaseFilters(prev => ({ ...prev, health: healthParam }));
+      searchParams.delete("health");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch account-specific data
   const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);

@@ -137,22 +137,28 @@ export function OpenIssuesCard({ summary, isLoading, accountId }: OpenIssuesCard
         </div>
 
         {/* Severity distribution bar (excluding trivial) */}
-        {total > 0 && (
-          <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
-            {(["critical", "high", "medium", "low"] as const).map((severity) => {
-              const percentage = percentages[severity];
-              if (percentage === 0) return null;
-              return (
+        {total > 0 && (() => {
+          const segments = (["critical", "high", "medium", "low"] as const)
+            .filter((s) => percentages[s] > 0);
+
+          return (
+            <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
+              {segments.map((severity, i) => (
                 <div
                   key={severity}
-                  className={cn("h-full transition-all", severityConfig[severity].color)}
-                  style={{ width: `${percentage}%` }}
+                  className={cn(
+                    "h-full transition-all",
+                    severityConfig[severity].color,
+                    i === 0 && "rounded-l-full",
+                    i === segments.length - 1 && "rounded-r-full",
+                  )}
+                  style={{ width: `${percentages[severity]}%` }}
                   title={`${findingCounts[severity]} ${severityConfig[severity].label}`}
                 />
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Severity breakdown grid - visual boxes like ResourceHealth */}
         {total > 0 ? (

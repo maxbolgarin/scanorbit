@@ -141,12 +141,15 @@ export interface PaginationParams {
 
 export type CostFilterType = 'all' | 'paid' | 'free';
 
+export type ResourceHealthFilter = 'healthy' | 'warning' | 'critical' | 'orphaned';
+
 export interface ResourceFilters extends PaginationParams {
   awsAccountId?: string;
   region?: string;
   service?: string;
   state?: string;
   costFilter?: CostFilterType;
+  health?: ResourceHealthFilter;
 }
 
 export interface FindingFilters extends PaginationParams {

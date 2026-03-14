@@ -28,6 +28,7 @@ const querySchema = z.object({
   service: z.string().optional(),
   state: z.string().optional(),
   costFilter: z.enum(['all', 'paid', 'free']).optional(),
+  health: z.enum(['healthy', 'warning', 'critical', 'orphaned']).optional(),
 });
 
 // Tag validation limits

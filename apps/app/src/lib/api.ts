@@ -841,6 +841,7 @@ export async function getResources(filters?: ResourceFilters): Promise<Paginated
     if (filters?.service) params.set("service", filters.service);
     if (filters?.state) params.set("state", filters.state);
     if (filters?.costFilter) params.set("costFilter", filters.costFilter);
+    if (filters?.health) params.set("health", filters.health);
     if (filters?.page) params.set("page", String(filters.page));
     if (filters?.limit) params.set("limit", String(filters.limit));
 
