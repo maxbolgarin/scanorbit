@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAccountContext } from "@/hooks/use-account-context";
 import { useAuthStore } from "@/stores/auth-store";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { Badge } from "@/components/ui/badge";
 import { TIER_LIMITS } from "@/types";
 
@@ -25,6 +26,7 @@ export function AccountSwitcher() {
     switchToAccount,
   } = useAccountContext();
   const { org } = useAuthStore();
+  const isAdmin = useIsAdmin();
 
   const tier = org?.tier || 'free';
   const tierLimits = TIER_LIMITS[tier];
@@ -141,7 +143,7 @@ export function AccountSwitcher() {
         <DropdownMenuSeparator />
 
         {/* Add Account button */}
-        {isTeamTier ? (
+        {isTeamTier && isAdmin ? (
           <DropdownMenuItem
             onClick={() => navigate('/onboarding/aws')}
             className="cursor-pointer"

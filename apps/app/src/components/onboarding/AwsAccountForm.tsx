@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,10 @@ export function AwsAccountForm({
   existingAwsAccountIds = [],
   initialValues,
 }: AwsAccountFormProps) {
-  const accountSchema = createAccountSchema(existingNames, existingAwsAccountIds);
+  const accountSchema = useMemo(
+    () => createAccountSchema(existingNames, existingAwsAccountIds),
+    [existingNames, existingAwsAccountIds]
+  );
 
   const {
     register,
