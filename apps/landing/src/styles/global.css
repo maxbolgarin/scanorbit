@@ -176,3 +176,14 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Browser chrome frame - keeps dark appearance in both themes (app screenshots are dark) */
+.browser-chrome-frame {
+  background-color: #08080f;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.browser-chrome-frame > div:first-child {
+  background-color: #08080f;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
