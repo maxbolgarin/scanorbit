@@ -15,7 +15,7 @@ const createBugReportSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters').max(5000),
   category: z.enum(['ui_bug', 'scan_issue', 'data_incorrect', 'performance', 'feature_request', 'other']),
   screenshotUrl: z.string().url().max(500).optional().nullable(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 bugReportsRoute.post(
