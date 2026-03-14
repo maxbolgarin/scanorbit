@@ -47,7 +47,7 @@ import { ConnectionErrorState } from '@/components/shared/ConnectionErrorState';
 import { NoScanState } from '@/components/shared/NoScanState';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { RefreshCw, Network, RotateCcw, Layout, Cloud, GitBranch, Waypoints, Globe, EyeOff } from 'lucide-react';
+import { RefreshCw, Network, RotateCcw, Layout, Cloud, GitBranch, Waypoints, Globe, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Resource, ServiceType } from '@/types';
 import type {
   MapFilters,
@@ -73,6 +73,7 @@ const getLayoutPresetKey = (accountId: string) => `infrastructure-map:layout-pre
 const getViewModeKey = (accountId: string) => `infrastructure-map:view-mode:${accountId}`;
 const getCollapsedStateKey = (accountId: string) => `infrastructure-map:collapsed-state:${accountId}`;
 const getNetworkSettingsKey = (accountId: string) => `infrastructure-map:network-settings:${accountId}`;
+const getControlsVisibleKey = (accountId: string) => `infrastructure-map:controls-visible:${accountId}`;
 
 type NodePositions = Record<string, XYPosition>;
 
@@ -152,6 +153,22 @@ function loadNetworkSettings(accountId: string): NetworkViewSettings {
 function saveNetworkSettings(accountId: string, settings: NetworkViewSettings): void {
   try {
     localStorage.setItem(getNetworkSettingsKey(accountId), JSON.stringify(settings));
+  } catch {}
+}
+
+function loadControlsVisible(accountId: string): boolean {
+  try {
+    const saved = localStorage.getItem(getControlsVisibleKey(accountId));
+    if (saved !== null) {
+      return saved === 'true';
+    }
+  } catch {}
+  return true;
+}
+
+function saveControlsVisible(accountId: string, visible: boolean): void {
+  try {
+    localStorage.setItem(getControlsVisibleKey(accountId), String(visible));
   } catch {}
 }
 
@@ -286,6 +303,7 @@ export default function AccountInfrastructureMap() {
   const [viewMode, setViewModeState] = useState<MapViewMode>(() => loadViewMode(accountId!));
   const [collapsedState, setCollapsedStateState] = useState<ContainerCollapsedState>(() => loadCollapsedState(accountId!));
   const [networkSettings, setNetworkSettingsState] = useState<NetworkViewSettings>(() => loadNetworkSettings(accountId!));
+  const [controlsVisible, setControlsVisibleState] = useState<boolean>(() => loadControlsVisible(accountId!));
   const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -315,6 +333,15 @@ export default function AccountInfrastructureMap() {
   const setNetworkSettings = useCallback((settings: NetworkViewSettings) => {
     setNetworkSettingsState(settings);
     saveNetworkSettings(accountId!, settings);
+  }, [accountId]);
+
+  // Toggle controls visibility
+  const toggleControls = useCallback(() => {
+    setControlsVisibleState((prev) => {
+      const next = !prev;
+      saveControlsVisible(accountId!, next);
+      return next;
+    });
   }, [accountId]);
 
   // Toggle global resources visibility
@@ -638,13 +665,30 @@ export default function AccountInfrastructureMap() {
         <KeyboardControls />
 
         {/* Top Left Panel - Title and Filters */}
-        <Panel position="top-left" className="flex items-center gap-2">
+        <Panel position="top-left" className="flex items-center gap-2 flex-wrap">
           <div className="bg-card/95 backdrop-blur-sm border rounded-lg px-4 py-2">
             <h1 className="text-lg font-semibold">Infrastructure Map</h1>
             <p className="text-xs text-muted-foreground">
               {account?.name} &bull; {stats.totalNodes} resources • {stats.totalEdges} connections
             </p>
           </div>
+
+          {/* Controls visibility toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleControls}
+            className="h-7 w-7 p-0 bg-card/95 backdrop-blur-sm border rounded-lg"
+            title={controlsVisible ? 'Hide toolbar' : 'Show toolbar'}
+          >
+            {controlsVisible ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+
+          {controlsVisible && (<>
           <MapFiltersComponent
             filters={filters}
             onFiltersChange={setFilters}
@@ -748,6 +792,7 @@ export default function AccountInfrastructureMap() {
               Reset Layout
             </Button>
           )}
+          </>)}
         </Panel>
 
         {/* Top Right Panel - Legend */}
