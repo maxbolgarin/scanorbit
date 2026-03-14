@@ -95,31 +95,31 @@ export function ComplianceStatusCard({ summary, isLoading, accountId }: Complian
         </div>
 
         {/* Distribution bar */}
-        {totalIssues > 0 && (
-          <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
-            {certificateInsights.urgent > 0 && (
-              <div
-                className="h-full bg-status-warning transition-all"
-                style={{ width: `${(certificateInsights.urgent / totalIssues) * 100}%` }}
-                title={`${certificateInsights.urgent} Certificate issues`}
-              />
-            )}
-            {complianceDetails.residencyViolations > 0 && (
-              <div
-                className="h-full bg-status-critical transition-all"
-                style={{ width: `${(complianceDetails.residencyViolations / totalIssues) * 100}%` }}
-                title={`${complianceDetails.residencyViolations} Residency violations`}
-              />
-            )}
-            {complianceDetails.securityIssues > 0 && (
-              <div
-                className="h-full bg-status-high transition-all"
-                style={{ width: `${(complianceDetails.securityIssues / totalIssues) * 100}%` }}
-                title={`${complianceDetails.securityIssues} Security issues`}
-              />
-            )}
-          </div>
-        )}
+        {totalIssues > 0 && (() => {
+          const segments = [
+            { key: "certs", percent: (certificateInsights.urgent / totalIssues) * 100, color: "bg-status-warning", label: `${certificateInsights.urgent} Certificate issues` },
+            { key: "residency", percent: (complianceDetails.residencyViolations / totalIssues) * 100, color: "bg-status-critical", label: `${complianceDetails.residencyViolations} Residency violations` },
+            { key: "security", percent: (complianceDetails.securityIssues / totalIssues) * 100, color: "bg-status-high", label: `${complianceDetails.securityIssues} Security issues` },
+          ].filter(s => s.percent > 0);
+
+          return (
+            <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
+              {segments.map((seg, i) => (
+                <div
+                  key={seg.key}
+                  className={cn(
+                    "h-full transition-all",
+                    seg.color,
+                    i === 0 && "rounded-l-full",
+                    i === segments.length - 1 && "rounded-r-full",
+                  )}
+                  style={{ width: `${seg.percent}%` }}
+                  title={seg.label}
+                />
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Compliance metrics grid - 3 items */}
         <div className="grid grid-cols-3 gap-2">

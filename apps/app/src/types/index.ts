@@ -681,12 +681,15 @@ export interface FindingFilters {
   limit?: number;
 }
 
+export type ResourceHealthFilter = 'healthy' | 'warning' | 'critical' | 'orphaned';
+
 export interface ResourceFilters {
   service?: ServiceType;
   region?: string;
   awsAccountId?: string;
   state?: string;
   costFilter?: CostFilterType;
+  health?: ResourceHealthFilter;
   page?: number;
   limit?: number;
 }

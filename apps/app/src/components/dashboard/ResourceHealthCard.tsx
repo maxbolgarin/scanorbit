@@ -84,45 +84,44 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
         {totalResources > 0 ? (
           <>
             {/* Health distribution bar */}
-            <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
-              {healthyPercent > 0 && (
-                <div
-                  className="h-full bg-status-success transition-all"
-                  style={{ width: `${healthyPercent}%` }}
-                  title={`${resourceHealth.healthy} Healthy`}
-                />
-              )}
-              {warningPercent > 0 && (
-                <div
-                  className="h-full bg-status-warning transition-all"
-                  style={{ width: `${warningPercent}%` }}
-                  title={`${resourceHealth.warning} Warning`}
-                />
-              )}
-              {criticalPercent > 0 && (
-                <div
-                  className="h-full bg-status-critical transition-all"
-                  style={{ width: `${criticalPercent}%` }}
-                  title={`${resourceHealth.critical} Critical`}
-                />
-              )}
-              {orphanedPercent > 0 && (
-                <div
-                  className="h-full bg-status-trivial transition-all"
-                  style={{ width: `${orphanedPercent}%` }}
-                  title={`${resourceHealth.orphaned} Orphaned`}
-                />
-              )}
-            </div>
+            {(() => {
+              const segments = [
+                { key: "healthy", percent: healthyPercent, color: "bg-status-success", label: `${resourceHealth.healthy} Healthy` },
+                { key: "warning", percent: warningPercent, color: "bg-status-warning", label: `${resourceHealth.warning} Warning` },
+                { key: "critical", percent: criticalPercent, color: "bg-status-critical", label: `${resourceHealth.critical} Critical` },
+                { key: "orphaned", percent: orphanedPercent, color: "bg-status-trivial", label: `${resourceHealth.orphaned ?? 0} Orphaned` },
+              ].filter(s => s.percent > 0);
+
+              return (
+                <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
+                  {segments.map((seg, i) => (
+                    <div
+                      key={seg.key}
+                      className={cn(
+                        "h-full transition-all",
+                        seg.color,
+                        i === 0 && "rounded-l-full",
+                        i === segments.length - 1 && "rounded-r-full",
+                      )}
+                      style={{ width: `${seg.percent}%` }}
+                      title={seg.label}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Health breakdown grid */}
             <div className="grid grid-cols-4 gap-2">
-              <div className={cn(
-                "text-center p-2 rounded-lg border",
-                resourceHealth.healthy > 0
-                  ? "bg-status-success/15 border-status-success/30"
-                  : "bg-muted/50 border-border"
-              )}>
+              <Link
+                to={`${baseResourcesUrl}?health=healthy`}
+                className={cn(
+                  "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
+                  resourceHealth.healthy > 0
+                    ? "bg-status-success/15 border-status-success/30"
+                    : "bg-muted/50 border-border"
+                )}
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
                 </div>
@@ -133,14 +132,17 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
                   {resourceHealth.healthy}
                 </div>
                 <div className="text-xs text-muted-foreground">Healthy</div>
-              </div>
+              </Link>
 
-              <div className={cn(
-                "text-center p-2 rounded-lg border",
-                resourceHealth.warning > 0
-                  ? "bg-status-warning/15 border-status-warning/30"
-                  : "bg-muted/50 border-border"
-              )}>
+              <Link
+                to={`${baseResourcesUrl}?health=warning`}
+                className={cn(
+                  "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
+                  resourceHealth.warning > 0
+                    ? "bg-status-warning/15 border-status-warning/30"
+                    : "bg-muted/50 border-border"
+                )}
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <AlertTriangle className="h-3.5 w-3.5 text-status-warning" />
                 </div>
@@ -151,14 +153,17 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
                   {resourceHealth.warning}
                 </div>
                 <div className="text-xs text-muted-foreground">Warning</div>
-              </div>
+              </Link>
 
-              <div className={cn(
-                "text-center p-2 rounded-lg border",
-                resourceHealth.critical > 0
-                  ? "bg-status-critical/15 border-status-critical/30"
-                  : "bg-muted/50 border-border"
-              )}>
+              <Link
+                to={`${baseResourcesUrl}?health=critical`}
+                className={cn(
+                  "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
+                  resourceHealth.critical > 0
+                    ? "bg-status-critical/15 border-status-critical/30"
+                    : "bg-muted/50 border-border"
+                )}
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <AlertCircle className="h-3.5 w-3.5 text-status-critical" />
                 </div>
@@ -169,14 +174,17 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
                   {resourceHealth.critical}
                 </div>
                 <div className="text-xs text-muted-foreground">Critical</div>
-              </div>
+              </Link>
 
-              <div className={cn(
-                "text-center p-2 rounded-lg border",
-                (resourceHealth.orphaned ?? 0) > 0
-                  ? "bg-status-trivial/15 border-status-trivial/30"
-                  : "bg-muted/50 border-border"
-              )}>
+              <Link
+                to={`${baseResourcesUrl}?health=orphaned`}
+                className={cn(
+                  "text-center p-2 rounded-lg border transition-colors hover:bg-muted/50 active:scale-95",
+                  (resourceHealth.orphaned ?? 0) > 0
+                    ? "bg-status-trivial/15 border-status-trivial/30"
+                    : "bg-muted/50 border-border"
+                )}
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Unplug className="h-3.5 w-3.5 text-status-trivial" />
                 </div>
@@ -187,7 +195,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
                   {resourceHealth.orphaned ?? 0}
                 </div>
                 <div className="text-xs text-muted-foreground">Orphaned</div>
-              </div>
+              </Link>
             </div>
           </>
         ) : (

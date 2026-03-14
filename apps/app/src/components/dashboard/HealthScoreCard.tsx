@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, ShieldCheck, ShieldAlert, ShieldX, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Shield, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EnhancedDashboardSummary } from "@/types";
 
@@ -15,7 +15,6 @@ const statusConfig = {
     color: "text-status-success",
     bgColor: "bg-status-success/15",
     borderColor: "border-status-success/40",
-    icon: ShieldCheck,
     progressColor: "bg-status-success",
   },
   good: {
@@ -23,7 +22,6 @@ const statusConfig = {
     color: "text-status-info",
     bgColor: "bg-status-info/15",
     borderColor: "border-status-info/40",
-    icon: Shield,
     progressColor: "bg-status-info",
   },
   fair: {
@@ -31,7 +29,6 @@ const statusConfig = {
     color: "text-status-warning",
     bgColor: "bg-status-warning/15",
     borderColor: "border-status-warning/40",
-    icon: ShieldAlert,
     progressColor: "bg-status-warning",
   },
   needs_attention: {
@@ -39,7 +36,6 @@ const statusConfig = {
     color: "text-status-critical",
     bgColor: "bg-status-critical/15",
     borderColor: "border-status-critical/40",
-    icon: ShieldX,
     progressColor: "bg-status-critical",
   },
 };
@@ -81,7 +77,6 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
 
   const { healthScores, healthStatus, issuesToResolve } = summary;
   const config = statusConfig[healthStatus];
-  const StatusIcon = config.icon;
 
   // Calculate trend
   const trend = previousScore !== undefined ? healthScores.overall - previousScore : 0;
@@ -98,11 +93,34 @@ export function HealthScoreCard({ summary, isLoading, previousScore }: HealthSco
       <CardContent className="space-y-3 sm:space-y-4">
         {/* Score and Status */}
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* Circular Score */}
-          <div className={cn("relative h-12 w-12 sm:h-16 sm:w-16 rounded-full flex items-center justify-center", config.bgColor)}>
-            <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6", config.color)} />
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background px-1.5 rounded text-xs font-bold">
-              {healthScores.overall}
+          {/* Circular Score - SVG donut */}
+          <div className="relative h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 flex items-center justify-center">
+            <svg className="absolute h-full w-full -rotate-90" viewBox="0 0 80 80">
+              <circle
+                cx="40"
+                cy="40"
+                r="34"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="none"
+                className="text-muted"
+              />
+              <circle
+                cx="40"
+                cy="40"
+                r="34"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={`${healthScores.overall * 2.136} 213.6`}
+                className={config.color}
+              />
+            </svg>
+            <div className="z-10 text-center">
+              <div className={cn("text-xl sm:text-2xl font-bold", config.color)}>
+                {healthScores.overall}
+              </div>
             </div>
           </div>
 

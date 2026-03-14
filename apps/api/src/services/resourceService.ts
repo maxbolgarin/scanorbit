@@ -1,9 +1,20 @@
 import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP404Error } from '../lib/errors.js';
-import { resources } from '../db/schema.js';
+import { resources, findings } from '../db/schema.js';
 import type { Resource } from '../db/schema.js';
 import type { ResourceFilters, PaginatedResponse } from '../types/index.js';
+
+// Orphaned/unused/idle finding types (matches findingService)
+const ORPHANED_FINDING_TYPES = [
+  'orphaned_volume',
+  'orphaned_eip',
+  'orphaned_snapshot',
+  'orphaned_eni',
+  'idle_load_balancer',
+  'unused_security_group',
+  'idle_nat_gateway',
+];
 
 // Service categorization for cost filtering
 const FREE_SERVICES = ['iam_user', 'iam_role', 'iam_policy', 'iam_access_key', 'security_group'];
@@ -46,6 +57,81 @@ export const resourceService = {
       conditions.push(inArray(resources.service, PAID_SERVICES));
     } else if (filters.costFilter === 'free') {
       conditions.push(inArray(resources.service, FREE_SERVICES));
+    }
+
+    // Health filter — uses subqueries against findings table
+    if (filters.health) {
+      // Resources with any open finding linked
+      const resourcesWithFindings = db
+        .selectDistinct({ resourceId: findings.resourceId })
+        .from(findings)
+        .where(and(
+          eq(findings.orgId, orgId),
+          eq(findings.status, 'open'),
+          sql`${findings.resourceId} IS NOT NULL`,
+        ));
+
+      if (filters.health === 'healthy') {
+        // Resources with NO open findings
+        conditions.push(sql`${resources.id} NOT IN (${resourcesWithFindings})`);
+      } else if (filters.health === 'orphaned') {
+        // Resources with orphaned-type findings
+        const orphanedResources = db
+          .selectDistinct({ resourceId: findings.resourceId })
+          .from(findings)
+          .where(and(
+            eq(findings.orgId, orgId),
+            eq(findings.status, 'open'),
+            sql`${findings.resourceId} IS NOT NULL`,
+            inArray(findings.type, ORPHANED_FINDING_TYPES),
+          ));
+        conditions.push(sql`${resources.id} IN (${orphanedResources})`);
+      } else if (filters.health === 'critical') {
+        // Resources with critical/high findings but NOT orphaned
+        const criticalResources = db
+          .selectDistinct({ resourceId: findings.resourceId })
+          .from(findings)
+          .where(and(
+            eq(findings.orgId, orgId),
+            eq(findings.status, 'open'),
+            sql`${findings.resourceId} IS NOT NULL`,
+            inArray(findings.severity, ['critical', 'high']),
+          ));
+        const orphanedResources = db
+          .selectDistinct({ resourceId: findings.resourceId })
+          .from(findings)
+          .where(and(
+            eq(findings.orgId, orgId),
+            eq(findings.status, 'open'),
+            sql`${findings.resourceId} IS NOT NULL`,
+            inArray(findings.type, ORPHANED_FINDING_TYPES),
+          ));
+        conditions.push(sql`${resources.id} IN (${criticalResources})`);
+        conditions.push(sql`${resources.id} NOT IN (${orphanedResources})`);
+      } else if (filters.health === 'warning') {
+        // Resources with findings but NOT critical/high and NOT orphaned
+        const criticalResources = db
+          .selectDistinct({ resourceId: findings.resourceId })
+          .from(findings)
+          .where(and(
+            eq(findings.orgId, orgId),
+            eq(findings.status, 'open'),
+            sql`${findings.resourceId} IS NOT NULL`,
+            inArray(findings.severity, ['critical', 'high']),
+          ));
+        const orphanedResources = db
+          .selectDistinct({ resourceId: findings.resourceId })
+          .from(findings)
+          .where(and(
+            eq(findings.orgId, orgId),
+            eq(findings.status, 'open'),
+            sql`${findings.resourceId} IS NOT NULL`,
+            inArray(findings.type, ORPHANED_FINDING_TYPES),
+          ));
+        conditions.push(sql`${resources.id} IN (${resourcesWithFindings})`);
+        conditions.push(sql`${resources.id} NOT IN (${criticalResources})`);
+        conditions.push(sql`${resources.id} NOT IN (${orphanedResources})`);
+      }
     }
 
     // Get total count

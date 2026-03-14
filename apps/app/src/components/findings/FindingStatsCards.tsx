@@ -59,15 +59,120 @@ const findingCategories: Record<string, { label: string; icon: React.ElementType
   },
 };
 
+// Map finding types to resource type labels for aggregation
+const findingTypeToResourceLabel: Record<string, string> = {
+  orphaned_volume: "EBS",
+  orphaned_eip: "EIP",
+  orphaned_snapshot: "EBS Snapshot",
+  orphaned_eni: "ENI",
+  idle_load_balancer: "Load Balancer",
+  idle_nat_gateway: "NAT Gateway",
+  unused_security_group: "Security Group",
+  unencrypted_resource: "EC2",
+  public_access: "S3",
+  permissive_security_group: "Security Group",
+  open_all_ports: "Security Group",
+  publicly_accessible_rds: "RDS",
+  public_snapshot: "RDS",
+  insecure_tls: "ACM",
+  unused_resource: "EC2",
+  stopped_instance: "EC2",
+  unused_log_group: "CloudWatch",
+  oversized_instance: "EC2",
+  ebs_optimization: "EBS",
+  old_gen_instance: "EC2",
+  oversized_lambda: "Lambda",
+  data_residency_violation: "S3",
+  ssl_expiry: "ACM",
+  cloudtrail_disabled: "CloudTrail",
+  vpc_flow_logs_disabled: "VPC",
+  backup_not_configured: "RDS",
+  old_access_key: "IAM",
+  unused_access_key: "IAM",
+  unused_iam_role: "IAM",
+  user_without_mfa: "IAM",
+  root_account_usage: "IAM",
+  overly_permissive_policy: "IAM",
+  cross_account_trust: "IAM",
+  missing_tag: "EC2",
+};
+
+const SEVERITY_COLORS = {
+  critical: "hsl(var(--status-critical))",
+  high: "hsl(var(--status-high))",
+  medium: "hsl(var(--status-warning))",
+  low: "hsl(var(--status-info))",
+  trivial: "hsl(var(--status-trivial))",
+};
+
+const SEVERITY_DOT_CLASSES = {
+  critical: "bg-status-critical",
+  high: "bg-status-high",
+  medium: "bg-status-warning",
+  low: "bg-status-info",
+  trivial: "bg-status-trivial",
+};
+
+interface DonutSegment {
+  value: number;
+  color: string;
+  key: string;
+}
+
+function DonutChart({ segments, total, size = 88, thickness = 13 }: { segments: DonutSegment[]; total: number; size?: number; thickness?: number }) {
+  const r = (size - thickness) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  if (total === 0) {
+    return (
+      <svg width={size} height={size}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={thickness} />
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize="18" fontWeight="700" fill="hsl(var(--foreground))">
+          0
+        </text>
+      </svg>
+    );
+  }
+
+  const paths: React.ReactNode[] = [];
+  let startAngle = -Math.PI / 2;
+
+  segments.forEach((seg, i) => {
+    const angle = (seg.value / total) * 2 * Math.PI;
+    const endAngle = startAngle + angle;
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const d = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+    paths.push(
+      <path key={seg.key ?? i} d={d} fill="none" stroke={seg.color} strokeWidth={thickness} strokeLinecap="butt" />
+    );
+    startAngle = endAngle;
+  });
+
+  return (
+    <svg width={size} height={size}>
+      {paths}
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize="18" fontWeight="700" fill="hsl(var(--foreground))">
+        {total}
+      </text>
+    </svg>
+  );
+}
+
 const ITEMS_PER_PAGE = 5;
 
 export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOpenCount }: FindingStatsCardsProps) {
   const [typePage, setTypePage] = useState(0);
+  const [resourcePage, setResourcePage] = useState(0);
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[...Array(3)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-5">
               <div className="h-3 w-20 rounded bg-muted" />
@@ -102,18 +207,29 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
   const lowCount = bySeverity["low"] || 0;
   const trivialCount = bySeverity["trivial"] || 0;
 
-  // Severity items for the progress bar display
-  const severityItems = [
-    { key: "critical", label: "Critical", count: criticalCount, textColor: "text-status-critical", barColor: "bg-status-critical" },
-    { key: "high", label: "High", count: highCount, textColor: "text-status-high", barColor: "bg-status-high" },
-    { key: "medium", label: "Medium", count: mediumCount, textColor: "text-status-warning", barColor: "bg-status-warning" },
-    { key: "low", label: "Low", count: lowCount, textColor: "text-status-info", barColor: "bg-status-info" },
-    { key: "trivial", label: "Trivial", count: trivialCount, textColor: "text-status-trivial", barColor: "bg-status-trivial" },
-  ];
+  // Build donut chart segments (only non-zero)
+  const donutSegments: DonutSegment[] = [
+    { key: "critical", value: criticalCount, color: SEVERITY_COLORS.critical },
+    { key: "high", value: highCount, color: SEVERITY_COLORS.high },
+    { key: "medium", value: mediumCount, color: SEVERITY_COLORS.medium },
+    { key: "low", value: lowCount, color: SEVERITY_COLORS.low },
+    { key: "trivial", value: trivialCount, color: SEVERITY_COLORS.trivial },
+  ].filter(s => s.value > 0);
 
-  // Calculate max counts for progress bar scaling
-  const maxSeverityCount = Math.max(criticalCount, highCount, mediumCount, lowCount, trivialCount, 1);
-  const maxTypeCount = Math.max(...Object.values(byType), 1);
+  const donutLegend = [
+    { key: "critical", label: "Critical", count: criticalCount, dotClass: SEVERITY_DOT_CLASSES.critical },
+    { key: "high", label: "High", count: highCount, dotClass: SEVERITY_DOT_CLASSES.high },
+    { key: "medium", label: "Medium", count: mediumCount, dotClass: SEVERITY_DOT_CLASSES.medium },
+    { key: "low", label: "Low", count: lowCount, dotClass: SEVERITY_DOT_CLASSES.low },
+    { key: "trivial", label: "Trivial", count: trivialCount, dotClass: SEVERITY_DOT_CLASSES.trivial },
+  ].filter(s => s.count > 0);
+
+  // Map finding types to resource type labels and aggregate
+  const byResourceType: Record<string, number> = {};
+  for (const [type, count] of Object.entries(byType)) {
+    const label = findingTypeToResourceLabel[type] ?? type;
+    byResourceType[label] = (byResourceType[label] || 0) + count;
+  }
 
   // Map finding types to their default severity for coloring
   const typeSeverityMap: Record<string, { barColor: string }> = {
@@ -156,7 +272,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
     return typeSeverityMap[type] || { barColor: "bg-primary" };
   };
 
-  // Pagination calculations
+  // Pagination calculations for types
   const allTypes = Object.entries(byType).sort(([, a], [, b]) => b - a);
   const typeTotalPages = Math.ceil(allTypes.length / ITEMS_PER_PAGE);
   const paginatedTypes = allTypes.slice(
@@ -164,25 +280,49 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
     (typePage + 1) * ITEMS_PER_PAGE
   );
 
+  // Pagination calculations for resource types
+  const allResources = Object.entries(byResourceType).sort(([, a], [, b]) => b - a);
+  const resourceTotalPages = Math.ceil(allResources.length / ITEMS_PER_PAGE);
+  const paginatedResources = allResources.slice(
+    resourcePage * ITEMS_PER_PAGE,
+    (resourcePage + 1) * ITEMS_PER_PAGE
+  );
+  const maxResourceCount = Math.max(...allResources.map(([, c]) => c), 1);
+
   // Click handlers
   const handleTypeClick = (type: string) => {
     onFilterSelect?.({ type: type as FindingType });
   };
 
+  const hasBottomSection = allResources.length > 0 || allTypes.length > 0;
+
   return (
     <div className="space-y-3">
       {/* Main stats row */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Open Findings */}
-        <Card className="border-l-2 border-l-status-warning">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Open Findings — donut chart */}
+        <Card>
           <CardContent className="p-5">
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-3">
               <AlertTriangle className="h-3.5 w-3.5 text-status-warning" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Open Findings
               </p>
             </div>
-            <p className="text-2xl font-bold">{openCount}</p>
+            <div className="flex items-center gap-4">
+              <DonutChart segments={donutSegments} total={openCount} />
+              {donutLegend.length > 0 && (
+                <div className="space-y-1 min-w-0">
+                  {donutLegend.map(item => (
+                    <div key={item.key} className="flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${item.dotClass}`} />
+                      <span className="text-xs text-muted-foreground truncate">{item.label}</span>
+                      <span className="text-xs font-semibold tabular-nums ml-auto pl-2">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -203,37 +343,38 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
           </CardContent>
         </Card>
 
-        {/* Resolved */}
-        <Card className="border-l-2 border-l-status-success">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-1.5 mb-2">
-              <CheckCircle className="h-3.5 w-3.5 text-status-success" />
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Resolved
-              </p>
-            </div>
-            <p className="text-2xl font-bold text-status-success">{resolvedCount}</p>
-          </CardContent>
-        </Card>
-
-        {/* Snoozed & Ignored */}
+        {/* Status breakdown */}
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Deferred
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Status
             </p>
-            <div className="flex items-baseline gap-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
               <div className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-status-warning shrink-0" />
+                <AlertTriangle className="h-3.5 w-3.5 text-status-warning shrink-0" />
                 <div>
-                  <p className="text-2xl font-bold">{snoozedCount}</p>
+                  <p className="text-xl font-bold leading-none">{openCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Open</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-3.5 w-3.5 text-status-success shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-status-success leading-none">{resolvedCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Resolved</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-xl font-bold leading-none">{snoozedCount}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Snoozed</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <EyeOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <div>
-                  <p className="text-2xl font-bold">{ignoredCount}</p>
+                  <p className="text-xl font-bold leading-none">{ignoredCount}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Ignored</p>
                 </div>
               </div>
@@ -242,48 +383,73 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
         </Card>
       </div>
 
-      {/* Severity and Types breakdown */}
-      {(criticalCount > 0 || highCount > 0 || mediumCount > 0 || lowCount > 0 || trivialCount > 0 || allTypes.length > 0) && (
+      {/* Resource type and Finding type breakdown */}
+      {hasBottomSection && (
         <div className="grid gap-3 lg:grid-cols-2">
-          {/* By Severity */}
+          {/* By Resource Type */}
           <Card>
             <CardContent className="p-5">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Findings by Severity
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Findings by Resource Type
+                </h3>
+                {resourceTotalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setResourcePage(p => Math.max(0, p - 1))}
+                      disabled={resourcePage === 0}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground tabular-nums px-0.5">
+                      {resourcePage + 1}/{resourceTotalPages}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setResourcePage(p => Math.min(resourceTotalPages - 1, p + 1))}
+                      disabled={resourcePage === resourceTotalPages - 1}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="space-y-2.5">
-                {severityItems.map((item) => {
-                  if (item.count === 0) return null;
-                  const percentage = Math.max(Math.round((item.count / maxSeverityCount) * 100), 2);
+                {paginatedResources.map(([label, count]) => {
+                  const percentage = Math.max(Math.round((count / maxResourceCount) * 100), 2);
                   return (
-                    <div key={item.key}>
+                    <div key={label}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`text-sm font-medium ${item.textColor}`}>
-                          {item.label}
-                        </span>
-                        <span className="text-sm font-semibold tabular-nums">
-                          {item.count}
-                        </span>
+                        <span className="text-sm font-medium">{label}</span>
+                        <span className="text-sm font-semibold tabular-nums">{count}</span>
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-muted">
                         <div
-                          className={`h-1.5 rounded-full transition-all duration-300 ${item.barColor}`}
+                          className="h-1.5 rounded-full transition-all duration-300 bg-primary/70"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
                     </div>
                   );
                 })}
+                {allResources.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No findings discovered</p>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Top Finding Types */}
+          {/* Findings by Type */}
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Top Finding Types
+                  Findings by Type
                 </h3>
                 {typeTotalPages > 1 && (
                   <div className="flex items-center gap-1">
@@ -313,6 +479,7 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
               </div>
               <div className="space-y-2.5">
                 {paginatedTypes.map(([type, count]) => {
+                  const maxTypeCount = Math.max(...Object.values(byType), 1);
                   const percentage = Math.max(Math.round((count / maxTypeCount) * 100), 2);
                   const severityInfo = getTypeSeverity(type);
                   return (

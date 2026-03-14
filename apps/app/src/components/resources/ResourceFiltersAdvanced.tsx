@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ServiceIcon, getServiceLabel } from "@/components/shared/ServiceIcon";
-import type { ResourceFilters as Filters, ServiceType, CostFilterType } from "@/types";
-import { Search, X, DollarSign } from "lucide-react";
+import type { ResourceFilters as Filters, ResourceHealthFilter, ServiceType, CostFilterType } from "@/types";
+import { Search, X, DollarSign, Heart } from "lucide-react";
 
 interface ResourceFiltersAdvancedProps {
   filters: Filters;
@@ -42,8 +42,8 @@ export function ResourceFiltersAdvanced({
   totalCount,
   filteredCount,
 }: ResourceFiltersAdvancedProps) {
-  const hasFilters = filters.service || filters.region || filters.state || filters.costFilter || searchQuery;
-  const activeFilterCount = [filters.service, filters.region, filters.state, filters.costFilter, searchQuery].filter(Boolean).length;
+  const hasFilters = filters.service || filters.region || filters.state || filters.costFilter || filters.health || searchQuery;
+  const activeFilterCount = [filters.service, filters.region, filters.state, filters.costFilter, filters.health, searchQuery].filter(Boolean).length;
 
   const clearFilters = () => {
     onFiltersChange({});
@@ -172,6 +172,29 @@ export function ResourceFiltersAdvanced({
             </SelectContent>
           </Select>
 
+          {/* Health filter */}
+          <Select
+            value={filters.health || "all"}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                health: value === "all" ? undefined : (value as ResourceHealthFilter),
+              })
+            }
+          >
+            <SelectTrigger className="w-[140px]">
+              <Heart className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="All Health" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Health</SelectItem>
+              <SelectItem value="healthy">Healthy</SelectItem>
+              <SelectItem value="warning">Warning</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="orphaned">Orphaned</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Clear all button */}
           {hasFilters && (
             <Button variant="ghost" onClick={clearFilters}>
@@ -252,6 +275,18 @@ export function ResourceFiltersAdvanced({
                 {filters.costFilter === "paid" ? "Paid Only" : "Free Only"}
                 <button
                   onClick={() => clearSingleFilter("costFilter")}
+                  className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.health && (
+              <Badge variant="secondary" className="gap-1 pr-1">
+                <Heart className="h-3 w-3" />
+                Health: {filters.health.charAt(0).toUpperCase() + filters.health.slice(1)}
+                <button
+                  onClick={() => clearSingleFilter("health")}
                   className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
                 >
                   <X className="h-3 w-3" />

@@ -70,15 +70,15 @@ import { Icon } from "astro-icon/components";
 
       if (res.ok) {
         message.textContent = data.message || 'Thanks for subscribing!';
-        message.className = 'text-sm text-emerald-400';
+        message.className = 'text-sm text-neon-green';
         form.reset();
       } else {
         message.textContent = data.message || 'Something went wrong. Please try again.';
-        message.className = 'text-sm text-red-400';
+        message.className = 'text-sm text-alert-red';
       }
     } catch {
       message.textContent = 'Network error. Please try again.';
-      message.className = 'text-sm text-red-400';
+      message.className = 'text-sm text-alert-red';
     } finally {
       submitBtn.disabled = false;
     }
