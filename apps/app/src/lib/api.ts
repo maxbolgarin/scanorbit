@@ -36,6 +36,7 @@ import type {
   SeatInfo,
   SeatBillingPreview,
   InviteInfo,
+  MyPendingInvitation,
   ApiKeyInfo,
   CreateApiKeyResponse,
 } from "@/types";
@@ -559,6 +560,23 @@ export async function acceptInvitation(token: string): Promise<{ org: Org; acces
       { token }
     );
     return { org: data.data.org, accessToken: data.accessToken };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getMyPendingInvitations(): Promise<MyPendingInvitation[]> {
+  try {
+    const { data } = await api.get<{ data: MyPendingInvitation[] }>("/auth/my-invitations");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function declineInvitation(token: string): Promise<void> {
+  try {
+    await api.post("/auth/decline-invite", { token });
   } catch (error) {
     handleApiError(error);
   }

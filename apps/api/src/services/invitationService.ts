@@ -495,6 +495,81 @@ export const invitationService = {
   },
 
   /**
+   * Get pending invitations for the current user (by their email)
+   */
+  async getMyPendingInvitations(userId: string) {
+    const [user] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP404Error('User not found');
+    }
+
+    return db
+      .select({
+        id: orgInvitations.id,
+        token: orgInvitations.token,
+        orgId: orgInvitations.orgId,
+        orgName: orgs.name,
+        inviterName: users.fullName,
+        role: orgInvitations.role,
+        expiresAt: orgInvitations.expiresAt,
+      })
+      .from(orgInvitations)
+      .innerJoin(orgs, eq(orgInvitations.orgId, orgs.id))
+      .leftJoin(users, eq(orgInvitations.invitedBy, users.id))
+      .where(
+        and(
+          eq(orgInvitations.email, user.email),
+          eq(orgInvitations.status, 'pending'),
+          sql`${orgInvitations.expiresAt} > now()`
+        )
+      );
+  },
+
+  /**
+   * Decline an invitation — called by the invitee
+   */
+  async declineInvitation(token: string, userId: string) {
+    const [invitation] = await db
+      .select({ id: orgInvitations.id, email: orgInvitations.email, status: orgInvitations.status })
+      .from(orgInvitations)
+      .where(
+        and(
+          eq(orgInvitations.token, token),
+          eq(orgInvitations.status, 'pending')
+        )
+      )
+      .limit(1);
+
+    if (!invitation) {
+      throw new HTTP404Error('Invitation not found or already processed');
+    }
+
+    const [user] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new HTTP404Error('User not found');
+    }
+
+    if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new HTTP403Error('This invitation was sent to a different email address');
+    }
+
+    await db
+      .update(orgInvitations)
+      .set({ status: 'declined' })
+      .where(eq(orgInvitations.id, invitation.id));
+  },
+
+  /**
    * Get invitation info by token (public — no auth required)
    */
   async getInviteInfo(token: string) {

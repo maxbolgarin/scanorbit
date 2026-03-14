@@ -52,13 +52,17 @@ function getOAuthUrl(): string {
 
 interface GoogleAuthButtonProps {
   mode: "signin" | "signup";
+  redirectAfter?: string;
 }
 
-export function GoogleAuthButton({ mode }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ mode, redirectAfter }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleAuth = () => {
     setIsLoading(true);
+    if (redirectAfter) {
+      sessionStorage.setItem("oauthPendingRedirect", redirectAfter);
+    }
     // Redirect to backend OAuth endpoint
     window.location.href = getOAuthUrl();
   };

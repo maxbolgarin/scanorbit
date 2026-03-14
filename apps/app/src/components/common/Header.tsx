@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/shared/TierBadge";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, LogOut, Orbit, Settings, User, Building2, Cloud, Plus, Lock, Check, Sun, Moon, Monitor } from "lucide-react";
+import { ChevronDown, LogOut, Orbit, Building2, Cloud, Plus, Lock, Check, Sun, Moon, Monitor } from "lucide-react";
 import { getInitials, cn } from "@/lib/utils";
 import { useAccountContext } from "@/hooks/use-account-context";
 import { useThemeStore } from "@/stores/theme-store";
@@ -195,44 +195,26 @@ export function Header() {
             </div>
           )}
 
-          {/* User menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2">
-                <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-xs">
-                    {user ? getInitials(user.fullName || user.email) : "?"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="hidden md:inline-block">
-                  {user?.fullName || user?.email}
-                </span>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user?.fullName}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/profile")}>
-                <User className="mr-2 h-4 w-4" />
-                Team
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* User info + Logout */}
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7">
+              <AvatarFallback className="text-xs">
+                {user ? getInitials(user.fullName || user.email) : "?"}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden md:inline-block text-sm">
+              {user?.fullName || user?.email}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="h-8 w-8 p-0 text-red-600 hover:text-red-600 hover:bg-red-600/10"
+              title="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </header>

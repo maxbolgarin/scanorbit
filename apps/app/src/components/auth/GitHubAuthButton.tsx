@@ -37,13 +37,17 @@ function getOAuthUrl(): string {
 
 interface GitHubAuthButtonProps {
   mode: "signin" | "signup";
+  redirectAfter?: string;
 }
 
-export function GitHubAuthButton({ mode }: GitHubAuthButtonProps) {
+export function GitHubAuthButton({ mode, redirectAfter }: GitHubAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGitHubAuth = () => {
     setIsLoading(true);
+    if (redirectAfter) {
+      sessionStorage.setItem("oauthPendingRedirect", redirectAfter);
+    }
     // Redirect to backend OAuth endpoint
     window.location.href = getOAuthUrl();
   };

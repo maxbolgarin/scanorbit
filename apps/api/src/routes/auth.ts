@@ -895,7 +895,7 @@ const acceptInviteSchema = z.object({
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // GET /auth/invite-info/:token — Get invitation info (no auth required)
-authRoute.get('/invite-info/:token', rateLimiters.passwordReset, async (c) => {
+authRoute.get('/invite-info/:token', rateLimiters.inviteInfo, async (c) => {
   const token = c.req.param('token');
   if (!token || !UUID_RE.test(token)) {
     throw new HTTP400Error('Invalid invitation token');
@@ -915,6 +915,25 @@ authRoute.post('/accept-invite', requireAuth, rateLimiters.verifyCode, zValidato
   const { accessToken } = await setAuthTokens(c, userId, org.id);
 
   return c.json({ data: { org }, accessToken });
+});
+
+// GET /auth/my-invitations — Get pending invitations for the current user
+authRoute.get('/my-invitations', requireAuth, rateLimiters.api, async (c) => {
+  const userId = c.get('userId');
+  const invitations = await invitationService.getMyPendingInvitations(userId);
+  return c.json({ data: invitations });
+});
+
+const declineInviteSchema = z.object({
+  token: z.string().uuid(),
+});
+
+// POST /auth/decline-invite — Decline an invitation
+authRoute.post('/decline-invite', requireAuth, rateLimiters.verifyCode, zValidator('json', declineInviteSchema), async (c) => {
+  const userId = c.get('userId');
+  const { token } = c.req.valid('json');
+  await invitationService.declineInvitation(token, userId);
+  return c.json({ data: { success: true } });
 });
 
 export default authRoute;
