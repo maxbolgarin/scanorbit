@@ -72,9 +72,10 @@ export function TeamSettings() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
   const [confirmDialog, setConfirmDialog] = useState<{
-    type: "remove" | "paid-seat";
+    type: "remove" | "paid-seat" | "role-change";
     member?: OrgMember & { email: string; fullName: string | null };
     email?: string;
+    targetRole?: "admin" | "member";
   } | null>(null);
 
   // Determine if current user is admin
@@ -139,10 +140,22 @@ export function TeamSettings() {
     }
   };
 
-  const handleRoleChange = async (userId: string, role: "admin" | "member") => {
+  const handleRoleChange = (
+    member: OrgMember & { email: string; fullName: string | null },
+    targetRole: "admin" | "member"
+  ) => {
+    setConfirmDialog({ type: "role-change", member, targetRole });
+  };
+
+  const confirmRoleChange = async () => {
+    if (!confirmDialog?.member || !confirmDialog?.targetRole) return;
     try {
-      await changeMemberRole.mutateAsync({ userId, role });
+      await changeMemberRole.mutateAsync({
+        userId: confirmDialog.member.userId,
+        role: confirmDialog.targetRole,
+      });
       toast({ title: "Role updated", type: "success" });
+      setConfirmDialog(null);
     } catch (err) {
       toast({ title: "Failed to update role", description: (err as Error).message, type: "error" });
     }
@@ -224,15 +237,12 @@ export function TeamSettings() {
                     {isAdmin && (
                       <TableCell>
                         <div className="flex gap-1">
-                          {!isLastAdmin && (
+                          {!isLastAdmin && !(isCurrentUser && member.role === "admin") && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                handleRoleChange(
-                                  member.userId,
-                                  member.role === "admin" ? "member" : "admin"
-                                )
+                                handleRoleChange(m, member.role === "admin" ? "member" : "admin")
                               }
                               disabled={changeMemberRole.isPending}
                             >
@@ -401,6 +411,36 @@ export function TeamSettings() {
                   disabled={removeMember.isPending}
                 >
                   {removeMember.isPending ? "Removing..." : "Remove Member"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+          {confirmDialog?.type === "role-change" && confirmDialog.member && confirmDialog.targetRole && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {confirmDialog.targetRole === "admin" ? "Promote to admin" : "Demote to member"}
+                </DialogTitle>
+                <DialogDescription>
+                  {confirmDialog.targetRole === "admin"
+                    ? `Promote ${confirmDialog.member.fullName || confirmDialog.member.email} to admin? They will gain full administrative access to ${org?.name}.`
+                    : `Demote ${confirmDialog.member.fullName || confirmDialog.member.email} to member? They will lose administrative privileges in ${org?.name}.`}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant={confirmDialog.targetRole === "admin" ? "default" : "destructive"}
+                  onClick={confirmRoleChange}
+                  disabled={changeMemberRole.isPending}
+                >
+                  {changeMemberRole.isPending
+                    ? "Updating..."
+                    : confirmDialog.targetRole === "admin"
+                      ? "Promote"
+                      : "Demote"}
                 </Button>
               </DialogFooter>
             </>
