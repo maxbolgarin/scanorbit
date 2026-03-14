@@ -120,12 +120,14 @@ awsAccountsRoute.patch(
 // POST /aws/accounts/:id/test - Test AWS account connection
 awsAccountsRoute.post('/:id/test', async (c) => {
   const orgId = c.get('orgId');
+  const userId = c.get('userId');
   const accountId = c.req.param('id');
 
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');
   }
 
+  await verifyOrgAdmin(orgId, userId);
   const result = await awsAccountService.testConnection(orgId, accountId);
   return c.json({ data: result });
 });
@@ -133,12 +135,14 @@ awsAccountsRoute.post('/:id/test', async (c) => {
 // POST /aws/accounts/:id/scan - Enqueue scan for AWS account
 awsAccountsRoute.post('/:id/scan', async (c) => {
   const orgId = c.get('orgId');
+  const userId = c.get('userId');
   const accountId = c.req.param('id');
 
   if (!accountId) {
     throw new HTTP400Error('Account ID is required');
   }
 
+  await verifyOrgAdmin(orgId, userId);
   const scan = await awsAccountService.enqueueScan(orgId, accountId);
   return c.json({ data: scan }, 202);
 });
@@ -168,6 +172,7 @@ awsAccountsRoute.post(
   zValidator('json', analyzeSchema),
   async (c) => {
     const orgId = c.get('orgId');
+    const userId = c.get('userId');
     const accountId = c.req.param('id');
 
     if (!orgId) {
@@ -178,6 +183,7 @@ awsAccountsRoute.post(
       throw new HTTP400Error('Account ID is required');
     }
 
+    await verifyOrgAdmin(orgId, userId);
     const { type, allowedRegions } = c.req.valid('json');
 
     if (type === 'all') {

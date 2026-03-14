@@ -38,6 +38,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAwsAccount, useScanHistory, useTriggerScan, useScanCompletionRefresh, useActiveScans } from "@/hooks/use-aws-accounts";
 import { useSubscriptionStatus } from "@/hooks/use-subscription";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { toast } from "@/hooks/use-toast";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import type { Scan, ScanStatus } from "@/types";
@@ -162,6 +163,7 @@ export default function AccountScans() {
   // Get subscription status for scan permissions
   const { canScan: subscriptionCanScan, scanReason, cooldownEndsAt, tier } = useSubscriptionStatus();
   const cooldownTimeLeft = useCooldownTimer(cooldownEndsAt);
+  const isAdmin = useIsAdmin();
 
   const getActiveScanForAccount = () =>
     activeScansData?.find((scan) => scan.awsAccountId === accountId);
@@ -244,8 +246,8 @@ export default function AccountScans() {
         </div>
       </div>
 
-      {/* Start Scan panel - always show so users can retry after fixing errors */}
-      <Card>
+      {/* Start Scan panel - only visible to admins */}
+      {isAdmin && <Card>
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Play className="h-5 w-5 text-primary" />
@@ -296,7 +298,7 @@ export default function AccountScans() {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
       {/* Account error state */}
       {account?.status === "error" && (
@@ -367,7 +369,7 @@ export default function AccountScans() {
               <p className="mt-2 max-w-md text-sm text-muted-foreground">
                 Start a scan to discover resources and identify issues in this account.
               </p>
-              {account?.status === "ok" && (
+              {account?.status === "ok" && isAdmin && (
                 <>
                   {!subscriptionCanScan && scanReason && (
                     <p className="mt-4 text-sm text-status-warning">

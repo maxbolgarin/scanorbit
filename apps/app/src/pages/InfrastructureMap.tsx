@@ -19,6 +19,7 @@ import '@/styles/infrastructure-map.css';
 import { useAllResources, useAllDependencies } from '@/hooks/use-resources';
 import { useFilteredFindings } from '@/hooks/use-findings';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAwsAccounts } from '@/hooks/use-aws-accounts';
 import {
   buildInfrastructureGraphWithDependencies,
   filterGraph,
@@ -43,7 +44,7 @@ import { MapLegend } from '@/components/infrastructure-map/MapLegend';
 import { PaywallBlocker } from '@/components/shared/PaywallBlocker';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { RefreshCw, Network, RotateCcw, Layout, GitBranch, Waypoints, Globe, EyeOff } from 'lucide-react';
+import { RefreshCw, Network, RotateCcw, Layout, GitBranch, Waypoints, Globe, EyeOff, Cloud } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import type { ServiceType, Resource } from '@/types';
 import { TIER_LIMITS } from '@/types';
@@ -291,6 +292,7 @@ export default function InfrastructureMap() {
   const canViewInfrastructureMap = TIER_LIMITS[tier].canViewInfrastructureMap;
 
   // All hooks MUST be called before any conditional return (Rules of Hooks)
+  const { accounts } = useAwsAccounts();
   const { data: resourcesData, isLoading: resourcesLoading, refetch } = useAllResources(
     undefined, { enabled: canViewInfrastructureMap }
   );
@@ -506,6 +508,9 @@ export default function InfrastructureMap() {
 
   // Show paywall for free tier (after all hooks)
   if (!canViewInfrastructureMap) {
+    const hasAccount = accounts.length > 0;
+    const hasScanned = accounts.some((a) => a.lastScanAt);
+
     return (
       <div className="space-y-6">
         <div>
@@ -514,7 +519,39 @@ export default function InfrastructureMap() {
             Visualize your AWS infrastructure and dependencies
           </p>
         </div>
-        <PaywallBlocker feature="infrastructure-map" />
+        {!hasAccount ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <Cloud className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold">Connect an AWS Account</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Connect your AWS account and run a scan to visualize your infrastructure.
+              </p>
+            </div>
+            <Button onClick={() => window.location.href = '/onboarding/aws'}>
+              Connect AWS Account
+            </Button>
+          </div>
+        ) : hasScanned ? (
+          <PaywallBlocker feature="infrastructure-map" />
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <Network className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold">Run Your First Scan</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Run a scan to discover your resources, then upgrade to visualize your infrastructure map.
+              </p>
+            </div>
+            <Button onClick={() => window.location.href = '/scans'}>
+              Go to Scans
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

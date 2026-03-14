@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAwsAccounts } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAccountContextStore } from "@/stores/account-context-store";
 import { toast } from "@/hooks/use-toast";
 import { TIER_LIMITS } from "@/types";
@@ -26,6 +27,7 @@ export default function Accounts() {
   const navigate = useNavigate();
   const { accounts, isLoading, deleteAccount } = useAwsAccounts();
   const { org } = useAuthStore();
+  const isAdmin = useIsAdmin();
   const { currentAccountId, clearAccountContext, setCurrentAccount } = useAccountContextStore();
 
   const tier = org?.tier || 'free';
@@ -96,7 +98,7 @@ export default function Accounts() {
             Manage your connected AWS accounts
           </p>
         </div>
-        {isTeamTier && (
+        {isTeamTier && isAdmin && (
           <Button onClick={() => navigate("/onboarding/aws")} size="sm" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add Account
@@ -127,17 +129,17 @@ export default function Accounts() {
       {accounts.length > 0 ? (
         <AccountsTable
           accounts={accounts}
-          onEdit={setEditAccountId}
+          onEdit={isAdmin ? setEditAccountId : undefined}
           onViewHistory={setHistoryAccountId}
-          onDisconnect={setDisconnectAccountId}
+          onDisconnect={isAdmin ? setDisconnectAccountId : undefined}
         />
       ) : (
         <EmptyState
           icon={Cloud}
           title="No AWS accounts connected"
-          description="Connect your first AWS account to start scanning your infrastructure"
-          actionLabel="Add Account"
-          onAction={() => navigate("/onboarding/aws")}
+          description={isAdmin ? "Connect your first AWS account to start scanning your infrastructure" : "No AWS accounts have been connected yet"}
+          actionLabel={isAdmin ? "Add Account" : undefined}
+          onAction={isAdmin ? () => navigate("/onboarding/aws") : undefined}
         />
       )}
 

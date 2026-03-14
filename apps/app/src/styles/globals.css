@@ -28,10 +28,10 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 60% 40%;
+    --success: 152 65% 40%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 48 95% 50%;
     --warning-foreground: 0 0% 100%;
 
     --border: 240 6% 90%;
@@ -44,17 +44,17 @@
     --midnight: 240 5% 96%;
     --orbit-purple: 262 50% 51%;
     --cyber-cyan: 195 80% 40%;
-    --neon-green: 160 60% 40%;
-    --warning-orange: 38 92% 50%;
+    --neon-green: 152 65% 40%;
+    --warning-orange: 48 95% 50%;
     --alert-red: 0 84% 60%;
     --cloud-gray: 240 10% 4%;
     --slate-gray: 240 4% 46%;
 
-    /* Status colors — higher saturation for white backgrounds */
-    --status-critical: 0 72% 51%;
-    --status-high: 25 95% 53%;
-    --status-warning: 38 92% 50%;
-    --status-success: 160 60% 40%;
+    /* Status colors */
+    --status-critical: 0 80% 50%;
+    --status-high: 0 72% 56%;
+    --status-warning: 48 95% 50%;
+    --status-success: 152 65% 40%;
     --status-info: 217 91% 60%;
     --status-trivial: 240 5% 55%;
   }
@@ -82,13 +82,13 @@
     --accent: 262 30% 22%;
     --accent-foreground: 260 15% 96%;
 
-    --destructive: 0 62% 58%;
+    --destructive: 0 80% 62%;
     --destructive-foreground: 260 15% 96%;
 
-    --success: 160 48% 52%;
+    --success: 152 65% 50%;
     --success-foreground: 240 10% 4%;
 
-    --warning: 45 55% 58%;
+    --warning: 48 90% 58%;
     --warning-foreground: 240 10% 4%;
 
     --border: 240 10% 18%;
@@ -100,19 +100,19 @@
     --midnight: 240 12% 10%;
     --orbit-purple: 262 50% 51%;
     --cyber-cyan: 195 90% 45%;
-    --neon-green: 160 48% 52%;
-    --warning-orange: 45 55% 58%;
-    --alert-red: 0 62% 58%;
+    --neon-green: 152 65% 50%;
+    --warning-orange: 48 90% 58%;
+    --alert-red: 0 80% 62%;
     --cloud-gray: 260 15% 96%;
     --slate-gray: 244 8% 60%;
 
-    /* Status colors — professional muted for dark backgrounds */
-    --status-critical: 0 62% 58%;
-    --status-high: 25 58% 58%;
-    --status-warning: 45 55% 58%;
-    --status-success: 160 48% 52%;
-    --status-info: 220 48% 62%;
-    --status-trivial: 244 8% 50%;
+    /* Status colors — bright and saturated */
+    --status-critical: 0 80% 62%;
+    --status-high: 0 72% 66%;
+    --status-warning: 48 90% 58%;
+    --status-success: 152 65% 50%;
+    --status-info: 217 80% 65%;
+    --status-trivial: 240 8% 55%;
   }
 }
 

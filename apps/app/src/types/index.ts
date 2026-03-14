@@ -19,6 +19,7 @@ export interface Org {
   tierUpgradedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  role?: 'admin' | 'member';
 }
 
 // =============================================================================

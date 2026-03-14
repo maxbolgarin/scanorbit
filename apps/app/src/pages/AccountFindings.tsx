@@ -17,6 +17,7 @@ import {
 } from "@/hooks/use-findings";
 import { useAwsAccount, useScanHistory, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
 import { useAuthStore } from "@/stores/auth-store";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { toast } from "@/hooks/use-toast";
 import type { FindingFilters as Filters, Finding, FindingStatus } from "@/types";
 import { ACTIVE_SCAN_STATUSES, ORPHANED_FINDING_TYPES, TIER_LIMITS } from "@/types";
@@ -29,6 +30,7 @@ export default function AccountFindings() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { org } = useAuthStore();
+  const isAdmin = useIsAdmin();
 
   // Check tier-based access
   const tier = org?.tier || 'free';
@@ -332,7 +334,7 @@ export default function AccountFindings() {
       <FindingDetailModal
         finding={selectedFinding}
         onClose={handleCloseModal}
-        onUpdateStatus={handleUpdateStatus}
+        onUpdateStatus={isAdmin ? handleUpdateStatus : undefined}
         isUpdating={updateStatus.isPending}
         resourcePathPrefix={`/accounts/${accountId}`}
       />
