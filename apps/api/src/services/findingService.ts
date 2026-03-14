@@ -1,4 +1,4 @@
-import { eq, and, desc, count, inArray, sql, asc } from 'drizzle-orm';
+import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP404Error } from '../lib/errors.js';
 import { findings, resources, certificates, findingScans, scans } from '../db/schema.js';
