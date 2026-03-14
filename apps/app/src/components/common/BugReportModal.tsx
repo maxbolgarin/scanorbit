@@ -88,7 +88,7 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
 
   const isValid =
     title.trim().length >= 3 &&
-    description.trim().length >= 10 &&
+    description.trim().length > 0 &&
     category !== "";
 
   return (
