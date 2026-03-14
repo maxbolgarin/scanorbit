@@ -74,9 +74,9 @@ const jsonLd =
     <!-- Theme initialization - must be in <head> to prevent flash -->
     <script is:inline>
       (function() {
-        var theme = localStorage.getItem('theme') || 'dark';
+        const theme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
-        var meta = document.querySelector('meta[name="theme-color"]');
+        const meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', theme === 'dark' ? '#08080f' : '#ffffff');
       })();
     </script>
