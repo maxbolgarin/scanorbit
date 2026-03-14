@@ -43,7 +43,7 @@
     --deep-space: 0 0% 100%;
     --midnight: 240 5% 96%;
     --orbit-purple: 262 50% 51%;
-    --cyber-cyan: 262 40% 96%;
+    --cyber-cyan: 195 80% 40%;
     --neon-green: 160 60% 40%;
     --warning-orange: 38 92% 50%;
     --alert-red: 0 84% 60%;
@@ -59,24 +59,24 @@
     --status-trivial: 240 5% 55%;
   }
 
-  /* ── Dark Theme ─── Proton Mail-inspired deep indigo ── */
+  /* ── Dark Theme ─── Deep black with indigo tint ── */
   .dark {
-    --background: 248 30% 9%;
+    --background: 240 10% 4%;
     --foreground: 260 15% 96%;
 
-    --card: 248 25% 13%;
+    --card: 240 12% 10%;
     --card-foreground: 260 15% 96%;
 
-    --popover: 248 25% 13%;
+    --popover: 240 12% 10%;
     --popover-foreground: 260 15% 96%;
 
     --primary: 262 50% 51%;
     --primary-foreground: 260 15% 96%;
 
-    --secondary: 248 20% 18%;
+    --secondary: 240 12% 16%;
     --secondary-foreground: 260 15% 96%;
 
-    --muted: 248 20% 18%;
+    --muted: 240 12% 16%;
     --muted-foreground: 244 8% 60%;
 
     --accent: 262 30% 22%;
@@ -86,20 +86,20 @@
     --destructive-foreground: 260 15% 96%;
 
     --success: 160 48% 52%;
-    --success-foreground: 248 30% 9%;
+    --success-foreground: 240 10% 4%;
 
     --warning: 45 55% 58%;
-    --warning-foreground: 248 30% 9%;
+    --warning-foreground: 240 10% 4%;
 
-    --border: 248 18% 22%;
-    --input: 248 25% 13%;
+    --border: 240 10% 18%;
+    --input: 240 12% 10%;
     --ring: 262 50% 51%;
 
     /* Brand colors — dark */
-    --deep-space: 248 30% 9%;
-    --midnight: 248 25% 13%;
+    --deep-space: 240 10% 4%;
+    --midnight: 240 12% 10%;
     --orbit-purple: 262 50% 51%;
-    --cyber-cyan: 262 30% 22%;
+    --cyber-cyan: 195 90% 45%;
     --neon-green: 160 48% 52%;
     --warning-orange: 45 55% 58%;
     --alert-red: 0 62% 58%;

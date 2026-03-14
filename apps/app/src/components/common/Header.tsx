@@ -77,7 +77,7 @@ export function Header() {
         {/* Logo */}
         <a href="/overview" className="flex items-center gap-2 group">
           <Orbit className="h-6 w-6 text-cyber-cyan group-hover:animate-spin md:h-8 md:w-8" />
-          <span className="text-lg font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent md:text-xl">
+          <span className="text-lg font-bold bg-gradient-to-r from-cyber-cyan to-orbit-purple bg-clip-text text-transparent md:text-xl">
             ScanOrbit
           </span>
         </a>

@@ -49,7 +49,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewFindingList: true,
     canViewInfrastructureMap: true,
     allowRetryOnError: true,
-    maxAccounts: 1,
+    maxAccounts: 3,
     canViewOrgOverview: false,
     scanPriority: false,
     canExportData: false,
@@ -64,7 +64,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewFindingList: true,
     canViewInfrastructureMap: true,
     allowRetryOnError: true,
-    maxAccounts: -1, // unlimited
+    maxAccounts: 10,
     canViewOrgOverview: true,
     scanPriority: true,
     canExportData: true,

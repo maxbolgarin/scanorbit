@@ -66,10 +66,10 @@ export default function TrialCheckout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-muted/30">
-      <div className="flex items-center gap-2">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+      <div className="flex items-center gap-3">
         <Orbit className="h-10 w-10 text-cyber-cyan" />
-        <span className="text-2xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+        <span className="text-3xl font-bold bg-gradient-to-r from-cyber-cyan to-orbit-purple bg-clip-text text-transparent">
           ScanOrbit
         </span>
       </div>
