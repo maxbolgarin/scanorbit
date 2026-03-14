@@ -19,6 +19,7 @@ import { formatDateTime } from "@/lib/utils";
 import * as api from "@/lib/api";
 import { Pencil } from "lucide-react";
 import { OrgSwitcherSettings } from "./OrgSwitcherSettings";
+import { PendingInvitationsSection } from "./PendingInvitationsSection";
 
 const generalSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(64, "Name must be at most 64 characters"),
@@ -77,6 +78,7 @@ export function ProfileSettings() {
 
   return (
     <div className="space-y-6">
+      <PendingInvitationsSection />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div className="space-y-1">

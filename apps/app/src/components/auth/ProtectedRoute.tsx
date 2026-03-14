@@ -1,7 +1,12 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/stores/auth-store";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useEffect, useState } from "react";
+
+function isValidInternalPath(path: string | null): path is string {
+  if (!path || typeof path !== "string") return false;
+  return path.startsWith("/") && !path.includes("://") && !path.startsWith("//");
+}
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,6 +14,8 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, hasOrg, isLoading, checkAuth } = useAuthStore();
   const [hasChecked, setHasChecked] = useState(false);
 
@@ -17,6 +24,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const doCheck = async () => {
       try {
         await checkAuth();
+        // After successful auth, handle pending OAuth redirect (e.g. invite link)
+        if (searchParams.get("oauth") === "success") {
+          const pendingRedirect = sessionStorage.getItem("oauthPendingRedirect");
+          if (isValidInternalPath(pendingRedirect)) {
+            sessionStorage.removeItem("oauthPendingRedirect");
+            navigate(pendingRedirect, { replace: true });
+            return;
+          }
+        }
       } catch {
         // checkAuth already handles errors internally by clearing auth state
         // Any error here means auth failed, which is handled by the redirect below

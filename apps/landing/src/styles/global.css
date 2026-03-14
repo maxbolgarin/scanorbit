@@ -4,8 +4,8 @@
    This enables utilities like `bg-orbit-purple`, `text-cloud-gray`, `animate-float`, etc. */
 @theme {
   /* Colors - ScanOrbit Brand Palette */
-  --color-deep-space: #0a0f1e;
-  --color-midnight: #1a1f3a;
+  --color-deep-space: #08080f;
+  --color-midnight: #131520;
   --color-orbit-purple: #6b46c1;
   --color-cyber-cyan: #00b8e6;
   --color-neon-green: #10b981;

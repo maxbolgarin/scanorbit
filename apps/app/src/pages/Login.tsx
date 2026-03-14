@@ -59,7 +59,14 @@ export default function Login() {
       checkAuth().then(() => {
         // Clear query params
         setSearchParams({}, { replace: true });
-        navigate(from, { replace: true });
+        // Check for pending invite redirect stored before OAuth flow
+        const pendingRedirect = sessionStorage.getItem("oauthPendingRedirect");
+        if (pendingRedirect && isValidInternalPath(pendingRedirect)) {
+          sessionStorage.removeItem("oauthPendingRedirect");
+          navigate(pendingRedirect, { replace: true });
+        } else {
+          navigate(from, { replace: true });
+        }
       });
     } else if (twoFaChallenge) {
       // OAuth returned with 2FA challenge - set in store and clear URL
@@ -152,8 +159,8 @@ export default function Login() {
 
             {/* OAuth Sign-In Buttons */}
             <div className="space-y-2">
-              <GoogleAuthButton mode="signin" />
-              <GitHubAuthButton mode="signin" />
+              <GoogleAuthButton mode="signin" redirectAfter={from !== "/overview" ? from : undefined} />
+              <GitHubAuthButton mode="signin" redirectAfter={from !== "/overview" ? from : undefined} />
             </div>
           </CardContent>
           <CardFooter className="flex justify-center">

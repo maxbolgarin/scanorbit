@@ -374,6 +374,15 @@ export const rateLimiters = {
     message: 'Too many password reset requests. Please try again later.',
   }),
 
+  /** Invite info lookup: 30 per 15 minutes per IP (fail-open: public, non-sensitive) */
+  inviteInfo: rateLimit({
+    keyPrefix: 'inviteinfo',
+    maxRequests: 30,
+    windowSeconds: 15 * 60,
+    message: 'Too many invitation requests. Please try again later.',
+    failOpen: true,
+  }),
+
   /**
    * Verify code with combined email + IP limiting
    * Email limit: 5 per 15 minutes (stricter to prevent targeted brute force)

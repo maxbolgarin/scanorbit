@@ -172,6 +172,16 @@ export interface InviteInfo {
   expiresAt: string;
 }
 
+export interface MyPendingInvitation {
+  id: string;
+  token: string;
+  orgId: string;
+  orgName: string;
+  inviterName: string | null;
+  role: "admin" | "member";
+  expiresAt: string;
+}
+
 // AWS Account
 export type AwsAccountStatus = "pending" | "ok" | "error";
 
