@@ -15,7 +15,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-foreground">
             Resource Health
           </CardTitle>
         </CardHeader>
@@ -52,7 +52,7 @@ export function ResourceHealthCard({ summary, isLoading, accountId }: ResourceHe
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Server className="h-4 w-4" />
             Resource Health

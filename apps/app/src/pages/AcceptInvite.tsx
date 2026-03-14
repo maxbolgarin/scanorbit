@@ -97,10 +97,10 @@ export default function AcceptInvite() {
 
         {!error && inviteInfo && (
           <CardContent>
-            {isAuthenticated && user?.email?.toLowerCase() !== inviteInfo.email.toLowerCase() ? (
+            {isAuthenticated && user && user.email.toLowerCase() !== inviteInfo.email.toLowerCase() ? (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  You are signed in as <strong>{user?.email}</strong>. This invitation was sent to{" "}
+                  You are signed in as <strong>{user.email}</strong>. This invitation was sent to{" "}
                   <strong>{inviteInfo.email}</strong>. Please sign out and sign in with the correct account.
                 </p>
                 <Button

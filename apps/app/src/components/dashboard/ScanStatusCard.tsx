@@ -78,7 +78,7 @@ export function ScanStatusCard({
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-foreground">
             Scan Status
           </CardTitle>
         </CardHeader>
@@ -167,7 +167,7 @@ export function ScanStatusCard({
   return (
     <Card className={cn("h-full transition-colors", statusConfig.borderColor, "border")}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
           <RefreshCw className="h-4 w-4" />
           Scan Status
         </CardTitle>

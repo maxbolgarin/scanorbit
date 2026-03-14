@@ -6,7 +6,17 @@ export default function Api() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">API</h1>
-        <p className="text-muted-foreground">Manage API keys and explore the API documentation</p>
+        <p className="text-muted-foreground">
+          Manage API keys and explore the API documentation.{" "}
+          <a
+            href="https://scanorbit.cloud/api-reference"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            View full API reference
+          </a>
+        </p>
       </div>
       <ApiKeySettings />
       <ApiExplorer />

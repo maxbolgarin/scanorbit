@@ -43,7 +43,7 @@ export function SecurityPostureCard({ summary, isLoading, accountId }: SecurityP
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground">
+          <CardTitle className="text-sm font-semibold text-foreground">
             Security Posture
           </CardTitle>
         </CardHeader>
@@ -94,7 +94,7 @@ export function SecurityPostureCard({ summary, isLoading, accountId }: SecurityP
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Security Posture
