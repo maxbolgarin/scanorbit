@@ -7,38 +7,75 @@ const steps = [
     number: "01",
     icon: "lucide:link",
     title: "Connect AWS",
-    description: "Choose which scanners to enable and create a customized read-only IAM role. Only grant permissions for the services you want to scan",
+    subtitle: "5 minute setup",
+    description: "Create a read-only IAM role with only the permissions you need. Choose which scanners to enable — we generate a customized policy. No agents, no SSH, no network access required.",
+    screenshot: "/screenshots/dashboard.jpg",
+    screenshotAlt: "ScanOrbit dashboard with health score, open issues, resource health, and compliance status",
     color: "cyber-cyan",
+    features: [
+      { icon: "lucide:shield-check", label: "Read-only access" },
+      { icon: "lucide:settings", label: "Custom permissions" },
+      { icon: "lucide:clock", label: "Under 5 minutes" },
+      { icon: "lucide:cloud-off", label: "No agents needed" },
+    ],
   },
   {
     number: "02",
     icon: "lucide:scan",
     title: "Automatic Scan",
-    description: "Our scanner analyzes all your resources across all enabled regions. Typically completes within a minute",
+    subtitle: "Discovers everything",
+    description: "Our scanner analyzes all your resources across every enabled region. It builds a complete dependency graph — mapping VPCs, subnets, instances, security groups, and their connections.",
+    screenshot: "/screenshots/map.jpg",
+    screenshotAlt: "Infrastructure map showing VPCs, subnets, EC2 instances, and IAM resources with connections",
     color: "orbit-purple",
+    features: [
+      { icon: "lucide:globe", label: "Multi-region" },
+      { icon: "lucide:zap", label: "Parallel processing" },
+      { icon: "lucide:shield-check", label: "Zero impact" },
+      { icon: "lucide:list", label: "Complete inventory" },
+    ],
   },
   {
     number: "03",
     icon: "lucide:file-check",
     title: "Get Findings",
-    description: "Review prioritized findings with cost estimates, severity levels, and actionable recommendations",
+    subtitle: "Actionable results",
+    description: "Review prioritized findings with severity levels, detection history, and step-by-step remediation guidance. Track issues over time and see how your security posture improves.",
+    screenshot: "/screenshots/finding.jpg",
+    screenshotAlt: "Finding detail with severity, fix instructions, and detection history",
     color: "neon-green",
+    features: [
+      { icon: "lucide:hard-drive", label: "Orphaned resources" },
+      { icon: "lucide:shield-alert", label: "SSL expiry alerts" },
+      { icon: "lucide:globe", label: "Data residency issues" },
+      { icon: "lucide:lock", label: "Security vulnerabilities" },
+    ],
   },
 ];
 
-const scanFeatures = [
-  { icon: "lucide:globe", label: "Multi-region" },
-  { icon: "lucide:zap", label: "Parallel processing" },
-  { icon: "lucide:shield-check", label: "Zero impact" },
-  { icon: "lucide:list", label: "Complete inventory" },
-];
-
-const findingFeatures = [
-  { icon: "lucide:hard-drive", label: "Orphaned resources" },
-  { icon: "lucide:shield-alert", label: "SSL expiry alerts" },
-  { icon: "lucide:globe", label: "Data residency issues" },
-  { icon: "lucide:lock", label: "Security vulnerabilities" },
-];
+const colorMap: Record<string, { bg: string; text: string; border: string; glow: string; pillBorder: string }> = {
+  "cyber-cyan": {
+    bg: "bg-cyber-cyan",
+    text: "text-cyber-cyan",
+    border: "border-cyber-cyan",
+    glow: "shadow-[0_0_20px_rgba(0,184,230,0.4)]",
+    pillBorder: "border-cyber-cyan/20 group-hover:border-cyber-cyan/30",
+  },
+  "orbit-purple": {
+    bg: "bg-orbit-purple",
+    text: "text-orbit-purple",
+    border: "border-orbit-purple",
+    glow: "shadow-[0_0_20px_rgba(107,70,193,0.4)]",
+    pillBorder: "border-orbit-purple/20 group-hover:border-orbit-purple/30",
+  },
+  "neon-green": {
+    bg: "bg-neon-green",
+    text: "text-neon-green",
+    border: "border-neon-green",
+    glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
+    pillBorder: "border-neon-green/20 group-hover:border-neon-green/30",
+  },
+};
 ---
 
 <section id="how-it-works" class="py-24 bg-midnight relative overflow-hidden">
@@ -48,7 +85,7 @@ const findingFeatures = [
 
   <div class="container mx-auto px-6 relative z-10">
     <!-- Section header -->
-    <div class="text-center mb-20">
+    <div class="text-center mb-16">
       <div class="inline-flex items-center gap-2 px-4 py-2 bg-deep-space rounded-full border border-cyber-cyan/20 mb-6">
         <span class="text-sm text-cyber-cyan">Simple Setup</span>
       </div>
@@ -63,104 +100,112 @@ const findingFeatures = [
       </p>
     </div>
 
-    <!-- Steps - Horizontal on large screens -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
-      {steps.map((step, index) => (
-        <div class="relative group">
-          {/* Connector arrow (only between cards on large screens) */}
-          {index < steps.length - 1 && (
-            <div class="hidden lg:block absolute top-1/2 -translate-y-1/2 -right-4 z-10">
-              <Icon name="lucide:arrow-right" class="w-8 h-8 text-slate-gray/50" />
-            </div>
-          )}
+    <!-- Stepper bar -->
+    <div class="relative flex items-start justify-between max-w-3xl mx-auto mb-12 px-4">
+      <!-- Progress line track -->
+      <div class="absolute top-6 left-[calc(16.67%)] right-[calc(16.67%)] h-0.5 bg-slate-gray/20 hidden md:block">
+        <div class="step-progress-fill h-full bg-gradient-to-r from-cyber-cyan to-cyber-cyan transition-all duration-500 ease-out" style="width: 0%"></div>
+      </div>
 
-          <div class="h-full p-8 rounded-2xl bg-deep-space/50 border border-slate-gray/10 hover:border-slate-gray/20 transition-all duration-300">
-            <!-- Step number & icon -->
-            <div class="flex items-center gap-4 mb-6">
-              <div class={`relative w-16 h-16 rounded-xl bg-gradient-to-br from-${step.color}/20 to-${step.color}/5 flex items-center justify-center group-hover:scale-105 transition-transform duration-300`}>
-                <div class={`absolute inset-0 rounded-xl bg-${step.color}/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-                <Icon name={step.icon} class={`w-8 h-8 text-${step.color} relative z-10`} />
+      {steps.map((step, index) => {
+        const colors = colorMap[step.color];
+        return (
+          <button
+            class="step-trigger group relative z-10 flex flex-col items-center gap-3 cursor-pointer bg-transparent border-0 px-2 md:px-4 flex-1"
+            data-step-index={index}
+            data-step-color={step.color}
+            data-state={index === 0 ? "active" : "inactive"}
+            aria-controls={`step-panel-${index}`}
+            aria-selected={index === 0 ? "true" : "false"}
+            role="tab"
+          >
+            {/* Step circle */}
+            <div class={`
+              step-circle w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold
+              transition-all duration-300 border-2
+              ${index === 0
+                ? `${colors.bg} ${colors.border} text-white ${colors.glow}`
+                : "bg-deep-space border-slate-gray/30 text-slate-gray"
+              }
+            `}>
+              <span class="step-number">{step.number}</span>
+              <Icon name="lucide:check" class="step-check w-5 h-5 hidden" />
+            </div>
+
+            {/* Step label */}
+            <div class="text-center">
+              <div class={`text-sm font-semibold transition-colors duration-300 ${index === 0 ? "text-cloud-gray" : "text-slate-gray"}`}>
+                {step.title}
               </div>
-              <span class={`text-4xl font-bold text-${step.color}/30`}>{step.number}</span>
+              <div class="text-xs text-slate-gray/70 mt-0.5 hidden md:block">
+                {step.subtitle}
+              </div>
             </div>
-
-            <!-- Title & description -->
-            <h3 class="text-xl font-bold text-cloud-gray mb-3">{step.title}</h3>
-            <p class="text-slate-gray leading-relaxed">{step.description}</p>
-          </div>
-        </div>
-      ))}
+          </button>
+        );
+      })}
     </div>
 
-    <!-- Detailed content cards -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto mb-16">
-      <!-- IAM Policy Card -->
-      <div class="group p-6 rounded-2xl bg-deep-space border border-slate-gray/10 hover:border-cyber-cyan/30 transition-all duration-300">
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-alert-red"></div>
-            <div class="w-3 h-3 rounded-full bg-warning-orange"></div>
-            <div class="w-3 h-3 rounded-full bg-neon-green"></div>
-          </div>
-          <span class="text-xs text-slate-gray font-mono">example-policy.json</span>
-        </div>
-        <div class="bg-midnight rounded-xl p-4 overflow-x-auto">
-          <pre class="text-xs font-mono leading-relaxed"><code><span class="text-slate-gray">{"{"}</span>
-  <span class="text-cyber-cyan">"Version"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"2012-10-17"</span><span class="text-slate-gray">,</span>
-  <span class="text-cyber-cyan">"Statement"</span><span class="text-slate-gray">: [{"{"}</span>
-    <span class="text-cyber-cyan">"Sid"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"ScanOrbitReadAccess"</span><span class="text-slate-gray">,</span>
-    <span class="text-cyber-cyan">"Effect"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"Allow"</span><span class="text-slate-gray">,</span>
-    <span class="text-cyber-cyan">"Action"</span><span class="text-slate-gray">: [</span>
-      <span class="text-neon-green">"ec2:DescribeInstances"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"ec2:DescribeVolumes"</span><span class="text-slate-gray">,</span>
-      <span class="text-neon-green">"s3:ListAllMyBuckets"</span><span class="text-slate-gray">,</span>
-      <span class="text-orbit-purple italic">// ... based on selected scanners</span>
-    <span class="text-slate-gray">],</span>
-    <span class="text-cyber-cyan">"Resource"</span><span class="text-slate-gray">:</span> <span class="text-neon-green">"*"</span>
-  <span class="text-slate-gray">{"}"}]</span>
-<span class="text-slate-gray">{"}"}</span></code></pre>
-        </div>
-        <p class="text-xs text-slate-gray mt-4 text-center">Example policy. Actual permissions depend on your scanner selection</p>
-      </div>
+    <!-- Content panels -->
+    <div class="step-panels relative max-w-6xl mx-auto mb-16">
+      {steps.map((step, index) => {
+        const colors = colorMap[step.color];
+        return (
+          <div
+            id={`step-panel-${index}`}
+            class="step-panel"
+            data-panel-index={index}
+            data-active={index === 0 ? "true" : "false"}
+          >
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              {/* Left: Description + features */}
+              <div class="group space-y-6">
+                <div class="flex items-center gap-4">
+                  <div class={`w-12 h-12 rounded-xl bg-gradient-to-br from-${step.color}/20 to-${step.color}/5 flex items-center justify-center`}>
+                    <Icon name={step.icon} class={`w-6 h-6 ${colors.text}`} />
+                  </div>
+                  <div>
+                    <h3 class="text-2xl font-bold text-cloud-gray">{step.title}</h3>
+                    <p class={`text-sm ${colors.text}`}>{step.subtitle}</p>
+                  </div>
+                </div>
 
-      <!-- Features Cards -->
-      <div class="space-y-4">
-        <!-- Scan Features -->
-        <div class="group p-6 rounded-2xl bg-deep-space border border-slate-gray/10 hover:border-orbit-purple/30 transition-all duration-300">
-          <div class="flex items-center gap-3 mb-5">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orbit-purple/30 to-orbit-purple/10 flex items-center justify-center">
-              <Icon name="lucide:radar" class="w-5 h-5 text-orbit-purple" />
-            </div>
-            <h4 class="font-bold text-lg text-cloud-gray">Scan Capabilities</h4>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            {scanFeatures.map((feature) => (
-              <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-midnight/50 border border-orbit-purple/10 group-hover:border-orbit-purple/20 transition-colors">
-                <Icon name={feature.icon} class="w-4 h-4 text-orbit-purple" />
-                <span class="text-sm text-cloud-gray">{feature.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+                <p class="text-slate-gray leading-relaxed text-lg">
+                  {step.description}
+                </p>
 
-        <!-- Finding Features -->
-        <div class="group p-6 rounded-2xl bg-deep-space border border-slate-gray/10 hover:border-neon-green/30 transition-all duration-300">
-          <div class="flex items-center gap-3 mb-5">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-green/30 to-neon-green/10 flex items-center justify-center">
-              <Icon name="lucide:file-search" class="w-5 h-5 text-neon-green" />
-            </div>
-            <h4 class="font-bold text-lg text-cloud-gray">Finding Details</h4>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            {findingFeatures.map((feature) => (
-              <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-midnight/50 border border-neon-green/10 group-hover:border-neon-green/20 transition-colors">
-                <Icon name={feature.icon} class="w-4 h-4 text-neon-green" />
-                <span class="text-sm text-cloud-gray">{feature.label}</span>
+                <div class="grid grid-cols-2 gap-3">
+                  {step.features.map((feature) => (
+                    <div class={`flex items-center gap-2.5 p-3 rounded-lg bg-deep-space/50 border ${colors.pillBorder} transition-colors duration-300`}>
+                      <Icon name={feature.icon} class={`w-4 h-4 ${colors.text}`} />
+                      <span class="text-sm text-cloud-gray">{feature.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+
+              {/* Right: Screenshot in browser chrome */}
+              <div class="browser-chrome-frame rounded-2xl overflow-hidden border border-slate-gray/10 bg-deep-space shadow-2xl shadow-black/20">
+                <div class="flex items-center justify-between px-4 py-3 bg-deep-space border-b border-slate-gray/10">
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-alert-red/80"></div>
+                    <div class="w-3 h-3 rounded-full bg-warning-orange/80"></div>
+                    <div class="w-3 h-3 rounded-full bg-neon-green/80"></div>
+                  </div>
+                  <span class="text-xs text-slate-gray/60 font-mono">app.scanorbit.cloud</span>
+                  <div class="w-16"></div>
+                </div>
+                <img
+                  src={step.screenshot}
+                  alt={step.screenshotAlt}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  class="w-full h-auto block"
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
 
     <!-- CTA -->
@@ -178,3 +223,174 @@ const findingFeatures = [
     </div>
   </div>
 </section>
+
+<style>
+  /* No-JS: all panels visible, stacked */
+  .step-panel {
+    margin-bottom: 2rem;
+  }
+
+  .step-panel:last-child {
+    margin-bottom: 0;
+  }
+
+  /* JS-enhanced: only active panel visible */
+  .js-enhanced .step-panels {
+    position: relative;
+  }
+
+  .js-enhanced .step-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    margin-bottom: 0;
+  }
+
+  .js-enhanced .step-panel[data-active="true"] {
+    position: relative;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  /* Step trigger states */
+  .step-trigger[data-state="completed"] .step-circle {
+    background-color: var(--brand-neon-green);
+    border-color: var(--brand-neon-green);
+    color: white;
+  }
+
+  .step-trigger[data-state="completed"] .step-number {
+    display: none;
+  }
+
+  .step-trigger[data-state="completed"] .step-check {
+    display: block;
+  }
+
+  /* Active state colors are set per-step via JS updating classes */
+  .step-trigger[data-state="active"] .step-circle {
+    transform: scale(1.1);
+  }
+
+  .step-trigger:hover .step-circle {
+    transform: scale(1.05);
+  }
+
+  .step-trigger[data-state="active"]:hover .step-circle {
+    transform: scale(1.1);
+  }
+</style>
+
+<script>
+  const section = document.getElementById("how-it-works");
+  const stepTriggers = document.querySelectorAll<HTMLButtonElement>(".step-trigger");
+  const stepPanels = document.querySelectorAll<HTMLDivElement>(".step-panel");
+  const progressFill = document.querySelector<HTMLDivElement>(".step-progress-fill");
+
+  if (section && stepTriggers.length && stepPanels.length) {
+    section.classList.add("js-enhanced");
+
+    const colorConfig: Record<string, { bg: string; border: string; glow: string }> = {
+      "cyber-cyan": {
+        bg: "bg-cyber-cyan",
+        border: "border-cyber-cyan",
+        glow: "shadow-[0_0_20px_rgba(0,184,230,0.4)]",
+      },
+      "orbit-purple": {
+        bg: "bg-orbit-purple",
+        border: "border-orbit-purple",
+        glow: "shadow-[0_0_20px_rgba(107,70,193,0.4)]",
+      },
+      "neon-green": {
+        bg: "bg-neon-green",
+        border: "border-neon-green",
+        glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
+      },
+    };
+
+    const activeClasses = ["text-white"];
+    const inactiveClasses = ["bg-deep-space", "border-slate-gray/30", "text-slate-gray"];
+
+    function setActiveStep(index: number) {
+      stepTriggers.forEach((trigger, i) => {
+        const isActive = i === index;
+        const isCompleted = i < index;
+        const state = isActive ? "active" : isCompleted ? "completed" : "inactive";
+        trigger.setAttribute("data-state", state);
+        trigger.setAttribute("aria-selected", String(isActive));
+
+        const circle = trigger.querySelector<HTMLDivElement>(".step-circle");
+        const label = trigger.querySelector<HTMLDivElement>(".text-center > div:first-child");
+        const color = trigger.getAttribute("data-step-color") || "cyber-cyan";
+        const config = colorConfig[color];
+
+        if (circle) {
+          // Remove all dynamic color classes
+          Object.values(colorConfig).forEach((c) => {
+            circle.classList.remove(c.bg, c.border, c.glow);
+          });
+          circle.classList.remove(...activeClasses, ...inactiveClasses);
+
+          if (isActive && config) {
+            circle.classList.add(config.bg, config.border, ...activeClasses, config.glow);
+          } else if (isCompleted) {
+            // Completed state handled by CSS (green checkmark)
+          } else {
+            circle.classList.add(...inactiveClasses);
+          }
+        }
+
+        if (label) {
+          label.classList.toggle("text-cloud-gray", isActive || isCompleted);
+          label.classList.toggle("text-slate-gray", !isActive && !isCompleted);
+        }
+      });
+
+      stepPanels.forEach((panel, i) => {
+        panel.setAttribute("data-active", String(i === index));
+      });
+
+      if (progressFill) {
+        const pct = stepTriggers.length > 1 ? (index / (stepTriggers.length - 1)) * 100 : 0;
+        progressFill.style.width = `${pct}%`;
+
+        // Update gradient based on active step color
+        const activeColor = stepTriggers[index]?.getAttribute("data-step-color");
+        if (activeColor === "orbit-purple") {
+          progressFill.style.background = "linear-gradient(to right, var(--brand-cyber-cyan), var(--brand-orbit-purple))";
+        } else if (activeColor === "neon-green") {
+          progressFill.style.background = "linear-gradient(to right, var(--brand-cyber-cyan), var(--brand-orbit-purple), var(--brand-neon-green))";
+        } else {
+          progressFill.style.background = "var(--brand-cyber-cyan)";
+        }
+      }
+    }
+
+    stepTriggers.forEach((trigger, i) => {
+      trigger.addEventListener("click", () => setActiveStep(i));
+    });
+
+    stepTriggers.forEach((trigger, i) => {
+      trigger.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "ArrowRight" && i < stepTriggers.length - 1) {
+          e.preventDefault();
+          setActiveStep(i + 1);
+          stepTriggers[i + 1]?.focus();
+        } else if (e.key === "ArrowLeft" && i > 0) {
+          e.preventDefault();
+          setActiveStep(i - 1);
+          stepTriggers[i - 1]?.focus();
+        }
+      });
+    });
+
+    // Initialize
+    setActiveStep(0);
+  }
+</script>
