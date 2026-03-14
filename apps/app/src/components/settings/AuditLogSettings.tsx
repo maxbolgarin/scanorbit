@@ -123,6 +123,7 @@ export function AuditLogSettings() {
   const { data: members } = useOrgMembers();
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -144,6 +145,7 @@ export function AuditLogSettings() {
     page,
     limit,
     action: actionFilter !== "all" ? actionFilter : undefined,
+    userId: userFilter !== "all" ? userFilter : undefined,
     startDate: startDate ? new Date(startDate).toISOString() : undefined,
     endDate: endDate ? new Date(endDate + "T23:59:59").toISOString() : undefined,
     sortOrder,
@@ -151,13 +153,18 @@ export function AuditLogSettings() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["audit-logs", org?.id, page, actionFilter, startDate, endDate, sortOrder, statusFilter],
+    queryKey: ["audit-logs", org?.id, page, actionFilter, userFilter, startDate, endDate, sortOrder, statusFilter],
     queryFn: () => api.getAuditLogs(org!.id, queryParams),
     enabled: !!org?.id,
   });
 
   const handleActionChange = (value: string) => {
     setActionFilter(value);
+    setPage(1);
+  };
+
+  const handleUserChange = (value: string) => {
+    setUserFilter(value);
     setPage(1);
   };
 
@@ -178,6 +185,7 @@ export function AuditLogSettings() {
 
   const handleClearFilters = () => {
     setActionFilter("all");
+    setUserFilter("all");
     setStatusFilter("all");
     setSortOrder('desc');
     setStartDate("");
@@ -185,7 +193,7 @@ export function AuditLogSettings() {
     setPage(1);
   };
 
-  const hasActiveFilters = actionFilter !== "all" || statusFilter !== "all" || sortOrder !== 'desc' || startDate || endDate;
+  const hasActiveFilters = actionFilter !== "all" || userFilter !== "all" || statusFilter !== "all" || sortOrder !== 'desc' || startDate || endDate;
 
   const openExportModal = () => {
     setExportParams({
@@ -282,6 +290,20 @@ export function AuditLogSettings() {
                 {ACTION_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={userFilter} onValueChange={handleUserChange}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All users</SelectItem>
+                {members?.map((m) => (
+                  <SelectItem key={m.userId} value={m.userId}>
+                    {m.fullName || m.email || m.userId}
                   </SelectItem>
                 ))}
               </SelectContent>

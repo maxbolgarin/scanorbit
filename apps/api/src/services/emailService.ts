@@ -578,6 +578,102 @@ https://scanorbit.io
   `.trim();
 }
 
+// Bug report notification email HTML
+function getBugReportNotificationHtml(
+  title: string,
+  description: string,
+  category: string,
+  reporterEmail: string,
+  reporterName: string | undefined,
+  orgName: string,
+  metadata: Record<string, unknown>,
+): string {
+  const categoryLabels: Record<string, string> = {
+    ui_bug: 'UI Bug',
+    scan_issue: 'Scan Issue',
+    data_incorrect: 'Incorrect Data',
+    performance: 'Performance',
+    feature_request: 'Feature Request',
+    other: 'Other',
+  };
+  const categoryLabel = categoryLabels[category] || category;
+  const reporterDisplay = reporterName ? `${reporterName} (${reporterEmail})` : reporterEmail;
+  const pageUrl = (metadata.pageUrl as string) || 'N/A';
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      New Bug Report
+    </h1>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 20px;">
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; width: 100px; vertical-align: top;">Reporter:</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">${reporterDisplay}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Organization:</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">${orgName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Category:</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">
+          <span style="display: inline-block; background-color: ${BRAND.background}; border: 1px solid ${BRAND.border}; border-radius: 4px; padding: 2px 8px; font-size: 13px;">${categoryLabel}</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Page:</td>
+        <td style="padding: 8px 0; font-size: 13px; color: ${BRAND.primary}; word-break: break-all;">${pageUrl}</td>
+      </tr>
+    </table>
+
+    <div style="background-color: ${BRAND.background}; border: 1px solid ${BRAND.border}; border-radius: 8px; padding: 16px; margin: 0 0 20px;">
+      <p style="margin: 0 0 8px; font-size: 16px; font-weight: 600; color: ${BRAND.text};">${title}</p>
+      <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6; white-space: pre-wrap;">${description}</p>
+    </div>
+  `;
+
+  return wrapInTemplate(content, `Bug Report: ${title}`);
+}
+
+function getBugReportNotificationText(
+  title: string,
+  description: string,
+  category: string,
+  reporterEmail: string,
+  reporterName: string | undefined,
+  orgName: string,
+  metadata: Record<string, unknown>,
+): string {
+  const categoryLabels: Record<string, string> = {
+    ui_bug: 'UI Bug',
+    scan_issue: 'Scan Issue',
+    data_incorrect: 'Incorrect Data',
+    performance: 'Performance',
+    feature_request: 'Feature Request',
+    other: 'Other',
+  };
+  const categoryLabel = categoryLabels[category] || category;
+  const reporterDisplay = reporterName ? `${reporterName} (${reporterEmail})` : reporterEmail;
+  const pageUrl = (metadata.pageUrl as string) || 'N/A';
+
+  return `
+New Bug Report
+
+Title: ${title}
+Category: ${categoryLabel}
+Reporter: ${reporterDisplay}
+Organization: ${orgName}
+Page: ${pageUrl}
+
+Description:
+${description}
+
+---
+ScanOrbit
+https://scanorbit.io
+  `.trim();
+}
+
 export const emailService = {
   /**
    * Send verification email with 6-digit code
@@ -656,6 +752,26 @@ export const emailService = {
     const text = getPaymentFailedEmailText(tier, name);
 
     return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send bug report notification to support team
+   */
+  async sendBugReportNotification(
+    title: string,
+    description: string,
+    category: string,
+    reporterEmail: string,
+    reporterName: string | undefined,
+    orgName: string,
+    metadata: Record<string, unknown>,
+  ): Promise<EmailResult> {
+    const to = config.bugReportEmail;
+    const subject = `[Bug Report] ${title}`;
+    const html = getBugReportNotificationHtml(title, description, category, reporterEmail, reporterName, orgName, metadata);
+    const text = getBugReportNotificationText(title, description, category, reporterEmail, reporterName, orgName, metadata);
+
+    return sendEmail(to, subject, text, html);
   },
 
   /**

@@ -23,6 +23,7 @@ import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 
 import { useEnhancedDashboardSummary } from "@/hooks/use-dashboard";
 import { useAwsAccounts, useTriggerScan, useRecentScans, useActiveScans, useScanCompletionRefresh } from "@/hooks/use-aws-accounts";
+import { useRecentActionedFindings } from "@/hooks/use-findings";
 import { toast } from "@/hooks/use-toast";
 import { ACTIVE_SCAN_STATUSES } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,6 +51,7 @@ export default function Overview() {
   const { accounts, isLoading: accountsLoading } = useAwsAccounts();
   const { data: recentScans, isLoading: scansLoading } = useRecentScans(10);
   const { data: activeScans } = useActiveScans();
+  const { data: actionedFindings } = useRecentActionedFindings();
   const triggerScan = useTriggerScan();
 
   // Auto-refresh data when scans complete
@@ -305,6 +307,7 @@ export default function Overview() {
             <RecentActivityCard
               scans={recentScans}
               accounts={accounts}
+              actionedFindings={actionedFindings}
               isLoading={scansLoading}
             />
           </div>

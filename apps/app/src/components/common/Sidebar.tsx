@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { BugReportModal } from "./BugReportModal";
 import { useAccountContext } from "@/hooks/use-account-context";
 import {
   DropdownMenu,
@@ -21,11 +23,13 @@ import {
   Users,
   Code,
   MoreHorizontal,
+  Bug,
 } from "lucide-react";
 
 export function Sidebar() {
   const location = useLocation();
   const { currentAccountId, isOrgOverview } = useAccountContext();
+  const [bugReportOpen, setBugReportOpen] = useState(false);
 
   // Build navigation items based on current context
   const getContextNavItems = () => {
@@ -155,7 +159,18 @@ export function Sidebar() {
             </NavLink>
           );
         })}
+
+        {/* Report Bug */}
+        <button
+          onClick={() => setBugReportOpen(true)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Bug className="h-5 w-5" />
+          Report Bug
+        </button>
       </nav>
+
+      <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
     </aside>
   );
 }
@@ -164,6 +179,7 @@ export function MobileNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentAccountId, isOrgOverview } = useAccountContext();
+  const [bugReportOpen, setBugReportOpen] = useState(false);
 
   // Build mobile nav items based on current context
   const basePrefix = isOrgOverview
@@ -228,16 +244,23 @@ export function MobileNav() {
       href: "/settings",
       icon: Settings,
     },
+    { separator: true },
+    {
+      label: "Report Bug",
+      href: "__bug_report__",
+      icon: Bug,
+    },
   ];
 
   const isMoreActive = moreMenuItems.some(item =>
-    !item.separator && (
+    !item.separator && item.href !== "__bug_report__" && (
       location.pathname === item.href ||
       (item.href !== "/accounts" && location.pathname.startsWith(item.href!))
     )
   );
 
   return (
+    <>
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm lg:hidden pb-[max(0.375rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center justify-around py-1.5">
         {mobileNavItems.map((item) => {
@@ -280,11 +303,19 @@ export function MobileNav() {
               ) : (
                 <DropdownMenuItem
                   key={item.href}
-                  onClick={() => navigate(item.href!)}
+                  onClick={() => {
+                    if (item.href === "__bug_report__") {
+                      setBugReportOpen(true);
+                    } else {
+                      navigate(item.href!);
+                    }
+                  }}
                   className={cn(
                     "gap-3",
-                    location.pathname === item.href ||
-                    (item.href !== "/accounts" && location.pathname.startsWith(item.href!))
+                    item.href !== "__bug_report__" && (
+                      location.pathname === item.href ||
+                      (item.href !== "/accounts" && location.pathname.startsWith(item.href!))
+                    )
                       ? "text-primary"
                       : ""
                   )}
@@ -298,5 +329,8 @@ export function MobileNav() {
         </DropdownMenu>
       </div>
     </nav>
+
+    <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
+    </>
   );
 }

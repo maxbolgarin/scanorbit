@@ -158,6 +158,24 @@ export function useOpenFindings() {
   return data?.data || [];
 }
 
+export function useRecentActionedFindings(awsAccountId?: string) {
+  const baseFilters = { limit: 10, sortBy: "updatedAt" as const, awsAccountId };
+  const resolved = useFindings({ ...baseFilters, status: "resolved" });
+  const snoozed = useFindings({ ...baseFilters, status: "snoozed" });
+  const ignored = useFindings({ ...baseFilters, status: "ignored" });
+
+  const data = useMemo(() => [
+    ...(resolved.data?.data ?? []),
+    ...(snoozed.data?.data ?? []),
+    ...(ignored.data?.data ?? []),
+  ], [resolved.data, snoozed.data, ignored.data]);
+
+  return {
+    data,
+    isLoading: resolved.isLoading || snoozed.isLoading || ignored.isLoading,
+  };
+}
+
 export function useFindingStats(filters?: { awsAccountId?: string }) {
   return useQuery({
     queryKey: ["finding-stats", filters],

@@ -983,6 +983,7 @@ export async function getFindings(filters?: FindingFilters): Promise<PaginatedRe
     if (filters?.status) params.set("status", filters.status);
     if (filters?.page) params.set("page", String(filters.page));
     if (filters?.limit) params.set("limit", String(filters.limit));
+    if (filters?.sortBy) params.set("sortBy", filters.sortBy);
 
     const { data } = await api.get<PaginatedResponse<Finding>>(`/findings?${params.toString()}`);
     return data;
@@ -1794,6 +1795,25 @@ export async function updateGdprProfile(updates: { fullName?: string }): Promise
   try {
     const { data } = await api.patch<GdprProfile>('/gdpr/profile', updates);
     return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// =============================================================================
+// Bug Reports
+// =============================================================================
+
+export async function createBugReport(data: {
+  title: string;
+  description: string;
+  category: string;
+  screenshotUrl?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ data: Record<string, unknown> }> {
+  try {
+    const { data: result } = await api.post<{ data: Record<string, unknown> }>('/bug-reports', data);
+    return result;
   } catch (error) {
     handleApiError(error);
   }

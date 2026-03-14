@@ -679,6 +679,7 @@ export interface FindingFilters {
   resourceId?: string;
   page?: number;
   limit?: number;
+  sortBy?: "createdAt" | "updatedAt";
 }
 
 export type ResourceHealthFilter = 'healthy' | 'warning' | 'critical' | 'orphaned';
@@ -945,3 +946,6 @@ export interface CreateApiKeyResponse {
   apiKey: ApiKeyInfo;
   rawKey: string;
 }
+
+// Bug Reports
+export type BugReportCategory = 'ui_bug' | 'scan_issue' | 'data_incorrect' | 'performance' | 'feature_request' | 'other';

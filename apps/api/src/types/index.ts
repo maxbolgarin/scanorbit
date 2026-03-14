@@ -158,6 +158,7 @@ export interface FindingFilters extends PaginationParams {
   type?: string;
   severity?: string;
   status?: string;
+  sortBy?: "createdAt" | "updatedAt";
 }
 
 // Enums as const objects (for type safety)

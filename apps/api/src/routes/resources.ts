@@ -118,6 +118,15 @@ function sanitizeCsvCell(value: string): string {
   return `"${escaped}"`;
 }
 
+// Format date compactly for CSV: "2026-03-14 08:54:04 UTC"
+function formatCsvDate(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value as any);
+  if (isNaN(d.getTime())) return String(value);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+}
+
 // GET /resources/export - Export all resources as CSV or JSON (Team-only)
 resourcesRoute.get('/export', zValidator('query', z.object({
   format: z.enum(['csv', 'json']).default('csv'),
@@ -162,8 +171,8 @@ resourcesRoute.get('/export', zValidator('query', z.object({
     sanitizeCsvCell(r.name ?? ''),
     sanitizeCsvCell(r.state ?? ''),
     sanitizeCsvCell(String(r.costEstimateMonthly ?? '')),
-    sanitizeCsvCell(String(r.lastSeenAt)),
-    sanitizeCsvCell(String(r.createdAt)),
+    sanitizeCsvCell(formatCsvDate(r.lastSeenAt)),
+    sanitizeCsvCell(formatCsvDate(r.createdAt)),
   ].join(','));
 
   const csv = [csvHeaders.join(','), ...csvRows].join('\n');
