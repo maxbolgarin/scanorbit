@@ -4,7 +4,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { FindingStats, FindingType } from "@/types";
+import type { FindingStats, FindingType, FindingSeverity, FindingStatus } from "@/types";
 import {
   AlertTriangle,
   Shield,
@@ -20,10 +20,17 @@ import {
   Wrench,
 } from "lucide-react";
 
+interface StatsFilter {
+  type?: FindingType;
+  types?: FindingType[];
+  severity?: FindingSeverity;
+  status?: FindingStatus;
+}
+
 interface FindingStatsCardsProps {
   stats: FindingStats | undefined;
   isLoading?: boolean;
-  onFilterSelect?: (filter: { type?: FindingType }) => void;
+  onFilterSelect?: (filter: StatsFilter) => void;
   filteredOpenCount?: number;  // Override open count with filtered value
 }
 
@@ -350,6 +357,29 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
     onFilterSelect?.({ type: type as FindingType });
   };
 
+  const handleSeverityClick = (severity: string) => {
+    onFilterSelect?.({ severity: severity as FindingSeverity });
+  };
+
+  const handleCategoryClick = (types: string[]) => {
+    onFilterSelect?.({ types: types as FindingType[] });
+  };
+
+  const handleStatusClick = (status: string) => {
+    onFilterSelect?.({ status: status as FindingStatus });
+  };
+
+  const handleResourceTypeClick = (resourceLabel: string) => {
+    const types = Object.entries(findingTypeToResourceLabel)
+      .filter(([, label]) => label === resourceLabel)
+      .map(([type]) => type as FindingType);
+    if (types.length === 1) {
+      onFilterSelect?.({ type: types[0] });
+    } else if (types.length > 1) {
+      onFilterSelect?.({ types });
+    }
+  };
+
   const hasBottomSection = allResources.length > 0 || allTypes.length > 0;
 
   const maxCategoryCount = Math.max(...categoryCounts.map(c => c.count), 1);
@@ -371,7 +401,11 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
               <DonutChart segments={donutSegments} total={openCount} />
               <div className="space-y-1.5 min-w-0">
                 {donutLegend.map(item => (
-                  <div key={item.key} className="flex items-center gap-1.5">
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-1.5 cursor-pointer rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSeverityClick(item.key)}
+                  >
                     <span className={`h-2 w-2 rounded-full shrink-0 ${item.dotClass}`} />
                     <span className="text-xs text-muted-foreground truncate">{item.label}</span>
                     <span className="text-sm font-semibold tabular-nums ml-auto pl-2">{item.count}</span>
@@ -393,7 +427,11 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
                 const Icon = category.icon;
                 const percentage = category.count > 0 ? Math.max(Math.round((category.count / maxCategoryCount) * 100), 3) : 0;
                 return (
-                  <div key={category.key} className="flex items-center gap-2">
+                  <div
+                    key={category.key}
+                    className="flex items-center gap-2 cursor-pointer rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCategoryClick(category.types)}
+                  >
                     <Icon className={`h-3.5 w-3.5 shrink-0 ${category.color}`} />
                     <span className="text-xs font-medium w-20 truncate">{category.label}</span>
                     <div className="flex-1 h-1.5 rounded-full bg-muted">
@@ -421,28 +459,40 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
               Status
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-status-warning/10 p-3">
+              <div
+                className="rounded-lg bg-status-warning/10 p-3 cursor-pointer hover:bg-status-warning/20 transition-colors"
+                onClick={() => handleStatusClick("open")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle className="h-4 w-4 text-status-warning" />
                   <span className="text-xs font-medium text-muted-foreground">Open</span>
                 </div>
                 <p className="text-2xl font-bold text-status-warning">{openCount}</p>
               </div>
-              <div className="rounded-lg bg-status-success/10 p-3">
+              <div
+                className="rounded-lg bg-status-success/10 p-3 cursor-pointer hover:bg-status-success/20 transition-colors"
+                onClick={() => handleStatusClick("resolved")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <CheckCircle className="h-4 w-4 text-status-success" />
                   <span className="text-xs font-medium text-muted-foreground">Resolved</span>
                 </div>
                 <p className="text-2xl font-bold text-status-success">{resolvedCount}</p>
               </div>
-              <div className="rounded-lg bg-muted/50 p-3">
+              <div
+                className="rounded-lg bg-muted/50 p-3 cursor-pointer hover:bg-muted/70 transition-colors"
+                onClick={() => handleStatusClick("snoozed")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground">Snoozed</span>
                 </div>
                 <p className="text-2xl font-bold">{snoozedCount}</p>
               </div>
-              <div className="rounded-lg bg-muted/50 p-3">
+              <div
+                className="rounded-lg bg-muted/50 p-3 cursor-pointer hover:bg-muted/70 transition-colors"
+                onClick={() => handleStatusClick("ignored")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <EyeOff className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground">Ignored</span>
@@ -495,7 +545,11 @@ export function FindingStatsCards({ stats, isLoading, onFilterSelect, filteredOp
                   const percentage = Math.max(Math.round((count / maxResourceCount) * 100), 2);
                   const barColor = resourceLabelBarColors[label] || "bg-primary/70";
                   return (
-                    <div key={label}>
+                    <div
+                      key={label}
+                      className="cursor-pointer rounded-md p-1.5 -mx-1.5 hover:bg-muted/50 transition-colors"
+                      onClick={() => handleResourceTypeClick(label)}
+                    >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium">{label}</span>
                         <span className="text-sm font-semibold tabular-nums">{count}</span>

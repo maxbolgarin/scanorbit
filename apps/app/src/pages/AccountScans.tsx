@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -144,12 +145,174 @@ const statusConfig: Record<
   },
 };
 
+function ScanDetailModal({ scan, onClose }: { scan: Scan | null; onClose: () => void }) {
+  const navigate = useNavigate();
+  const { accountId } = useParams<{ accountId: string }>();
+
+  if (!scan) return null;
+
+  const config = statusConfig[scan.status] || {
+    icon: <Clock className="h-4 w-4" />,
+    label: scan.status || "Unknown",
+    variant: "secondary" as const,
+  };
+
+  const getDuration = () => {
+    if (!scan.startedAt) return null;
+    const start = new Date(scan.startedAt).getTime();
+    const end = scan.completedAt ? new Date(scan.completedAt).getTime() : Date.now();
+    return formatDuration(end - start);
+  };
+
+  const isComplete = scan.status === "complete" || scan.status === "partial";
+
+  return (
+    <Dialog open={!!scan} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Scan Details
+          </DialogTitle>
+          <DialogDescription className="font-mono text-xs break-all">{scan.id}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Status */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Status</span>
+            <Badge
+              variant={config.variant}
+              className={`flex items-center gap-1.5 ${!scan.hasKey ? "opacity-60" : ""}`}
+            >
+              <span className={
+                scan.status === "error" ? "text-destructive" :
+                scan.status === "complete" ? "text-status-success" :
+                scan.status === "partial" ? "text-status-high" :
+                scan.status === "running" || scan.status === "analyzing" ? "text-primary-foreground" :
+                scan.status === "canceled" ? "text-muted-foreground" :
+                "text-status-warning"
+              }>
+                {config.icon}
+              </span>
+              {config.label}
+              {!scan.hasKey && <span className="text-muted-foreground">(archived)</span>}
+            </Badge>
+          </div>
+
+          <Separator />
+
+          {/* Timeline */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Timeline</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Started</span>
+              <span className="text-sm">{scan.startedAt ? formatDateTime(scan.startedAt) : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Completed</span>
+              <span className="text-sm">{scan.completedAt ? formatDateTime(scan.completedAt) : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Duration</span>
+              <span className="text-sm">{getDuration() || "—"}</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Results */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Results</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Resources discovered</span>
+              <span className="text-sm">{isComplete ? scan.resourcesDiscovered : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Resources delta</span>
+              {isComplete && scan.resourcesDelta !== 0 ? (
+                <span className={`text-sm font-medium flex items-center gap-1 ${scan.resourcesDelta > 0 ? "text-status-success" : "text-status-high"}`}>
+                  {scan.resourcesDelta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                  {scan.resourcesDelta > 0 ? "+" : ""}{scan.resourcesDelta}
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">New findings</span>
+              {isComplete && scan.findingsNew > 0 ? (
+                <span className="text-sm font-medium text-status-warning flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  +{scan.findingsNew}
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Resolved findings</span>
+              {isComplete && scan.findingsResolved > 0 ? (
+                <span className="text-sm font-medium text-status-success flex items-center gap-1">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  -{scan.findingsResolved}
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </div>
+          </div>
+
+          {/* Error */}
+          {scan.errorMessage && (
+            <>
+              <Separator />
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Error</p>
+                <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-sm text-destructive break-words">{scan.errorMessage}</p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Actions */}
+          {isComplete && (scan.resourcesDelta !== 0 || scan.findingsNew > 0 || scan.findingsResolved > 0) && (
+            <>
+              <Separator />
+              <div className="flex gap-2">
+                {scan.resourcesDelta !== 0 && (
+                  <button
+                    className="flex-1 text-xs py-1.5 px-3 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                    onClick={() => { onClose(); navigate(`/accounts/${accountId}/resources`); }}
+                  >
+                    View Resources
+                  </button>
+                )}
+                {(scan.findingsNew > 0 || scan.findingsResolved > 0) && (
+                  <button
+                    className="flex-1 text-xs py-1.5 px-3 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                    onClick={() => { onClose(); navigate(`/accounts/${accountId}/findings`); }}
+                  >
+                    View Findings
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AccountScans() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useLocalStorage<string>(`scans:statusFilter:${accountId}`, "all");
   const [showArchived, setShowArchived] = useLocalStorage<boolean>(`scans:showArchived:${accountId}`, false);
   const [showStartScanDialog, setShowStartScanDialog] = useState(false);
+  const [selectedScan, setSelectedScan] = useState<Scan | null>(null);
 
   // Fetch account-specific data
   const { data: account, isLoading: accountLoading } = useAwsAccount(accountId!);
@@ -431,7 +594,11 @@ export default function AccountScans() {
                     const duration = getDuration(scan);
 
                     return (
-                      <TableRow key={scan.id}>
+                      <TableRow
+                        key={scan.id}
+                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedScan(scan)}
+                      >
                         <TableCell>
                           <Badge
                             variant={config.variant}
@@ -467,7 +634,7 @@ export default function AccountScans() {
                             <Badge
                               variant="outline"
                               className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${scan.resourcesDelta > 0 ? "text-status-success border-status-success" : "text-status-high border-status-high"}`}
-                              onClick={() => navigate(`/accounts/${accountId}/resources`)}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/accounts/${accountId}/resources`); }}
                             >
                               {scan.resourcesDelta > 0 ? (
                                 <TrendingUp className="h-3 w-3 mr-1" />
@@ -486,7 +653,7 @@ export default function AccountScans() {
                               <Badge
                                 variant="outline"
                                 className="text-xs text-status-warning border-status-warning cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => navigate(`/accounts/${accountId}/findings`)}
+                                onClick={(e) => { e.stopPropagation(); navigate(`/accounts/${accountId}/findings`); }}
                               >
                                 <AlertCircle className="h-3 w-3 mr-1" />
                                 +{scan.findingsNew}
@@ -496,7 +663,7 @@ export default function AccountScans() {
                               <Badge
                                 variant="outline"
                                 className="text-xs text-status-success border-status-success cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => navigate(`/accounts/${accountId}/findings`)}
+                                onClick={(e) => { e.stopPropagation(); navigate(`/accounts/${accountId}/findings`); }}
                               >
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 -{scan.findingsResolved}
@@ -531,6 +698,9 @@ export default function AccountScans() {
           )}
         </CardContent>
       </Card>
+
+      {/* Scan detail modal */}
+      <ScanDetailModal scan={selectedScan} onClose={() => setSelectedScan(null)} />
 
       {/* Start Scan confirmation dialog */}
       <Dialog open={showStartScanDialog} onOpenChange={setShowStartScanDialog}>
