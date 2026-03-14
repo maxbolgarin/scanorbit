@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -73,8 +73,10 @@ export default function AwsSetup() {
   const triggerScan = useTriggerScan();
 
   // Get existing account names and AWS Account IDs for validation
-  const existingNames = accounts.map(a => a.name);
-  const existingAwsAccountIds = accounts.map(a => a.awsAccountId);
+  // useMemo prevents new array refs on every render, which would cause
+  // AwsAccountForm to recreate its Zod schema and resolver each render → React #185
+  const existingNames = useMemo(() => accounts.map(a => a.name), [accounts]);
+  const existingAwsAccountIds = useMemo(() => accounts.map(a => a.awsAccountId), [accounts]);
 
   // Initialize state from localStorage
   const savedState = loadOnboardingState();
@@ -93,7 +95,7 @@ export default function AwsSetup() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Redirect members — only admins can add accounts
-  const { org } = useAuthStore((s) => ({ org: s.org }));
+  const org = useAuthStore((s) => s.org);
   useEffect(() => {
     if (org && !isAdmin) {
       navigate("/accounts", { replace: true });

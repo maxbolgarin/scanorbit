@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, LogOut, Orbit, Building2, Cloud, Plus, Lock, Check, Sun, Moon, Monitor } from "lucide-react";
 import { getInitials, cn } from "@/lib/utils";
 import { useAccountContext } from "@/hooks/use-account-context";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useThemeStore } from "@/stores/theme-store";
 import { TIER_LIMITS } from "@/types";
 
@@ -30,6 +31,7 @@ export function Header() {
     switchToAccount,
   } = useAccountContext();
 
+  const isAdmin = useIsAdmin();
   const { theme, setTheme } = useThemeStore();
   const tier = org?.tier || 'free';
   const tierLimits = TIER_LIMITS[tier];
@@ -173,7 +175,7 @@ export function Header() {
               <DropdownMenuSeparator />
 
               {/* Add Account button */}
-              {isTeamTier ? (
+              {isTeamTier && isAdmin ? (
                 <DropdownMenuItem onClick={() => navigate('/onboarding/aws')} className="cursor-pointer">
                   <Plus className="mr-2 h-4 w-4" />
                   <span>Add Account</span>
