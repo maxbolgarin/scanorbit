@@ -34,6 +34,8 @@ secrets:
     file: ./secrets/so_exporter_password
   so_umami_password:
     file: ./secrets/so_umami_password
+  resend_api_key:
+    file: ./secrets/resend_api_key
   resend_webhook_secret:
     file: ./secrets/resend_webhook_secret
   redis_password:
@@ -191,7 +193,6 @@ services:
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.22.0.0/16}
       # Email Configuration (Resend)
       - EMAIL_FROM=${EMAIL_FROM:-}
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
       # Stripe Configuration (secrets via Docker secrets)
       - STRIPE_PRO_PRICE_ID=${STRIPE_PRO_PRICE_ID:-}
       - STRIPE_TEAM_PRICE_ID=${STRIPE_TEAM_PRICE_ID:-}
@@ -210,6 +211,7 @@ services:
       - stripe_webhook_secret
       - aws_access_key_id
       - aws_secret_access_key
+      - resend_api_key
       - resend_webhook_secret
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
