@@ -122,7 +122,7 @@ app.{$DOMAIN} {
 	handle_path /api/* {
 		reverse_proxy api:4000
 	}
-	@api_paths path /auth/* /orgs /orgs/* /aws/* /resources/* /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports/* /api/v1/*
+	@api_paths path /auth/* /orgs /orgs/* /aws/* /resources /resources/* /findings /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports /bug-reports/* /api/v1/*
 	reverse_proxy @api_paths api:4000
 
 	# Everything else is the SPA.
@@ -153,7 +153,7 @@ api.{$DOMAIN} {
 		respond @api_meta 404
 
 		# Allowlist: ONLY proxy known valid API route prefixes
-		@api_allowed path /auth/* /orgs /orgs/* /aws/* /resources/* /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports/* /api/v1/* /health /health/ready
+		@api_allowed path /auth/* /orgs /orgs/* /aws/* /resources /resources/* /findings /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports /bug-reports/* /api/v1/* /health /health/ready
 		reverse_proxy @api_allowed api:4000
 
 		# Everything else: 404 without hitting the API

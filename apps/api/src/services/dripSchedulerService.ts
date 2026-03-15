@@ -145,6 +145,7 @@ export async function sendImmediate(params: {
   email: string;
   name?: string | null;
   data?: Record<string, unknown>;
+  subjectOverride?: string;
 }): Promise<void> {
   try {
     const seq = SEQUENCES.find(s => s.name === params.sequenceName);
@@ -159,7 +160,7 @@ export async function sendImmediate(params: {
       email: params.email,
       sequenceName: seq.name,
       template: step.template,
-      subject: step.subject,
+      subject: params.subjectOverride || step.subject,
       data: {
         first_name: params.name?.split(' ')[0] || 'there',
         unsubscribe_url: buildUnsubscribeUrl(params.email),
