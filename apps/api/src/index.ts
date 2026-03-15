@@ -222,6 +222,17 @@ app.get('/status', requireAuth, async (c) => {
   }
 });
 
+// CSP violation report endpoint (receives browser reports, logs and discards)
+app.post('/csp-report', async (c) => {
+  try {
+    const report = await c.req.json();
+    logger.warn('CSP violation', { report });
+  } catch {
+    // Ignore malformed reports
+  }
+  return c.body(null, 204);
+});
+
 // API routes
 app.route('/', routes);
 

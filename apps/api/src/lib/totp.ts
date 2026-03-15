@@ -70,9 +70,17 @@ export function verifyTotpCode(secret: string, code: string): boolean {
     secret: OTPAuth.Secret.fromBase32(secret),
   });
 
-  // Returns null if invalid, or the time step difference if valid
-  const delta = totp.validate({ token: code, window: TOTP_WINDOW });
-  return delta !== null;
+  // Generate the expected code for each window step and compare with timing-safe equality
+  // to prevent timing side-channel attacks on the verification
+  for (let step = -TOTP_WINDOW; step <= TOTP_WINDOW; step++) {
+    const expected = totp.generate({ timestamp: Date.now() + step * TOTP_PERIOD * 1000 });
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    const codeBuf = Buffer.from(code, 'utf8');
+    if (expectedBuf.length === codeBuf.length && crypto.timingSafeEqual(expectedBuf, codeBuf)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

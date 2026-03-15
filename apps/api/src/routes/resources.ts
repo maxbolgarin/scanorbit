@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { requireAuth } from '../middlewares/auth.js';
 import { requireOrgId } from '../middlewares/requireOrgId.js';
+import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { resourceService } from '../services/resourceService.js';
 import { dependencyService } from '../services/dependencyService.js';
 import { findingService } from '../services/findingService.js';
@@ -18,6 +19,13 @@ const resourcesRoute = new Hono<{ Variables: Variables }>();
 // All routes require authentication and org context
 resourcesRoute.use(requireAuth);
 resourcesRoute.use(requireOrgId);
+// Block write operations when GDPR processing restriction is active (Article 18)
+resourcesRoute.use('*', async (c, next) => {
+  if (c.req.method !== 'GET') {
+    return requireNoProcessingRestriction(c, next);
+  }
+  await next();
+});
 
 // Validation schemas
 const querySchema = z.object({

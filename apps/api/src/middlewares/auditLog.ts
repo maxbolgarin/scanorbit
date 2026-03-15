@@ -1,6 +1,7 @@
 import type { Context, Next } from 'hono';
 import { db } from '../lib/db.js';
-import { auditLogs } from '../db/schema.js';
+import { auditLogs, consentLogs } from '../db/schema.js';
+import { eq, and, desc } from 'drizzle-orm';
 import { getClientIP } from '../lib/ip.js';
 import { logger } from '../lib/logger.js';
 import type { Variables } from '../types/index.js';
@@ -53,6 +54,46 @@ function getClientIp(c: Context<{ Variables: Variables }>): string | null {
   return ip !== 'unknown' ? ip : null;
 }
 
+// Cache of user IDs who have objected to audit logging (TTL-based in-memory cache)
+const auditObjectionCache = new Map<string, { objected: boolean; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Check if user has an active GDPR Article 21 objection to audit logging.
+ * Uses in-memory cache to avoid per-request DB queries.
+ */
+async function hasAuditLoggingObjection(userId: string): Promise<boolean> {
+  const cached = auditObjectionCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.objected;
+  }
+
+  try {
+    const [latest] = await db
+      .select({ consentGiven: consentLogs.consentGiven, metadata: consentLogs.metadata })
+      .from(consentLogs)
+      .where(
+        and(
+          eq(consentLogs.userId, userId),
+          eq(consentLogs.consentType, 'objection')
+        )
+      )
+      .orderBy(desc(consentLogs.consentedAt))
+      .limit(1);
+
+    // Objection is active if consentGiven=false and the processingActivity is audit_logging
+    const objected = latest?.consentGiven === false &&
+      typeof latest.metadata === 'object' && latest.metadata !== null &&
+      'processingActivity' in latest.metadata &&
+      (latest.metadata as Record<string, unknown>).processingActivity === 'audit_logging';
+
+    auditObjectionCache.set(userId, { objected, expiresAt: Date.now() + CACHE_TTL_MS });
+    return objected;
+  } catch {
+    return false; // Fail open — don't break auditing on cache lookup failure
+  }
+}
+
 /**
  * Audit logging middleware
  *
@@ -82,6 +123,18 @@ export const auditLog = async (
     const userId = c.get('userId') || null;
     const durationMs = Date.now() - startTime;
 
+    // GDPR Article 21: Skip audit logging for users who have objected
+    if (userId) {
+      hasAuditLoggingObjection(userId).then((objected) => {
+        if (objected) return; // Respect user's objection
+        insertAuditLog(userId, method, path, c.res.status, getClientIp(c), c.req.header('user-agent'), durationMs);
+      }).catch(() => {
+        // On error, log anyway (fail open for security auditing)
+        insertAuditLog(userId, method, path, c.res.status, getClientIp(c), c.req.header('user-agent'), durationMs);
+      });
+      return;
+    }
+
     // Don't await - fire and forget to not slow down response
     db.insert(auditLogs)
       .values({
@@ -103,6 +156,42 @@ export const auditLog = async (
     logger.error('[AuditLog] Error in audit middleware', err as Error);
   }
 };
+
+/**
+ * Insert audit log entry (fire-and-forget)
+ */
+function insertAuditLog(
+  userId: string | null,
+  method: string,
+  path: string,
+  statusCode: number,
+  ipAddress: string | null,
+  userAgent: string | undefined,
+  durationMs: number
+): void {
+  db.insert(auditLogs)
+    .values({
+      userId,
+      action: getActionFromMethod(method),
+      method,
+      path,
+      statusCode,
+      ipAddress,
+      userAgent,
+      durationMs,
+    })
+    .catch((err) => {
+      logger.error('[AuditLog] Failed to write audit log', err as Error);
+    });
+}
+
+/**
+ * Invalidate the audit objection cache for a user.
+ * Call this when a user submits or withdraws an objection.
+ */
+export function invalidateAuditObjectionCache(userId: string): void {
+  auditObjectionCache.delete(userId);
+}
 
 /**
  * Log specific authentication events

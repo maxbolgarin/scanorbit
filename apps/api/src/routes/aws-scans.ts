@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { requireAuth } from '../middlewares/auth.js';
 import { requireOrgId } from '../middlewares/requireOrgId.js';
+import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { awsAccountService } from '../services/awsAccountService.js';
 import type { Variables } from '../types/index.js';
 
@@ -9,6 +10,13 @@ const awsScansRoute = new Hono<{ Variables: Variables }>();
 // All routes require authentication and org context
 awsScansRoute.use(requireAuth);
 awsScansRoute.use(requireOrgId);
+// Block write operations when GDPR processing restriction is active (Article 18)
+awsScansRoute.use('*', async (c, next) => {
+  if (c.req.method !== 'GET') {
+    return requireNoProcessingRestriction(c, next);
+  }
+  await next();
+});
 
 // GET /aws/scans/active - Get active scans (pending or running)
 awsScansRoute.get('/active', async (c) => {

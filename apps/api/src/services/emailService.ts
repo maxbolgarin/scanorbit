@@ -23,6 +23,16 @@ interface EmailResult {
   error?: string;
 }
 
+// Escape HTML entities to prevent XSS in email templates
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Mask email for logging (PII protection)
 function maskEmail(email: string): string {
   const [localPart, domain] = email.split('@');
@@ -224,7 +234,7 @@ function wrapInTemplate(content: string, previewText: string): string {
 
 // Verification email HTML content
 function getVerificationEmailHtml(code: string, name?: string): string {
-  const greeting = name ? `Hi ${name},` : 'Hi there,';
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
 
   const content = `
     <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
@@ -279,7 +289,7 @@ https://scanorbit.io
 
 // Password reset email HTML content
 function getPasswordResetEmailHtml(resetUrl: string, name?: string): string {
-  const greeting = name ? `Hi ${name},` : 'Hi there,';
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
 
   const content = `
     <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
@@ -338,7 +348,7 @@ https://scanorbit.io
 
 // Trial ending email HTML
 function getTrialEndingEmailHtml(trialEndsAt: Date, tier: string, name?: string): string {
-  const greeting = name ? `Hi ${name},` : 'Hi there,';
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
   const endDate = trialEndsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const settingsUrl = `${config.frontendUrl}/settings?tab=subscription`;
 
@@ -348,7 +358,7 @@ function getTrialEndingEmailHtml(trialEndsAt: Date, tier: string, name?: string)
     </h1>
     <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
       ${greeting}<br><br>
-      Your free trial of the <strong style="color: ${BRAND.text};">${tier}</strong> plan ends on <strong style="color: ${BRAND.text};">${endDate}</strong>.
+      Your free trial of the <strong style="color: ${BRAND.text};">${escapeHtml(tier)}</strong> plan ends on <strong style="color: ${BRAND.text};">${endDate}</strong>.
       Your subscription will automatically continue and your card on file will be charged. No action needed if you'd like to keep your plan.
     </p>
 
@@ -388,7 +398,7 @@ https://scanorbit.io
 
 // Payment failed email HTML
 function getPaymentFailedEmailHtml(tier: string, name?: string): string {
-  const greeting = name ? `Hi ${name},` : 'Hi there,';
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
   const settingsUrl = `${config.frontendUrl}/settings?tab=subscription`;
 
   const content = `
@@ -397,7 +407,7 @@ function getPaymentFailedEmailHtml(tier: string, name?: string): string {
     </h1>
     <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
       ${greeting}<br><br>
-      We were unable to process your payment for the <strong style="color: ${BRAND.text};">${tier}</strong> plan.
+      We were unable to process your payment for the <strong style="color: ${BRAND.text};">${escapeHtml(tier)}</strong> plan.
       Please update your payment method to avoid losing access to paid features.
     </p>
 
@@ -436,19 +446,21 @@ https://scanorbit.io
 
 // Invitation email HTML content
 function getInvitationEmailHtml(inviterName: string, orgName: string, inviteUrl: string): string {
+  const safeInviterName = escapeHtml(inviterName);
+  const safeOrgName = escapeHtml(orgName);
   const content = `
     <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
-      You're invited to join ${orgName}
+      You're invited to join ${safeOrgName}
     </h1>
     <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
-      ${inviterName} has invited you to join <strong style="color: ${BRAND.text};">${orgName}</strong> on ScanOrbit.
+      ${safeInviterName} has invited you to join <strong style="color: ${BRAND.text};">${safeOrgName}</strong> on ScanOrbit.
       Accept the invitation to start collaborating on cloud infrastructure monitoring.
     </p>
 
     <!-- CTA Button -->
     <div style="text-align: center; margin: 0 0 24px;">
       <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
-        Join ${orgName}
+        Join ${safeOrgName}
       </a>
     </div>
 
@@ -465,7 +477,7 @@ function getInvitationEmailHtml(inviterName: string, orgName: string, inviteUrl:
     </p>
   `;
 
-  return wrapInTemplate(content, `${inviterName} invited you to join ${orgName} on ScanOrbit`);
+  return wrapInTemplate(content, `${safeInviterName} invited you to join ${safeOrgName} on ScanOrbit`);
 }
 
 function getInvitationEmailText(inviterName: string, orgName: string, inviteUrl: string): string {
@@ -503,9 +515,14 @@ function getBugReportNotificationHtml(
     feature_request: 'Feature Request',
     other: 'Other',
   };
-  const categoryLabel = categoryLabels[category] || category;
-  const reporterDisplay = reporterName ? `${reporterName} (${reporterEmail})` : reporterEmail;
-  const pageUrl = (metadata.pageUrl as string) || 'N/A';
+  const categoryLabel = escapeHtml(categoryLabels[category] || category);
+  const safeReporterEmail = escapeHtml(reporterEmail);
+  const safeReporterName = reporterName ? escapeHtml(reporterName) : undefined;
+  const reporterDisplay = safeReporterName ? `${safeReporterName} (${safeReporterEmail})` : safeReporterEmail;
+  const pageUrl = escapeHtml((metadata.pageUrl as string) || 'N/A');
+  const safeTitle = escapeHtml(title);
+  const safeDescription = escapeHtml(description);
+  const safeOrgName = escapeHtml(orgName);
 
   const content = `
     <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
@@ -519,7 +536,7 @@ function getBugReportNotificationHtml(
       </tr>
       <tr>
         <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Organization:</td>
-        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">${orgName}</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">${safeOrgName}</td>
       </tr>
       <tr>
         <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Category:</td>
@@ -534,12 +551,12 @@ function getBugReportNotificationHtml(
     </table>
 
     <div style="background-color: ${BRAND.background}; border: 1px solid ${BRAND.border}; border-radius: 8px; padding: 16px; margin: 0 0 20px;">
-      <p style="margin: 0 0 8px; font-size: 16px; font-weight: 600; color: ${BRAND.text};">${title}</p>
-      <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6; white-space: pre-wrap;">${description}</p>
+      <p style="margin: 0 0 8px; font-size: 16px; font-weight: 600; color: ${BRAND.text};">${safeTitle}</p>
+      <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6; white-space: pre-wrap;">${safeDescription}</p>
     </div>
   `;
 
-  return wrapInTemplate(content, `Bug Report: ${title}`);
+  return wrapInTemplate(content, `Bug Report: ${safeTitle}`);
 }
 
 function getBugReportNotificationText(
