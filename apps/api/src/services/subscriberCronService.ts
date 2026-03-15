@@ -118,10 +118,25 @@ async function processFirstScanCompletions(): Promise<void> {
         low_count: stats.low,
         total_findings: totalFindings,
         cost_count: Number(costCount?.total ?? 0),
+        // Pluralization helpers for Handlebars ({{#unless single_X}})
+        single_finding: totalFindings === 1,
+        single_critical: stats.critical === 1,
+        single_high: stats.high === 1,
       };
 
       await subscriberService.updateAttribsByEmail(admin.email, scanData);
-      sendImmediate({ sequenceName: 'free-scanned', email: admin.email, name: admin.name, data: scanData }).catch((err) => logger.warn('subscriber: failed sendImmediate for free-scanned', { error: (err as Error).message }));
+
+      // Dynamic subject based on finding severity
+      let scanSubject: string | undefined;
+      if (stats.critical > 0) {
+        scanSubject = `Critical issues found in your AWS account`;
+      } else if (stats.high > 0) {
+        scanSubject = `We found ${stats.high} high-severity issue${stats.high > 1 ? 's' : ''} in your AWS account`;
+      } else if (totalFindings === 0) {
+        scanSubject = 'Your scan results are ready — looking good';
+      }
+
+      sendImmediate({ sequenceName: 'free-scanned', email: admin.email, name: admin.name, data: scanData, subjectOverride: scanSubject }).catch((err) => logger.warn('subscriber: failed sendImmediate for free-scanned', { error: (err as Error).message }));
     } catch (attribErr) {
       logger.warn('[SubscriberCron] Failed to store scan stats or send drip', {
         error: (attribErr as Error).message,

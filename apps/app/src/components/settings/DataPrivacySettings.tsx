@@ -593,7 +593,7 @@ export function DataPrivacySettings() {
         <CardContent>
           <div className="space-y-3">
             <a
-              href="/privacy"
+              href="https://scanorbit.cloud/privacy"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
@@ -602,7 +602,7 @@ export function DataPrivacySettings() {
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </a>
             <a
-              href="/cookies"
+              href="https://scanorbit.cloud/cookies"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
@@ -611,7 +611,7 @@ export function DataPrivacySettings() {
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </a>
             <a
-              href="/dpa"
+              href="https://scanorbit.cloud/dpa"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
@@ -620,7 +620,7 @@ export function DataPrivacySettings() {
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </a>
             <a
-              href="/subprocessors"
+              href="https://scanorbit.cloud/subprocessors"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
