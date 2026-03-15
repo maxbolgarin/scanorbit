@@ -5,7 +5,7 @@ import { requireAuth } from '../middlewares/auth.js';
 import { stripeService } from '../services/stripeService.js';
 import { orgService } from '../services/orgService.js';
 import { emailService } from '../services/emailService.js';
-import { listmonkService } from '../services/listmonkService.js';
+import { subscriberService } from '../services/subscriberService.js';
 import { sendImmediate } from '../services/dripSchedulerService.js';
 import { config, stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
@@ -235,19 +235,19 @@ stripeRoute.post('/webhook', async (c) => {
           if (orgId) {
             const admin = await orgService.getOrgAdminEmail(orgId);
             if (admin) {
-              listmonkService.onTrialStart(admin.email)
-                .then(() => listmonkService.updateAttribsByEmail(admin.email, {
+              subscriberService.onTrialStart(admin.email)
+                .then(() => subscriberService.updateAttribsByEmail(admin.email, {
                   trial_started_at: new Date().toISOString(),
                   tier: 'trial',
                   plan: session.metadata?.targetTier || 'pro',
                 }))
                 .then(() => sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }))
-                .catch((err) => logger.warn('listmonk: failed onTrialStart/sendImmediate', { error: (err as Error).message }));
+                .catch((err) => logger.warn('subscriber: failed onTrialStart/sendImmediate', { error: (err as Error).message }));
             }
           }
-        } catch (listmonkErr) {
+        } catch (subscriberErr) {
           logger.warn('Failed to update Listmonk on checkout', {
-            error: (listmonkErr as Error).message,
+            error: (subscriberErr as Error).message,
           });
         }
         break;
@@ -272,34 +272,34 @@ stripeRoute.post('/webhook', async (c) => {
                 const prev = (event.data as Stripe.Event.Data & { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
                 // Trial → Active (payment confirmed)
                 if (prev?.status === 'trialing' && subscription.status === 'active') {
-                  listmonkService.onPayment(admin.email, tier)
-                    .then(() => listmonkService.updateAttribsByEmail(admin.email, {
+                  subscriberService.onPayment(admin.email, tier)
+                    .then(() => subscriberService.updateAttribsByEmail(admin.email, {
                       paid_at: new Date().toISOString(),
                       tier: `paid-${tier}`,
                       plan: tier,
                     }))
                     .then(() => sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }))
-                    .catch((err) => logger.warn('listmonk: failed onPayment/sendImmediate', { error: (err as Error).message }));
+                    .catch((err) => logger.warn('subscriber: failed onPayment/sendImmediate', { error: (err as Error).message }));
                 }
                 // Plan change (Pro ↔ Team)
                 if (prev?.items && subscription.status === 'active') {
                   const prevPriceId = prev.items.data?.[0]?.price?.id;
                   if (prevPriceId && prevPriceId !== priceId) {
                     const prevTier = prevPriceId === stripeConfig.teamPriceId ? 'team' as const : 'pro' as const;
-                    listmonkService.onPlanChange(admin.email, prevTier, tier)
-                      .then(() => listmonkService.updateAttribsByEmail(admin.email, {
+                    subscriberService.onPlanChange(admin.email, prevTier, tier)
+                      .then(() => subscriberService.updateAttribsByEmail(admin.email, {
                         tier: `paid-${tier}`,
                         plan: tier,
                         paid_at: new Date().toISOString(),
                       }))
                       .then(() => sendImmediate({ sequenceName: tier === 'team' ? 'paid-team' : 'paid-pro', email: admin.email, name: admin.name }))
-                      .catch((err) => logger.warn('listmonk: failed onPlanChange', { error: (err as Error).message }));
+                      .catch((err) => logger.warn('subscriber: failed onPlanChange', { error: (err as Error).message }));
                   }
                 }
                 // Subscription canceled (at period end or immediately)
                 if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
                   const isTrialCancel = prev?.status === 'trialing';
-                  listmonkService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
+                  subscriberService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('subscriber: failed onChurn', { error: (err as Error).message }));
                 }
               }
 
@@ -309,13 +309,13 @@ stripeRoute.post('/webhook', async (c) => {
                 const isTrialCancel = subscription.status === 'canceled' &&
                   !!subscription.trial_end &&
                   subscription.trial_end > Math.floor(Date.now() / 1000);
-                listmonkService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('listmonk: failed onChurn', { error: (err as Error).message }));
+                subscriberService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('subscriber: failed onChurn', { error: (err as Error).message }));
               }
             }
           }
-        } catch (listmonkErr) {
+        } catch (subscriberErr) {
           logger.warn('Failed to update Listmonk on subscription change', {
-            error: (listmonkErr as Error).message,
+            error: (subscriberErr as Error).message,
           });
         }
         break;

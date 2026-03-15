@@ -1,46 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
-
-vi.mock('../../lib/config.js', () => ({
-  listmonkConfig: {
-    lists: {
-      coldLeads: 1,
-      subscribers: 2,
-      freeNew: 3,
-      freeScanned: 4,
-      trialNew: 5,
-      trialActive: 6,
-      paidPro: 7,
-      paidTeam: 8,
-    },
-    templates: {
-      coldDay0Pain: 101,
-      coldDay4Gdpr: 102,
-      coldDay10Breakup: 103,
-      subsDay0Welcome: 104,
-      subsDay3Security: 105,
-      subsDay7Cost: 106,
-      subsDay11Gdpr: 107,
-      subsDay16SocialProof: 108,
-      subsDay21FinalCta: 109,
-      freeNewDay0Welcome: 110,
-      freeNewDay2Security: 111,
-      freeNewDay5Value: 112,
-      freeScannedDay0Results: 113,
-      freeScannedDay2Critical: 114,
-      freeScannedDay5Cost: 115,
-      freeScannedDay10Breakup: 116,
-      trialNewDay0Welcome: 117,
-      trialNewDay3Stuck: 118,
-      trialActiveDay3Deepen: 119,
-      trialActiveDay5Warning: 120,
-      trialActiveDay6Lastday: 121,
-      trialActiveDay9Winback: 122,
-      paidProDay0Welcome: 123,
-      paidTeamDay0Welcome: 124,
-    },
-  },
-}));
-
+import { describe, it, expect } from 'vitest';
 import { SEQUENCES, type DripSequence } from '../../services/dripConfig.js';
 
 describe('dripConfig', () => {
@@ -57,22 +15,26 @@ describe('dripConfig', () => {
       expect(names).toContain('paid-team');
     });
 
-    it('all sequences have valid listIds (> 0)', () => {
-      for (const seq of SEQUENCES) {
-        expect(seq.listId).toBeGreaterThan(0);
-      }
-    });
-
     it('all sequences have at least one step', () => {
       for (const seq of SEQUENCES) {
         expect(seq.steps.length).toBeGreaterThan(0);
       }
     });
 
-    it('all steps have valid templateIds (> 0)', () => {
+    it('all steps have non-empty template strings', () => {
       for (const seq of SEQUENCES) {
         for (const step of seq.steps) {
-          expect(step.templateId).toBeGreaterThan(0);
+          expect(typeof step.template).toBe('string');
+          expect(step.template.length).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it('all steps have non-empty subject strings', () => {
+      for (const seq of SEQUENCES) {
+        for (const step of seq.steps) {
+          expect(typeof step.subject).toBe('string');
+          expect(step.subject.length).toBeGreaterThan(0);
         }
       }
     });
@@ -100,9 +62,11 @@ describe('dripConfig', () => {
       }
     });
 
-    it('templateIds are unique across all sequences', () => {
-      const allTemplateIds = SEQUENCES.flatMap(s => s.steps.map(st => st.templateId));
-      expect(new Set(allTemplateIds).size).toBe(allTemplateIds.length);
+    it('templates are unique across all sequences', () => {
+      const allTemplateKeys = SEQUENCES.flatMap(s =>
+        s.steps.map(st => `${s.name}/${st.template}`),
+      );
+      expect(new Set(allTemplateKeys).size).toBe(allTemplateKeys.length);
     });
 
     it('sequences with dateAttrib have the field set', () => {

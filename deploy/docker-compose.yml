@@ -34,8 +34,8 @@ secrets:
     file: ./secrets/so_exporter_password
   so_umami_password:
     file: ./secrets/so_umami_password
-  so_listmonk_password:
-    file: ./secrets/so_listmonk_password
+  resend_webhook_secret:
+    file: ./secrets/resend_webhook_secret
   redis_password:
     file: ./secrets/redis_password
   redis_url:
@@ -66,8 +66,6 @@ secrets:
     file: ./secrets/scw_access_key
   scw_secret_key:
     file: ./secrets/scw_secret_key
-  smtp_pass:
-    file: ./secrets/smtp_pass
 
 services:
   # Reverse proxy with automatic TLS
@@ -121,7 +119,6 @@ services:
       - so_backup_password
       - so_exporter_password
       - so_umami_password
-      - so_listmonk_password
     volumes:
       - ./scripts/init-db.sh:/scripts/init-db.sh:ro
       - ./scripts/init-db.sql:/scripts/init-db.sql:ro
@@ -192,59 +189,13 @@ services:
       # Network/Security
       # Include Docker bridge subnet (172.22.0.0/16) so rate limiting trusts Caddy's X-Forwarded-For
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,::1,172.22.0.0/16}
-      # Email Configuration
-      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
+      # Email Configuration (Resend)
       - EMAIL_FROM=${EMAIL_FROM:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
-      # SMTP Configuration (password via secrets)
-      - SMTP_ENABLED=${SMTP_ENABLED:-true}
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_SECURE=${SMTP_SECURE:-true}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_FROM=${SMTP_FROM:-}
       # Stripe Configuration (secrets via Docker secrets)
       - STRIPE_PRO_PRICE_ID=${STRIPE_PRO_PRICE_ID:-}
       - STRIPE_TEAM_PRICE_ID=${STRIPE_TEAM_PRICE_ID:-}
       - STRIPE_TRIAL_DAYS=${STRIPE_TRIAL_DAYS:-7}
-      # Listmonk Newsletter
-      - LISTMONK_API_URL=${LISTMONK_API_URL:-http://listmonk:9000}
-      - LISTMONK_API_USER=${LISTMONK_ADMIN_USER:-admin}
-      - LISTMONK_API_PASSWORD=${LISTMONK_ADMIN_PASSWORD:-}
-      - LISTMONK_LIST_COLD_LEADS=${LISTMONK_LIST_COLD_LEADS:-0}
-      - LISTMONK_LIST_SUBSCRIBERS=${LISTMONK_LIST_SUBSCRIBERS:-0}
-      - LISTMONK_LIST_FREE_NEW=${LISTMONK_LIST_FREE_NEW:-0}
-      - LISTMONK_LIST_FREE_SCANNED=${LISTMONK_LIST_FREE_SCANNED:-0}
-      - LISTMONK_LIST_TRIAL_NEW=${LISTMONK_LIST_TRIAL_NEW:-0}
-      - LISTMONK_LIST_TRIAL_ACTIVE=${LISTMONK_LIST_TRIAL_ACTIVE:-0}
-      - LISTMONK_LIST_PAID_PRO=${LISTMONK_LIST_PAID_PRO:-0}
-      - LISTMONK_LIST_PAID_TEAM=${LISTMONK_LIST_PAID_TEAM:-0}
-      - LISTMONK_TEMPLATE_COLD_DAY0_PAIN=${LISTMONK_TEMPLATE_COLD_DAY0_PAIN:-0}
-      - LISTMONK_TEMPLATE_COLD_DAY4_GDPR=${LISTMONK_TEMPLATE_COLD_DAY4_GDPR:-0}
-      - LISTMONK_TEMPLATE_COLD_DAY10_BREAKUP=${LISTMONK_TEMPLATE_COLD_DAY10_BREAKUP:-0}
-      - LISTMONK_TEMPLATE_SUBS_DAY0_WELCOME=${LISTMONK_TEMPLATE_SUBS_DAY0_WELCOME:-0}
-      - LISTMONK_TEMPLATE_SUBS_DAY3_SECURITY=${LISTMONK_TEMPLATE_SUBS_DAY3_SECURITY:-0}
-      - LISTMONK_TEMPLATE_SUBS_DAY7_COST=${LISTMONK_TEMPLATE_SUBS_DAY7_COST:-0}
-      - LISTMONK_TEMPLATE_SUBS_DAY11_GDPR=${LISTMONK_TEMPLATE_SUBS_DAY11_GDPR:-0}
-      - LISTMONK_TEMPLATE_SUBS_DAY16_SOCIAL_PROOF=${LISTMONK_TEMPLATE_SUBS_DAY16_SOCIAL_PROOF:-0}
-      - LISTMONK_TEMPLATE_SUBS_DAY21_FINAL_CTA=${LISTMONK_TEMPLATE_SUBS_DAY21_FINAL_CTA:-0}
-      - LISTMONK_TEMPLATE_FREE_NEW_DAY0_WELCOME=${LISTMONK_TEMPLATE_FREE_NEW_DAY0_WELCOME:-0}
-      - LISTMONK_TEMPLATE_FREE_NEW_DAY2_SECURITY=${LISTMONK_TEMPLATE_FREE_NEW_DAY2_SECURITY:-0}
-      - LISTMONK_TEMPLATE_FREE_NEW_DAY5_VALUE=${LISTMONK_TEMPLATE_FREE_NEW_DAY5_VALUE:-0}
-      - LISTMONK_TEMPLATE_FREE_SCANNED_DAY0_RESULTS=${LISTMONK_TEMPLATE_FREE_SCANNED_DAY0_RESULTS:-0}
-      - LISTMONK_TEMPLATE_FREE_SCANNED_DAY2_CRITICAL=${LISTMONK_TEMPLATE_FREE_SCANNED_DAY2_CRITICAL:-0}
-      - LISTMONK_TEMPLATE_FREE_SCANNED_DAY5_COST=${LISTMONK_TEMPLATE_FREE_SCANNED_DAY5_COST:-0}
-      - LISTMONK_TEMPLATE_FREE_SCANNED_DAY10_BREAKUP=${LISTMONK_TEMPLATE_FREE_SCANNED_DAY10_BREAKUP:-0}
-      - LISTMONK_TEMPLATE_TRIAL_NEW_DAY0_WELCOME=${LISTMONK_TEMPLATE_TRIAL_NEW_DAY0_WELCOME:-0}
-      - LISTMONK_TEMPLATE_TRIAL_NEW_DAY3_STUCK=${LISTMONK_TEMPLATE_TRIAL_NEW_DAY3_STUCK:-0}
-      - LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY3_DEEPEN=${LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY3_DEEPEN:-0}
-      - LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY5_WARNING=${LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY5_WARNING:-0}
-      - LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY6_LASTDAY=${LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY6_LASTDAY:-0}
-      - LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY9_WINBACK=${LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY9_WINBACK:-0}
-      - LISTMONK_TEMPLATE_PAID_PRO_DAY0_WELCOME=${LISTMONK_TEMPLATE_PAID_PRO_DAY0_WELCOME:-0}
-      - LISTMONK_TEMPLATE_PAID_TEAM_DAY0_WELCOME=${LISTMONK_TEMPLATE_PAID_TEAM_DAY0_WELCOME:-0}
-      # Scaleway bounce webhook secret
-      - SCALEWAY_WEBHOOK_SECRET=${SCALEWAY_WEBHOOK_SECRET:-}
     secrets:
       - source: so_api_database_url
         target: database_url
@@ -259,7 +210,7 @@ services:
       - stripe_webhook_secret
       - aws_access_key_id
       - aws_secret_access_key
-      - smtp_pass
+      - resend_webhook_secret
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
       - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
@@ -734,83 +685,6 @@ services:
     depends_on:
       init-db:
         condition: service_completed_successfully
-    networks:
-      - scanorbit
-
-  # Listmonk Newsletter - Schema installation (idempotent)
-  # Uses so_listmonk user — owner of listmonk database
-  listmonk-init:
-    image: listmonk/listmonk:latest
-    restart: "no"
-    environment:
-      - LISTMONK_app__address=0.0.0.0:9000
-      - LISTMONK_app__admin_username=${LISTMONK_ADMIN_USER:-admin}
-      - LISTMONK_app__admin_password=${LISTMONK_ADMIN_PASSWORD}
-      - LISTMONK_db__host=postgres
-      - LISTMONK_db__port=5432
-      - LISTMONK_db__user=so_listmonk
-      - LISTMONK_db__database=listmonk
-      - LISTMONK_db__ssl_mode=require
-    secrets:
-      - source: so_listmonk_password
-        target: postgres_password
-    volumes:
-      - ./entrypoints/listmonk-entrypoint.sh:/entrypoint/listmonk-entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/entrypoint/listmonk-entrypoint.sh"]
-    command: ["./listmonk", "--install", "--idempotent", "--yes", "--config", ""]
-    depends_on:
-      init-db:
-        condition: service_completed_successfully
-    networks:
-      - scanorbit
-
-  # Listmonk Newsletter - Admin UI & API (localhost only, access via SSH tunnel)
-  # Uses so_listmonk user — owner of listmonk database
-  listmonk:
-    image: listmonk/listmonk:latest
-    restart: unless-stopped
-    environment:
-      - LISTMONK_app__address=0.0.0.0:9000
-      - LISTMONK_app__admin_username=${LISTMONK_ADMIN_USER:-admin}
-      - LISTMONK_app__admin_password=${LISTMONK_ADMIN_PASSWORD}
-      - LISTMONK_db__host=postgres
-      - LISTMONK_db__port=5432
-      - LISTMONK_db__user=so_listmonk
-      - LISTMONK_db__database=listmonk
-      - LISTMONK_db__ssl_mode=require
-    secrets:
-      - source: so_listmonk_password
-        target: postgres_password
-    volumes:
-      - ./entrypoints/listmonk-entrypoint.sh:/entrypoint/listmonk-entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/entrypoint/listmonk-entrypoint.sh"]
-    command: ["./listmonk", "--config", ""]
-    ports:
-      - "127.0.0.1:9000:9000"  # Listmonk UI (localhost only, access via SSH tunnel)
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 9000 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      listmonk-init:
-        condition: service_completed_successfully
-    networks:
-      - scanorbit
-
-  # Listmonk Newsletter - Seed lists and transactional templates
-  # Runs after Listmonk is healthy and exits when setup is complete.
-  listmonk-setup:
-    image: ghcr.io/${GITHUB_REPOSITORY}/listmonk-setup:${IMAGE_TAG:-latest}
-    restart: "no"
-    environment:
-      - LISTMONK_URL=http://listmonk:9000
-      - LISTMONK_USER=${LISTMONK_ADMIN_USER:-admin}
-      - LISTMONK_TOKEN=${LISTMONK_ADMIN_PASSWORD}
-    depends_on:
-      listmonk:
-        condition: service_healthy
     networks:
       - scanorbit
 

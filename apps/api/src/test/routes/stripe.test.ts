@@ -11,7 +11,7 @@ vi.mock('../../middlewares/auth.js', () => ({
   }),
 }));
 
-const { mockStripeService, mockOrgService, mockEmailService, mockListmonkService } = vi.hoisted(() => ({
+const { mockStripeService, mockOrgService, mockEmailService, mockSubscriberService } = vi.hoisted(() => ({
   mockStripeService: {
     isConfigured: vi.fn().mockReturnValue(true),
     createCheckoutSession: vi.fn(),
@@ -31,7 +31,7 @@ const { mockStripeService, mockOrgService, mockEmailService, mockListmonkService
     sendTrialEndingEmail: vi.fn().mockResolvedValue(undefined),
     sendPaymentFailedEmail: vi.fn().mockResolvedValue(undefined),
   },
-  mockListmonkService: {
+  mockSubscriberService: {
     onTrialStart: vi.fn().mockResolvedValue(undefined),
     onPayment: vi.fn().mockResolvedValue(undefined),
     onPlanChange: vi.fn().mockResolvedValue(undefined),
@@ -52,8 +52,8 @@ vi.mock('../../services/emailService.js', () => ({
   emailService: mockEmailService,
 }));
 
-vi.mock('../../services/listmonkService.js', () => ({
-  listmonkService: mockListmonkService,
+vi.mock('../../services/subscriberService.js', () => ({
+  subscriberService: mockSubscriberService,
 }));
 
 vi.mock('../../services/dripSchedulerService.js', () => ({

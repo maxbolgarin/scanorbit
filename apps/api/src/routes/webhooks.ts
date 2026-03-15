@@ -1,106 +1,88 @@
 import { Hono } from 'hono';
-import { listmonkConfig } from '../lib/config.js';
+import { Webhook } from 'svix';
+import { eq } from 'drizzle-orm';
+import { db } from '../lib/db.js';
+import { config } from '../lib/config.js';
+import { emailSubscribers } from '../db/schema.js';
 import { logger } from '../lib/logger.js';
-import { timingSafeEqual } from 'crypto';
 import type { Variables } from '../types/index.js';
 
 const webhooksRoute = new Hono<{ Variables: Variables }>();
 
-const BOUNCE_EVENT_TYPES = new Set(['email_dropped', 'email_mailbox_not_found']);
+const RESEND_WEBHOOK_SECRET = config.email.resend.webhookSecret || '';
 
-// Webhook secret for Scaleway bounce webhook authentication
-// Set SCALEWAY_WEBHOOK_SECRET env var and configure the X-Webhook-Secret header in Scaleway
-const WEBHOOK_SECRET = process.env.SCALEWAY_WEBHOOK_SECRET || '';
-
-if (!WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('SCALEWAY_WEBHOOK_SECRET is required in production');
+if (!RESEND_WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('RESEND_WEBHOOK_SECRET is required in production');
 }
 
 /**
- * POST /webhooks/scaleway-bounce
- * Bridge between Scaleway TEM bounce webhooks and Listmonk's bounce API.
- * Receives Scaleway events, filters for bounces, forwards to Listmonk.
- * Authenticated via shared secret query parameter (configure in Scaleway webhook URL).
+ * POST /webhooks/resend
+ * Handles Resend webhook events (bounces, complaints, deliveries).
+ * Updates email_subscribers status on bounce/complaint.
  */
-webhooksRoute.post('/scaleway-bounce', async (c) => {
-  // Verify shared secret via header (not query param to avoid logging secrets in URLs)
-  if (WEBHOOK_SECRET) {
-    const secret = c.req.header('x-webhook-secret') || '';
-    if (!secret || !safeCompare(secret, WEBHOOK_SECRET)) {
-      logger.warn('[Bounce] Unauthorized webhook request');
-      return c.json({ error: 'Unauthorized' }, 401);
+webhooksRoute.post('/resend', async (c) => {
+  const rawBody = await c.req.text();
+
+  // Verify webhook signature (Resend uses Svix)
+  if (RESEND_WEBHOOK_SECRET) {
+    try {
+      const wh = new Webhook(RESEND_WEBHOOK_SECRET);
+      wh.verify(rawBody, {
+        'svix-id': c.req.header('svix-id') || '',
+        'svix-timestamp': c.req.header('svix-timestamp') || '',
+        'svix-signature': c.req.header('svix-signature') || '',
+      });
+    } catch (err) {
+      logger.warn('[Webhook] Resend signature verification failed', { error: (err as Error).message });
+      return c.json({ error: 'Invalid signature' }, 400);
     }
   }
 
-  let body: { type?: string; payload?: Record<string, unknown> };
-
+  let event: { type?: string; data?: { to?: string[]; email_id?: string } };
   try {
-    body = await c.req.json();
+    event = JSON.parse(rawBody);
   } catch {
     return c.json({ received: true, error: 'invalid JSON' }, 400);
   }
 
-  const eventType = body.type;
+  const eventType = event.type;
+  const recipientEmail = event.data?.to?.[0];
 
-  if (!eventType || !BOUNCE_EVENT_TYPES.has(eventType)) {
-    // Ignored event type — return 200 so Scaleway doesn't retry
-    return c.json({ received: true, ignored: true });
+  if (!eventType) {
+    return c.json({ received: true });
   }
 
-  const email = body.payload?.rcpt_to as string | undefined;
-  if (!email) {
-    logger.warn('[Bounce] Scaleway bounce event missing rcpt_to', { eventType });
-    return c.json({ received: true, error: 'missing rcpt_to' });
-  }
+  switch (eventType) {
+    case 'email.bounced':
+      if (recipientEmail) {
+        await db
+          .update(emailSubscribers)
+          .set({ status: 'bounced', updatedAt: new Date() })
+          .where(eq(emailSubscribers.email, recipientEmail));
+        logger.info('[Webhook] Bounced', { email: recipientEmail });
+      }
+      break;
 
-  logger.info('[Bounce] Forwarding bounce to Listmonk', { eventType, email });
+    case 'email.complained':
+      if (recipientEmail) {
+        await db
+          .update(emailSubscribers)
+          .set({ status: 'complained', updatedAt: new Date() })
+          .where(eq(emailSubscribers.email, recipientEmail));
+        logger.info('[Webhook] Complained', { email: recipientEmail });
+      }
+      break;
 
-  // Forward to Listmonk bounce webhook (fire-and-forget, always return 200)
-  try {
-    const auth = `Basic ${  Buffer.from(
-      `${listmonkConfig.apiUser}:${listmonkConfig.apiPassword}`
-    ).toString('base64')}`;
+    case 'email.delivered':
+      // Optional: log delivery for analytics
+      break;
 
-    const res = await fetch(`${listmonkConfig.apiUrl}/api/webhooks/bounce`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': auth,
-      },
-      body: JSON.stringify({
-        source: 'api',
-        type: 'hard',
-        email,
-        meta: JSON.stringify(body),
-      }),
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      logger.error('[Bounce] Listmonk bounce API error', { status: res.status, body: text });
-    }
-  } catch (err) {
-    logger.error('[Bounce] Failed to forward bounce to Listmonk', err as Error);
+    default:
+      // Ignore unhandled event types
+      break;
   }
 
   return c.json({ received: true });
 });
-
-/**
- * Constant-time string comparison to prevent timing attacks on webhook secret.
- * Always runs timingSafeEqual to avoid leaking the secret's length via timing.
- */
-function safeCompare(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  // Pad to equal length so timingSafeEqual always runs
-  const maxLen = Math.max(bufA.length, bufB.length);
-  const paddedA = Buffer.alloc(maxLen);
-  const paddedB = Buffer.alloc(maxLen);
-  bufA.copy(paddedA);
-  bufB.copy(paddedB);
-  return timingSafeEqual(paddedA, paddedB) && bufA.length === bufB.length;
-}
 
 export default webhooksRoute;

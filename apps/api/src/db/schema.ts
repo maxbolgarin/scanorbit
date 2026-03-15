@@ -640,6 +640,22 @@ export const bugReportsRelations = relations(bugReports, ({ one }) => ({
   }),
 }));
 
+// Email Subscribers (replaces Listmonk subscriber management)
+export const emailSubscribers = pgTable('email_subscribers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: varchar('email', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }),
+  list: varchar('list', { length: 100 }).notNull(), // 'free-new', 'trial-active', 'paid-pro', etc.
+  status: varchar('status', { length: 20 }).notNull().default('active'), // 'active', 'unsubscribed', 'bounced', 'complained'
+  attributes: jsonb('attributes').notNull().default({}),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('email_subscribers_email_list_idx').on(table.email, table.list),
+  index('email_subscribers_list_status_idx').on(table.list, table.status),
+  index('email_subscribers_email_idx').on(table.email),
+]);
+
 // Drip Email Campaign Log (deduplication for drip scheduler)
 export const dripLog = pgTable('drip_log', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -693,6 +709,8 @@ export type FindingScan = typeof findingScans.$inferSelect;
 export type NewFindingScan = typeof findingScans.$inferInsert;
 export type UserOauthAccount = typeof userOauthAccounts.$inferSelect;
 export type NewUserOauthAccount = typeof userOauthAccounts.$inferInsert;
+export type EmailSubscriber = typeof emailSubscribers.$inferSelect;
+export type NewEmailSubscriber = typeof emailSubscribers.$inferInsert;
 export type DripLog = typeof dripLog.$inferSelect;
 export type NewDripLog = typeof dripLog.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;

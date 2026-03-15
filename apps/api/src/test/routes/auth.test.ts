@@ -96,8 +96,8 @@ vi.mock('../../lib/jwt.js', () => ({
   },
 }));
 
-vi.mock('../../services/listmonkService.js', () => ({
-  listmonkService: {
+vi.mock('../../services/subscriberService.js', () => ({
+  subscriberService: {
     onUserSignup: vi.fn().mockResolvedValue(undefined),
     updateAttribsByEmail: vi.fn().mockResolvedValue(undefined),
     subscribe: vi.fn().mockResolvedValue(undefined),

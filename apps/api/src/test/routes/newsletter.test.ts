@@ -15,15 +15,16 @@ vi.mock('../../lib/ip.js', () => ({
   getClientIP: vi.fn().mockReturnValue('127.0.0.1'),
 }));
 
-const { mockListmonkService } = vi.hoisted(() => ({
-  mockListmonkService: {
+const { mockSubscriberService } = vi.hoisted(() => ({
+  mockSubscriberService: {
     subscribe: vi.fn().mockResolvedValue(undefined),
     unsubscribe: vi.fn().mockResolvedValue(undefined),
+    updateAttribsByEmail: vi.fn().mockResolvedValue(true),
   },
 }));
 
-vi.mock('../../services/listmonkService.js', () => ({
-  listmonkService: mockListmonkService,
+vi.mock('../../services/subscriberService.js', () => ({
+  subscriberService: mockSubscriberService,
 }));
 
 vi.mock('../../services/dripSchedulerService.js', () => ({
@@ -64,7 +65,7 @@ describe('Newsletter Routes', () => {
         }),
       });
       expect(res.status).toBe(200);
-      expect(mockListmonkService.subscribe).toHaveBeenCalledWith('user@example.com', undefined);
+      expect(mockSubscriberService.subscribe).toHaveBeenCalledWith('user@example.com', undefined);
     });
 
     it('rejects without consent', async () => {

@@ -39,8 +39,8 @@ vi.mock('../../services/consentService.js', () => ({
   },
 }));
 
-vi.mock('../../services/listmonkService.js', () => ({
-  listmonkService: {
+vi.mock('../../services/subscriberService.js', () => ({
+  subscriberService: {
     subscribe: vi.fn().mockResolvedValue(undefined),
     unsubscribe: vi.fn().mockResolvedValue(undefined),
   },
@@ -257,7 +257,7 @@ describe('GDPR Routes', () => {
       const user = createUser({ id: 'test-user-id' });
       dbSelectResult = [user];
 
-      const { listmonkService } = await import('../../services/listmonkService.js');
+      const { subscriberService } = await import('../../services/subscriberService.js');
 
       const res = await app.request('/gdpr/objection', {
         method: 'POST',
@@ -268,7 +268,7 @@ describe('GDPR Routes', () => {
         }),
       });
       expect(res.status).toBe(201);
-      expect(listmonkService.unsubscribe).toHaveBeenCalledWith(user.email);
+      expect(subscriberService.unsubscribe).toHaveBeenCalledWith(user.email);
     });
 
     it('returns 404 when user not found', async () => {

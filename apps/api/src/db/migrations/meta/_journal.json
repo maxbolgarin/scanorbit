@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1769164334888,
-      "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1772882331174,
-      "tag": "0001_bored_reavers",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1772994301694,
-      "tag": "0002_clear_gamora",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1773400000000,
-      "tag": "0003_add_processing_restricted",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1773400060000,
-      "tag": "0004_grant_scanner_delete",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1773400120000,
-      "tag": "0005_true_pet_avengers",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1773400180000,
-      "tag": "0006_late_puma",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1773486600178,
-      "tag": "0007_nappy_tarot",
+      "when": 1773575758917,
+      "tag": "0000_perfect_daredevil",
       "breakpoints": true
     }
   ]

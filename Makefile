@@ -297,9 +297,3 @@ tunnel-umami:
 	@echo ""
 	ssh -N -L 3002:localhost:3002 deploy@scanorbit.cloud
 
-tunnel-listmonk:
-	@echo "$(YELLOW)Opening SSH tunnel to production Listmonk...$(RESET)"
-	@echo "  Listmonk will be available at: http://localhost:9000"
-	@echo "  Press Ctrl+C to close the tunnel"
-	@echo ""
-	ssh -N -L 9000:localhost:9000 deploy@scanorbit.cloud

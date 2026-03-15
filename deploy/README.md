@@ -19,8 +19,7 @@ Internet
        ├── Analyzer Worker (Go) — analyzes scan results
        ├── Watchtower ──► Docker Socket Proxy (auto-deploy from GHCR)
        ├── Prometheus + Grafana + Loki (monitoring, localhost only)
-       ├── Umami (analytics, localhost only)
-       └── Listmonk (newsletter, localhost only)
+       └── Umami (analytics, localhost only)
 ```
 
 **Secrets** are stored as Docker secret files (`/run/secrets/`), never in env vars or `docker inspect`.
@@ -88,7 +87,6 @@ Push to `main` or trigger the Release workflow manually. This builds and pushes 
 - `ghcr.io/<org>/scanorbit/landing:latest`
 - `ghcr.io/<org>/scanorbit/scanner:latest`
 - `ghcr.io/<org>/scanorbit/analyzer:latest`
-- `ghcr.io/<org>/scanorbit/listmonk-setup:latest`
 
 
 ## Step 3: Deploy Configuration Files
@@ -167,8 +165,6 @@ Generate strong values with `openssl rand -hex 32`.
 | `SO_BACKUP_PASSWORD` | `openssl rand -hex 32` |
 | `SO_EXPORTER_PASSWORD` | `openssl rand -hex 32` |
 | `SO_UMAMI_PASSWORD` | `openssl rand -hex 32` |
-| `SO_LISTMONK_PASSWORD` | `openssl rand -hex 32` |
-
 **Other secrets:**
 
 | Secret | How to get it |
@@ -219,7 +215,6 @@ The `init-db` service runs automatically before any application service, creatin
 | `so_backup` | postgres-backup | Read-only (pg_dump) |
 | `so_exporter` | postgres-exporter | pg_monitor role (statistics only) |
 | `so_umami` | umami | Owner of `umami` database |
-| `so_listmonk` | listmonk | Owner of `listmonk` database |
 
 ### Startup order (handled automatically by `depends_on`):
 
@@ -227,14 +222,12 @@ The `init-db` service runs automatically before any application service, creatin
 2. `redis` → healthy
 3. `init-db` → creates databases, users, schema, grants (idempotent)
 4. `migrate` → applies any pending Drizzle migrations
-5. `listmonk-init` → install Listmonk schema
-6. `api`, `scanner`, `analyzer` → start
-7. `caddy` → start (auto-provisions TLS certificates)
-8. `app`, `landing` → start
-9. `umami`, `listmonk` → start
-10. `listmonk-setup` → creates lists and transactional templates after Listmonk is healthy
-11. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
-12. `watchtower` + `docker-socket-proxy` → start
+5. `api`, `scanner`, `analyzer` → start
+6. `caddy` → start (auto-provisions TLS certificates)
+7. `app`, `landing` → start
+8. `umami` → start
+9. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
+10. `watchtower` + `docker-socket-proxy` → start
 
 ### Verify
 
@@ -270,16 +263,8 @@ Push to `main` → GitHub Actions builds images → GHCR → Watchtower pulls an
 ```bash
 # On VM
 cd /opt/scanorbit/deploy
-docker compose pull api scanner analyzer app landing listmonk-setup
+docker compose pull api scanner analyzer app landing
 docker compose up -d
-```
-
-If you update email templates only, you can rerun just the Listmonk seed job:
-
-```bash
-docker compose pull listmonk-setup
-docker compose up -d listmonk-setup
-docker compose logs -f listmonk-setup
 ```
 
 ### Update configuration
@@ -312,7 +297,6 @@ make tunnel-grafana   # open http://localhost:3001
 ```bash
 make tunnel-grafana       # Grafana    → localhost:3001
 make tunnel-umami         # Umami      → localhost:3002
-make tunnel-listmonk      # Listmonk   → localhost:9000
 ```
 
 ### Database operations
@@ -366,7 +350,6 @@ All monitoring services bind to `127.0.0.1` only — access via SSH tunnel.
 | Loki | 3100 | `ssh -N -L 3100:localhost:3100 deploy@scanorbit.cloud` |
 | Alertmanager | 9093 | `ssh -N -L 9093:localhost:9093 deploy@scanorbit.cloud` |
 | Umami | 3002 | `make tunnel-umami` |
-| Listmonk | 9000 | `make tunnel-listmonk` |
 
 ### Metrics endpoints (internal)
 
@@ -476,7 +459,6 @@ deploy/
     ├── secret-entrypoint.sh   # Generic: export secrets as env vars
     ├── pg-exporter-entrypoint.sh
     ├── umami-entrypoint.sh
-    ├── listmonk-entrypoint.sh
     ├── backup-entrypoint.sh
     └── alertmanager-entrypoint.sh
 ```

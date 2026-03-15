@@ -26,7 +26,7 @@
 | Authentication | JWT (jose) + OAuth (Google/GitHub) + 2FA (TOTP) | — |
 | Payments | Stripe | 20.x |
 | Email (Transactional) | Nodemailer + Resend | — |
-| Email (Marketing) | Listmonk (self-hosted) | — |
+| Email (Marketing) | Resend + internal subscriber service | — |
 | Reverse Proxy | Caddy | — |
 | Monitoring | Prometheus + Grafana + Loki + Alertmanager | — |
 | Deployment | Docker Compose, Scaleway | — |
@@ -173,16 +173,16 @@ apps/api/
       gdpr.ts          # GDPR compliance (export, deletion, consent, restriction, objection)
       stripe.ts        # Stripe billing + webhooks
       newsletter.ts    # Newsletter subscribe/unsubscribe
-      webhooks.ts      # Email bounce bridge (Scaleway → Listmonk)
+      webhooks.ts      # Email bounce webhook handler
     services/
       auth/            # Auth service module (core, password, verification, OAuth)
       orgService.ts, orgSettingsService.ts
       awsAccountService.ts, resourceService.ts, findingService.ts
       dependencyService.ts, twoFactorService.ts
       emailService.ts, stripeService.ts, consentService.ts
-      retentionService.ts, listmonkService.ts
+      retentionService.ts, subscriberService.ts
       dripSchedulerService.ts, dripConfig.ts
-      listmonkCronService.ts, stuckJobService.ts
+      subscriberCronService.ts, stuckJobService.ts
     middlewares/
       auth.ts, auditLog.ts, errorHandler.ts
       metrics.ts, processingRestriction.ts, rateLimit.ts
@@ -190,7 +190,7 @@ apps/api/
     lib/
       db.ts, redis.ts, jwt.ts, crypto.ts, config.ts, secrets.ts, errors.ts
     db/
-      schema.ts        # 17 Drizzle ORM tables
+      schema.ts        # 24 Drizzle ORM tables
     types/
       index.ts         # Enums, interfaces, tier limits
 ```
@@ -233,7 +233,7 @@ apps/api/
 - Subscribe (public, rate-limited), unsubscribe (HMAC-signed link)
 
 **Webhooks (1 endpoint):**
-- Scaleway email bounce → Listmonk bridge
+- Scaleway email bounce handler
 
 **System (4 endpoints):**
 - Health (liveness), ready (DB+Redis), metrics (Prometheus), status (authenticated)
@@ -360,7 +360,7 @@ Services:
 - Stripe billing integration (checkout, portal, webhooks)
 - GDPR compliance (export, deletion, consent, restriction, objection, audit logs)
 - Rate limiting with circuit breaker
-- Newsletter with Listmonk + drip campaigns
+- Newsletter with subscriber service + drip campaigns
 - Docker Compose production deployment
 - Monitoring stack (Prometheus + Grafana + Loki + Alertmanager)
 - 410+ tests with ~53% coverage

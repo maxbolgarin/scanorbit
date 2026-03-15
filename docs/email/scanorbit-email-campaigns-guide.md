@@ -1,4 +1,8 @@
-# ScanOrbit — Listmonk Email Campaign Setup Guide
+# ScanOrbit — Email Campaign Guide
+
+> **Note:** Listmonk has been replaced by an internal subscriber service (`subscriberService.ts`) + Resend.
+> The campaign tracks, segments, and email templates below remain valid — only the delivery mechanism changed.
+> Subscriber data is now stored in the `email_subscribers` table; drip campaigns use `dripSchedulerService.ts`.
 
 ## Architecture Overview
 

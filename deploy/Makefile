@@ -1,4 +1,4 @@
-.PHONY: health redis-cli redis-queue-status status status-api status-scanner status-analyzer metrics metrics-api metrics-scanner metrics-analyzer monitoring-up monitoring-down tunnel-grafana tunnel-prometheus tunnel-umami tunnel-listmonk tunnel-monitoring tunnel-all clean help
+.PHONY: health redis-cli redis-queue-status status status-api status-scanner status-analyzer metrics metrics-api metrics-scanner metrics-analyzer monitoring-up monitoring-down tunnel-grafana tunnel-prometheus tunnel-umami tunnel-monitoring tunnel-all clean help
 
 # Colors for help output
 BLUE := \033[34m
@@ -32,7 +32,6 @@ help:
 	@echo "  $(BLUE)tunnel-grafana$(RESET)    Open tunnel to prod Grafana (localhost:3001)"
 	@echo "  $(BLUE)tunnel-prometheus$(RESET) Open tunnel to prod Prometheus (localhost:9092)"
 	@echo "  $(BLUE)tunnel-umami$(RESET)      Open tunnel to prod Umami analytics (localhost:3002)"
-	@echo "  $(BLUE)tunnel-listmonk$(RESET)   Open tunnel to prod Listmonk newsletter (localhost:9000)"
 	@echo "  $(BLUE)tunnel-monitoring$(RESET) Open tunnels to all monitoring services"
 	@echo "  $(BLUE)tunnel-all$(RESET)        Open tunnels to all prod services"
 	@echo ""

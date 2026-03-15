@@ -4,30 +4,18 @@ import { createChain } from '../helpers/mockDb.js';
 let selectResult: unknown[] = [];
 let insertResult: unknown[] = [];
 
-const { mockRedis, mockListmonkService } = vi.hoisted(() => ({
+const { mockRedis, mockSubscriberService, mockSendDripEmail } = vi.hoisted(() => ({
   mockRedis: {
     set: vi.fn().mockResolvedValue('OK'),
     get: vi.fn().mockResolvedValue(null),
     on: vi.fn(),
     status: 'ready',
   },
-  mockListmonkService: {
+  mockSubscriberService: {
     isConfigured: vi.fn().mockReturnValue(true),
-    listsConfigured: vi.fn().mockReturnValue(true),
-    sendTx: vi.fn().mockResolvedValue(true),
     queryByList: vi.fn().mockResolvedValue([]),
-    subscribe: vi.fn().mockResolvedValue(true),
-    unsubscribe: vi.fn().mockResolvedValue(true),
-    deleteSubscriber: vi.fn().mockResolvedValue(true),
-    onUserSignup: vi.fn().mockResolvedValue(undefined),
-    onFirstScanComplete: vi.fn().mockResolvedValue(undefined),
-    onTrialStart: vi.fn().mockResolvedValue(undefined),
-    onTrialActive: vi.fn().mockResolvedValue(undefined),
-    onPayment: vi.fn().mockResolvedValue(undefined),
-    onPlanChange: vi.fn().mockResolvedValue(undefined),
-    onChurn: vi.fn().mockResolvedValue(undefined),
-    updateAttribsByEmail: vi.fn().mockResolvedValue(true),
   },
+  mockSendDripEmail: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('../../lib/db.js', () => ({
@@ -35,6 +23,7 @@ vi.mock('../../lib/db.js', () => ({
     select: vi.fn(() => createChain(selectResult)),
     insert: vi.fn(() => createChain(insertResult)),
     update: vi.fn(() => createChain([])),
+    delete: vi.fn(() => createChain([])),
   },
   pool: {},
 }));
@@ -47,52 +36,12 @@ vi.mock('../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('../../lib/config.js', () => ({
-  listmonkConfig: {
-    apiUrl: 'http://localhost:9000',
-    apiUser: 'admin',
-    apiPassword: 'testpass',
-    lists: {
-      coldLeads: 1,
-      subscribers: 2,
-      freeNew: 3,
-      freeScanned: 4,
-      trialNew: 5,
-      trialActive: 6,
-      paidPro: 7,
-      paidTeam: 8,
-    },
-    templates: {
-      freeNewDay0Welcome: 101,
-      freeNewDay2Security: 102,
-      freeNewDay5Value: 103,
-      freeScannedDay0Results: 104,
-      freeScannedDay2Critical: 105,
-      freeScannedDay5Cost: 106,
-      freeScannedDay10Breakup: 107,
-      trialNewDay0Welcome: 108,
-      trialNewDay3Stuck: 109,
-      trialActiveDay3Deepen: 110,
-      trialActiveDay5Warning: 111,
-      trialActiveDay6Lastday: 112,
-      trialActiveDay9Winback: 113,
-      subsDay0Welcome: 114,
-      subsDay3Security: 115,
-      subsDay7Cost: 116,
-      subsDay11Gdpr: 117,
-      subsDay16SocialProof: 118,
-      subsDay21FinalCta: 119,
-      coldDay0Pain: 120,
-      coldDay4Gdpr: 121,
-      coldDay10Breakup: 122,
-      paidProDay0Welcome: 123,
-      paidTeamDay0Welcome: 124,
-    },
-  },
+vi.mock('../../services/subscriberService.js', () => ({
+  subscriberService: mockSubscriberService,
 }));
 
-vi.mock('../../services/listmonkService.js', () => ({
-  listmonkService: mockListmonkService,
+vi.mock('../../emails/dripSender.js', () => ({
+  sendDripEmail: mockSendDripEmail,
 }));
 
 vi.mock('../../db/schema.js', () => ({
@@ -114,9 +63,9 @@ describe('dripSchedulerService', () => {
     insertResult = [];
 
     mockRedis.set.mockResolvedValue('OK');
-    mockListmonkService.isConfigured.mockReturnValue(true);
-    mockListmonkService.sendTx.mockResolvedValue(true);
-    mockListmonkService.queryByList.mockResolvedValue([]);
+    mockSubscriberService.isConfigured.mockReturnValue(true);
+    mockSendDripEmail.mockResolvedValue(true);
+    mockSubscriberService.queryByList.mockResolvedValue([]);
 
     const { db } = await import('../../lib/db.js');
     vi.mocked(db.select).mockImplementation(() => createChain(selectResult) as any);
@@ -134,7 +83,7 @@ describe('dripSchedulerService', () => {
         name: 'John Doe',
       });
 
-      expect(mockListmonkService.sendTx).toHaveBeenCalledWith(
+      expect(mockSendDripEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'user@test.com',
           data: expect.objectContaining({ first_name: 'John' }),
@@ -148,7 +97,7 @@ describe('dripSchedulerService', () => {
         email: 'user@test.com',
       });
 
-      expect(mockListmonkService.sendTx).not.toHaveBeenCalled();
+      expect(mockSendDripEmail).not.toHaveBeenCalled();
     });
 
     it('skips if already sent (dedup)', async () => {
@@ -160,12 +109,12 @@ describe('dripSchedulerService', () => {
         email: 'user@test.com',
       });
 
-      expect(mockListmonkService.sendTx).not.toHaveBeenCalled();
+      expect(mockSendDripEmail).not.toHaveBeenCalled();
     });
 
     it('records sent email after successful send', async () => {
       selectResult = [];
-      mockListmonkService.sendTx.mockResolvedValue(true);
+      mockSendDripEmail.mockResolvedValue(true);
 
       const { db } = await import('../../lib/db.js');
 
@@ -179,7 +128,7 @@ describe('dripSchedulerService', () => {
 
     it('does not record when send fails', async () => {
       selectResult = [];
-      mockListmonkService.sendTx.mockResolvedValue(false);
+      mockSendDripEmail.mockResolvedValue(false);
 
       const { db } = await import('../../lib/db.js');
 
@@ -188,14 +137,13 @@ describe('dripSchedulerService', () => {
         email: 'user@test.com',
       });
 
-      // insert is called by createChain for wasSent (select), but markSent should not be called
-      // since sendTx returned false
-      expect(mockListmonkService.sendTx).toHaveBeenCalled();
+      // sendDripEmail returned false, so markSent should not be called
+      expect(mockSendDripEmail).toHaveBeenCalled();
     });
 
     it('never throws on error (fire-and-forget)', async () => {
       selectResult = [];
-      mockListmonkService.sendTx.mockRejectedValue(new Error('network error'));
+      mockSendDripEmail.mockRejectedValue(new Error('network error'));
 
       // Should not throw
       await expect(
@@ -215,7 +163,7 @@ describe('dripSchedulerService', () => {
         name: 'Jane Smith',
       });
 
-      expect(mockListmonkService.sendTx).toHaveBeenCalledWith(
+      expect(mockSendDripEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ first_name: 'Jane' }),
         }),
@@ -231,7 +179,7 @@ describe('dripSchedulerService', () => {
         name: null,
       });
 
-      expect(mockListmonkService.sendTx).toHaveBeenCalledWith(
+      expect(mockSendDripEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ first_name: 'there' }),
         }),
@@ -247,7 +195,7 @@ describe('dripSchedulerService', () => {
         data: { total_findings: 5 },
       });
 
-      expect(mockListmonkService.sendTx).toHaveBeenCalledWith(
+      expect(mockSendDripEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ total_findings: 5 }),
         }),
@@ -262,7 +210,7 @@ describe('dripSchedulerService', () => {
         email: 'user@test.com',
       });
 
-      expect(mockListmonkService.sendTx).toHaveBeenCalledWith(
+      expect(mockSendDripEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           fromEmail: expect.stringContaining('Maksim'),
         }),
@@ -271,8 +219,8 @@ describe('dripSchedulerService', () => {
   });
 
   describe('startDripScheduler', () => {
-    it('does not start when listmonk is not configured', () => {
-      mockListmonkService.isConfigured.mockReturnValue(false);
+    it('does not start when Resend is not configured', () => {
+      mockSubscriberService.isConfigured.mockReturnValue(false);
       const spy = vi.spyOn(global, 'setInterval');
 
       startDripScheduler();
@@ -281,8 +229,8 @@ describe('dripSchedulerService', () => {
       spy.mockRestore();
     });
 
-    it('starts interval when listmonk is configured', () => {
-      mockListmonkService.isConfigured.mockReturnValue(true);
+    it('starts interval when Resend is configured', () => {
+      mockSubscriberService.isConfigured.mockReturnValue(true);
       const spy = vi.spyOn(global, 'setInterval').mockReturnValue(0 as any);
 
       startDripScheduler();
