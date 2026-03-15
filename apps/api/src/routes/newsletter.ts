@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { listmonkService } from '../services/listmonkService.js';
+import { subscriberService } from '../services/subscriberService.js';
 import { sendImmediate } from '../services/dripSchedulerService.js';
 import { rateLimiters } from '../middlewares/rateLimit.js';
 import { logger } from '../lib/logger.js';
@@ -27,13 +27,13 @@ newsletterRoute.post(
     const { email, name } = c.req.valid('json');
 
     // Fire-and-forget: always return success to prevent email enumeration.
-    // sendImmediate is chained after subscribe so the subscriber exists in Listmonk
-    // before /api/tx is called (prevents 400 "Subscriber not found" race condition).
-    listmonkService
+    // sendImmediate is chained after subscribe so the subscriber exists in the DB
+    // before the drip email is queued (prevents missing subscriber race condition).
+    subscriberService
       .subscribe(email, name)
-      .then(() => listmonkService.updateAttribsByEmail(email, { subscribed_at: new Date().toISOString() }))
+      .then(() => subscriberService.updateAttribsByEmail(email, { subscribed_at: new Date().toISOString() }))
       .then(() => sendImmediate({ sequenceName: 'subscribers', email, name }))
-      .catch((err) => logger.warn('listmonk: newsletter flow failed', { error: (err as Error).message }));
+      .catch((err) => logger.warn('subscriber: newsletter flow failed', { error: (err as Error).message }));
 
     return c.json({
       message: 'Thank you for subscribing! Check your inbox for confirmation.',
@@ -56,8 +56,8 @@ newsletterRoute.get('/unsubscribe', async (c) => {
     return c.json({ message: 'Invalid unsubscribe link.' }, 400);
   }
 
-  listmonkService.unsubscribe(email).catch((err) =>
-    logger.warn('listmonk: unsubscribe failed', { error: (err as Error).message }),
+  subscriberService.unsubscribe(email).catch((err) =>
+    logger.warn('subscriber: unsubscribe failed', { error: (err as Error).message }),
   );
 
   return c.json({ message: 'You have been unsubscribed.' });

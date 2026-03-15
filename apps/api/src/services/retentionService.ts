@@ -10,7 +10,7 @@ import {
   consentLogs,
   dripLog,
 } from '../db/schema.js';
-import { listmonkService } from './listmonkService.js';
+import { subscriberService } from './subscriberService.js';
 import { stripeService } from './stripeService.js';
 import { refreshTokenStore } from '../lib/redis.js';
 import { eq, and, lt, lte, isNotNull, sql, count } from 'drizzle-orm';
@@ -266,7 +266,7 @@ async function processUserDeletion(userId: string, requestId: string): Promise<v
   // Delete subscriber from Listmonk (full GDPR erasure, not just blocklist)
   if (userEmail) {
     try {
-      await listmonkService.deleteSubscriber(userEmail);
+      await subscriberService.deleteSubscriber(userEmail);
     } catch (err) {
       logger.error('[Retention] Failed to delete user from Listmonk', err as Error, { userId });
     }

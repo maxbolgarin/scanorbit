@@ -1,5 +1,3 @@
-import nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
@@ -35,55 +33,10 @@ function maskEmail(email: string): string {
   return `${masked}@${domain}`;
 }
 
-// Create reusable SMTP transporter
-let smtpTransporter: Transporter | null = null;
-
 // Create reusable Resend client
 let resendClient: Resend | null = null;
 
-function getSmtpTransporter(): Transporter | null {
-  if (smtpTransporter) return smtpTransporter;
-
-  // Check if SMTP is configured
-  if (!config.email.smtp.host || !config.email.smtp.user) {
-    logger.warn('SMTP not configured: missing host or user');
-    return null;
-  }
-
-  if (!config.email.smtp.pass) {
-    logger.warn('SMTP not configured: missing password');
-    return null;
-  }
-
-  // Configure transporter with TLS options for Scaleway and other providers
-  smtpTransporter = nodemailer.createTransport({
-    host: config.email.smtp.host,
-    port: config.email.smtp.port,
-    secure: config.email.smtp.secure, // true for 465 (SSL), false for 587 (STARTTLS)
-    auth: {
-      user: config.email.smtp.user,
-      pass: config.email.smtp.pass,
-    },
-    tls: {
-      // Don't reject unauthorized certificates (some providers use self-signed certs)
-      // For production, you might want to set this to true and add proper CA certs
-      rejectUnauthorized: false,
-      // Minimum TLS version — kept at 1.2 for SMTP provider compatibility
-      // (many providers like Scaleway TEM do not yet support TLS 1.3 for SMTP)
-      minVersion: 'TLSv1.2',
-      // Server name for TLS certificate validation (required when using IP addresses)
-      servername: config.email.smtp.host,
-    },
-    // Debug mode (set to true for detailed logging)
-    debug: process.env.NODE_ENV === 'development',
-    // Log level for debugging
-    logger: process.env.NODE_ENV === 'development',
-  });
-
-  return smtpTransporter;
-}
-
-function getResendClient(): Resend | null {
+export function getResendClient(): Resend | null {
   if (resendClient) return resendClient;
 
   if (!config.email.resend.apiKey) {
@@ -130,55 +83,14 @@ async function sendViaResend(
   }
 }
 
-// Send email via SMTP (existing implementation)
-async function sendViaSmtp(
-  to: string,
-  subject: string,
-  text: string,
-  html: string,
-): Promise<EmailResult> {
-  const transport = config.email.smtp.enabled ? getSmtpTransporter() : null;
-
-  if (!transport) {
-    // Fallback to console logging
-    logEmail(to, subject, text);
-    return { success: true, messageId: `console-${Date.now()}` };
-  }
-
-  try {
-    const info = await transport.sendMail({
-      from: config.email.from,
-      to,
-      subject,
-      text,
-      html,
-    });
-
-    logger.info(`Email sent via SMTP to ${maskEmail(to)}`, { messageId: info.messageId });
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to send email via SMTP', undefined, {
-      error: errorMessage,
-      smtpHost: config.email.smtp.host,
-      smtpPort: config.email.smtp.port,
-      smtpUser: config.email.smtp.user ? '***configured***' : 'missing',
-    });
-    return { success: false, error: errorMessage };
-  }
-}
-
-// Route email based on configured provider
+// Send email via Resend
 async function sendEmail(
   to: string,
   subject: string,
   text: string,
   html: string,
 ): Promise<EmailResult> {
-  if (config.email.provider === 'resend') {
-    return sendViaResend(to, subject, text, html);
-  }
-  return sendViaSmtp(to, subject, text, html);
+  return sendViaResend(to, subject, text, html);
 }
 
 // Base email template wrapper
@@ -422,11 +334,6 @@ If you didn't request a password reset, you can safely ignore this email.
 ScanOrbit
 https://scanorbit.io
   `.trim();
-}
-
-// Log email in development
-function logEmail(to: string, subject: string, text: string): void {
-  logger.debug('Email (dev mode)', { to, subject, body: text });
 }
 
 // Trial ending email HTML
@@ -776,48 +683,16 @@ export const emailService = {
 
   /**
    * Verify email provider connection (useful for health checks)
-   * Note: Only SMTP supports connection verification
    */
   async verifyConnection(): Promise<{ success: boolean; error?: string; provider: string }> {
-    if (config.email.provider === 'resend') {
-      // Resend doesn't have a verify endpoint - check if API key is configured
-      if (!config.email.resend.apiKey) {
-        return {
-          success: false,
-          error: 'Resend API key not configured',
-          provider: 'resend',
-        };
-      }
-      logger.info('Resend API configured (API key present)');
-      return { success: true, provider: 'resend' };
-    }
-
-    // SMTP verification
-    const transport = getSmtpTransporter();
-    if (!transport) {
+    if (!config.email.resend.apiKey) {
       return {
         success: false,
-        error: 'SMTP transporter not configured (missing host, user, or password)',
-        provider: 'smtp',
+        error: 'Resend API key not configured',
+        provider: 'resend',
       };
     }
-
-    try {
-      await transport.verify();
-      logger.info('SMTP connection verified successfully');
-      return { success: true, provider: 'smtp' };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('SMTP connection verification failed', undefined, {
-        error: errorMessage,
-        smtpHost: config.email.smtp.host,
-        smtpPort: config.email.smtp.port,
-      });
-      return {
-        success: false,
-        error: errorMessage,
-        provider: 'smtp',
-      };
-    }
+    logger.info('Resend API configured (API key present)');
+    return { success: true, provider: 'resend' };
   },
 };

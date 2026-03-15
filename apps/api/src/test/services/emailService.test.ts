@@ -1,41 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSendMail } = vi.hoisted(() => ({
-  mockSendMail: vi.fn().mockResolvedValue({ messageId: 'msg-123' }),
+const { mockResendSend } = vi.hoisted(() => ({
+  mockResendSend: vi.fn().mockResolvedValue({ data: { id: 'msg-123' }, error: null }),
 }));
 
 vi.mock('../../lib/config.js', () => ({
   config: {
     frontendUrl: 'http://localhost:3000',
+    bugReportEmail: 'support@scanorbit.cloud',
     email: {
-      provider: 'smtp',
-      from: 'noreply@scanorbit.io',
-      smtp: {
-        enabled: true,
-        host: 'smtp.test.com',
-        port: 587,
-        secure: false,
-        user: 'testuser',
-        pass: 'testpass',
-      },
+      from: 'ScanOrbit <noreply@scanorbit.cloud>',
       resend: {
-        apiKey: '',
+        apiKey: 'test-resend-key',
       },
     },
   },
 }));
 
-vi.mock('nodemailer', () => ({
-  default: {
-    createTransport: vi.fn().mockReturnValue({
-      sendMail: mockSendMail,
-      verify: vi.fn().mockResolvedValue(true),
-    }),
-  },
-}));
+vi.mock('resend', () => {
+  return {
+    Resend: class MockResend {
+      emails = { send: mockResendSend };
+    },
+  };
+});
 
-vi.mock('resend', () => ({
-  Resend: vi.fn(),
+vi.mock('../../lib/logger.js', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import { emailService } from '../../services/emailService.js';
@@ -43,7 +34,7 @@ import { emailService } from '../../services/emailService.js';
 describe('emailService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSendMail.mockResolvedValue({ messageId: 'msg-123' });
+    mockResendSend.mockResolvedValue({ data: { id: 'msg-123' }, error: null });
   });
 
   describe('sendVerificationEmail', () => {
@@ -51,8 +42,8 @@ describe('emailService', () => {
       const result = await emailService.sendVerificationEmail('user@test.com', '123456');
       expect(result.success).toBe(true);
       expect(result.messageId).toBe('msg-123');
-      expect(mockSendMail).toHaveBeenCalled();
-      const call = mockSendMail.mock.calls[0][0];
+      expect(mockResendSend).toHaveBeenCalled();
+      const call = mockResendSend.mock.calls[0][0];
       expect(call.to).toBe('user@test.com');
       expect(call.subject).toContain('Verify');
       expect(call.text).toContain('123456');
@@ -62,15 +53,22 @@ describe('emailService', () => {
     it('includes name when provided', async () => {
       const result = await emailService.sendVerificationEmail('user@test.com', '123456', 'John');
       expect(result.success).toBe(true);
-      const call = mockSendMail.mock.calls[0][0];
+      const call = mockResendSend.mock.calls[0][0];
       expect(call.text).toContain('John');
     });
 
-    it('handles SMTP failure', async () => {
-      mockSendMail.mockRejectedValue(new Error('SMTP timeout'));
+    it('handles Resend API failure', async () => {
+      mockResendSend.mockResolvedValue({ data: null, error: { message: 'API timeout' } });
       const result = await emailService.sendVerificationEmail('user@test.com', '123456');
       expect(result.success).toBe(false);
-      expect(result.error).toContain('SMTP timeout');
+      expect(result.error).toContain('API timeout');
+    });
+
+    it('handles Resend network error', async () => {
+      mockResendSend.mockRejectedValue(new Error('Network error'));
+      const result = await emailService.sendVerificationEmail('user@test.com', '123456');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Network error');
     });
   });
 
@@ -78,7 +76,7 @@ describe('emailService', () => {
     it('sends password reset email with link', async () => {
       const result = await emailService.sendPasswordResetEmail('user@test.com', 'reset-token-123');
       expect(result.success).toBe(true);
-      const call = mockSendMail.mock.calls[0][0];
+      const call = mockResendSend.mock.calls[0][0];
       expect(call.subject).toContain('Reset');
       expect(call.html).toContain('reset-token-123');
       expect(call.text).toContain('reset-token-123');
@@ -86,7 +84,7 @@ describe('emailService', () => {
 
     it('includes name when provided', async () => {
       await emailService.sendPasswordResetEmail('user@test.com', 'token', 'Jane');
-      const call = mockSendMail.mock.calls[0][0];
+      const call = mockResendSend.mock.calls[0][0];
       expect(call.text).toContain('Jane');
     });
   });
@@ -96,7 +94,7 @@ describe('emailService', () => {
       const trialEnd = new Date('2025-12-31');
       const result = await emailService.sendTrialEndingEmail('user@test.com', trialEnd, 'pro');
       expect(result.success).toBe(true);
-      const call = mockSendMail.mock.calls[0][0];
+      const call = mockResendSend.mock.calls[0][0];
       expect(call.subject).toContain('trial');
     });
   });
@@ -105,16 +103,16 @@ describe('emailService', () => {
     it('sends payment failed notification', async () => {
       const result = await emailService.sendPaymentFailedEmail('user@test.com', 'pro');
       expect(result.success).toBe(true);
-      const call = mockSendMail.mock.calls[0][0];
+      const call = mockResendSend.mock.calls[0][0];
       expect(call.subject).toContain('payment failed');
     });
   });
 
   describe('verifyConnection', () => {
-    it('verifies SMTP connection', async () => {
+    it('verifies Resend connection', async () => {
       const result = await emailService.verifyConnection();
       expect(result.success).toBe(true);
-      expect(result.provider).toBe('smtp');
+      expect(result.provider).toBe('resend');
     });
   });
 });

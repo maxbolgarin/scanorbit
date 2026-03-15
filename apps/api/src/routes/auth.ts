@@ -14,7 +14,7 @@ import { getClientIP } from '../lib/ip.js';
 import { logger } from '../lib/logger.js';
 import { logAuthEvent } from '../middlewares/auditLog.js';
 import { setAuthTokens } from '../lib/authTokens.js';
-import { listmonkService } from '../services/listmonkService.js';
+import { subscriberService } from '../services/subscriberService.js';
 import { sendImmediate } from '../services/dripSchedulerService.js';
 import type { Variables } from '../types/index.js';
 
@@ -402,14 +402,14 @@ authRoute.post('/complete-signup', rateLimiters.verifyCode, zValidator('json', c
   // spec requires exactly one list at a time. Newsletter consent is stored as
   // an attribute; user joins subscribers naturally when they churn later.
   const newsletterConsent = c.req.valid('json').newsletterConsent;
-  listmonkService.onUserSignup(user.email, user.fullName)
-    .then(() => listmonkService.updateAttribsByEmail(user.email, {
+  subscriberService.onUserSignup(user.email, user.fullName)
+    .then(() => subscriberService.updateAttribsByEmail(user.email, {
       tier: 'free',
       signup_at: new Date().toISOString(),
       ...(newsletterConsent ? { newsletter_consent: true } : {}),
     }))
     .then(() => sendImmediate({ sequenceName: 'free-new', email: user.email, name: user.fullName }))
-    .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
+    .catch((err) => logger.warn('subscriber: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
 
   return c.json({
     user,
@@ -866,14 +866,14 @@ authRoute.post('/oauth/complete-signup', rateLimiters.sendCode, zValidator('json
   const { accessToken } = await setAuthTokens(c, result.userId, null);
 
   // Always enroll in free-new onboarding (transactional product setup emails)
-  listmonkService.onUserSignup(result.email, result.fullName)
-    .then(() => listmonkService.updateAttribsByEmail(result.email, {
+  subscriberService.onUserSignup(result.email, result.fullName)
+    .then(() => subscriberService.updateAttribsByEmail(result.email, {
       tier: 'free',
       signup_at: new Date().toISOString(),
       ...(marketingConsent ? { newsletter_consent: true } : {}),
     }))
     .then(() => sendImmediate({ sequenceName: 'free-new', email: result.email, name: result.fullName }))
-    .catch((err) => logger.warn('listmonk: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
+    .catch((err) => logger.warn('subscriber: failed onUserSignup/sendImmediate', { error: (err as Error).message }));
 
   return c.json({
     user: { id: result.userId, email: result.email, fullName: result.fullName },

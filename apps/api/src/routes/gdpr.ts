@@ -15,7 +15,7 @@ import {
 import { requireAuth } from '../middlewares/auth.js';
 import { logDataAccess } from '../middlewares/auditLog.js';
 import { consentService } from '../services/consentService.js';
-import { listmonkService } from '../services/listmonkService.js';
+import { subscriberService } from '../services/subscriberService.js';
 import { logger } from '../lib/logger.js';
 import { getClientIP } from '../lib/ip.js';
 import { HTTP400Error, HTTP404Error, HTTP409Error, getPgErrorCode } from '../lib/errors.js';
@@ -244,8 +244,8 @@ gdpr.post('/delete', zValidator('json', deletionRequestSchema), async (c) => {
   }
 
   // Immediately stop marketing emails (subscriber is fully deleted when retention runs)
-  listmonkService.unsubscribe(user.email).catch((err) =>
-    logger.warn('listmonk: failed to unsubscribe on deletion request', { error: (err as Error).message })
+  subscriberService.unsubscribe(user.email).catch((err) =>
+    logger.warn('subscriber: failed to unsubscribe on deletion request', { error: (err as Error).message })
   );
 
   // Log this sensitive operation
@@ -447,9 +447,9 @@ gdpr.put('/consent/marketing', zValidator('json', marketingConsentSchema), async
 
   // Update Listmonk subscription status
   if (consentGiven) {
-    await listmonkService.subscribe(user.email, user.fullName);
+    await subscriberService.subscribe(user.email, user.fullName);
   } else {
-    await listmonkService.unsubscribe(user.email);
+    await subscriberService.unsubscribe(user.email);
   }
 
   // Audit log
@@ -693,7 +693,7 @@ gdpr.post('/objection', zValidator('json', objectionSchema), async (c) => {
 
   // If objecting to marketing, also unsubscribe from Listmonk
   if (processingActivity === 'marketing') {
-    await listmonkService.unsubscribe(user.email);
+    await subscriberService.unsubscribe(user.email);
   }
 
   // Audit log

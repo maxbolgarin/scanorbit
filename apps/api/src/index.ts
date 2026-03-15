@@ -15,7 +15,7 @@ import { logger } from './lib/logger.js';
 import { getMetrics, getContentType, dbPoolConnections, queueLength, usersTotal, orgsByTier, orgsBySubscriptionStatus, orgsWithAwsAccounts } from './lib/metrics.js';
 import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
-import { startListmonkCron } from './services/listmonkCronService.js';
+import { startSubscriberCron } from './services/subscriberCronService.js';
 import { startDripScheduler } from './services/dripSchedulerService.js';
 import type { Variables } from './types/index.js';
 
@@ -283,8 +283,8 @@ try {
         url: `http://localhost:${info.port}`,
       });
 
-      // Start Listmonk campaign list polling after server is ready
-      startListmonkCron();
+      // Start subscriber lifecycle polling and drip scheduler
+      startSubscriberCron();
       startDripScheduler();
     }
   );

@@ -1,7 +1,7 @@
 /**
  * Drip email scheduler.
  *
- * - Daily cron: loops all sequences, finds subscribers due for an email, sends via Listmonk TX API.
+ * - Daily cron: loops all sequences, finds subscribers due for an email, sends via Resend.
  * - sendImmediate: fires day-0 emails instantly from event handlers.
  * - Dedup: drip_log table prevents duplicate sends.
  */
@@ -11,7 +11,8 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { dripLog } from '../db/schema.js';
-import { listmonkService } from './listmonkService.js';
+import { subscriberService } from './subscriberService.js';
+import { sendDripEmail } from '../emails/dripSender.js';
 import { SEQUENCES, type DripSequence, type DripStep } from './dripConfig.js';
 import { logger } from '../lib/logger.js';
 
@@ -62,39 +63,39 @@ function daysSince(date: string | Date): number {
 }
 
 function getStepForToday(
-  sub: { attribs: Record<string, unknown>; created_at: string },
+  sub: { attributes: Record<string, unknown>; created_at: string },
   seq: DripSequence,
 ): DripStep | null {
   // If a dateAttrib is required but missing, skip — falling back to created_at would send wrong-day emails
-  if (seq.dateAttrib && !sub.attribs[seq.dateAttrib]) return null;
+  if (seq.dateAttrib && !sub.attributes[seq.dateAttrib]) return null;
   const startDate = seq.dateAttrib
-    ? sub.attribs[seq.dateAttrib] as string
+    ? sub.attributes[seq.dateAttrib] as string
     : sub.created_at;
   const days = daysSince(startDate);
   return seq.steps.find(s => s.day === days) ?? null;
 }
 
 async function processSequence(seq: DripSequence): Promise<void> {
-  if (seq.listId === 0) return;
-
-  const subs = await listmonkService.queryByList(seq.listId);
+  const subs = await subscriberService.queryByList(seq.name);
   if (!subs.length) return;
 
   let sent = 0;
   for (const sub of subs) {
     const step = getStepForToday(sub, seq);
-    if (!step || step.templateId === 0) continue;
-    if (step.requiredAttrib && !sub.attribs[step.requiredAttrib]) continue;
+    if (!step) continue;
+    if (step.requiredAttrib && !sub.attributes[step.requiredAttrib]) continue;
     if (await wasSent(sub.email, seq.name, step.day)) continue;
 
     try {
-      const ok = await listmonkService.sendTx({
+      const ok = await sendDripEmail({
         email: sub.email,
-        templateId: step.templateId,
+        sequenceName: seq.name,
+        template: step.template,
+        subject: step.subject,
         data: {
           first_name: sub.name?.split(' ')[0] || 'there',
           unsubscribe_url: buildUnsubscribeUrl(sub.email),
-          ...sub.attribs as Record<string, unknown>,
+          ...sub.attributes,
         },
         fromEmail: step.fromEmail,
       });
@@ -150,13 +151,15 @@ export async function sendImmediate(params: {
     if (!seq) return;
 
     const step = seq.steps.find(s => s.day === 0);
-    if (!step || step.templateId === 0) return;
+    if (!step) return;
 
     if (await wasSent(params.email, seq.name, 0)) return;
 
-    const ok = await listmonkService.sendTx({
+    const ok = await sendDripEmail({
       email: params.email,
-      templateId: step.templateId,
+      sequenceName: seq.name,
+      template: step.template,
+      subject: step.subject,
       data: {
         first_name: params.name?.split(' ')[0] || 'there',
         unsubscribe_url: buildUnsubscribeUrl(params.email),
@@ -173,8 +176,8 @@ export async function sendImmediate(params: {
 // ── Startup ──────────────────────────────────────────────────────────
 
 export function startDripScheduler(): void {
-  if (!listmonkService.isConfigured()) {
-    logger.info('[Drip] Listmonk not configured, skipping scheduler');
+  if (!subscriberService.isConfigured()) {
+    logger.info('[Drip] Resend not configured, skipping scheduler');
     return;
   }
 

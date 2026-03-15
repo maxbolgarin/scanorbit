@@ -31,8 +31,8 @@ vi.mock('../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('../../services/listmonkService.js', () => ({
-  listmonkService: {
+vi.mock('../../services/subscriberService.js', () => ({
+  subscriberService: {
     deleteSubscriber: vi.fn().mockResolvedValue(undefined),
   },
 }));

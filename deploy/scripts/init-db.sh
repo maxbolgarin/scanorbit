@@ -43,12 +43,11 @@ ANALYZER_PASS=$(read_secret "so_analyzer_password")
 BACKUP_PASS=$(read_secret "so_backup_password")
 EXPORTER_PASS=$(read_secret "so_exporter_password")
 UMAMI_PASS=$(read_secret "so_umami_password")
-LISTMONK_PASS=$(read_secret "so_listmonk_password")
 
 # Validate required passwords
 for secret in postgres_password so_migrate_password so_api_password so_scanner_password \
               so_analyzer_password so_backup_password so_exporter_password \
-              so_umami_password so_listmonk_password; do
+              so_umami_password; do
   val=$(read_secret "$secret")
   if [ -z "$val" ]; then
     log "ERROR: Missing secret: /run/secrets/$secret"
@@ -72,7 +71,6 @@ sed \
   -e "s|__SO_BACKUP_PASS__|${BACKUP_PASS}|g" \
   -e "s|__SO_EXPORTER_PASS__|${EXPORTER_PASS}|g" \
   -e "s|__SO_UMAMI_PASS__|${UMAMI_PASS}|g" \
-  -e "s|__SO_LISTMONK_PASS__|${LISTMONK_PASS}|g" \
   "$SQL_FILE" | psql -h postgres -U scanorbit -d postgres -v ON_ERROR_STOP=1
 
 # =============================================================================
@@ -84,9 +82,9 @@ log "=============================================="
 log "Database initialization completed!"
 log ""
 log "Created:"
-log "  Databases: scanorbit, umami, listmonk"
+log "  Databases: scanorbit, umami"
 log "  Users: so_migrate, so_api, so_scanner, so_analyzer,"
-log "         so_backup, so_exporter, so_umami, so_listmonk"
-log "  Schema: 21 tables with indexes and foreign keys"
+log "         so_backup, so_exporter, so_umami"
+log "  Schema: 24 tables with indexes and foreign keys"
 log "  Grants: per-service least-privilege access"
 log "=============================================="

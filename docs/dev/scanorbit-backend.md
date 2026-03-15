@@ -17,7 +17,7 @@
 | **AWS SDK** | @aws-sdk/client-sts | 3.x |
 | **Billing** | Stripe | 20.x |
 | **Email (Transactional)** | Nodemailer + Resend | 8.x, 6.x |
-| **Email (Marketing)** | Listmonk (self-hosted) | — |
+| **Email (Marketing)** | Resend + internal subscriber service | — |
 | **Google OAuth** | google-auth-library | 10.x |
 | **Metrics** | prom-client | 15.x |
 | **Error Handling** | Custom error classes | — |
@@ -71,8 +71,8 @@ apps/api/
 │   │   ├── stripeService.ts       # Stripe billing
 │   │   ├── consentService.ts      # GDPR consent tracking
 │   │   ├── retentionService.ts    # Data retention cleanup
-│   │   ├── listmonkService.ts     # Listmonk marketing email
-│   │   ├── listmonkCronService.ts # Periodic Listmonk list polling
+│   │   ├── subscriberService.ts   # Subscriber lifecycle management
+│   │   ├── subscriberCronService.ts # Periodic subscriber sync
 │   │   ├── dripSchedulerService.ts # Drip email campaign scheduling
 │   │   ├── dripConfig.ts          # Email sequence configuration
 │   │   └── stuckJobService.ts     # Dead letter queue handling
@@ -519,7 +519,7 @@ app.onError(errorHandler);
 app.notFound(...);
 ```
 
-Server starts with graceful shutdown handler (SIGTERM/SIGINT, 30s timeout). After startup, initializes Listmonk polling and drip scheduler.
+Server starts with graceful shutdown handler (SIGTERM/SIGINT, 30s timeout). After startup, initializes subscriber sync and drip scheduler.
 
 ---
 
@@ -672,7 +672,7 @@ Webhook events handled: `checkout.session.completed`, `customer.subscription.upd
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/webhooks/scaleway-bounce` | Secret | Forward Scaleway email bounces to Listmonk |
+| POST | `/webhooks/scaleway-bounce` | Secret | Handle Scaleway email bounces |
 
 ### 6.11 System
 
@@ -715,16 +715,16 @@ Supports two providers, configured via `EMAIL_PROVIDER`:
 
 Sends: verification codes, password reset links, trial ending notifications, payment failed alerts.
 
-### 8.2 Marketing Email (listmonkService.ts)
+### 8.2 Subscriber Lifecycle (subscriberService.ts)
 
-Listmonk integration for subscriber lifecycle management:
+Internal subscriber management (replaces Listmonk):
 - User segment lists: cold leads, subscribers, free (new/scanned), trial (new/active), paid (pro/team)
 - Lifecycle hooks: `onUserSignup`, `onTrialStart`, `onPayment`, `onChurn`, `onPlanChange`
-- Attribute sync: updates subscriber attributes in Listmonk
+- Stored in `email_subscribers` table with attributes
 
 ### 8.3 Drip Campaigns (dripSchedulerService.ts)
 
-Automated email sequences via Listmonk transactional API:
+Automated email sequences via Resend:
 - 25+ drip templates across 7 sequences (cold, subscriber, free_new, free_scanned, trial_new, trial_active, paid)
 - Deduplication via `dripLog` table
 - Runs on configurable schedule after server startup
@@ -792,7 +792,6 @@ See `apps/api/src/lib/config.ts` for all configuration. Key groups:
 | **Frontend** | FRONTEND_URL, COOKIE_DOMAIN |
 | **Email** | EMAIL_PROVIDER, EMAIL_FROM, RESEND_API_KEY, SMTP_* |
 | **Stripe** | STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO/TEAM_PRICE_ID, STRIPE_TRIAL_DAYS |
-| **Listmonk** | LISTMONK_API_URL, LISTMONK_ADMIN_USER/PASSWORD, LISTMONK_LIST_*, LISTMONK_TEMPLATE_* |
 | **Webhooks** | SCALEWAY_WEBHOOK_SECRET, NEWSLETTER_UNSUBSCRIBE_SECRET |
 | **GDPR Retention** | RETENTION_RESOURCES_DAYS (90), RETENTION_FINDINGS_RESOLVED_DAYS (180), RETENTION_SCANS_DAYS (365), RETENTION_AUDIT_LOGS_DAYS (730) |
 | **Security** | TRUSTED_PROXIES, LOG_LEVEL |

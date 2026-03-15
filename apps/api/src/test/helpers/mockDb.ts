@@ -5,7 +5,7 @@ import { vi } from 'vitest';
  * Each method returns `this` for chaining, and the chain is thenable
  * so `await db.select().from().where()` resolves to the configured value.
  */
-export function createChain(resolvedValue: unknown = []) {
+export function createChain(resolvedValue: unknown = [], meta?: { rowCount?: number }) {
   const chain: Record<string, unknown> = {};
 
   const methods = [
@@ -21,7 +21,12 @@ export function createChain(resolvedValue: unknown = []) {
   }
 
   // Make the chain thenable (so `await chain` resolves)
-  chain.then = (resolve: (v: unknown) => unknown) => resolve(resolvedValue);
+  chain.then = (resolve: (v: unknown) => unknown) => {
+    if (meta) {
+      return resolve(Object.assign(resolvedValue ?? {}, meta));
+    }
+    return resolve(resolvedValue);
+  };
 
   return chain;
 }

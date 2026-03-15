@@ -73,24 +73,12 @@ export const config = {
   // Leave empty for localhost development (uses default behavior)
   cookieDomain: process.env.COOKIE_DOMAIN || '',
 
-  // Email Configuration
+  // Email Configuration (Resend)
   email: {
-    // Provider: 'resend' (HTTP API, bypasses SMTP port blocks) or 'smtp'
-    provider: (process.env.EMAIL_PROVIDER || 'smtp') as 'resend' | 'smtp',
-    // Shared "from" address for all providers
-    from: process.env.EMAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `ScanOrbit <${process.env.SMTP_USER}>` : 'ScanOrbit <noreply@scanorbit.io>'),
-    // Resend HTTP API configuration
+    from: process.env.EMAIL_FROM || 'ScanOrbit <noreply@scanorbit.cloud>',
     resend: {
       apiKey: process.env.RESEND_API_KEY || '',
-    },
-    // SMTP configuration (backwards compatible)
-    smtp: {
-      enabled: process.env.SMTP_ENABLED !== 'false',
-      host: process.env.SMTP_HOST || '',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      user: process.env.SMTP_USER || '',
-      pass: readSecret('SMTP_PASS', 'smtp_pass'),
+      webhookSecret: readSecret('RESEND_WEBHOOK_SECRET', 'resend_webhook_secret'),
     },
   },
 
@@ -121,51 +109,6 @@ export const stripeConfig = {
   teamPriceId: process.env.STRIPE_TEAM_PRICE_ID || '',
   seatPriceId: process.env.STRIPE_SEAT_PRICE_ID || '',
   trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '7', 10),
-} as const;
-
-// Listmonk newsletter configuration
-export const listmonkConfig = {
-  apiUrl: process.env.LISTMONK_API_URL || 'http://localhost:9000',
-  apiUser: process.env.LISTMONK_ADMIN_USER || process.env.LISTMONK_API_USER || 'admin',
-  apiPassword: process.env.LISTMONK_ADMIN_PASSWORD || process.env.LISTMONK_API_PASSWORD || '',
-  // Campaign list IDs (0 = not configured, skip operations)
-  lists: {
-    coldLeads: parseInt(process.env.LISTMONK_LIST_COLD_LEADS || '0', 10),
-    subscribers: parseInt(process.env.LISTMONK_LIST_SUBSCRIBERS || '0', 10),
-    freeNew: parseInt(process.env.LISTMONK_LIST_FREE_NEW || '0', 10),
-    freeScanned: parseInt(process.env.LISTMONK_LIST_FREE_SCANNED || '0', 10),
-    trialNew: parseInt(process.env.LISTMONK_LIST_TRIAL_NEW || '0', 10),
-    trialActive: parseInt(process.env.LISTMONK_LIST_TRIAL_ACTIVE || '0', 10),
-    paidPro: parseInt(process.env.LISTMONK_LIST_PAID_PRO || '0', 10),
-    paidTeam: parseInt(process.env.LISTMONK_LIST_PAID_TEAM || '0', 10),
-  },
-  // Transactional template IDs (0 = not configured, skip operations)
-  templates: {
-    coldDay0Pain: parseInt(process.env.LISTMONK_TEMPLATE_COLD_DAY0_PAIN || '0', 10),
-    coldDay4Gdpr: parseInt(process.env.LISTMONK_TEMPLATE_COLD_DAY4_GDPR || '0', 10),
-    coldDay10Breakup: parseInt(process.env.LISTMONK_TEMPLATE_COLD_DAY10_BREAKUP || '0', 10),
-    subsDay0Welcome: parseInt(process.env.LISTMONK_TEMPLATE_SUBS_DAY0_WELCOME || '0', 10),
-    subsDay3Security: parseInt(process.env.LISTMONK_TEMPLATE_SUBS_DAY3_SECURITY || '0', 10),
-    subsDay7Cost: parseInt(process.env.LISTMONK_TEMPLATE_SUBS_DAY7_COST || '0', 10),
-    subsDay11Gdpr: parseInt(process.env.LISTMONK_TEMPLATE_SUBS_DAY11_GDPR || '0', 10),
-    subsDay16SocialProof: parseInt(process.env.LISTMONK_TEMPLATE_SUBS_DAY16_SOCIAL_PROOF || '0', 10),
-    subsDay21FinalCta: parseInt(process.env.LISTMONK_TEMPLATE_SUBS_DAY21_FINAL_CTA || '0', 10),
-    freeNewDay0Welcome: parseInt(process.env.LISTMONK_TEMPLATE_FREE_NEW_DAY0_WELCOME || '0', 10),
-    freeNewDay2Security: parseInt(process.env.LISTMONK_TEMPLATE_FREE_NEW_DAY2_SECURITY || '0', 10),
-    freeNewDay5Value: parseInt(process.env.LISTMONK_TEMPLATE_FREE_NEW_DAY5_VALUE || '0', 10),
-    freeScannedDay0Results: parseInt(process.env.LISTMONK_TEMPLATE_FREE_SCANNED_DAY0_RESULTS || '0', 10),
-    freeScannedDay2Critical: parseInt(process.env.LISTMONK_TEMPLATE_FREE_SCANNED_DAY2_CRITICAL || '0', 10),
-    freeScannedDay5Cost: parseInt(process.env.LISTMONK_TEMPLATE_FREE_SCANNED_DAY5_COST || '0', 10),
-    freeScannedDay10Breakup: parseInt(process.env.LISTMONK_TEMPLATE_FREE_SCANNED_DAY10_BREAKUP || '0', 10),
-    trialNewDay0Welcome: parseInt(process.env.LISTMONK_TEMPLATE_TRIAL_NEW_DAY0_WELCOME || '0', 10),
-    trialNewDay3Stuck: parseInt(process.env.LISTMONK_TEMPLATE_TRIAL_NEW_DAY3_STUCK || '0', 10),
-    trialActiveDay3Deepen: parseInt(process.env.LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY3_DEEPEN || '0', 10),
-    trialActiveDay5Warning: parseInt(process.env.LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY5_WARNING || '0', 10),
-    trialActiveDay6Lastday: parseInt(process.env.LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY6_LASTDAY || '0', 10),
-    trialActiveDay9Winback: parseInt(process.env.LISTMONK_TEMPLATE_TRIAL_ACTIVE_DAY9_WINBACK || '0', 10),
-    paidProDay0Welcome: parseInt(process.env.LISTMONK_TEMPLATE_PAID_PRO_DAY0_WELCOME || '0', 10),
-    paidTeamDay0Welcome: parseInt(process.env.LISTMONK_TEMPLATE_PAID_TEAM_DAY0_WELCOME || '0', 10),
-  },
 } as const;
 
 export type Config = typeof config;

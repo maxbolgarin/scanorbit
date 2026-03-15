@@ -32,7 +32,7 @@ routes.route('/stripe', stripeRoute);
 // Newsletter subscription (public)
 routes.route('/newsletter', newsletterRoute);
 
-// Webhook bridges (Scaleway bounce → Listmonk)
+// Resend webhook handlers
 routes.route('/webhooks', webhooksRoute);
 
 // Bug reports

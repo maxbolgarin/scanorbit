@@ -30,9 +30,6 @@ SELECT 'CREATE DATABASE scanorbit'
 SELECT 'CREATE DATABASE umami'
   WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'umami') \gexec
 
-SELECT 'CREATE DATABASE listmonk'
-  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'listmonk') \gexec
-
 -- =============================================================================
 -- 2. CREATE PER-SERVICE USERS
 -- =============================================================================
@@ -99,13 +96,6 @@ DO $$ BEGIN
     RAISE NOTICE 'Updated password: so_umami';
   END IF;
 
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'so_listmonk') THEN
-    CREATE ROLE so_listmonk LOGIN PASSWORD '__SO_LISTMONK_PASS__';
-    RAISE NOTICE 'Created user: so_listmonk';
-  ELSE
-    ALTER ROLE so_listmonk PASSWORD '__SO_LISTMONK_PASS__';
-    RAISE NOTICE 'Updated password: so_listmonk';
-  END IF;
 END $$;
 
 -- so_migrate needs CREATEDB for ensureDatabaseExists() in migrate.ts
@@ -113,7 +103,7 @@ ALTER ROLE so_migrate CREATEDB;
 GRANT CONNECT ON DATABASE postgres TO so_migrate;
 
 -- =============================================================================
--- 3. SCANORBIT SCHEMA (squashed from migrations 0000 + 0001 + 0002)
+-- 3. SCANORBIT SCHEMA (squashed from all migrations)
 -- =============================================================================
 -- Switch to scanorbit database for schema creation
 
@@ -136,6 +126,8 @@ CREATE TABLE IF NOT EXISTS "users" (
 	"two_factor_enabled" boolean DEFAULT false NOT NULL,
 	"two_factor_secret" varchar(255),
 	"two_factor_recovery_codes" text,
+	"processing_restricted" boolean DEFAULT false NOT NULL,
+	"processing_restricted_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
@@ -389,6 +381,61 @@ CREATE TABLE IF NOT EXISTS "drip_log" (
 	"sent_at" timestamp DEFAULT now() NOT NULL
 );
 
+-- org_invitations (migration 0005)
+CREATE TABLE IF NOT EXISTS "org_invitations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"email" varchar(255) NOT NULL,
+	"role" varchar(50) DEFAULT 'member' NOT NULL,
+	"invited_by" uuid,
+	"token" varchar(255) NOT NULL,
+	"status" varchar(50) DEFAULT 'pending' NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "org_invitations_token_unique" UNIQUE("token")
+);
+
+-- api_keys (migration 0006)
+CREATE TABLE IF NOT EXISTS "api_keys" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"description" varchar(500),
+	"key_hash" varchar(64) NOT NULL,
+	"key_prefix" varchar(12) NOT NULL,
+	"created_by" uuid,
+	"last_used_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "api_keys_key_hash_unique" UNIQUE("key_hash")
+);
+
+-- bug_reports (migration 0007)
+CREATE TABLE IF NOT EXISTS "bug_reports" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"title" varchar(255) NOT NULL,
+	"description" text NOT NULL,
+	"category" varchar(50) NOT NULL,
+	"status" varchar(50) DEFAULT 'open' NOT NULL,
+	"screenshot_url" varchar(500),
+	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+-- email_subscribers (migration 0008)
+CREATE TABLE IF NOT EXISTS "email_subscribers" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"email" varchar(255) NOT NULL,
+	"name" varchar(255),
+	"list" varchar(100) NOT NULL,
+	"status" varchar(20) DEFAULT 'active' NOT NULL,
+	"attributes" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
 -- ---------------------------------------------------------------------------
 -- Foreign Keys (idempotent: drop if exists, then add)
 -- ---------------------------------------------------------------------------
@@ -453,6 +500,21 @@ DO $$ BEGIN
   ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "user_org_members" DROP CONSTRAINT IF EXISTS "user_org_members_org_id_orgs_id_fk";
   ALTER TABLE "user_org_members" ADD CONSTRAINT "user_org_members_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  -- org_invitations (migration 0005)
+  ALTER TABLE "org_invitations" DROP CONSTRAINT IF EXISTS "org_invitations_org_id_orgs_id_fk";
+  ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "org_invitations" DROP CONSTRAINT IF EXISTS "org_invitations_invited_by_users_id_fk";
+  ALTER TABLE "org_invitations" ADD CONSTRAINT "org_invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  -- api_keys (migration 0006)
+  ALTER TABLE "api_keys" DROP CONSTRAINT IF EXISTS "api_keys_org_id_orgs_id_fk";
+  ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "api_keys" DROP CONSTRAINT IF EXISTS "api_keys_created_by_users_id_fk";
+  ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  -- bug_reports (migration 0007)
+  ALTER TABLE "bug_reports" DROP CONSTRAINT IF EXISTS "bug_reports_org_id_orgs_id_fk";
+  ALTER TABLE "bug_reports" ADD CONSTRAINT "bug_reports_org_id_orgs_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "bug_reports" DROP CONSTRAINT IF EXISTS "bug_reports_user_id_users_id_fk";
+  ALTER TABLE "bug_reports" ADD CONSTRAINT "bug_reports_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -518,6 +580,20 @@ CREATE INDEX IF NOT EXISTS "user_org_members_org_id_idx" ON "user_org_members" U
 -- drip_log indexes (migration 0001)
 CREATE UNIQUE INDEX IF NOT EXISTS "drip_log_email_seq_day_idx" ON "drip_log" USING btree ("subscriber_email","sequence_name","email_day");
 CREATE INDEX IF NOT EXISTS "drip_log_subscriber_email_idx" ON "drip_log" USING btree ("subscriber_email");
+-- org_invitations indexes (migration 0005)
+CREATE UNIQUE INDEX IF NOT EXISTS "org_invitations_org_email_pending_idx" ON "org_invitations" USING btree ("org_id","email") WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS "org_invitations_org_id_idx" ON "org_invitations" USING btree ("org_id");
+-- api_keys indexes (migration 0006)
+CREATE INDEX IF NOT EXISTS "api_keys_org_id_idx" ON "api_keys" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "api_keys_key_hash_idx" ON "api_keys" USING btree ("key_hash");
+-- bug_reports indexes (migration 0007)
+CREATE INDEX IF NOT EXISTS "bug_reports_org_id_idx" ON "bug_reports" USING btree ("org_id");
+CREATE INDEX IF NOT EXISTS "bug_reports_user_id_idx" ON "bug_reports" USING btree ("user_id");
+CREATE INDEX IF NOT EXISTS "bug_reports_status_idx" ON "bug_reports" USING btree ("status");
+-- email_subscribers indexes (migration 0008)
+CREATE UNIQUE INDEX IF NOT EXISTS "email_subscribers_email_list_idx" ON "email_subscribers" USING btree ("email","list");
+CREATE INDEX IF NOT EXISTS "email_subscribers_list_status_idx" ON "email_subscribers" USING btree ("list","status");
+CREATE INDEX IF NOT EXISTS "email_subscribers_email_idx" ON "email_subscribers" USING btree ("email");
 
 -- =============================================================================
 -- 4. OWNERSHIP & GRANTS (scanorbit database)
@@ -626,8 +702,9 @@ REVOKE ALL ON DATABASE scanorbit FROM PUBLIC;
 -- =============================================================================
 -- 5. DRIZZLE MIGRATION TRACKING
 -- =============================================================================
--- The __drizzle_migrations table and hash inserts are handled by init-db.sh
--- because hashes must be computed from the actual migration files at runtime.
+-- The __drizzle_migrations table is created and populated by migrate.ts.
+-- When tables already exist (created by this script) and the tracking table
+-- is empty, migrate.ts auto-syncs by hashing migration files and inserting records.
 
 -- =============================================================================
 -- 6. UMAMI DATABASE SETUP
@@ -658,36 +735,6 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO so_umami;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO so_umami;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO so_umami;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO so_umami;
-
--- =============================================================================
--- 7. LISTMONK DATABASE SETUP
--- =============================================================================
-
-\connect postgres
-
-SELECT 'Configuring listmonk database...' AS status;
-
-ALTER DATABASE listmonk OWNER TO so_listmonk;
-REVOKE ALL ON DATABASE listmonk FROM PUBLIC;
-GRANT CONNECT ON DATABASE listmonk TO so_listmonk;
-
-\connect listmonk
-
--- Transfer existing tables (if any) to so_listmonk
-DO $$ DECLARE r RECORD; BEGIN
-  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
-    EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO so_listmonk';
-  END LOOP;
-  FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public' LOOP
-    EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO so_listmonk';
-  END LOOP;
-END $$;
-
-GRANT ALL PRIVILEGES ON SCHEMA public TO so_listmonk;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO so_listmonk;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO so_listmonk;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO so_listmonk;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO so_listmonk;
 
 -- =============================================================================
 -- Done

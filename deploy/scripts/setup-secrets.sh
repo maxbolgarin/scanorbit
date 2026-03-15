@@ -35,7 +35,7 @@ so_analyzer_database_url:SO_ANALYZER_DATABASE_URL:Analyzer database URL (postgre
 so_backup_password:SO_BACKUP_PASSWORD:so_backup user password (openssl rand -hex 32)
 so_exporter_password:SO_EXPORTER_PASSWORD:so_exporter user password (openssl rand -hex 32)
 so_umami_password:SO_UMAMI_PASSWORD:so_umami user password (openssl rand -hex 32)
-so_listmonk_password:SO_LISTMONK_PASSWORD:so_listmonk user password (openssl rand -hex 32)
+resend_webhook_secret:RESEND_WEBHOOK_SECRET:Resend webhook secret (from Resend dashboard)
 redis_password:REDIS_PASSWORD:Redis password
 redis_url:REDIS_URL:Redis connection URL (rediss://:pass@redis:6379)
 jwt_secret:JWT_SECRET:JWT access token secret (openssl rand -hex 32)
@@ -51,7 +51,6 @@ aws_secret_access_key:AWS_SECRET_ACCESS_KEY:AWS secret access key
 backup_encryption_key:BACKUP_ENCRYPTION_KEY:Backup encryption key (openssl rand -hex 32)
 scw_access_key:SCW_ACCESS_KEY:Scaleway access key
 scw_secret_key:SCW_SECRET_KEY:Scaleway secret key
-smtp_pass:SMTP_PASS:SMTP password
 "
 
 log() {
