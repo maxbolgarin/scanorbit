@@ -3,34 +3,63 @@
 	email {$ADMIN_EMAIL}
 }
 
-# Common hardening: block dotfiles and obvious scanner probes early (before upstreams)
+# Common hardening: block attack patterns, scanner probes, and malicious UAs (before upstreams)
 (block_scanners) {
-	# Deny any dotfile paths (e.g. /.env, /.git, /.vscode, etc.)
+	# ── Path traversal & encoding attacks ──
+	@path_attacks path_regexp path_attacks (?i)(\.\.|%2e%2e|%252e|%00|%0a|%0d|;|%3b)
+	respond @path_attacks 404
+
+	# ── Dotfile access (/.env, /.git, /.vscode, etc.) ──
 	@dotfiles path_regexp dotfiles ^/\.
 	respond @dotfiles 404
 
-	# Common vulnerability scanner paths (safe to 404 for SPA + API)
-	@scanpaths path \
-		/_all_dbs \
-		/actuator* \
-		/api-docs* \
-		/debug* \
-		/ecp* \
-		/info.php \
-		/login.action \
-		/owa* \
-		/server-status* \
-		/swagger* \
-		/swagger-ui* \
-		/telescope* \
-		/v2/api-docs* \
-		/v3/api-docs* \
-		/webjars* \
-		/wp-* \
-		/wp-admin* \
-		/wp-login* \
-		/xmlrpc.php
-	respond @scanpaths 404
+	# ── Known malicious User-Agents ──
+	@bad_ua header_regexp User-Agent (?i)(nmap|nikto|sqlmap|dirbuster|gobuster|ffuf|feroxbuster|wfuzz|nuclei|httpx|masscan|zgrab|zmap|shodan|censys|netcraft|openvas|nessus|qualys|acunetix|burpsuite|arachni|w3af|owasp[\s-]?zap|havij|metasploit|netsparker|jaeles|xray|tsunami|wapiti|skipfish|vega|paros|webscarab|commix|sn1per|striker|subfinder|amass|katana|gospider|hakrawler)
+	respond @bad_ua 404
+
+	# ── WordPress / CMS ──
+	@wp path /wp-* /wp-admin* /wp-login* /wp-content* /wp-includes* /wordpress* /xmlrpc.php /license.txt /readme.html
+	respond @wp 404
+
+	# ── Java / Spring / Atlassian / Tomcat ──
+	@java path /actuator* /jolokia* /console /manager* /solr* /jenkins* /s/* /login.action /login.do /invoker* /jmx-console* /web-console*
+	respond @java 404
+
+	# ── API docs / GraphQL probes ──
+	@apidocs path /api-docs* /swagger* /swagger-ui* /v2/api-docs* /v3/api-docs* /graphql /graphiql /gql /api/gql /api/graphql /altair /playground /explorer /openapi* /redoc* /webjars*
+	respond @apidocs 404
+
+	# ── PHP / Laravel / Symfony ──
+	@php path *.php /vendor* /telescope* /artisan /laravel* /elfinder* /cgi-bin* /phpmyadmin* /pma* /myadmin* /adminer*
+	respond @php 404
+
+	# ── .NET / IIS ──
+	@dotnet path /trace.axd /elmah.axd /web.config /global.asax *.aspx *.asmx *.ashx *.svc /Telerik* /umbraco*
+	respond @dotnet 404
+
+	# ── Microsoft Exchange / OWA ──
+	@exchange path /owa* /ecp* /autodiscover* /mapi* /rpc* /oab* /Microsoft-Server-ActiveSync* /remote* /Exchange*
+	respond @exchange 404
+
+	# ── Config / version / debug disclosure ──
+	@disclosure path /config.json /configuration /version /version.txt /build.json /package.json /composer.json /debug* /server-status* /server-info* /phpinfo* /_profiler* /_debugbar* /backup* /*.sql /*.bak /*.old /*.orig /*.save /*.swp /*.log
+	respond @disclosure 404
+
+	# ── DevOps / CI files ──
+	@devops path /docker* /Dockerfile* /k8s* /kubernetes* /ansible* /terraform* /vagrant* /Makefile /Jenkinsfile
+	respond @devops 404
+
+	# ── Dev server probes (Vite, Next.js, etc.) ──
+	@devserver path /@vite* /__vite_* /node_modules* /.next* /.nuxt*
+	respond @devserver 404
+
+	# ── Database / NoSQL probes ──
+	@dbprobes path /_all_dbs /_utils* /_config* /couchdb* /mongo* /redis* /elastic* /_search* /_cat* /_cluster* /_nodes*
+	respond @dbprobes 404
+
+	# ── Miscellaneous scanner probes ──
+	@misc path /HNAP1* /nmaplowercheck* /evox* /sdk* /CFIDE* /cfide*
+	respond @misc 404
 }
 
 # Landing page - root domain
@@ -93,14 +122,14 @@ app.{$DOMAIN} {
 	handle_path /api/* {
 		reverse_proxy api:4000
 	}
-	@api_paths path /auth/* /orgs* /aws/* /resources* /findings* /gdpr* /stripe* /newsletter* /webhooks*
+	@api_paths path /auth/* /orgs /orgs/* /aws/* /resources/* /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports/* /api/v1/*
 	reverse_proxy @api_paths api:4000
 
 	# Everything else is the SPA.
 	reverse_proxy app:80
 }
 
-# API - api subdomain
+# API - api subdomain (allowlist-based: only known routes reach the API)
 api.{$DOMAIN} {
 	import block_scanners
 	header /* {
@@ -115,7 +144,16 @@ api.{$DOMAIN} {
 	@internal_endpoints path /metrics /status
 	respond @internal_endpoints 404
 
-	reverse_proxy api:4000
+	# Block meta files that only make sense on landing/app
+	@api_meta path /robots.txt /sitemap.xml /favicon.ico
+	respond @api_meta 404
+
+	# Allowlist: ONLY proxy known valid API route prefixes
+	@api_allowed path /auth/* /orgs /orgs/* /aws/* /resources/* /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports/* /api/v1/* /health /health/ready
+	reverse_proxy @api_allowed api:4000
+
+	# Everything else: 404 without hitting the API
+	respond 404
 }
 
 # maxbolgarin.com - both www and non-www (Caddy will get one cert covering both)

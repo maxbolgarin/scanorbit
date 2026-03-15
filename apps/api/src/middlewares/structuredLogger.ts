@@ -112,6 +112,8 @@ export async function structuredLoggerMiddleware(c: Context, next: Next) {
 
   if (status >= 500) {
     reqLogger.error('server error', undefined, logData);
+  } else if (status === 404) {
+    reqLogger.info('not found', logData);
   } else if (status >= 400 && !isExpected401) {
     reqLogger.warn('request failed', logData);
   } else {
