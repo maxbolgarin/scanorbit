@@ -1,7 +1,7 @@
 ---
 title: Security Policy
 description: ScanOrbit security practices, infrastructure protection, and data security measures.
-lastUpdated: January 21, 2026
+lastUpdated: March 15, 2026
 ---
 
 At ScanOrbit, security is not a feature—it's foundational. This page explains how we secure your data, protect your AWS infrastructure, and maintain the integrity of our service.
@@ -74,7 +74,7 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 - OS patches applied automatically
 - Security updates deployed within 48 hours
 - SSH disabled (managed through bastion host only)
-- Secrets stored in HashiCorp Vault (encrypted)
+- Secrets managed via encrypted Docker secrets
 - No default credentials
 
 ### 2.4 High Availability & Disaster Recovery
@@ -101,7 +101,7 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 **Database Encryption:**
 - PostgreSQL with AES-256 encryption
 - Encrypted columns for sensitive data
-- Encryption key stored separately (Vault)
+- Encryption key stored separately
 - No plaintext storage of credentials
 
 **File Storage:**
@@ -130,7 +130,7 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 
 **API Security:**
 - All API calls over HTTPS
-- JWT tokens with short expiry (1 hour)
+- JWT access tokens with short expiry (5 minutes)
 - Refresh tokens with longer expiry (7 days)
 - Token rotation on sensitive operations
 
@@ -185,7 +185,7 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 - Minimum password length: 8 characters
 - Password strength requirements
 - Password reset via secure email tokens (1-hour expiry)
-- Session tokens: JWT with 7-day expiry
+- Access tokens: JWT with 5-minute expiry
 - Refresh tokens: 7-day expiry, rotated on use
 - OAuth integration: Google and GitHub sign-in supported
 
@@ -228,10 +228,10 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 
 **Session Security:**
 - Secure, httpOnly cookies
-- SameSite=Strict attribute
+- SameSite=None with Secure flag (required for cross-subdomain authentication)
 - Secure flag enabled (HTTPS only)
-- Session timeout: 24 hours
-- Automatic logout on inactivity (15 minutes)
+- Access tokens expire after 5 minutes (refreshed automatically)
+- Refresh tokens expire after 7 days
 - User activity logging
 
 ---
@@ -416,8 +416,7 @@ At ScanOrbit, security is not a feature—it's foundational. This page explains 
 - All security events
 
 **Retention:**
-- Audit logs: 90 days
-- Critical security events: 1 year
+- Audit logs: 730 days (2 years)
 - Searchable and tamper-evident
 - Immutable storage
 
@@ -533,10 +532,10 @@ If a data breach occurs:
 - Scaleway Cloud (infrastructure hosting)
 - Scaleway Object Storage (encrypted backups)
 - Let's Encrypt (SSL certificates)
-- GitHub (code repository)
+- GitHub (code repository and OAuth authentication)
 - Google (OAuth authentication)
-- GitHub (OAuth authentication)
-- Future: SendGrid, Stripe (when added)
+- Stripe (payment processing)
+- Resend (transactional email delivery)
 
 ### 9.2 Data Processor Agreements
 
@@ -802,5 +801,5 @@ We take security seriously and are happy to discuss:
 
 ---
 
-**Version:** 1.1
-**Effective Date:** January 21, 2026
+**Version:** 1.2
+**Effective Date:** March 15, 2026

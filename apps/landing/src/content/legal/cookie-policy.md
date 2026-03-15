@@ -1,7 +1,7 @@
 ---
 title: Cookie Policy
 description: ScanOrbit cookie policy. Learn how we use cookies on our website and service.
-lastUpdated: January 23, 2026
+lastUpdated: March 15, 2026
 ---
 
 This Cookie Policy explains how ScanOrbit uses cookies and similar technologies on our website and service. By using ScanOrbit, you consent to our use of cookies as described in this policy.
@@ -131,7 +131,7 @@ ScanOrbit **does not use:**
 
 ## 5. How We Protect Your Cookies
 
-### 4.1 Security Measures
+### 5.1 Security Measures
 
 **Encryption:**
 - All cookies transmitted over TLS 1.3 (encrypted connection)
@@ -144,11 +144,10 @@ ScanOrbit **does not use:**
 - `SameSite=None` with `Secure` - Required for cross-subdomain authentication
 
 **Expiration:**
-- Session cookies automatically deleted when you close your browser
 - Persistent cookies expire after their duration (7 days max)
 - Expired tokens are rejected by the server
 
-### 4.2 Server-Side Security
+### 5.2 Server-Side Security
 
 - Tokens validated on every request
 - Invalid or expired tokens rejected
@@ -159,29 +158,20 @@ ScanOrbit **does not use:**
 
 ## 6. Your Cookie Consent
 
-### 5.1 Essential Cookies (Auto-Consent)
+### 6.1 Essential Cookies (Auto-Consent)
 
-The session and authentication cookies are **essential** to the service working. Under EDPB (European Data Protection Board) guidelines, essential cookies can be stored without explicit consent before use.
+The authentication cookie is **essential** to the service working. Under EDPB (European Data Protection Board) guidelines, essential cookies can be stored without explicit consent before use.
 
 **This means:**
 - You're already consenting by using ScanOrbit
-- The service cannot work without these cookies
-- You can manage them in your browser settings
-
-### 5.2 Preference Cookies (Optional)
-
-The theme and language preference cookies are optional and improve your experience.
-
-**You can:**
-- Accept all cookies (recommended for best experience)
-- Disable preference cookies (your browser settings will not be remembered)
-- Clear cookies anytime in your browser
+- The service cannot work without this cookie
+- You can manage it in your browser settings
 
 ---
 
 ## 7. Managing Your Cookies
 
-### 6.1 Browser Settings
+### 7.1 Browser Settings
 
 You can control cookies through your browser settings:
 
@@ -202,7 +192,7 @@ You can control cookies through your browser settings:
 
 **Note:** Disabling essential cookies may prevent ScanOrbit from working properly.
 
-### 6.2 Clear Cookies Anytime
+### 7.2 Clear Cookies Anytime
 
 You can delete our cookies from your browser anytime:
 - **Clear browsing data** option in your browser
@@ -210,15 +200,7 @@ You can delete our cookies from your browser anytime:
 - Choose time range (or "All time")
 - Click "Clear data"
 
-You'll need to log in again after clearing session cookies.
-
-### 6.3 Cookie Preferences (Future)
-
-We plan to add a **Cookie Preferences Center** where you can:
-- Toggle preference cookies on/off
-- View all cookies in detail
-- Withdraw consent anytime
-- See expiration dates
+You'll need to log in again after clearing cookies.
 
 ---
 
@@ -229,10 +211,10 @@ ScanOrbit uses third-party services that respect your privacy:
 | Service | Purpose | Sets Cookies? | Privacy |
 |---------|---------|---------------|---------|
 | **Umami Analytics** | Website analytics (self-hosted) | No cookies | EU-hosted on our infrastructure, no personal data |
-| **Scaleway** | Infrastructure | ❌ No cookies | EU-hosted |
-| **AWS** | Cloud infrastructure | ❌ No cookies | - |
+| **Scaleway** | Infrastructure | No cookies | EU-hosted |
+| **AWS** | Cloud infrastructure | No cookies | - |
 | **Stripe** | Payment processing | Essential only | PCI compliant |
-| **Let's Encrypt** | SSL certificates | ❌ No cookies | - |
+| **Let's Encrypt** | SSL certificates | No cookies | - |
 
 **We will never add:**
 - Advertising networks
@@ -242,24 +224,21 @@ ScanOrbit uses third-party services that respect your privacy:
 
 ---
 
-## 9. Cookie Duration Summary
+## 9. Cookie Summary
 
-| Cookie Type | Duration | Expires | When Cleared |
-|------------|----------|---------|--------------|
-| **session_token** | 24 hours | After 24 hours or logout | Session end or logout |
-| **refresh_token** | 7 days | After 7 days | Session end or logout |
-| **csrf_token** | Session | Browser close | Close browser |
-| **2fa_challenge** | 10 minutes | After verification or timeout | After 2FA verification or 10 minutes |
-| **theme_preference** | 1 year | After 1 year | Manual delete or browser clear |
-| **language_preference** | 1 year | After 1 year | Manual delete or browser clear |
+| Cookie | Duration | When Cleared |
+|--------|----------|--------------|
+| **refresh_token** | 7 days | Logout or browser clear |
 
-**Note:** Logging out will clear all authentication cookies immediately.
+All other client-side data (authentication state, UI preferences) is stored in browser Local Storage and is never transmitted to our servers.
+
+**Note:** Logging out will clear the authentication cookie immediately.
 
 ---
 
 ## 10. Cookies & Privacy
 
-### 9.1 What Cookies Don't Store
+### 10.1 What Cookies Don't Store
 
 Our cookies do **NOT** contain:
 - Your password
@@ -271,7 +250,7 @@ Our cookies do **NOT** contain:
 - Location information
 - Tracking identifiers
 
-### 9.2 Data Protection
+### 10.2 Data Protection
 
 Cookies are protected under our [Privacy Policy](/privacy):
 - All data encrypted at rest
@@ -285,21 +264,16 @@ For details on how we handle all your data, see our [Privacy Policy](/privacy).
 
 ## 11. Legal Basis (GDPR)
 
-### 10.1 Cookie Consent
+### 11.1 Cookie Consent
 
 Under GDPR and EDPB guidelines:
 
-**Essential Cookies (session, auth, CSRF):**
+**Essential Cookies (authentication):**
 - Legal basis: Necessary to provide the service (Contract)
 - Consent: Implied when you use ScanOrbit
 - No explicit opt-in needed before use
 
-**Preference Cookies:**
-- Legal basis: Legitimate interest (improve user experience)
-- Consent: Given when you use the service
-- Can be disabled in browser settings
-
-### 10.2 Your GDPR Rights
+### 11.2 Your GDPR Rights
 
 You have the right to:
 - Know what cookies we use (this policy)
@@ -340,17 +314,15 @@ Email: dpa@scanorbit.cloud
 ## 14. Quick Reference
 
 **Remember:**
-- We use only essential authentication cookies
+- We use only one essential authentication cookie (`refresh_token`)
 - Analytics handled by Umami (self-hosted, no cookies, no personal data)
 - No marketing or advertising cookies
 - All cookies encrypted and secure
 - You can manage or delete cookies anytime
-- Preference cookies are optional
-- Session cookies expire automatically
 - No personal data stored in cookies
 - No consent banner needed (we don't track you)
 
 ---
 
-**Version:** 1.1
-**Effective Date:** January 21, 2026
+**Version:** 1.2
+**Effective Date:** March 15, 2026
