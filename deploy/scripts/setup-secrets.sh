@@ -35,6 +35,7 @@ so_analyzer_database_url:SO_ANALYZER_DATABASE_URL:Analyzer database URL (postgre
 so_backup_password:SO_BACKUP_PASSWORD:so_backup user password (openssl rand -hex 32)
 so_exporter_password:SO_EXPORTER_PASSWORD:so_exporter user password (openssl rand -hex 32)
 so_umami_password:SO_UMAMI_PASSWORD:so_umami user password (openssl rand -hex 32)
+resend_api_key:RESEND_API_KEY:Resend API key (from Resend dashboard)
 resend_webhook_secret:RESEND_WEBHOOK_SECRET:Resend webhook secret (from Resend dashboard)
 redis_password:REDIS_PASSWORD:Redis password
 redis_url:REDIS_URL:Redis connection URL (rediss://:pass@redis:6379)
