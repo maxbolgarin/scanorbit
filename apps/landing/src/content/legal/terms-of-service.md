@@ -1,7 +1,7 @@
 ---
 title: Terms of Service
 description: ScanOrbit Terms of Service. Legal agreement for using ScanOrbit AWS scanner.
-lastUpdated: January 23, 2026
+lastUpdated: March 15, 2026
 ---
 
 These Terms of Service ("Terms," "Agreement") govern your use of the ScanOrbit website, application, and services (collectively, the "Service"). By accessing or using ScanOrbit, you agree to be bound by these Terms. If you do not agree with any part of these Terms, please do not use the Service.
@@ -348,7 +348,7 @@ ScanOrbit integrates with the following third-party services:
 |---------|---------|---------|
 | **Umami Analytics** | Privacy-first website analytics (self-hosted) | No cookies, no personal data, EU-hosted |
 | **Stripe** | Payment processing | PCI compliant, [Privacy Policy](https://stripe.com/privacy) |
-| **SendGrid** | Email delivery | [Privacy Policy](https://www.twilio.com/legal/privacy) |
+| **Resend** | Email delivery | [Privacy Policy](https://resend.com/legal/privacy-policy) |
 
 **About Umami Analytics:**
 We use Umami (self-hosted) for website and application analytics. Unlike Google Analytics, Umami:
@@ -370,18 +370,20 @@ These third parties have their own terms and privacy policies. We recommend revi
 
 ScanOrbit offers the following plans:
 
-| Plan | Price | Features |
-|------|-------|----------|
-| **Free** | €0 | 1 AWS account, limited scanners, 7-day retention, dashboard stats only, 1 successful scan |
-| **Pro** | €19/month | 1 AWS account, all scanners, 30-day retention, full resource & finding access, infrastructure map, 1-hour scan cooldown, email support |
-| **Team** | €79/month | 5 AWS accounts, all scanners, 90-day retention, full access, unlimited scans, API access, priority support |
+| Plan | Features |
+|------|----------|
+| **Free** | 1 AWS account, dashboard statistics only, 1 successful scan (can retry on errors) |
+| **Pro** | Up to 3 AWS accounts, full resource & finding access, infrastructure map, 1-hour scan cooldown, email support |
+| **Team** | Up to 10 AWS accounts, all Pro features plus organization overview, scan priority, data export, audit logs, member invites, webhooks, API keys, priority support |
+
+Current pricing is available at [scanorbit.cloud](https://scanorbit.cloud). Prices may change with 30 days' advance notice.
 
 **Free Tier Limitations:**
 - Can view aggregated dashboard statistics only
-- Cannot view detailed resource lists
-- Cannot view detailed finding lists
+- Cannot view detailed resource lists or finding lists
 - Cannot access infrastructure map
 - Limited to one successful scan (can retry on errors)
+- Cannot export data or access API
 
 ### 9.2 Payment Terms
 
@@ -583,5 +585,5 @@ If you do not agree, do not use the Service.
 
 ---
 
-**Version:** 1.1
-**Effective Date:** January 21, 2026
+**Version:** 1.2
+**Effective Date:** March 15, 2026

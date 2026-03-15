@@ -1,7 +1,7 @@
 ---
 title: Privacy Policy
 description: ScanOrbit privacy policy. Learn how we handle and protect your data.
-lastUpdated: January 23, 2026
+lastUpdated: March 15, 2026
 ---
 
 ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
@@ -27,6 +27,11 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 **Two-Factor Authentication (if enabled):**
 - TOTP secret (AES-256-GCM encrypted)
 - Recovery codes (bcrypt hashed, 10 codes)
+
+**Billing Data:**
+- Stripe customer ID
+- Stripe subscription ID
+- Subscription tier and status
 
 **AWS Connection:**
 - AWS Account ID (12-digit identifier)
@@ -73,7 +78,7 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 - Creating and managing your account
 - Authenticating your identity
 - Sending account notifications (password resets, security alerts)
-- Handling subscription and billing (future)
+- Handling subscription and billing via Stripe
 
 ### 2.3 Communication
 - Responding to your support inquiries
@@ -93,10 +98,14 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 - Complying with legal obligations
 
 **We do NOT use your data for:**
-- Marketing or third-party advertising
-- Selling or sharing your personal information
+- Selling or sharing your personal information with third parties
+- Third-party advertising or behavioral profiling
 - Training machine learning models
 - Any purpose other than operating ScanOrbit
+
+**Marketing communications:**
+- Product onboarding emails and newsletters are only sent with your explicit consent
+- You can withdraw marketing consent at any time via account settings or the unsubscribe link in any email
 
 ---
 
@@ -105,8 +114,8 @@ ScanOrbit ("we," "us," "our," or "Company") is committed to protecting your priv
 ### 3.1 Geographic Location
 
 **All data is stored in the European Union:**
-- **Primary:** Frankfurt, Germany (AWS eu-central-1)
-- **Backup:** Amsterdam, Netherlands (AWS eu-west-1)
+- **Primary:** Amsterdam, Netherlands (Scaleway)
+- **Backup:** Amsterdam, Netherlands (Scaleway Object Storage)
 - **No data transfer:** Information never leaves the EU
 
 This ensures compliance with:
@@ -172,12 +181,20 @@ We use the following third-party services to operate ScanOrbit. All sub-processo
 | **Stripe** | Payment processing | Email, name, organization ID, user ID | USA (EU DPA) | [Stripe DPA](https://stripe.com/legal/dpa) |
 | **Google OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [Google DPA](https://cloud.google.com/terms/data-processing-terms) |
 | **GitHub OAuth** | Authentication (optional) | OAuth tokens (encrypted) | USA (EU DPA) | [GitHub DPA](https://github.com/customer-terms/github-data-protection-agreement) |
-| **SendGrid** | Email delivery | Email addresses | USA (EU DPA) | [SendGrid DPA](https://www.twilio.com/legal/data-protection-addendum) |
+| **Resend** | Email delivery | Email addresses | USA (EU DPA) | [Resend DPA](https://resend.com/legal/dpa) |
+
+**Self-Hosted Services (on our EU infrastructure):**
+
+| Service | Purpose | Data Processed |
+|---------|---------|----------------|
+| **Listmonk** | Email marketing and newsletters | Email address, subscription preferences |
+| **Umami** | Privacy-first web analytics | Anonymous page views (no cookies, no PII) |
 
 **Data Processing Notes:**
 - Stripe processes payment data under their EU Data Processing Addendum with Standard Contractual Clauses (SCCs) for international transfers
 - OAuth providers only receive authentication tokens; no scan data or AWS information is shared
 - All OAuth tokens are encrypted at rest using AES-256-GCM before storage
+- Listmonk and Umami are self-hosted on our EU infrastructure and are not third-party subprocessors
 
 **No third party has access to:**
 - Your AWS credentials (stored encrypted)
@@ -234,7 +251,7 @@ We can restrict data processing for specific purposes while investigating disput
 
 You can disable:
 - Analytics collection
-- Marketing communications (future)
+- Marketing communications
 - Automated decision-making (if applicable)
 
 ### 6.7 Right to Lodge a Complaint
@@ -251,7 +268,7 @@ You can disable:
 ### 7.1 Technical Controls
 - AES-256 encryption (data at rest)
 - TLS 1.3 encryption (data in transit)
-- bcrypt password hashing (salted, 12 rounds)
+- bcrypt password hashing (salted, 10 rounds)
 - Parameterized SQL queries (SQL injection prevention)
 - CORS protection
 - Rate limiting on API endpoints
@@ -260,7 +277,7 @@ You can disable:
 ### 7.2 Organizational Controls
 - Minimal data access (principle of least privilege)
 - No access to AWS credentials by staff
-- Secure secret management (HashiCorp Vault)
+- Secure secret management (encrypted at rest)
 - Encrypted backups
 - Automated backup testing
 - Incident response procedures
@@ -447,8 +464,10 @@ We process your data based on:
 |-----------|-------------|
 | **Account information** | Contract (necessary to provide service) |
 | **Scan data** | Contract (necessary to perform AWS scans) |
-| **API logs** | Legitimate interest (security & fraud prevention) |
+| **API & audit logs** | Legitimate interest (security & fraud prevention) |
+| **Payment data** | Contract (subscription management via Stripe) |
 | **Website analytics (Umami)** | Legitimate interest (no personal data collected) |
+| **Marketing emails** | Consent (explicit opt-in, withdrawable at any time) |
 | **Communication data** | Consent & contract (responding to requests) |
 
 ---
@@ -481,5 +500,5 @@ If you do not agree with any part of this policy, please discontinue use of the 
 
 ---
 
-**Version:** 1.1
-**Effective Date:** January 21, 2026
+**Version:** 1.2
+**Effective Date:** March 15, 2026
