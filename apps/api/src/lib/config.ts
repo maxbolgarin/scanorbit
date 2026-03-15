@@ -77,7 +77,7 @@ export const config = {
   email: {
     from: process.env.EMAIL_FROM || 'ScanOrbit <noreply@scanorbit.cloud>',
     resend: {
-      apiKey: process.env.RESEND_API_KEY || '',
+      apiKey: readSecret('RESEND_API_KEY', 'resend_api_key'),
       webhookSecret: readSecret('RESEND_WEBHOOK_SECRET', 'resend_webhook_secret'),
     },
   },
