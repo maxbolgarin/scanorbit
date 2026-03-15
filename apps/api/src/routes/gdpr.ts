@@ -13,7 +13,7 @@ import {
   dripLog,
 } from '../db/schema.js';
 import { requireAuth } from '../middlewares/auth.js';
-import { logDataAccess } from '../middlewares/auditLog.js';
+import { logDataAccess, invalidateAuditObjectionCache } from '../middlewares/auditLog.js';
 import { consentService } from '../services/consentService.js';
 import { subscriberService } from '../services/subscriberService.js';
 import { logger } from '../lib/logger.js';
@@ -70,10 +70,7 @@ gdpr.get('/export', async (c) => {
     .where(eq(consentLogs.userId, userId))
     .orderBy(desc(consentLogs.consentedAt));
 
-  // Get audit logs (last 90 days for privacy)
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
+  // Get full audit log history (GDPR Article 15 - complete data access)
   const userAuditLogs = await db
     .select({
       timestamp: auditLogs.timestamp,
@@ -82,14 +79,9 @@ gdpr.get('/export', async (c) => {
       path: auditLogs.path,
     })
     .from(auditLogs)
-    .where(
-      and(
-        eq(auditLogs.userId, userId),
-        gte(auditLogs.timestamp, ninetyDaysAgo)
-      )
-    )
+    .where(eq(auditLogs.userId, userId))
     .orderBy(desc(auditLogs.timestamp))
-    .limit(10_000);
+    .limit(50_000);
 
   // Get billing data from user's organizations
   const billingData = await db
@@ -696,6 +688,11 @@ gdpr.post('/objection', zValidator('json', objectionSchema), async (c) => {
     await subscriberService.unsubscribe(user.email);
   }
 
+  // If objecting to audit logging, invalidate the cached objection status
+  if (processingActivity === 'audit_logging') {
+    invalidateAuditObjectionCache(userId);
+  }
+
   // Audit log
   await logDataAccess(
     userId,
@@ -741,6 +738,11 @@ gdpr.delete('/objection', zValidator('json', withdrawObjectionSchema), async (c)
       action: 'objection_withdrawn',
     },
   });
+
+  // If withdrawing audit logging objection, invalidate the cached status
+  if (processingActivity === 'audit_logging') {
+    invalidateAuditObjectionCache(userId);
+  }
 
   // Audit log
   await logDataAccess(

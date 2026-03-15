@@ -321,13 +321,20 @@ export const stripeService = {
 
     const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
 
+    // Derive tier from the actual Stripe price ID (authoritative source),
+    // falling back to metadata only if price ID is missing
+    const priceId = subscription.items.data[0]?.price.id || '';
+    const tier = getTierFromPriceId(priceId) !== 'free'
+      ? getTierFromPriceId(priceId)
+      : targetTier || 'free';
+
     // Update org with subscription details
     await db
       .update(orgs)
       .set({
         stripeSubscriptionId: subscriptionId,
         subscriptionStatus: mapStripeStatus(subscription.status),
-        tier: targetTier || getTierFromPriceId(subscription.items.data[0]?.price.id || ''),
+        tier,
         tierUpgradedAt: new Date(),
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         subscriptionEndsAt: subscription.cancel_at
