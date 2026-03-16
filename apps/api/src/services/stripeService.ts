@@ -385,8 +385,10 @@ export const stripeService = {
    * Update org record from subscription data
    */
   async updateOrgFromSubscription(orgId: string, subscription: Stripe.Subscription): Promise<void> {
-    const priceId = subscription.items.data[0]?.price.id;
-    const tier = getTierFromPriceId(priceId || '');
+    const priceId = subscription.items.data[0]?.price.id || '';
+    const tier = getTierFromPriceId(priceId) !== 'free'
+      ? getTierFromPriceId(priceId)
+      : (subscription.metadata?.targetTier as SubscriptionTier) || 'free';
     const status = mapStripeStatus(subscription.status);
 
     // Read current status before update to detect transitions
@@ -530,6 +532,86 @@ export const stripeService = {
       orgId: org.id,
       subscriptionId,
     });
+  },
+
+  /**
+   * Sync subscription state from Stripe API to database.
+   * Fallback for when webhooks fail to deliver.
+   */
+  async syncSubscription(
+    orgId: string,
+    userId: string
+  ): Promise<{ synced: boolean; tier: SubscriptionTier }> {
+    await verifyOrgAdmin(orgId, userId);
+
+    const [org] = await db
+      .select({
+        stripeCustomerId: orgs.stripeCustomerId,
+        stripeSubscriptionId: orgs.stripeSubscriptionId,
+        tier: orgs.tier,
+      })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (!org?.stripeCustomerId) {
+      return { synced: false, tier: 'free' };
+    }
+
+    let subscription: Stripe.Subscription | null = null;
+
+    // Try stored subscription ID first
+    if (org.stripeSubscriptionId) {
+      try {
+        subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
+      } catch {
+        // Subscription may have been deleted, fall through to list
+      }
+    }
+
+    // Fallback: list customer's subscriptions (covers the case where
+    // stripeSubscriptionId hasn't been stored yet — the core bug)
+    if (!subscription) {
+      const subscriptions = await getStripeClient().subscriptions.list({
+        customer: org.stripeCustomerId,
+        limit: 1,
+      });
+      subscription = subscriptions.data[0] || null;
+    }
+
+    if (!subscription) {
+      return { synced: false, tier: 'free' };
+    }
+
+    // Derive tier with metadata fallback (same logic as handleCheckoutComplete)
+    const priceId = subscription.items.data[0]?.price.id || '';
+    const tier = getTierFromPriceId(priceId) !== 'free'
+      ? getTierFromPriceId(priceId)
+      : (subscription.metadata?.targetTier as SubscriptionTier) || 'free';
+    const status = mapStripeStatus(subscription.status);
+    const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
+
+    const subscriptionEndsAt = subscription.cancel_at
+      ? new Date(subscription.cancel_at * 1000)
+      : subscription.cancel_at_period_end && subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
+        : null;
+
+    await db
+      .update(orgs)
+      .set({
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: status,
+        tier: finalTier,
+        ...(finalTier !== 'free' && org.tier === 'free' ? { tierUpgradedAt: new Date() } : {}),
+        trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+        subscriptionEndsAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(orgs.id, orgId));
+
+    logger.info('Synced subscription from Stripe', { orgId, tier: finalTier, status });
+    return { synced: true, tier: finalTier };
   },
 
   /**

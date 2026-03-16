@@ -142,18 +142,25 @@ export function SubscriptionSettings() {
     const canceled = searchParams.get('canceled');
 
     if (success === 'true') {
-      toast({
-        title: "Subscription Started",
-        description: "Your free trial has started. Welcome to ScanOrbit!",
-        type: "success",
-      });
-      // Remove the query params
+      // Remove the query params immediately to prevent re-triggering
       searchParams.delete('success');
       setSearchParams(searchParams, { replace: true });
-      // Refresh auth to get updated org tier
-      refreshAuth();
-      // Invalidate subscription query
-      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+
+      // Sync subscription from Stripe API, then refresh auth
+      (async () => {
+        try {
+          await api.syncSubscription();
+        } catch {
+          // Best-effort: webhook may still arrive later
+        }
+        await refreshAuth();
+        queryClient.invalidateQueries({ queryKey: ["subscription"] });
+        toast({
+          title: "Subscription Started",
+          description: "Your free trial has started. Welcome to ScanOrbit!",
+          type: "success",
+        });
+      })();
     } else if (canceled === 'true') {
       toast({
         title: "Checkout Canceled",

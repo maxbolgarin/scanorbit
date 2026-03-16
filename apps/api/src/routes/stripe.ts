@@ -191,6 +191,32 @@ stripeRoute.post(
 );
 
 /**
+ * POST /stripe/sync
+ * Sync subscription state from Stripe API to database.
+ * Fallback for when webhooks fail to deliver.
+ * Requires authentication and admin role.
+ */
+stripeRoute.post(
+  '/sync',
+  requireAuth,
+  async (c) => {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+
+    if (!orgId) {
+      throw new HTTP400Error('Organization context required');
+    }
+
+    if (!stripeService.isConfigured()) {
+      throw new HTTP400Error('Stripe is not configured');
+    }
+
+    const result = await stripeService.syncSubscription(orgId, userId);
+    return c.json({ data: result });
+  }
+);
+
+/**
  * POST /stripe/webhook
  * Handle Stripe webhook events
  * No authentication - verified by Stripe signature

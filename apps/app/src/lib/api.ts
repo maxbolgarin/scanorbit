@@ -1635,6 +1635,18 @@ export async function cancelSubscription(
   }
 }
 
+// Stripe: Sync subscription state from Stripe (fallback when webhooks fail)
+export async function syncSubscription(): Promise<{ synced: boolean; tier: string }> {
+  try {
+    const { data } = await api.post<{ data: { synced: boolean; tier: string } }>(
+      `/stripe/sync`
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
 // ============================================
 // GDPR API
 // ============================================
