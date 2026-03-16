@@ -18,11 +18,13 @@ const { mockStripeService, mockOrgService, mockEmailService, mockSubscriberServi
     createPortalSession: vi.fn(),
     cancelSubscription: vi.fn(),
     switchPlan: vi.fn(),
+    syncSubscription: vi.fn(),
     constructWebhookEvent: vi.fn(),
     handleCheckoutComplete: vi.fn(),
     handleSubscriptionChange: vi.fn(),
     handlePaymentFailed: vi.fn(),
     getSubscription: vi.fn(),
+    isNewWebhookEvent: vi.fn().mockResolvedValue(true),
   },
   mockOrgService: {
     getOrgAdminEmail: vi.fn().mockResolvedValue(null),
@@ -75,6 +77,14 @@ vi.mock('../../lib/config.js', () => ({
   stripeConfig: {
     teamPriceId: 'price_team',
   },
+}));
+
+vi.mock('../../services/telegramEventService.js', () => ({
+  publishTelegramEvent: vi.fn(),
+}));
+
+vi.mock('../../middlewares/rateLimit.js', () => ({
+  rateLimit: vi.fn(() => async (_c: any, next: any) => next()),
 }));
 
 import stripeRoute from '../../routes/stripe.js';

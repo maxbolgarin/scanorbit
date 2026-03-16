@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middlewares/auth.js';
+import { rateLimit } from '../middlewares/rateLimit.js';
 import { stripeService } from '../services/stripeService.js';
 import { orgService } from '../services/orgService.js';
 import { emailService } from '../services/emailService.js';
@@ -15,6 +16,16 @@ import type { Variables } from '../types/index.js';
 import type Stripe from 'stripe';
 
 const stripeRoute = new Hono<{ Variables: Variables }>();
+
+// Rate limit all authenticated Stripe endpoints: 10 requests per minute per user
+const stripeRateLimit = rateLimit({
+  keyPrefix: 'stripe',
+  maxRequests: 10,
+  windowSeconds: 60,
+  keyExtractor: (c) => c.get('userId') || 'anon',
+  message: 'Too many billing requests. Please slow down.',
+  failOpen: true, // Users are already authenticated
+});
 
 /**
  * Validate that a URL belongs to the application's frontend origin.
@@ -49,6 +60,7 @@ const portalSchema = z.object({
 stripeRoute.post(
   '/checkout',
   requireAuth,
+  stripeRateLimit,
   zValidator('json', checkoutSchema),
   async (c) => {
     const orgId = c.get('orgId');
@@ -100,6 +112,7 @@ const switchPlanSchema = z.object({
 stripeRoute.post(
   '/switch-plan',
   requireAuth,
+  stripeRateLimit,
   zValidator('json', switchPlanSchema),
   async (c) => {
     const orgId = c.get('orgId');
@@ -127,6 +140,7 @@ stripeRoute.post(
 stripeRoute.post(
   '/portal',
   requireAuth,
+  stripeRateLimit,
   zValidator('json', portalSchema),
   async (c) => {
     const orgId = c.get('orgId');
@@ -171,6 +185,7 @@ const cancelSchema = z.object({
 stripeRoute.post(
   '/cancel',
   requireAuth,
+  stripeRateLimit,
   zValidator('json', cancelSchema),
   async (c) => {
     const orgId = c.get('orgId');
@@ -199,6 +214,7 @@ stripeRoute.post(
 stripeRoute.post(
   '/sync',
   requireAuth,
+  stripeRateLimit,
   async (c) => {
     const orgId = c.get('orgId');
     const userId = c.get('userId');
@@ -249,6 +265,13 @@ stripeRoute.post('/webhook', async (c) => {
     return c.json({ error: 'Invalid signature' }, 400);
   }
 
+  // Deduplicate webhook events — Stripe may deliver the same event multiple times
+  const isNew = await stripeService.isNewWebhookEvent(event.id);
+  if (!isNew) {
+    logger.info('Skipping duplicate webhook event', { type: event.type, id: event.id });
+    return c.json({ received: true });
+  }
+
   // Handle the event
   try {
     switch (event.type) {
@@ -256,9 +279,13 @@ stripeRoute.post('/webhook', async (c) => {
         const session = event.data.object as Stripe.Checkout.Session;
         await stripeService.handleCheckoutComplete(session);
 
-        // Notify admin bot
+        // Notify admin bot — resolve org name from DB since metadata may not contain it
         if (session.metadata?.orgId) {
-          const orgName = session.metadata.orgName || session.metadata.orgId;
+          let orgName = session.metadata.orgId;
+          try {
+            const admin = await orgService.getOrgAdminEmail(session.metadata.orgId);
+            if (admin) orgName = admin.name || orgName;
+          } catch { /* best effort */ }
           publishTelegramEvent({
             type: 'subscription_change',
             orgId: session.metadata.orgId,
@@ -306,7 +333,7 @@ stripeRoute.post('/webhook', async (c) => {
             if (admin) {
               const priceId = subscription.items.data[0]?.price.id || '';
               const tier = priceId === stripeConfig.teamPriceId ? 'team' as const : 'pro' as const;
-              const orgName = subscription.metadata?.orgName || orgId;
+              const orgName = admin.name || orgId;
 
               if (event.type === 'customer.subscription.updated') {
                 const prev = (event.data as Stripe.Event.Data & { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
@@ -419,10 +446,10 @@ stripeRoute.post('/webhook', async (c) => {
             const subscription = await stripeService.getSubscription(subscriptionId);
             const orgId = subscription?.metadata?.orgId;
             if (orgId) {
-              const orgName = subscription?.metadata?.orgName || orgId;
               const tier = subscription?.items?.data[0]?.price?.nickname || 'Pro';
-              publishTelegramEvent({ type: 'subscription_change', orgId, orgName, tier, event: 'payment_failed' });
               const admin = await orgService.getOrgAdminEmail(orgId);
+              const orgName = admin?.name || orgId;
+              publishTelegramEvent({ type: 'subscription_change', orgId, orgName, tier, event: 'payment_failed' });
               if (admin) {
                 emailService.sendPaymentFailedEmail(
                   admin.email,

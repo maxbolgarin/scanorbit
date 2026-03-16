@@ -6,9 +6,13 @@ import { orgs, users } from '../db/schema.js';
 import { stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { subscriptionEventsTotal, planSwitchesTotal } from '../lib/metrics.js';
+import { redis } from '../lib/redis.js';
 import { verifyOrgAdmin } from './orgService.js';
 import { SEAT_BILLING } from '../types/index.js';
 import type { SubscriptionTier } from '../types/index.js';
+
+/** TTL for webhook event deduplication (24 hours) */
+const WEBHOOK_DEDUP_TTL = 86400;
 
 // Lazy-initialized Stripe client (only created when Stripe is configured)
 let stripeClient: Stripe | null = null;
@@ -43,6 +47,7 @@ function mapStripeStatus(status: Stripe.Subscription.Status): string {
     case 'trialing':
       return 'trialing';
     case 'active':
+    case 'paused': // Paused subscriptions retain their tier (intentional pause, not cancellation)
       return 'active';
     case 'canceled':
       return 'canceled';
@@ -52,7 +57,6 @@ function mapStripeStatus(status: Stripe.Subscription.Status): string {
       return 'unpaid';
     case 'incomplete':
     case 'incomplete_expired':
-    case 'paused':
     default:
       return 'none';
   }
@@ -82,7 +86,24 @@ function deriveTierFromSubscription(subscription: Stripe.Subscription): Subscrip
   const priceId = subscription.items.data[0]?.price?.id || '';
   const fromPrice = getTierFromPriceId(priceId);
   if (fromPrice !== 'free') return fromPrice;
-  return validateTierFromMetadata(subscription.metadata?.targetTier);
+
+  // Fallback to metadata — log warning since metadata is mutable and less trustworthy
+  const metadataTier = validateTierFromMetadata(subscription.metadata?.targetTier);
+  if (metadataTier !== 'free') {
+    logger.warn('Derived tier from metadata fallback (price ID not recognized)', {
+      subscriptionId: subscription.id,
+      priceId,
+      metadataTier,
+    });
+  }
+  return metadataTier;
+}
+
+/** Extract subscription ID from session.subscription (may be string or expanded object) */
+function extractSubscriptionId(subscription: string | Stripe.Subscription | null | undefined): string | null {
+  if (!subscription) return null;
+  if (typeof subscription === 'string') return subscription;
+  return subscription.id || null;
 }
 
 export const stripeService = {
@@ -137,10 +158,18 @@ export const stripeService = {
 
     if (!updated) {
       // Another concurrent request already set the customer ID — clean up orphan
-      try {
-        await getStripeClient().customers.del(customer.id);
-      } catch {
-        logger.warn('Failed to delete orphan Stripe customer', { customerId: customer.id });
+      // Retry deletion up to 2 times to reduce orphan leakage
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          await getStripeClient().customers.del(customer.id);
+          break;
+        } catch (delErr) {
+          logger.warn('Failed to delete orphan Stripe customer', {
+            customerId: customer.id,
+            attempt,
+            error: (delErr as Error).message,
+          });
+        }
       }
       const [org] = await db
         .select({ stripeCustomerId: orgs.stripeCustomerId })
@@ -166,6 +195,17 @@ export const stripeService = {
   ): Promise<{ sessionId: string; url: string }> {
     // Verify admin access
     await verifyOrgAdmin(orgId, userId);
+
+    // Prevent creating checkout when org already has an active/trialing subscription
+    const [existingOrg] = await db
+      .select({ subscriptionStatus: orgs.subscriptionStatus })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (existingOrg && ['active', 'trialing'].includes(existingOrg.subscriptionStatus || '')) {
+      throw new HTTP400Error('Organization already has an active subscription. Use the billing portal to change plans.');
+    }
 
     // Get or create customer
     const customerId = await stripeService.getOrCreateCustomer(orgId, userId);
@@ -287,6 +327,11 @@ export const stripeService = {
       throw new HTTP400Error('Cannot switch plan on a canceled subscription. Please resubscribe.');
     }
 
+    // Only allow switches on active or trialing subscriptions
+    if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+      throw new HTTP400Error(`Cannot switch plan while subscription is ${subscription.status}. Please resolve billing issues first.`);
+    }
+
     const newPriceId = getPriceIdForTier(targetTier);
 
     const subscriptionItem = subscription.items.data[0];
@@ -331,17 +376,46 @@ export const stripeService = {
       return;
     }
 
-    // Get subscription details
-    const subscriptionId = session.subscription as string;
+    // Extract subscription ID safely (may be string or expanded object)
+    const subscriptionId = extractSubscriptionId(session.subscription);
     if (!subscriptionId) {
       logger.warn('Checkout session missing subscription', { sessionId: session.id });
       return;
+    }
+
+    // Check for existing subscription on this org to prevent orphaned billing
+    const [existingOrg] = await db
+      .select({ stripeSubscriptionId: orgs.stripeSubscriptionId })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    if (existingOrg?.stripeSubscriptionId && existingOrg.stripeSubscriptionId !== subscriptionId) {
+      logger.error('Org already has a different subscription — canceling old one to prevent orphan billing', {
+        orgId,
+        oldSubscriptionId: existingOrg.stripeSubscriptionId,
+        newSubscriptionId: subscriptionId,
+      });
+      try {
+        await getStripeClient().subscriptions.cancel(existingOrg.stripeSubscriptionId);
+      } catch (cancelErr) {
+        logger.error('Failed to cancel old subscription during checkout', {
+          subscriptionId: existingOrg.stripeSubscriptionId,
+          error: (cancelErr as Error).message,
+        });
+      }
     }
 
     const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
     const tier = deriveTierFromSubscription(subscription);
 
     // Update org with subscription details
+    const subscriptionEndsAt = subscription.cancel_at
+      ? new Date(subscription.cancel_at * 1000)
+      : subscription.cancel_at_period_end
+        ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end || subscription.trial_end || 0) * 1000)
+        : null;
+
     await db
       .update(orgs)
       .set({
@@ -350,11 +424,7 @@ export const stripeService = {
         tier,
         tierUpgradedAt: new Date(),
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-        subscriptionEndsAt: subscription.cancel_at
-          ? new Date(subscription.cancel_at * 1000)
-          : subscription.cancel_at_period_end && subscription.trial_end
-            ? new Date(subscription.trial_end * 1000)
-            : null,
+        subscriptionEndsAt,
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));
@@ -401,27 +471,21 @@ export const stripeService = {
     const tier = deriveTierFromSubscription(subscription);
     const status = mapStripeStatus(subscription.status);
 
-    // Read current status before update to detect transitions
-    const [currentOrg] = await db
-      .select({ subscriptionStatus: orgs.subscriptionStatus })
-      .from(orgs)
-      .where(eq(orgs.id, orgId))
-      .limit(1);
-    const previousStatus = currentOrg?.subscriptionStatus || 'none';
-
     // If subscription is canceled or unpaid, downgrade to free
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
     // Determine subscription end date:
     // - cancel_at is set when canceling at a future date (including cancel_at_period_end)
-    // - Fallback to trial_end if cancel_at_period_end is set but cancel_at is missing
+    // - Fallback to current_period_end when cancel_at_period_end is set but cancel_at is missing
     const subscriptionEndsAt = subscription.cancel_at
       ? new Date(subscription.cancel_at * 1000)
-      : subscription.cancel_at_period_end && subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
+      : subscription.cancel_at_period_end
+        ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end || subscription.trial_end || 0) * 1000)
         : null;
 
-    await db
+    // Use conditional update to detect previous status and prevent lost updates
+    // from concurrent webhooks. The RETURNING clause gives us the old status.
+    const [updated] = await db
       .update(orgs)
       .set({
         subscriptionStatus: status,
@@ -430,7 +494,10 @@ export const stripeService = {
         subscriptionEndsAt,
         updatedAt: new Date(),
       })
-      .where(eq(orgs.id, orgId));
+      .where(eq(orgs.id, orgId))
+      .returning({ previousStatus: orgs.subscriptionStatus });
+
+    const previousStatus = updated?.previousStatus || 'none';
 
     // Emit subscription lifecycle events on status transitions
     if (previousStatus === 'trialing' && status === 'active') {
@@ -442,6 +509,7 @@ export const stripeService = {
 
     logger.info('Updated org subscription status', {
       orgId,
+      previousStatus,
       status,
       tier: finalTier,
       trialEndsAt: subscription.trial_end,
@@ -459,15 +527,23 @@ export const stripeService = {
     // Verify admin access
     await verifyOrgAdmin(orgId, userId);
 
-    // Get subscription ID
+    // Get subscription ID and status
     const [org] = await db
-      .select({ stripeSubscriptionId: orgs.stripeSubscriptionId })
+      .select({
+        stripeSubscriptionId: orgs.stripeSubscriptionId,
+        subscriptionStatus: orgs.subscriptionStatus,
+      })
       .from(orgs)
       .where(eq(orgs.id, orgId))
       .limit(1);
 
     if (!org?.stripeSubscriptionId) {
       throw new HTTP400Error('No active subscription found');
+    }
+
+    // Only allow cancellation of active or trialing subscriptions
+    if (!['active', 'trialing', 'past_due'].includes(org.subscriptionStatus || '')) {
+      throw new HTTP400Error('Subscription is already canceled or inactive');
     }
 
     if (immediate) {
@@ -489,7 +565,18 @@ export const stripeService = {
   async getSubscription(subscriptionId: string): Promise<Stripe.Subscription | null> {
     try {
       return await getStripeClient().subscriptions.retrieve(subscriptionId);
-    } catch {
+    } catch (err) {
+      const stripeErr = err as { statusCode?: number; message?: string };
+      if (stripeErr.statusCode === 404) {
+        return null; // Subscription not found — expected case
+      }
+      // Log unexpected errors (network, auth, rate limit) but still return null
+      // to avoid crashing webhook handlers
+      logger.warn('Unexpected error retrieving Stripe subscription', {
+        subscriptionId,
+        statusCode: stripeErr.statusCode,
+        error: stripeErr.message,
+      });
       return null;
     }
   },
@@ -584,11 +671,26 @@ export const stripeService = {
 
     // Fallback: list customer's subscriptions (covers the case where
     // stripeSubscriptionId hasn't been stored yet — the core bug)
+    // Try active/trialing first, then fall back to any status
     if (!subscription) {
-      const subscriptions = await getStripeClient().subscriptions.list({
+      let subscriptions = await getStripeClient().subscriptions.list({
         customer: org.stripeCustomerId,
+        status: 'active',
         limit: 1,
       });
+      if (subscriptions.data.length === 0) {
+        subscriptions = await getStripeClient().subscriptions.list({
+          customer: org.stripeCustomerId,
+          status: 'trialing',
+          limit: 1,
+        });
+      }
+      if (subscriptions.data.length === 0) {
+        subscriptions = await getStripeClient().subscriptions.list({
+          customer: org.stripeCustomerId,
+          limit: 1,
+        });
+      }
       subscription = subscriptions.data[0] || null;
     }
 
@@ -603,8 +705,8 @@ export const stripeService = {
 
     const subscriptionEndsAt = subscription.cancel_at
       ? new Date(subscription.cancel_at * 1000)
-      : subscription.cancel_at_period_end && subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
+      : subscription.cancel_at_period_end
+        ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end || subscription.trial_end || 0) * 1000)
         : null;
 
     await db
@@ -745,7 +847,7 @@ export const stripeService = {
     currentPaidSeats: number;
     newPaidSeats: number;
     seatPriceMonthly: number;
-    estimatedNewMonthly: number;
+    estimatedSeatCost: number;
   } {
     const currentPaidSeats = Math.max(0, totalMemberCount - SEAT_BILLING.INCLUDED_SEATS);
     const newPaidSeats = Math.max(0, totalMemberCount + 1 - SEAT_BILLING.INCLUDED_SEATS);
@@ -754,7 +856,8 @@ export const stripeService = {
       currentPaidSeats,
       newPaidSeats,
       seatPriceMonthly: SEAT_BILLING.SEAT_PRICE_MONTHLY,
-      estimatedNewMonthly: 79 + newPaidSeats * SEAT_BILLING.SEAT_PRICE_MONTHLY,
+      // Only show additional seat cost — base plan price varies and may be $0 during trial
+      estimatedSeatCost: newPaidSeats * SEAT_BILLING.SEAT_PRICE_MONTHLY,
     };
   },
 
@@ -768,5 +871,23 @@ export const stripeService = {
       stripeConfig.proPriceId &&
       stripeConfig.teamPriceId
     );
+  },
+
+  /**
+   * Deduplicate webhook events. Returns true if the event has NOT been processed yet.
+   * Uses Redis SET NX with TTL to ensure at-most-once processing.
+   */
+  async isNewWebhookEvent(eventId: string): Promise<boolean> {
+    try {
+      const result = await redis.set(`stripe:event:${eventId}`, '1', 'EX', WEBHOOK_DEDUP_TTL, 'NX');
+      return result === 'OK';
+    } catch (err) {
+      // If Redis is unavailable, allow processing to avoid missing events
+      logger.warn('Redis unavailable for webhook dedup, allowing event', {
+        eventId,
+        error: (err as Error).message,
+      });
+      return true;
+    }
   },
 };

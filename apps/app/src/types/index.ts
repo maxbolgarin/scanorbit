@@ -163,7 +163,7 @@ export interface SeatBillingPreview {
   currentPaidSeats: number;
   newPaidSeats: number;
   seatPriceMonthly: number;
-  estimatedNewMonthly: number;
+  estimatedSeatCost: number;
 }
 
 export interface InviteInfo {

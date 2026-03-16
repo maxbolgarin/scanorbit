@@ -37,6 +37,13 @@ vi.mock('../../lib/metrics.js', () => ({
   planSwitchesTotal: { inc: vi.fn() },
 }));
 
+vi.mock('../../lib/redis.js', () => ({
+  redis: {
+    set: vi.fn().mockResolvedValue('OK'),
+    get: vi.fn().mockResolvedValue(null),
+  },
+}));
+
 const {
   mockStripeCustomersCreate,
   mockStripeCustomersDel,
@@ -286,7 +293,7 @@ describe('stripeService', () => {
 
   describe('cancelSubscription', () => {
     it('cancels at period end by default', async () => {
-      selectResult = [{ stripeSubscriptionId: 'sub_123' }];
+      selectResult = [{ stripeSubscriptionId: 'sub_123', subscriptionStatus: 'active' }];
       mockStripeSubscriptionsUpdate.mockResolvedValue({});
 
       await stripeService.cancelSubscription('org-1', 'user-1');
@@ -296,7 +303,7 @@ describe('stripeService', () => {
     });
 
     it('cancels immediately when requested', async () => {
-      selectResult = [{ stripeSubscriptionId: 'sub_123' }];
+      selectResult = [{ stripeSubscriptionId: 'sub_123', subscriptionStatus: 'trialing' }];
       mockStripeSubscriptionsCancel.mockResolvedValue({});
 
       await stripeService.cancelSubscription('org-1', 'user-1', true);
@@ -304,9 +311,15 @@ describe('stripeService', () => {
     });
 
     it('throws 400 when no subscription', async () => {
-      selectResult = [{ stripeSubscriptionId: null }];
+      selectResult = [{ stripeSubscriptionId: null, subscriptionStatus: 'none' }];
       await expect(stripeService.cancelSubscription('org-1', 'user-1'))
         .rejects.toThrow('No active subscription');
+    });
+
+    it('throws 400 when subscription already canceled', async () => {
+      selectResult = [{ stripeSubscriptionId: 'sub_123', subscriptionStatus: 'canceled' }];
+      await expect(stripeService.cancelSubscription('org-1', 'user-1'))
+        .rejects.toThrow('Subscription is already canceled or inactive');
     });
   });
 
@@ -314,6 +327,7 @@ describe('stripeService', () => {
     it('switches subscription plan', async () => {
       selectResult = [{ stripeSubscriptionId: 'sub_123', tier: 'pro' }];
       mockStripeSubscriptionsRetrieve.mockResolvedValue({
+        status: 'active',
         items: { data: [{ id: 'si_123' }] },
         metadata: {},
       });
