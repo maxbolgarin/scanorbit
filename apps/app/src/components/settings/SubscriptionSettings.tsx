@@ -282,8 +282,14 @@ export function SubscriptionSettings() {
       return;
     }
 
-    // If user has an active or trialing subscription, use portal to change plan
-    if (status?.subscriptionStatus === 'active' || status?.subscriptionStatus === 'trialing') {
+    // If trialing, use switchPlan to change plan while preserving trial period
+    if (status?.subscriptionStatus === 'trialing' && tier !== 'free') {
+      switchPlanMutation.mutate(tier);
+      return;
+    }
+
+    // If user has an active subscription, use portal to manage plan changes
+    if (status?.subscriptionStatus === 'active') {
       portalMutation.mutate();
       return;
     }

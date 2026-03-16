@@ -279,27 +279,22 @@ stripeRoute.post('/webhook', async (c) => {
         const session = event.data.object as Stripe.Checkout.Session;
         await stripeService.handleCheckoutComplete(session);
 
-        // Notify admin bot — resolve org name from DB since metadata may not contain it
+        // Notify admin bot + update Listmonk — look up admin once to avoid duplicate DB query
         if (session.metadata?.orgId) {
-          let orgName = session.metadata.orgId;
+          const orgId = session.metadata.orgId;
           try {
-            const admin = await orgService.getOrgAdminEmail(session.metadata.orgId);
-            if (admin) orgName = admin.name || orgName;
-          } catch { /* best effort */ }
-          publishTelegramEvent({
-            type: 'subscription_change',
-            orgId: session.metadata.orgId,
-            orgName,
-            tier: session.metadata.targetTier || 'pro',
-            event: 'trial_started',
-          });
-        }
-
-        // Move subscriber to trial-new list in Listmonk
-        try {
-          const orgId = session.metadata?.orgId;
-          if (orgId) {
             const admin = await orgService.getOrgAdminEmail(orgId);
+            const orgName = admin?.name || orgId;
+
+            publishTelegramEvent({
+              type: 'subscription_change',
+              orgId,
+              orgName,
+              tier: session.metadata.targetTier || 'pro',
+              event: 'trial_started',
+            });
+
+            // Move subscriber to trial-new list in Listmonk
             if (admin) {
               subscriberService.onTrialStart(admin.email)
                 .then(() => subscriberService.updateAttribsByEmail(admin.email, {
@@ -310,11 +305,11 @@ stripeRoute.post('/webhook', async (c) => {
                 .then(() => sendImmediate({ sequenceName: 'trial-new', email: admin.email, name: admin.name }))
                 .catch((err) => logger.warn('subscriber: failed onTrialStart/sendImmediate', { error: (err as Error).message }));
             }
+          } catch (subscriberErr) {
+            logger.warn('Failed to process checkout notifications', {
+              error: (subscriberErr as Error).message,
+            });
           }
-        } catch (subscriberErr) {
-          logger.warn('Failed to update Listmonk on checkout', {
-            error: (subscriberErr as Error).message,
-          });
         }
         break;
       }
@@ -477,6 +472,10 @@ stripeRoute.post('/webhook', async (c) => {
       error: error.message,
       stack: error.stack,
     });
+    // Clear dedup key so Stripe can retry this event.
+    // Without this, the dedup key (set before processing) would cause
+    // retries to be silently skipped, permanently losing the event.
+    await stripeService.clearWebhookEvent(event.id);
     // Return 500 to trigger Stripe retry for transient failures
     // This ensures we don't miss critical subscription events
     return c.json({ error: 'Webhook processing failed' }, 500);

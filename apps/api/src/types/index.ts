@@ -93,7 +93,7 @@ export interface SubscriptionStatus {
   subscriptionStatus: 'none' | 'trialing' | 'active' | 'canceled' | 'past_due' | 'unpaid';
   trialEndsAt: string | null;
   subscriptionEndsAt: string | null;
-  hasPaymentMethod: boolean;
+  hasBillingSetup: boolean;
   // Whether Stripe is configured and enabled
   stripeEnabled: boolean;
 }

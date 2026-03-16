@@ -83,7 +83,7 @@ function validateTierFromMetadata(rawTier: string | undefined): SubscriptionTier
 
 // Derive tier from subscription: price ID is authoritative, metadata is fallback
 function deriveTierFromSubscription(subscription: Stripe.Subscription): SubscriptionTier {
-  const priceId = subscription.items.data[0]?.price?.id || '';
+  const priceId = getPlanPriceId(subscription);
   const fromPrice = getTierFromPriceId(priceId);
   if (fromPrice !== 'free') return fromPrice;
 
@@ -97,6 +97,37 @@ function deriveTierFromSubscription(subscription: Stripe.Subscription): Subscrip
     });
   }
   return metadataTier;
+}
+
+/**
+ * Determine subscription end date:
+ * - cancel_at is set when canceling at a future date (including cancel_at_period_end)
+ * - Fallback to current_period_end when cancel_at_period_end is set but cancel_at is missing
+ * - Returns null when subscription is not ending
+ */
+function getSubscriptionEndDate(subscription: Stripe.Subscription): Date | null {
+  if (subscription.cancel_at) {
+    return new Date(subscription.cancel_at * 1000);
+  }
+  if (subscription.cancel_at_period_end) {
+    const periodEnd = (subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end;
+    const fallback = periodEnd || subscription.trial_end;
+    if (!fallback) return null; // Avoid epoch 0
+    return new Date(fallback * 1000);
+  }
+  return null;
+}
+
+/**
+ * Get the plan item from subscription, filtering out seat items.
+ * Returns the price ID of the plan item.
+ */
+function getPlanPriceId(subscription: Stripe.Subscription): string {
+  // Filter out the seat price item to find the actual plan item
+  const planItem = stripeConfig.seatPriceId
+    ? subscription.items.data.find(item => item.price?.id !== stripeConfig.seatPriceId)
+    : subscription.items.data[0];
+  return planItem?.price?.id || '';
 }
 
 /** Extract subscription ID from session.subscription (may be string or expanded object) */
@@ -410,12 +441,6 @@ export const stripeService = {
     const tier = deriveTierFromSubscription(subscription);
 
     // Update org with subscription details
-    const subscriptionEndsAt = subscription.cancel_at
-      ? new Date(subscription.cancel_at * 1000)
-      : subscription.cancel_at_period_end
-        ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end || subscription.trial_end || 0) * 1000)
-        : null;
-
     await db
       .update(orgs)
       .set({
@@ -424,7 +449,7 @@ export const stripeService = {
         tier,
         tierUpgradedAt: new Date(),
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-        subscriptionEndsAt,
+        subscriptionEndsAt: getSubscriptionEndDate(subscription),
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));
@@ -474,18 +499,19 @@ export const stripeService = {
     // If subscription is canceled or unpaid, downgrade to free
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
-    // Determine subscription end date:
-    // - cancel_at is set when canceling at a future date (including cancel_at_period_end)
-    // - Fallback to current_period_end when cancel_at_period_end is set but cancel_at is missing
-    const subscriptionEndsAt = subscription.cancel_at
-      ? new Date(subscription.cancel_at * 1000)
-      : subscription.cancel_at_period_end
-        ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end || subscription.trial_end || 0) * 1000)
-        : null;
+    const subscriptionEndsAt = getSubscriptionEndDate(subscription);
 
-    // Use conditional update to detect previous status and prevent lost updates
-    // from concurrent webhooks. The RETURNING clause gives us the old status.
-    const [updated] = await db
+    // Read current status BEFORE the update so we can detect transitions.
+    // (RETURNING gives post-update values, not pre-update.)
+    const [current] = await db
+      .select({ subscriptionStatus: orgs.subscriptionStatus })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1);
+
+    const previousStatus = current?.subscriptionStatus || 'none';
+
+    await db
       .update(orgs)
       .set({
         subscriptionStatus: status,
@@ -494,10 +520,7 @@ export const stripeService = {
         subscriptionEndsAt,
         updatedAt: new Date(),
       })
-      .where(eq(orgs.id, orgId))
-      .returning({ previousStatus: orgs.subscriptionStatus });
-
-    const previousStatus = updated?.previousStatus || 'none';
+      .where(eq(orgs.id, orgId));
 
     // Emit subscription lifecycle events on status transitions
     if (previousStatus === 'trialing' && status === 'active') {
@@ -607,13 +630,23 @@ export const stripeService = {
 
     // Find org by subscription ID
     const [org] = await db
-      .select({ id: orgs.id })
+      .select({ id: orgs.id, subscriptionStatus: orgs.subscriptionStatus })
       .from(orgs)
       .where(eq(orgs.stripeSubscriptionId, subscriptionId))
       .limit(1);
 
     if (!org) {
       logger.warn('Could not find org for failed payment', { subscriptionId });
+      return;
+    }
+
+    // Only mark as past_due if subscription is currently active or trialing.
+    // Avoid overwriting 'canceled' with 'past_due' from stale events.
+    if (!['active', 'trialing'].includes(org.subscriptionStatus || '')) {
+      logger.info('Skipping past_due update — subscription already in terminal state', {
+        orgId: org.id,
+        currentStatus: org.subscriptionStatus,
+      });
       return;
     }
 
@@ -703,12 +736,6 @@ export const stripeService = {
     const status = mapStripeStatus(subscription.status);
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
-    const subscriptionEndsAt = subscription.cancel_at
-      ? new Date(subscription.cancel_at * 1000)
-      : subscription.cancel_at_period_end
-        ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end || subscription.trial_end || 0) * 1000)
-        : null;
-
     await db
       .update(orgs)
       .set({
@@ -717,7 +744,7 @@ export const stripeService = {
         tier: finalTier,
         ...(finalTier !== 'free' && org.tier === 'free' ? { tierUpgradedAt: new Date() } : {}),
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
-        subscriptionEndsAt,
+        subscriptionEndsAt: getSubscriptionEndDate(subscription),
         updatedAt: new Date(),
       })
       .where(eq(orgs.id, orgId));
@@ -888,6 +915,21 @@ export const stripeService = {
         error: (err as Error).message,
       });
       return true;
+    }
+  },
+
+  /**
+   * Remove dedup key so the event can be retried.
+   * Called when webhook processing fails (returns 500) to allow Stripe retries.
+   */
+  async clearWebhookEvent(eventId: string): Promise<void> {
+    try {
+      await redis.del(`stripe:event:${eventId}`);
+    } catch (err) {
+      logger.warn('Failed to clear webhook dedup key', {
+        eventId,
+        error: (err as Error).message,
+      });
     }
   },
 };

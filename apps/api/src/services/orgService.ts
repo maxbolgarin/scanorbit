@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, and, desc, gte } from 'drizzle-orm';
+import { eq, and, asc, desc, gte } from 'drizzle-orm';
 import { db } from '../lib/db.js';
 import { HTTP400Error, HTTP403Error, HTTP404Error } from '../lib/errors.js';
 import { orgs, userOrgMembers, users, scans } from '../db/schema.js';
@@ -364,10 +364,9 @@ export const orgService = {
       subscriptionStatus: (org.subscriptionStatus || 'none') as SubscriptionStatus['subscriptionStatus'],
       trialEndsAt: org.trialEndsAt?.toISOString() || null,
       subscriptionEndsAt: org.subscriptionEndsAt?.toISOString() || null,
-      // Having a Stripe customer ID means billing is set up, but does not guarantee
-      // a payment method is on file. True payment method check would require a Stripe
-      // API call which is too expensive for this status endpoint.
-      hasPaymentMethod: !!org.stripeCustomerId && ['active', 'trialing', 'past_due'].includes(org.subscriptionStatus || ''),
+      // Indicates billing is set up (customer exists + subscription is active/trialing).
+      // Does NOT guarantee a payment method is on file — that requires a Stripe API call.
+      hasBillingSetup: !!org.stripeCustomerId && ['active', 'trialing', 'past_due'].includes(org.subscriptionStatus || ''),
       stripeEnabled: stripeService.isConfigured(),
     };
   },
@@ -376,11 +375,13 @@ export const orgService = {
    * Upgrade organization tier (mock implementation for demo)
    */
   async getOrgAdminEmail(orgId: string): Promise<{ email: string; name: string | null } | null> {
+    // Order by membership creation date to consistently pick the earliest (founding) admin
     const [admin] = await db
       .select({ email: users.email, fullName: users.fullName })
       .from(users)
       .innerJoin(userOrgMembers, eq(users.id, userOrgMembers.userId))
       .where(and(eq(userOrgMembers.orgId, orgId), eq(userOrgMembers.role, 'admin')))
+      .orderBy(asc(userOrgMembers.createdAt))
       .limit(1);
 
     return admin ? { email: admin.email, name: admin.fullName } : null;
