@@ -21,7 +21,7 @@ const { mockStripeService } = vi.hoisted(() => ({
       currentPaidSeats: 0,
       newPaidSeats: 0,
       seatPriceMonthly: 10,
-      estimatedNewMonthly: 0,
+      estimatedSeatCost: 0,
     }),
     updateSeatQuantity: vi.fn().mockResolvedValue(undefined),
   },
@@ -95,7 +95,7 @@ describe('invitationService', () => {
       currentPaidSeats: 0,
       newPaidSeats: 0,
       seatPriceMonthly: 10,
-      estimatedNewMonthly: 0,
+      estimatedSeatCost: 0,
     });
     mockStripeService.updateSeatQuantity.mockResolvedValue(undefined);
     mockEmailService.sendInvitationEmail.mockResolvedValue(undefined);
@@ -224,7 +224,7 @@ describe('invitationService', () => {
         currentPaidSeats: 1,
         newPaidSeats: 2,
         seatPriceMonthly: 10,
-        estimatedNewMonthly: 20,
+        estimatedSeatCost: 20,
       });
 
       setupSelectSequence([
@@ -238,7 +238,7 @@ describe('invitationService', () => {
 
       const result = await invitationService.createInvitation('org-1', 'admin-1', 'a@b.com', 'member');
       expect(result.billing.willAddPaidSeat).toBe(true);
-      expect(result.billing.estimatedNewMonthly).toBe(20);
+      expect(result.billing.estimatedSeatCost).toBe(20);
     });
   });
 

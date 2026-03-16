@@ -364,7 +364,10 @@ export const orgService = {
       subscriptionStatus: (org.subscriptionStatus || 'none') as SubscriptionStatus['subscriptionStatus'],
       trialEndsAt: org.trialEndsAt?.toISOString() || null,
       subscriptionEndsAt: org.subscriptionEndsAt?.toISOString() || null,
-      hasPaymentMethod: !!org.stripeCustomerId,
+      // Having a Stripe customer ID means billing is set up, but does not guarantee
+      // a payment method is on file. True payment method check would require a Stripe
+      // API call which is too expensive for this status endpoint.
+      hasPaymentMethod: !!org.stripeCustomerId && ['active', 'trialing', 'past_due'].includes(org.subscriptionStatus || ''),
       stripeEnabled: stripeService.isConfigured(),
     };
   },
