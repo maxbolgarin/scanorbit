@@ -1,4 +1,4 @@
-import { bot, sendAdminMessage } from './lib/telegram.js';
+import { bot } from './lib/telegram.js';
 import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { pool } from './lib/db.js';
