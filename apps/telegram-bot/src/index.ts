@@ -39,7 +39,6 @@ startScanCompletionPolling();
 bot.start({
   onStart: () => {
     logger.info('Bot started (long polling)');
-    sendAdminMessage('<b>Bot started</b>').catch(() => undefined);
   },
 });
 

@@ -162,7 +162,7 @@ Configure these DNS records (Scaleway DNS or your provider):
    - Enable "Read and write permissions" for `GITHUB_TOKEN`
 
 2. **Add Repository Variables** (Settings → Secrets and variables → Actions → Variables)
-   - `VITE_API_URL` = `https://api.scanorbit.cloud`
+   - `VITE_PUBLIC_API_URL` = `https://api.scanorbit.cloud`
 
 3. **Push to main** — GitHub Actions will build and push images to GHCR
 

@@ -131,7 +131,6 @@ app.{$DOMAIN} {
 
 # API - api subdomain (allowlist-based: only known routes reach the API)
 api.{$DOMAIN} {
-	import block_scanners
 	header /* {
 		-Server
 		-Via
@@ -140,23 +139,40 @@ api.{$DOMAIN} {
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 
+	# CORS preflight matcher — handle OPTIONS from the app origin at proxy level
+	@cors_preflight {
+		method OPTIONS
+		header Origin https://app.{$DOMAIN}
+	}
+
 	# Use route to enforce written order (Caddy's default directive order
 	# puts respond before reverse_proxy, which would make the catch-all 404
 	# fire before the proxy has a chance to handle allowed paths).
 	route {
-		# Block internal-only endpoints from public access
+		# 1. Handle CORS preflight at proxy level (before anything else)
+		header @cors_preflight Access-Control-Allow-Origin "https://app.{$DOMAIN}"
+		header @cors_preflight Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+		header @cors_preflight Access-Control-Allow-Headers "Content-Type, Authorization, X-API-Key, x-request-id, x-trace-id, x-span-id"
+		header @cors_preflight Access-Control-Allow-Credentials "true"
+		header @cors_preflight Access-Control-Max-Age "86400"
+		respond @cors_preflight 204
+
+		# 2. Block attack patterns, scanner probes, and malicious UAs
+		import block_scanners
+
+		# 3. Block internal-only endpoints from public access
 		@internal_endpoints path /metrics /status
 		respond @internal_endpoints 404
 
-		# Block meta files that only make sense on landing/app
+		# 4. Block meta files that only make sense on landing/app
 		@api_meta path /robots.txt /sitemap.xml /favicon.ico
 		respond @api_meta 404
 
-		# Allowlist: ONLY proxy known valid API route prefixes
+		# 5. Allowlist: ONLY proxy known valid API route prefixes
 		@api_allowed path /auth/* /orgs /orgs/* /aws/* /resources /resources/* /findings /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports /bug-reports/* /api/v1/* /health /health/ready
 		reverse_proxy @api_allowed api:4000
 
-		# Everything else: 404 without hitting the API
+		# 6. Everything else: 404 without hitting the API
 		respond 404
 	}
 }

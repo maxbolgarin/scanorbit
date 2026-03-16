@@ -74,7 +74,7 @@ In your GitHub repo, set these **repository variables** (Settings → Secrets an
 
 | Variable | Value |
 |---|---|
-| `VITE_API_URL` | `https://api.scanorbit.cloud` |
+| `VITE_PUBLIC_API_URL` | `https://api.scanorbit.cloud` |
 | `VITE_SCANORBIT_AWS_ACCOUNT_ID` | Your AWS account ID |
 
 GitHub Actions uses `GITHUB_TOKEN` (automatic) for GHCR authentication. No additional secrets needed.
