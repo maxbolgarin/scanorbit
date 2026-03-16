@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.28.0](https://github.com/maxbolgarin/scanorbit/compare/v1.27.0...v1.28.0) (2026-03-16)
+
+### Features
+
+* **api:** add csp violation reporting, timing-safe totp verification, and enhance audit logging security ([fac99b8](https://github.com/maxbolgarin/scanorbit/commit/fac99b83afe9363caa97f6a3340b3e1a27396901))
+* **api:** add rate limiting to stripe endpoints and enhance subscription handling ([f2198fd](https://github.com/maxbolgarin/scanorbit/commit/f2198fd30a445e42cc539a761bce7be9a89eacc5))
+* **api:** add rate limiting to subscription endpoints and improve webhook notification handling ([7629f9d](https://github.com/maxbolgarin/scanorbit/commit/7629f9d63fd3346f18963b80ab617af416dcf659))
+* **api:** add stripe subscription sync endpoint and improve subscription tier handling ([7e3e3ea](https://github.com/maxbolgarin/scanorbit/commit/7e3e3eae12327c361087d370b64ec4eba5cb6dd1))
+* **app:** add controls visibility toggle to infrastructure maps with localStorage persistence ([baa81c6](https://github.com/maxbolgarin/scanorbit/commit/baa81c63aedc931afe272f0857ccfb73b4f8564b))
+* **docs:** add CLAUDE.md for project guidance, commands, architecture, and testing patterns ([88201d9](https://github.com/maxbolgarin/scanorbit/commit/88201d953def9378802c506ff5fdf1ef7fcc5e03))
+* **emails:** implement resend-based drip email campaigns with template loader and multiple subscriber segments ([7f85345](https://github.com/maxbolgarin/scanorbit/commit/7f853454c5b7912ccf460c82c91a669bfb239731))
+* **stripe:** add customer existence verification and handle externally deleted customers ([bc3bf7d](https://github.com/maxbolgarin/scanorbit/commit/bc3bf7da0287ed583acb9607243b287f94050d87))
+* **telegram-bot:** add telegram bot application with commands, notifications, and monitoring ([de141c3](https://github.com/maxbolgarin/scanorbit/commit/de141c36584741b575dbf02e459b2f2a58dcf6f5))
+
+### Bug Fixes
+
+* **config:** use readSecret for resend api key to improve security handling ([859cafd](https://github.com/maxbolgarin/scanorbit/commit/859cafd6dd8ac0cc911695cb634aac548bf91f28))
+* **stripe:** improve customer deletion handling to support both soft and hard deletes ([d93144f](https://github.com/maxbolgarin/scanorbit/commit/d93144ff6b9fe863acd519ab847ec804328a094f))
+
+### Code Refactoring
+
+* **emails:** update color scheme to purple palette across all drip campaign templates ([668a20b](https://github.com/maxbolgarin/scanorbit/commit/668a20b9366c14af5a8a93258b5dc5d008186c57))
+* **emails:** update dashboard links from /dashboard to /overview across drip campaign templates ([6df90e5](https://github.com/maxbolgarin/scanorbit/commit/6df90e5e2965884f37997118f79da33bb3ee2d85))
+* **telegram-bot:** remove unused sendAdminMessage import from index ([a1fd0ec](https://github.com/maxbolgarin/scanorbit/commit/a1fd0ec60310dcca3539a897daffb9fb65998410))
+
+### Build System
+
+* **deploy:** enhance caddy security rules with path traversal and encoding attack detection, improve scanner probe blocking ([422907a](https://github.com/maxbolgarin/scanorbit/commit/422907ab38681c8bcb307ace98588affc9ba6a09))
+* **deploy:** move resend api key to docker secrets and copy email templates to dist on build ([b321229](https://github.com/maxbolgarin/scanorbit/commit/b321229e790ed266565943a4f9ecb9c9722fdaa7))
+* **vite:** rename vite api url variable to use public prefix for proper exposure ([9b7abc1](https://github.com/maxbolgarin/scanorbit/commit/9b7abc154658f36a499844e4f368506245a4df24))
+
+### Continuous Integration
+
+* **workflows:** remove unused telegram thread id variable from build and release workflows ([dd513d7](https://github.com/maxbolgarin/scanorbit/commit/dd513d73d8fce00f4b85638f6772ee35cc5cd53a))
+
+### Docs
+
+* **legal:** consolidate legal documents from content to src/content/legal directory ([601dcfd](https://github.com/maxbolgarin/scanorbit/commit/601dcfd6ae17c78914ee502d99594337de81fc9b))
+
 ## [1.27.0](https://github.com/maxbolgarin/scanorbit/compare/v1.26.0...v1.27.0) (2026-03-14)
 
 ### Features
