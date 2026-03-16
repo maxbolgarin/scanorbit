@@ -389,13 +389,14 @@ stripeRoute.post('/webhook', async (c) => {
               const trialEndsAt = subscription.trial_end
                 ? new Date(subscription.trial_end * 1000)
                 : new Date();
-              const tier = subscription.items.data[0]?.price?.nickname || 'Pro';
-              await emailService.sendTrialEndingEmail(
+              const tierPriceId = subscription.items.data[0]?.price?.id || '';
+              const tier = tierPriceId === stripeConfig.teamPriceId ? 'Team' : 'Pro';
+              emailService.sendTrialEndingEmail(
                 admin.email,
                 trialEndsAt,
                 tier,
                 admin.name || undefined
-              );
+              ).catch((err) => logger.warn('Failed to send trial ending email', { error: (err as Error).message }));
             }
           }
         } catch (emailErr) {
@@ -423,11 +424,11 @@ stripeRoute.post('/webhook', async (c) => {
               publishTelegramEvent({ type: 'subscription_change', orgId, orgName, tier, event: 'payment_failed' });
               const admin = await orgService.getOrgAdminEmail(orgId);
               if (admin) {
-                await emailService.sendPaymentFailedEmail(
+                emailService.sendPaymentFailedEmail(
                   admin.email,
                   tier,
                   admin.name || undefined
-                );
+                ).catch((err) => logger.warn('Failed to send payment failed email', { error: (err as Error).message }));
               }
             }
           }

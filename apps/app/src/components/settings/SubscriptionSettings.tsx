@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -135,13 +135,16 @@ export function SubscriptionSettings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("pro");
+  const checkoutSyncedRef = useRef(false);
 
   // Handle checkout success/canceled URL params
   useEffect(() => {
     const success = searchParams.get('success');
     const canceled = searchParams.get('canceled');
 
-    if (success === 'true') {
+    if (success === 'true' && !checkoutSyncedRef.current) {
+      checkoutSyncedRef.current = true;
+
       // Remove the query params immediately to prevent re-triggering
       searchParams.delete('success');
       setSearchParams(searchParams, { replace: true });
