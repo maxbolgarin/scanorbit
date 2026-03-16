@@ -11,28 +11,9 @@ function GitHubIcon() {
   );
 }
 
-// Get the API URL for OAuth redirect
+// OAuth redirect via same-origin proxy — Caddy forwards to the API server
 function getOAuthUrl(): string {
-  const apiUrl = import.meta.env.VITE_API_URL;
-
-  // If no API URL set, use same-origin
-  if (!apiUrl) {
-    return "/api/auth/github";
-  }
-
-  // Normalize the URL - remove trailing slashes to prevent double-slash issues
-  const normalized = apiUrl.trim().replace(/\/+$/, '');
-  if (normalized.startsWith("/")) {
-    return `${normalized}/auth/github`;
-  }
-
-  // Add scheme if missing
-  if (!normalized.includes("://")) {
-    const isLocal = normalized.startsWith("localhost") || normalized.startsWith("127.0.0.1");
-    return `${isLocal ? "http" : "https"}://${normalized}/auth/github`;
-  }
-
-  return `${normalized}/auth/github`;
+  return "/api/auth/github";
 }
 
 interface GitHubAuthButtonProps {

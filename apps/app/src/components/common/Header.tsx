@@ -51,26 +51,10 @@ export function Header() {
     setAccessToken(null);
     localStorage.removeItem('auth-storage');
 
-    // Navigate directly to API logout endpoint (not through Vite proxy)
-    // This is needed because the refresh_token cookie was set by the API directly
-    // during OAuth callback, so it's stored for the API origin, not the frontend origin
-    const apiUrl = import.meta.env.VITE_API_URL;
-    let logoutUrl = "/api/auth/logout";
-
-    if (apiUrl) {
-      const normalized = apiUrl.trim().replace(/\/+$/, '');
-      if (normalized.startsWith("/")) {
-        logoutUrl = `${normalized}/auth/logout`;
-      } else if (!normalized.includes("://")) {
-        const isLocal = normalized.startsWith("localhost") || normalized.startsWith("127.0.0.1");
-        logoutUrl = `${isLocal ? "http" : "https"}://${normalized}/auth/logout`;
-      } else {
-        logoutUrl = `${normalized}/auth/logout`;
-      }
-    }
-
-    // Use GET navigation so the browser sends the cookie (SameSite=Lax allows GET navigations)
-    window.location.href = logoutUrl;
+    // Logout via same-origin proxy — Caddy forwards to the API server which clears
+    // the refresh_token cookie (Domain=.scanorbit.cloud covers both subdomains).
+    // GET navigation so the browser sends the cookie (SameSite=Lax allows GET navigations).
+    window.location.href = "/api/auth/logout";
   };
 
   return (

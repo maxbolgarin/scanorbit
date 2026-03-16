@@ -67,14 +67,8 @@ export function normalizeApiUrl(value: unknown): string | undefined {
   return `${isLocal ? "http" : "https"}://${v}`;
 }
 
-// API base URL from environment.
-//
-// Prefer same-origin `/api` so the SPA can be deployed behind a reverse proxy (nginx)
-// without relying on build-time env wiring, and so local dev can use Vite's proxy.
-//
-// Also normalize accidental values like "api.scanorbit.cloud" (missing scheme), which
-// would otherwise be treated as a relative path ("/api.scanorbit.cloud/...") by the browser.
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) || "/api";
+// Same-origin `/api` — Caddy (prod) and Vite (dev) both proxy this to the API server.
+const API_URL = "/api";
 
 // Create axios instance with default config
 const api = axios.create({

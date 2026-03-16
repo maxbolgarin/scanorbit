@@ -154,7 +154,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_PUBLIC_API_URL=${{ vars.VITE_PUBLIC_API_URL }}
             VITE_SCANORBIT_AWS_ACCOUNT_ID=${{ vars.VITE_SCANORBIT_AWS_ACCOUNT_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

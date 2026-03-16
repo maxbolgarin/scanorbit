@@ -226,7 +226,7 @@ const ENDPOINT_GROUPS: EndpointGroup[] = [
 // ---------------------------------------------------------------------------
 
 const API_BASE =
-  (normalizeApiUrl(import.meta.env.VITE_API_URL) ?? "").replace(/\/$/, "") +
+  (normalizeApiUrl(import.meta.env.VITE_PUBLIC_API_URL) ?? "").replace(/\/$/, "") +
   "/api/v1";
 
 function buildUrl(path: string, pathValues: Record<string, string>, queryValues: Record<string, string>): string {
