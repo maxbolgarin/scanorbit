@@ -24,6 +24,7 @@ vi.mock('../../lib/config.js', () => ({
     webhookSecret: 'whsec_test',
     proPriceId: 'price_pro',
     teamPriceId: 'price_team',
+    seatPriceId: 'price_seat',
     trialDays: 14,
   },
 }));
@@ -41,6 +42,7 @@ vi.mock('../../lib/redis.js', () => ({
   redis: {
     set: vi.fn().mockResolvedValue('OK'),
     get: vi.fn().mockResolvedValue(null),
+    del: vi.fn().mockResolvedValue(1),
   },
 }));
 
@@ -202,21 +204,54 @@ describe('stripeService', () => {
 
   describe('updateOrgFromSubscription', () => {
     it('downgrades to free on canceled status', async () => {
+      selectResult = [{ subscriptionStatus: 'active' }];
+
       await stripeService.updateOrgFromSubscription('org-1', {
         status: 'canceled',
         trial_end: null,
         cancel_at: null,
+        cancel_at_period_end: false,
         items: { data: [{ price: { id: 'price_pro' } }] },
       } as any);
 
       const { db } = await import('../../lib/db.js');
       expect(db.update).toHaveBeenCalled();
     });
+
+    it('emits activated metric on trialing → active transition', async () => {
+      selectResult = [{ subscriptionStatus: 'trialing' }];
+
+      await stripeService.updateOrgFromSubscription('org-1', {
+        status: 'active',
+        trial_end: null,
+        cancel_at: null,
+        cancel_at_period_end: false,
+        items: { data: [{ price: { id: 'price_pro' } }] },
+      } as any);
+
+      const { subscriptionEventsTotal } = await import('../../lib/metrics.js');
+      expect(subscriptionEventsTotal.inc).toHaveBeenCalledWith({ event: 'activated' });
+    });
+
+    it('emits canceled metric on active → canceled transition', async () => {
+      selectResult = [{ subscriptionStatus: 'active' }];
+
+      await stripeService.updateOrgFromSubscription('org-1', {
+        status: 'canceled',
+        trial_end: null,
+        cancel_at: null,
+        cancel_at_period_end: false,
+        items: { data: [{ price: { id: 'price_pro' } }] },
+      } as any);
+
+      const { subscriptionEventsTotal } = await import('../../lib/metrics.js');
+      expect(subscriptionEventsTotal.inc).toHaveBeenCalledWith({ event: 'canceled' });
+    });
   });
 
   describe('handlePaymentFailed', () => {
     it('marks subscription as past_due', async () => {
-      selectResult = [{ id: 'org-1' }];
+      selectResult = [{ id: 'org-1', subscriptionStatus: 'active' }];
 
       await stripeService.handlePaymentFailed({
         parent: { subscription_details: { subscription: 'sub_123' } },
@@ -224,6 +259,17 @@ describe('stripeService', () => {
 
       const { db } = await import('../../lib/db.js');
       expect(db.update).toHaveBeenCalled();
+    });
+
+    it('skips past_due update when subscription is already canceled', async () => {
+      selectResult = [{ id: 'org-1', subscriptionStatus: 'canceled' }];
+
+      await stripeService.handlePaymentFailed({
+        parent: { subscription_details: { subscription: 'sub_123' } },
+      } as any);
+
+      const { db } = await import('../../lib/db.js');
+      expect(db.update).not.toHaveBeenCalled();
     });
 
     it('skips when no subscription ID', async () => {

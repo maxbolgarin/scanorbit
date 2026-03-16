@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asc, desc, eq, and, gte, lte, inArray, sql } from 'drizzle-orm';
 import { requireAuth } from '../middlewares/auth.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
+import { rateLimit } from '../middlewares/rateLimit.js';
 import { orgService, getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 import { orgSettingsService } from '../services/orgSettingsService.js';
 import { invitationService } from '../services/invitationService.js';
@@ -360,8 +361,18 @@ orgsRoute.get('/:id/subscription', async (c) => {
   return c.json({ data: status });
 });
 
+// Rate limit subscription changes: 10 requests per minute per user
+const subscriptionRateLimit = rateLimit({
+  keyPrefix: 'subscription',
+  maxRequests: 10,
+  windowSeconds: 60,
+  keyExtractor: (c) => c.get('userId') || 'anon',
+  message: 'Too many subscription requests. Please slow down.',
+  failOpen: true,
+});
+
 // POST /orgs/:id/subscription/upgrade - Upgrade tier (mock)
-orgsRoute.post('/:id/subscription/upgrade', zValidator('json', upgradeSubscriptionSchema), async (c) => {
+orgsRoute.post('/:id/subscription/upgrade', subscriptionRateLimit, zValidator('json', upgradeSubscriptionSchema), async (c) => {
   const orgId = c.req.param('id');
   const userId = c.get('userId');
   const { targetTier } = c.req.valid('json');
