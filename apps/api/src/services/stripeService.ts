@@ -154,7 +154,32 @@ export const stripeService = {
     }
 
     if (orgCheck.stripeCustomerId) {
-      return orgCheck.stripeCustomerId;
+      // Verify the customer still exists in Stripe (may have been deleted externally)
+      try {
+        await getStripeClient().customers.retrieve(orgCheck.stripeCustomerId);
+        return orgCheck.stripeCustomerId;
+      } catch (err) {
+        const stripeErr = err as { statusCode?: number };
+        if (stripeErr.statusCode === 404) {
+          // Customer was deleted from Stripe — clear stale reference and subscription data
+          await db
+            .update(orgs)
+            .set({
+              stripeCustomerId: null,
+              stripeSubscriptionId: null,
+              subscriptionStatus: 'none',
+              updatedAt: new Date(),
+            })
+            .where(eq(orgs.id, orgId));
+          logger.warn('Cleared stale Stripe customer ID (deleted externally)', {
+            orgId,
+            customerId: orgCheck.stripeCustomerId,
+          });
+          // Fall through to create a new customer
+        } else {
+          throw err;
+        }
+      }
     }
 
     // 2. Get user email outside transaction
