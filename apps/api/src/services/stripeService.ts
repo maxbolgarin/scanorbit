@@ -69,6 +69,22 @@ function getTierFromPriceId(priceId: string): SubscriptionTier {
   return 'free';
 }
 
+// Validate and extract tier from metadata (protects against invalid values)
+function validateTierFromMetadata(rawTier: string | undefined): SubscriptionTier {
+  if (rawTier === 'pro' || rawTier === 'team') {
+    return rawTier;
+  }
+  return 'free';
+}
+
+// Derive tier from subscription: price ID is authoritative, metadata is fallback
+function deriveTierFromSubscription(subscription: Stripe.Subscription): SubscriptionTier {
+  const priceId = subscription.items.data[0]?.price?.id || '';
+  const fromPrice = getTierFromPriceId(priceId);
+  if (fromPrice !== 'free') return fromPrice;
+  return validateTierFromMetadata(subscription.metadata?.targetTier);
+}
+
 export const stripeService = {
   /**
    * Get or create a Stripe customer for an organization
@@ -195,9 +211,13 @@ export const stripeService = {
       targetTier,
     });
 
+    if (!session.url) {
+      throw new HTTP400Error('Stripe returned no checkout URL');
+    }
+
     return {
       sessionId: session.id,
-      url: session.url!,
+      url: session.url,
     };
   },
 
@@ -305,7 +325,6 @@ export const stripeService = {
    */
   async handleCheckoutComplete(session: Stripe.Checkout.Session): Promise<void> {
     const orgId = session.metadata?.orgId;
-    const targetTier = session.metadata?.targetTier as SubscriptionTier;
 
     if (!orgId) {
       logger.warn('Checkout session missing orgId metadata', { sessionId: session.id });
@@ -320,13 +339,7 @@ export const stripeService = {
     }
 
     const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
-
-    // Derive tier from the actual Stripe price ID (authoritative source),
-    // falling back to metadata only if price ID is missing
-    const priceId = subscription.items.data[0]?.price.id || '';
-    const tier = getTierFromPriceId(priceId) !== 'free'
-      ? getTierFromPriceId(priceId)
-      : targetTier || 'free';
+    const tier = deriveTierFromSubscription(subscription);
 
     // Update org with subscription details
     await db
@@ -352,7 +365,7 @@ export const stripeService = {
       orgId,
       subscriptionId,
       status: subscription.status,
-      tier: targetTier,
+      tier,
     });
   },
 
@@ -385,10 +398,7 @@ export const stripeService = {
    * Update org record from subscription data
    */
   async updateOrgFromSubscription(orgId: string, subscription: Stripe.Subscription): Promise<void> {
-    const priceId = subscription.items.data[0]?.price.id || '';
-    const tier = getTierFromPriceId(priceId) !== 'free'
-      ? getTierFromPriceId(priceId)
-      : (subscription.metadata?.targetTier as SubscriptionTier) || 'free';
+    const tier = deriveTierFromSubscription(subscription);
     const status = mapStripeStatus(subscription.status);
 
     // Read current status before update to detect transitions
@@ -499,7 +509,10 @@ export const stripeService = {
    * Handle invoice payment failure
    */
   async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    const subscriptionId = invoice.parent?.subscription_details?.subscription as string;
+    const parentSub = invoice.parent?.subscription_details?.subscription;
+    const subscriptionId = typeof parentSub === 'string'
+      ? parentSub
+      : (parentSub as { id?: string } | null | undefined)?.id;
 
     if (!subscriptionId) {
       return;
@@ -583,11 +596,8 @@ export const stripeService = {
       return { synced: false, tier: 'free' };
     }
 
-    // Derive tier with metadata fallback (same logic as handleCheckoutComplete)
-    const priceId = subscription.items.data[0]?.price.id || '';
-    const tier = getTierFromPriceId(priceId) !== 'free'
-      ? getTierFromPriceId(priceId)
-      : (subscription.metadata?.targetTier as SubscriptionTier) || 'free';
+    // Derive tier with metadata fallback
+    const tier = deriveTierFromSubscription(subscription);
     const status = mapStripeStatus(subscription.status);
     const finalTier = ['canceled', 'unpaid', 'none'].includes(status) ? 'free' : tier;
 
@@ -655,7 +665,7 @@ export const stripeService = {
     try {
       const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
       const seatItem = subscription.items.data.find(
-        (item) => item.price.id === stripeConfig.seatPriceId
+        (item) => item.price?.id === stripeConfig.seatPriceId
       );
       return {
         itemId: seatItem?.id ?? null,
@@ -691,7 +701,7 @@ export const stripeService = {
       // Inline subscription retrieval to avoid redundant DB query via getSeatItemInfo
       const subscription = await getStripeClient().subscriptions.retrieve(org.stripeSubscriptionId);
       const seatItem = subscription.items.data.find(
-        (item) => item.price.id === stripeConfig.seatPriceId
+        (item) => item.price?.id === stripeConfig.seatPriceId
       );
       const itemId = seatItem?.id ?? null;
 

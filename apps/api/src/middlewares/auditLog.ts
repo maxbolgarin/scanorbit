@@ -39,6 +39,7 @@ function shouldExclude(path: string): boolean {
     /^(\/api)?\/auth\/me$/,      // Session polling (high frequency)
     /^(\/api)?\/auth\/login$/,   // Login — logged explicitly with real userId via logAuthEvent
     /^(\/api)?\/auth\/logout$/,  // Logout — logged explicitly with real userId via logAuthEvent
+    /^(\/api)?\/stripe\/webhook$/, // Stripe webhooks (system events, not user actions)
     /^\/favicon/,                // Favicon and related
     /^\/robots\.txt/,            // Bots
     /^\/_next\//,                // Next.js internals

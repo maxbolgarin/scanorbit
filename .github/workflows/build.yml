@@ -329,7 +329,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-          THREAD_ID: ${{ vars.TELEGRAM_THREAD_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           ACTOR: ${{ github.actor }}
@@ -347,7 +346,7 @@ jobs:
 
           token             = os.environ['TELEGRAM_BOT_TOKEN']
           chat_id           = os.environ['CHAT_ID']
-          thread_id         = os.environ.get('THREAD_ID', '').strip()
+          thread_id         = os.environ.get('', '').strip()
           pr_title          = os.environ.get('PR_TITLE', '').strip()
           actor             = os.environ['ACTOR']
           sha_full          = os.environ.get('HEAD_SHA') or os.environ['SHA']
