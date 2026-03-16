@@ -10,6 +10,7 @@ import { signupCodes, twoFactorStore, accountLockoutStore } from '../../lib/redi
 import { consentService } from '../consentService.js';
 import { authOperationsTotal, userSignupsTotal, userLoginsTotal } from '../../lib/metrics.js';
 import { logger } from '../../lib/logger.js';
+import { publishTelegramEvent } from '../telegramEventService.js';
 import { generateVerificationCode, generateSlug, SALT_ROUNDS, VERIFICATION_CODE_EXPIRY_HOURS } from './helpers.js';
 import type { SignupResult, LoginResponse, LoginResult } from './helpers.js';
 
@@ -103,6 +104,7 @@ async function signup(
 
   authOperationsTotal.inc({ operation: 'signup', status: 'success' });
   userSignupsTotal.inc({ method: 'email' });
+  publishTelegramEvent({ type: 'user_signup', email: email.toLowerCase(), method: 'email' });
 
   return {
     user,
@@ -380,6 +382,7 @@ async function completeSignup(
   await signupCodes.cleanup(email);
 
   userSignupsTotal.inc({ method: 'email' });
+  publishTelegramEvent({ type: 'user_signup', email, method: 'email' });
 
   return { user };
 }

@@ -28,6 +28,7 @@ help:
 	@echo "  $(BLUE)dev-landing$(RESET)     Start landing page in dev mode"
 	@echo "  $(BLUE)dev-scanner$(RESET)     Run scanner worker locally"
 	@echo "  $(BLUE)dev-analyzer$(RESET)    Run analyzer worker locally"
+	@echo "  $(BLUE)dev-telegram-bot$(RESET) Start Telegram bot in dev mode"
 	@echo "  $(BLUE)dev-all$(RESET)         Start all services (infra + workers)"
 	@echo ""
 	@echo "$(YELLOW)Build:$(RESET)"
@@ -132,6 +133,9 @@ dev-app:
 
 dev-landing:
 	pnpm dev:landing
+
+dev-telegram-bot:
+	pnpm dev:telegram-bot
 
 dev-scanner:
 	cd workers && make dev-scanner

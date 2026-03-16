@@ -8,6 +8,7 @@ import { awsAccounts, scans, jobs, orgSettings } from '../db/schema.js';
 import type { AwsAccount, Scan, NewAwsAccount } from '../db/schema.js';
 import { config } from '../lib/config.js';
 import { scansTriggered, jobsEnqueued, awsAccountsConnected } from '../lib/metrics.js';
+import { publishTelegramEvent } from './telegramEventService.js';
 import { getOrgTier } from './orgService.js';
 import { encryptExternalIdOptional, decryptExternalIdOptional } from '../lib/crypto.js';
 import {
@@ -164,6 +165,7 @@ export const awsAccountService = {
     });
 
     awsAccountsConnected.inc();
+    publishTelegramEvent({ type: 'aws_account_connected', orgId, accountName: data.name, awsAccountId: data.awsAccountId });
     return decryptAccountExternalId(account);
   },
 
@@ -489,6 +491,7 @@ export const awsAccountService = {
     // Track scan triggered and job enqueued
     scansTriggered.inc({ org_id: orgId });
     jobsEnqueued.inc({ job_type: 'scan_account' });
+    publishTelegramEvent({ type: 'scan_started', orgId, accountName: account.name, scanId: scan.id });
 
     return scan;
   },

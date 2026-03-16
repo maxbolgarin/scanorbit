@@ -3,6 +3,7 @@ import { jobs, scans, deadLetterJobs } from '../db/schema.js';
 import { eq, and, lt, inArray, isNull } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { ACTIVE_SCAN_STATUSES, ScanStatus } from '../types/index.js';
+import { publishTelegramEvent } from './telegramEventService.js';
 
 // Jobs running longer than this are considered stuck
 const STUCK_JOB_TIMEOUT_MINUTES = 30;
@@ -188,6 +189,15 @@ export async function recoverStuckJobs(): Promise<StuckJobResult> {
   } catch (err) {
     result.errors.push(`Fatal error in stuck job recovery: ${(err as Error).message}`);
     logger.error('Fatal error in stuck job recovery', err as Error);
+  }
+
+  if (result.stuckJobsRecovered > 0 || result.stuckScansErrored > 0 || result.jobsMovedToDLQ > 0) {
+    publishTelegramEvent({
+      type: 'stuck_jobs',
+      stuckJobsRecovered: result.stuckJobsRecovered,
+      stuckScansErrored: result.stuckScansErrored,
+      jobsMovedToDLQ: result.jobsMovedToDLQ,
+    });
   }
 
   return result;

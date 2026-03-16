@@ -31,6 +31,11 @@ on:
         required: false
         type: boolean
         default: false
+      telegram-bot:
+        description: Force build Telegram Bot
+        required: false
+        type: boolean
+        default: false
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
@@ -44,6 +49,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       landing: ${{ steps.filter.outputs.landing }}
       workers: ${{ steps.filter.outputs.workers }}
+      telegram-bot: ${{ steps.filter.outputs.telegram-bot }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -63,6 +69,8 @@ jobs:
               - 'apps/landing/**'
             workers:
               - 'workers/**'
+            telegram-bot:
+              - 'apps/telegram-bot/**'
 
   build-api:
     name: Build API
@@ -238,9 +246,51 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-telegram-bot:
+    name: Build Telegram Bot
+    needs: changes
+    if: needs.changes.outputs.telegram-bot == 'true' || inputs.telegram-bot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/telegram-bot
+          tags: |
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/telegram-bot/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
     name: Deploy to Production
-    needs: [build-api, build-app, build-landing, build-workers]
+    needs: [build-api, build-app, build-landing, build-workers, build-telegram-bot]
     if: |
       vars.FORCE_DEPLOY == 'true' &&
       always() &&
@@ -257,6 +307,7 @@ jobs:
           [ "${{ needs.build-app.result }}" = "success" ] && services="$services app"
           [ "${{ needs.build-landing.result }}" = "success" ] && services="$services landing"
           [ "${{ needs.build-workers.result }}" = "success" ] && services="$services scanner analyzer"
+          [ "${{ needs.build-telegram-bot.result }}" = "success" ] && services="$services telegram-bot"
           echo "services=$services" >> "$GITHUB_OUTPUT"
 
       - name: Deploy changed services
@@ -271,6 +322,7 @@ jobs:
             [ "${{ needs.build-app.result }}" = "success" ] && SERVICES="$SERVICES app"
             [ "${{ needs.build-landing.result }}" = "success" ] && SERVICES="$SERVICES landing"
             [ "${{ needs.build-workers.result }}" = "success" ] && SERVICES="$SERVICES scanner analyzer"
+            [ "${{ needs.build-telegram-bot.result }}" = "success" ] && SERVICES="$SERVICES telegram-bot"
             /opt/scanorbit/deploy/scripts/deploy.sh $SERVICES
 
       - name: Notify Telegram
@@ -295,7 +347,7 @@ jobs:
 
           token             = os.environ['TELEGRAM_BOT_TOKEN']
           chat_id           = os.environ['CHAT_ID']
-          thread_id         = os.environ['THREAD_ID']
+          thread_id         = os.environ.get('THREAD_ID', '').strip()
           pr_title          = os.environ.get('PR_TITLE', '').strip()
           actor             = os.environ['ACTOR']
           sha_full          = os.environ.get('HEAD_SHA') or os.environ['SHA']
@@ -353,14 +405,18 @@ jobs:
               f'🔗 {server}/{repo}/actions/runs/{run_id}'
           )
 
-          payload = json.dumps({
+          payload_dict = {
               'chat_id': chat_id,
-              'message_thread_id': int(thread_id),
               'text': text,
               'parse_mode': 'HTML',
               'disable_web_page_preview': True,
               'disable_notification': True,
-          }).encode()
+          }
+
+          if thread_id:
+              payload_dict['message_thread_id'] = int(thread_id)
+
+          payload = json.dumps(payload_dict).encode()
 
           req = urllib.request.Request(
               f'https://api.telegram.org/bot{token}/sendMessage',

@@ -342,6 +342,42 @@ services:
     networks:
       - scanorbit
 
+  # Telegram Admin Bot (read-only monitoring)
+  telegram-bot:
+    image: ghcr.io/${GITHUB_REPOSITORY}/telegram-bot:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DB_CA_CERT=/certs/postgres-ca.crt
+      - NODE_EXTRA_CA_CERTS=/certs/postgres-ca.crt
+      - REDIS_CA_CERT=/certs/redis-ca.crt
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
+      - TELEGRAM_THREAD_ID=${TELEGRAM_THREAD_ID:-0}
+    secrets:
+      - source: so_api_database_url
+        target: database_url
+      - redis_url
+    volumes:
+      - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
+      - ./certs/redis/ca.crt:/certs/redis-ca.crt:ro
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - scanorbit
+
   # PostgreSQL Database (with SSL/TLS)
   # Uses built-in POSTGRES_PASSWORD_FILE support
   # Data stored on host filesystem at POSTGRES_DATA_DIR for durability

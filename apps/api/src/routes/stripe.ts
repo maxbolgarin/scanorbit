@@ -10,6 +10,7 @@ import { sendImmediate } from '../services/dripSchedulerService.js';
 import { config, stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { HTTP400Error } from '../lib/errors.js';
+import { publishTelegramEvent } from '../services/telegramEventService.js';
 import type { Variables } from '../types/index.js';
 import type Stripe from 'stripe';
 
@@ -229,6 +230,18 @@ stripeRoute.post('/webhook', async (c) => {
         const session = event.data.object as Stripe.Checkout.Session;
         await stripeService.handleCheckoutComplete(session);
 
+        // Notify admin bot
+        if (session.metadata?.orgId) {
+          const orgName = session.metadata.orgName || session.metadata.orgId;
+          publishTelegramEvent({
+            type: 'subscription_change',
+            orgId: session.metadata.orgId,
+            orgName,
+            tier: session.metadata.targetTier || 'pro',
+            event: 'trial_started',
+          });
+        }
+
         // Move subscriber to trial-new list in Listmonk
         try {
           const orgId = session.metadata?.orgId;
@@ -267,11 +280,13 @@ stripeRoute.post('/webhook', async (c) => {
             if (admin) {
               const priceId = subscription.items.data[0]?.price.id || '';
               const tier = priceId === stripeConfig.teamPriceId ? 'team' as const : 'pro' as const;
+              const orgName = subscription.metadata?.orgName || orgId;
 
               if (event.type === 'customer.subscription.updated') {
                 const prev = (event.data as Stripe.Event.Data & { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
                 // Trial → Active (payment confirmed)
                 if (prev?.status === 'trialing' && subscription.status === 'active') {
+                  publishTelegramEvent({ type: 'subscription_change', orgId, orgName, tier, event: 'activated' });
                   subscriberService.onPayment(admin.email, tier)
                     .then(() => subscriberService.updateAttribsByEmail(admin.email, {
                       paid_at: new Date().toISOString(),
@@ -298,6 +313,7 @@ stripeRoute.post('/webhook', async (c) => {
                 }
                 // Subscription canceled (at period end or immediately)
                 if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+                  publishTelegramEvent({ type: 'subscription_change', orgId, orgName, tier, event: 'canceled' });
                   const isTrialCancel = prev?.status === 'trialing';
                   subscriberService.onChurn(admin.email, isTrialCancel).catch((err) => logger.warn('subscriber: failed onChurn', { error: (err as Error).message }));
                 }
@@ -376,9 +392,11 @@ stripeRoute.post('/webhook', async (c) => {
             const subscription = await stripeService.getSubscription(subscriptionId);
             const orgId = subscription?.metadata?.orgId;
             if (orgId) {
+              const orgName = subscription?.metadata?.orgName || orgId;
+              const tier = subscription?.items?.data[0]?.price?.nickname || 'Pro';
+              publishTelegramEvent({ type: 'subscription_change', orgId, orgName, tier, event: 'payment_failed' });
               const admin = await orgService.getOrgAdminEmail(orgId);
               if (admin) {
-                const tier = subscription?.items?.data[0]?.price?.nickname || 'Pro';
                 await emailService.sendPaymentFailedEmail(
                   admin.email,
                   tier,
