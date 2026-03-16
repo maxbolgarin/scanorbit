@@ -154,32 +154,37 @@ export const stripeService = {
     }
 
     if (orgCheck.stripeCustomerId) {
-      // Verify the customer still exists in Stripe (may have been deleted externally)
+      // Verify the customer still exists in Stripe (may have been deleted externally).
+      // Stripe returns a DeletedCustomer with `deleted: true` instead of throwing 404.
       try {
-        await getStripeClient().customers.retrieve(orgCheck.stripeCustomerId);
-        return orgCheck.stripeCustomerId;
-      } catch (err) {
-        const stripeErr = err as { statusCode?: number };
-        if (stripeErr.statusCode === 404) {
-          // Customer was deleted from Stripe — clear stale reference and subscription data
-          await db
-            .update(orgs)
-            .set({
-              stripeCustomerId: null,
-              stripeSubscriptionId: null,
-              subscriptionStatus: 'none',
-              updatedAt: new Date(),
-            })
-            .where(eq(orgs.id, orgId));
-          logger.warn('Cleared stale Stripe customer ID (deleted externally)', {
-            orgId,
-            customerId: orgCheck.stripeCustomerId,
-          });
-          // Fall through to create a new customer
-        } else {
-          throw err;
+        const existing = await getStripeClient().customers.retrieve(orgCheck.stripeCustomerId);
+        if (!('deleted' in existing && existing.deleted)) {
+          return orgCheck.stripeCustomerId;
         }
+        // Customer was soft-deleted — fall through to clear and recreate
+      } catch (err) {
+        const stripeErr = err as { statusCode?: number; code?: string };
+        if (stripeErr.statusCode !== 404 && stripeErr.code !== 'resource_missing') {
+          throw err; // Unexpected error (network, auth, rate limit)
+        }
+        // Customer fully purged — fall through to clear and recreate
       }
+
+      // Clear stale reference and subscription data
+      await db
+        .update(orgs)
+        .set({
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          subscriptionStatus: 'none',
+          updatedAt: new Date(),
+        })
+        .where(eq(orgs.id, orgId));
+      logger.warn('Cleared stale Stripe customer ID (deleted externally)', {
+        orgId,
+        customerId: orgCheck.stripeCustomerId,
+      });
+      // Fall through to create a new customer
     }
 
     // 2. Get user email outside transaction
