@@ -86,4 +86,4 @@ You'll probably find something. Most accounts do.
 
 ---
 
-*This article is part of our series on AWS infrastructure visibility. Previously: [How to Find and Fix Open Security Groups in AWS](/blog/how-to-find-and-fix-open-security-groups-in-aws) and [How to Find Orphaned EBS Volumes in AWS](/blog/how-to-find-orphaned-ebs-volumes-in-aws).*
+*This article is part of our series on AWS infrastructure visibility. Previously: [How to Find and Fix Open Security Groups in AWS](/blog/how-to-find-open-security-groups-aws) and [How to Find Orphaned EBS Volumes in AWS](/blog/how-to-find-orphaned-ebs-volumes-in-aws).*
