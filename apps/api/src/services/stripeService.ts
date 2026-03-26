@@ -283,6 +283,8 @@ export const stripeService = {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
+      automatic_tax: { enabled: true },
+      tax_id_collection: { enabled: true },
       line_items: [
         {
           price: priceId,
@@ -414,6 +416,7 @@ export const stripeService = {
         },
       ],
       proration_behavior: 'none',
+      automatic_tax: { enabled: true },
       metadata: {
         ...subscription.metadata,
         targetTier,

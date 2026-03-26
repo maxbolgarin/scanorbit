@@ -49,6 +49,7 @@ vi.mock('../../lib/redis.js', () => ({
 const {
   mockStripeCustomersCreate,
   mockStripeCustomersDel,
+  mockStripeCustomersRetrieve,
   mockStripeCheckoutCreate,
   mockStripePortalCreate,
   mockStripeSubscriptionsRetrieve,
@@ -58,6 +59,7 @@ const {
 } = vi.hoisted(() => ({
   mockStripeCustomersCreate: vi.fn(),
   mockStripeCustomersDel: vi.fn(),
+  mockStripeCustomersRetrieve: vi.fn(),
   mockStripeCheckoutCreate: vi.fn(),
   mockStripePortalCreate: vi.fn(),
   mockStripeSubscriptionsRetrieve: vi.fn(),
@@ -71,6 +73,7 @@ vi.mock('stripe', () => {
     customers = {
       create: mockStripeCustomersCreate,
       del: mockStripeCustomersDel,
+      retrieve: mockStripeCustomersRetrieve,
     };
     checkout = {
       sessions: { create: mockStripeCheckoutCreate },
@@ -112,6 +115,39 @@ describe('stripeService', () => {
   describe('isConfigured', () => {
     it('returns true when all config present', () => {
       expect(stripeService.isConfigured()).toBe(true);
+    });
+  });
+
+  describe('createCheckoutSession', () => {
+    it('enables automatic tax and VAT ID collection in checkout', async () => {
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'none' }]) as any)
+        .mockImplementationOnce(() => createChain([{ stripeCustomerId: null, name: 'Acme' }]) as any)
+        .mockImplementationOnce(() => createChain([{ email: 'owner@example.com', fullName: 'Owner' }]) as any);
+      vi.mocked(db.update)
+        .mockImplementationOnce(() => createChain([{ stripeCustomerId: 'cus_123' }]) as any);
+
+      mockStripeCustomersCreate.mockResolvedValue({ id: 'cus_123' });
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: 'cs_123',
+        url: 'https://checkout.stripe.com/session',
+      });
+
+      await stripeService.createCheckoutSession(
+        'org-1',
+        'user-1',
+        'pro',
+        'http://localhost/success',
+        'http://localhost/cancel',
+      );
+
+      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(expect.objectContaining({
+        customer: 'cus_123',
+        mode: 'subscription',
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+      }));
     });
   });
 
@@ -380,7 +416,19 @@ describe('stripeService', () => {
       mockStripeSubscriptionsUpdate.mockResolvedValue({});
 
       await stripeService.switchPlan('org-1', 'user-1', 'team');
-      expect(mockStripeSubscriptionsUpdate).toHaveBeenCalled();
+      expect(mockStripeSubscriptionsUpdate).toHaveBeenCalledWith('sub_123', {
+        items: [
+          {
+            id: 'si_123',
+            price: 'price_team',
+          },
+        ],
+        proration_behavior: 'none',
+        automatic_tax: { enabled: true },
+        metadata: {
+          targetTier: 'team',
+        },
+      });
     });
 
     it('throws 400 when no subscription', async () => {
