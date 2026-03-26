@@ -56,7 +56,7 @@ Under the ePrivacy Directive, Local Storage is subject to the same rules as cook
 
 ## 4. Analytics
 
-We use Umami, an open-source analytics tool that we host on our own EU infrastructure. Umami does not use cookies, does not use Local Storage, and does not collect personal data.
+We use Umami, an open-source analytics tool that we host on our own EU infrastructure. Umami runs on both the marketing website (scanorbit.cloud) and the ScanOrbit application (app.scanorbit.cloud). Umami does not use cookies, does not use Local Storage, and does not collect personal data.
 
 **What Umami collects:** page URLs, referrer, general browser type (e.g., "Firefox"), general operating system (e.g., "macOS"), device category (desktop/mobile/tablet), and country (derived from your IP address, which is then immediately discarded and not stored).
 

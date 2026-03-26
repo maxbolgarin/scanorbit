@@ -42,7 +42,7 @@ To use ScanOrbit, you must be legally capable of entering into a binding agreeme
 
 If you are using ScanOrbit on behalf of a company or other legal entity, you represent that you have authority to bind that entity to these Terms.
 
-If you are under 18, you may use the Service only with involvement and consent of a parent or legal guardian and only to the extent permitted by applicable law.
+If you are under 18 but at least 16 (the minimum age for independent consent to data processing under Dutch law), you may use the Service only with involvement and consent of a parent or legal guardian and only to the extent permitted by applicable law. We do not knowingly process personal data of children under 16, in accordance with the Dutch Uitvoeringswet AVG.
 
 ### 2.2 Account Registration
 
@@ -148,11 +148,11 @@ If you are a consumer in the European Union, you may have a statutory right to w
 
 **For free trials:** You can cancel at any time during the trial at no cost.
 
-**For paid subscriptions (digital service):** At checkout, we may ask you to expressly request immediate performance before the 14-day withdrawal period ends and acknowledge the legal consequences of that request.
+**For paid subscriptions (digital service):** At checkout, we will ask you to expressly consent to immediate performance before the 14-day withdrawal period ends and to acknowledge that this consent results in the loss of your right of withdrawal once performance has been fully completed, as required by Article 6:230p of the Dutch Civil Code (Burgerlijk Wetboek) and the EU Consumer Rights Directive.
 
-Where immediate performance starts during the withdrawal period, refund entitlement may be reduced to account for the service already provided, or otherwise handled as required by applicable law. Any mandatory consumer rights remain unaffected.
+Where immediate performance starts during the withdrawal period with your express consent, refund entitlement may be reduced to account for the service already provided, as required by applicable law. Any mandatory consumer rights remain unaffected.
 
-If immediate performance is not requested, service access may begin after the withdrawal period or as otherwise required by law.
+If you do not consent to immediate performance, service access will begin after the withdrawal period expires.
 
 **To exercise your right of withdrawal** (where applicable), email support@scanorbit.cloud within 14 days of purchase with a clear statement of your decision. We will process any refund owed under applicable law within 14 days, using the original payment method unless otherwise agreed.
 

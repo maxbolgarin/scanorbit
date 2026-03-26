@@ -220,7 +220,7 @@ The Processor implements the following technical and organizational measures:
 
 ### 9.1 Notification to Controller
 
-The Processor will notify the Controller without undue delay, and in any event within 48 hours, after becoming aware of a Data Breach involving the Controller's Personal Data. The notification will include:
+The Processor will notify the Controller without undue delay, and in any event within 48 hours, after becoming aware of a Data Breach involving the Controller's Personal Data. This 48-hour window is intentionally shorter than the 72-hour deadline under GDPR Article 33 to allow the Controller sufficient time to assess the breach and notify the supervisory authority if required. The notification will include:
 
 1. A description of the nature of the breach, including the categories and approximate number of data subjects and records affected
 2. The name and contact details of the Processor's data protection contact
@@ -247,7 +247,7 @@ All primary application data (database, file storage, backups) is stored and pro
 
 Certain sub-processors are located outside the European Economic Area, including in the United States. Data transfers to these sub-processors are governed by:
 
-- **Standard Contractual Clauses (SCCs)** approved by the European Commission, incorporated into the Data Processing Agreements with applicable sub-processors
+- **Standard Contractual Clauses (SCCs)** as adopted by the European Commission in Implementing Decision (EU) 2021/914 of 4 June 2021 (Module Two: Controller to Processor), incorporated into the Data Processing Agreements with applicable sub-processors
 - **Supplementary measures** as appropriate, including encryption of data in transit and at rest
 
 The affected sub-processors and the data they process are listed in Section 7.1.
@@ -268,7 +268,7 @@ The Processor will not transfer Personal Data to countries outside the European 
 | Resolved security findings | Tier-based: Free 14 days, Pro 180 days, Team 365 days after resolution |
 | Scan records | Tier-based: Free 30 days, Pro 365 days, Team 730 days |
 | Audit logs | 730 days (2 years) |
-| Consent records | Retained indefinitely (required as proof of consent under GDPR) |
+| Consent records | Retained for as long as necessary to demonstrate consent under GDPR Article 7(1) and to comply with legal obligations; retained for up to 3 years after account deletion or consent withdrawal, then permanently deleted |
 
 ### 11.2 Automated Cleanup
 
@@ -288,7 +288,7 @@ The Controller must provide this instruction within 30 days of termination. If n
 2. After the grace period, the Processor permanently deletes the account and associated Personal Data from the live database.
 3. Backups containing the Controller's data are purged within 30 days after deletion from the live database.
 4. Audit logs are anonymized (user identifiers, IP addresses, and user agent strings are removed) but retained for their full retention period.
-5. Consent records are preserved as proof of consent under GDPR.
+5. Consent records are preserved as proof of consent under GDPR for up to 3 years after account deletion, then permanently deleted.
 
 Upon request, the Processor will certify in writing that deletion has been completed.
 
@@ -343,7 +343,7 @@ This DPA is governed by Dutch law, without prejudice to the mandatory data prote
 ## 16. Contact
 
 **Data protection contact:**
-Email: support@scanorbit.cloud
+Email: dpa@scanorbit.cloud
 
 **Business address:**
 ScanOrbit

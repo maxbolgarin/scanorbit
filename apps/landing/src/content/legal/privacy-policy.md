@@ -19,12 +19,14 @@ This Privacy Policy explains how we collect, use, store, and protect your inform
 - Full name
 - Password (hashed with bcrypt; not stored for OAuth-only users)
 - Company or organization name (optional)
-- Your role in the organization (optional)
+- Organization role (admin or member)
+- Job title or function (optional, e.g., DevOps, CTO, Developer)
 
 **OAuth Sign-In (if used):**
 - OAuth provider ID (Google or GitHub)
 - Email address and profile name from the OAuth provider
 - OAuth access and refresh tokens (AES-256-GCM encrypted at rest)
+- A minimized version of your OAuth provider profile containing the fields listed above
 
 **Two-Factor Authentication (if enabled):**
 - TOTP secret (AES-256-GCM encrypted)
@@ -43,6 +45,7 @@ This Privacy Policy explains how we collect, use, store, and protect your inform
 **Communication:**
 - Messages sent through contact forms or support requests
 - Email correspondence
+- Bug reports: title, description, category, page context, and optional screenshots (linked to your account for follow-up)
 
 ### 1.2 Information We Collect Automatically
 
@@ -86,6 +89,7 @@ This Privacy Policy explains how we collect, use, store, and protect your inform
 **To maintain and improve the service:**
 - Identifying bugs and performance issues
 - Analyzing aggregated usage patterns to improve features
+- Using aggregated, fully anonymized statistics derived from scan data to improve our detection rules (for example, understanding how commonly certain misconfigurations occur across all scans). This data cannot be linked back to any individual or organization.
 - Monitoring for security threats and unauthorized access
 
 **To comply with legal obligations:**
@@ -99,7 +103,7 @@ This Privacy Policy explains how we collect, use, store, and protect your inform
 - Use your data to train machine learning models
 - Share your AWS scan data with any third party
 
-**Marketing communications** are only sent with your explicit opt-in consent. You can withdraw consent at any time through your account settings, the unsubscribe link in any email, or by emailing support@scanorbit.cloud. Withdrawing consent does not affect the lawfulness of processing that occurred before withdrawal.
+**Marketing communications** are only sent with your explicit opt-in consent. If you opt in, you may receive automated email sequences relevant to your account status and subscription tier. You can withdraw consent and unsubscribe at any time through your account settings, the unsubscribe link in any email, or by emailing support@scanorbit.cloud. Withdrawing consent does not affect the lawfulness of processing that occurred before withdrawal.
 
 ---
 
@@ -112,7 +116,7 @@ All primary application data is stored in the European Union:
 - **Application servers and database:** Amsterdam, Netherlands (Scaleway)
 - **Encrypted backups:** Amsterdam, Netherlands (Scaleway Object Storage)
 
-Certain third-party services we use to operate ScanOrbit are based in the United States. These services process limited categories of data as described in Section 5.2 and operate under EU-approved data transfer mechanisms (Standard Contractual Clauses and Data Processing Agreements). See Section 5.2 for the full list.
+Certain third-party services we use to operate ScanOrbit are based in the United States. These services process limited categories of data as described in Section 5.2 and operate under EU-approved data transfer mechanisms (Standard Contractual Clauses as adopted by the European Commission in Implementing Decision (EU) 2021/914, and Data Processing Agreements). See Section 5.2 for the full list.
 
 ### 3.2 Encryption
 
@@ -134,8 +138,9 @@ Certain third-party services we use to operate ScanOrbit are based in the United
 | Resolved security findings | Free: 14 days, Pro: 180 days, Team: 365 days | Track resolution progress over time |
 | Open security findings | Until resolved or account deleted | Active issue tracking |
 | Audit logs | 730 days (2 years) | Security monitoring and compliance |
-| Consent records | Retained only as long as needed to demonstrate consent and comply with legal obligations, then deleted or anonymized | Required as proof of consent under GDPR |
-| Backups containing deleted data | 30 days after deletion completes | Disaster recovery; then permanently purged |
+| Consent records | Retained for as long as necessary to demonstrate consent under GDPR Article 7(1) and to comply with legal obligations; retained for up to 3 years after account deletion or consent withdrawal, then permanently deleted | Required as proof of consent under GDPR |
+| Free tier inactive accounts | 12 months of inactivity + 30-day notice before deletion | Account and data deleted if no activity; see Terms of Service Section 13.3 |
+| Backups containing deleted data | 30 days after deletion completes | Disaster recovery; then permanently purged. During this period, your data may exist in encrypted backup archives. Individual records cannot be selectively removed from backups; instead, the entire backup set is retired on schedule. |
 
 **Account deletion process:**
 1. You request deletion through your account settings or by emailing support@scanorbit.cloud
@@ -209,7 +214,7 @@ We will notify you of such requests unless we are legally prohibited from doing 
 
 ## 6. Your Rights Under GDPR
 
-You have the following rights regarding your personal data. To exercise any of them, email support@scanorbit.cloud. We will respond within 30 days.
+You have the following rights regarding your personal data. To exercise any of them, email dpa@scanorbit.cloud. We will respond within 30 days. For complex requests involving large volumes of data, this period may be extended by up to two additional months, as permitted by GDPR Article 12(3). We will inform you of any such extension within the initial 30-day period.
 
 ### 6.1 Right of Access (Article 15)
 
@@ -217,7 +222,7 @@ You can request a copy of all personal data we hold about you.
 
 ### 6.2 Right to Rectification (Article 16)
 
-You can correct inaccurate personal data. Most information can be updated directly in your account settings.
+You can correct inaccurate personal data. You can update your name directly in your account settings. To correct your email address or other data that cannot be changed through the interface, contact dpa@scanorbit.cloud.
 
 ### 6.3 Right to Erasure (Article 17)
 
@@ -225,7 +230,7 @@ You can request deletion of your account and all associated data. The deletion p
 
 ### 6.4 Right to Data Portability (Article 20)
 
-You can request an export of your data in a machine-readable format (JSON). This includes your account information, scan history, findings, and resource data.
+You can request an export of your data in a structured, commonly used, machine-readable format (JSON). This includes your account information, scan history, findings, and resource data.
 
 ### 6.5 Right to Restrict Processing (Article 18)
 
@@ -240,7 +245,7 @@ You can object to processing based on legitimate interest. You can also opt out 
 Where processing is based on your consent (such as marketing emails), you can withdraw that consent at any time. Withdrawal does not affect the lawfulness of processing that occurred before you withdrew. You can withdraw consent by:
 - Clicking the unsubscribe link in any email
 - Changing your preferences in account settings
-- Emailing support@scanorbit.cloud
+- Emailing dpa@scanorbit.cloud
 
 ### 6.8 Right to Lodge a Complaint
 
@@ -324,7 +329,7 @@ These cookies are necessary for the service to function and do not require conse
 
 ### 10.2 Analytics (Umami)
 
-We use Umami, an open-source analytics tool that we self-host on our own EU infrastructure. Umami is configured to minimize personal data processing:
+We use Umami, an open-source analytics tool that we self-host on our own EU infrastructure. Umami runs on both the marketing website (scanorbit.cloud) and the ScanOrbit application (app.scanorbit.cloud) to help us understand website traffic and feature usage. Umami is configured to minimize personal data processing:
 
 - No cookies are set
 - No direct identifiers (such as names, email addresses, or account IDs) are intentionally collected for analytics
@@ -348,7 +353,7 @@ See our [Cookie Policy](/cookies) for details.
 
 ## 11. Children's Privacy
 
-ScanOrbit is a business tool and is not directed at children. We do not knowingly collect personal data from anyone under 16 years of age, in accordance with the Dutch Implementation Act (Uitvoeringswet AVG).
+ScanOrbit is a business tool and is not directed at children. We do not knowingly collect personal data from anyone under 16 years of age, in accordance with the Dutch Implementation Act (Uitvoeringswet AVG). Users aged 16 or 17 may use the Service with parental or guardian consent as described in our [Terms of Service](/terms).
 
 If we discover that we have collected personal data from a person under 16, we will delete the account and associated data promptly and notify the parent or guardian if possible.
 
@@ -368,7 +373,7 @@ We will not reduce your rights under this policy without your explicit consent.
 ## 13. Contact
 
 **Data protection and GDPR requests:**
-Email: support@scanorbit.cloud
+Email: dpa@scanorbit.cloud
 Response time: within 30 days
 
 **General inquiries:**
@@ -382,7 +387,7 @@ BTW-ID: NL005398711B41
 
 ---
 
-## 14. Legal Basis for Processing
+## 14. Legal Basis for Processing (GDPR Article 6)
 
 | Data Type | Legal Basis (GDPR Article 6) |
 |-----------|------------------------------|
@@ -402,7 +407,19 @@ Providing account and billing data is necessary to create and maintain your Scan
 
 ## 15. Data Processing Agreement
 
-If you need a Data Processing Agreement for your organization's compliance requirements, contact support@scanorbit.cloud. We provide a DPA aligned with GDPR Article 28 upon request.
+A Data Processing Agreement (DPA) aligned with GDPR Article 28 is available at [scanorbit.cloud/dpa](/dpa) and automatically applies when you create an account, as described in our Terms of Service. If you have questions about the DPA, contact dpa@scanorbit.cloud.
+
+---
+
+## 16. Data Protection Officer
+
+Under GDPR Article 37, we have assessed whether a Data Protection Officer (DPO) appointment is required. Based on the nature, scope, and scale of our current processing activities, appointment of a DPO is not currently required. This assessment will be reviewed as the product and customer base grow. For data protection inquiries, contact dpa@scanorbit.cloud.
+
+---
+
+## 17. Applicable Law
+
+In addition to the GDPR, the Dutch Uitvoeringswet Algemene verordening gegevensbescherming (UAVG) applies to the processing of personal data described in this policy.
 
 ---
 
