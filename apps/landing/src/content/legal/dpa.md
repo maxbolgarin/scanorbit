@@ -1,168 +1,358 @@
 ---
 title: Data Processing Agreement
 description: ScanOrbit Data Processing Agreement (DPA) for GDPR compliance.
-lastUpdated: March 8, 2026
+lastUpdated: March 26, 2026
 ---
 
-This Data Processing Agreement ("DPA") forms part of the Terms of Service between ScanOrbit ("Processor") and the customer ("Controller") and governs the processing of personal data by ScanOrbit on behalf of the Controller.
+This Data Processing Agreement ("DPA") is entered into pursuant to Article 28 of the General Data Protection Regulation (EU) 2016/679 ("GDPR"). It forms part of the Terms of Service ("Terms") between:
+
+**Processor:** ScanOrbit, a trade name of Maria Elina, registered as a sole proprietorship (eenmanszaak) at the Dutch Chamber of Commerce (KVK) under number 99611252, BTW-ID NL005398711B41, with registered address at Keizersgracht 241, Amsterdam, 1016EA Netherlands.
+
+**Controller:** The customer who has agreed to the Terms of Service and uses the ScanOrbit service.
+
+This DPA governs the processing of personal data by the Processor on behalf of the Controller. In the event of a conflict between this DPA and the Terms of Service, this DPA prevails with respect to data protection matters.
 
 ---
 
 ## 1. Definitions
 
-- **Personal Data**: Any information relating to an identified or identifiable natural person, as defined in Article 4(1) of the GDPR.
-- **Processing**: Any operation performed on Personal Data, as defined in Article 4(2) of the GDPR.
-- **Data Controller**: The customer who determines the purposes and means of processing Personal Data.
-- **Data Processor**: ScanOrbit, which processes Personal Data on behalf of the Controller.
-- **Subprocessor**: A third party engaged by the Processor to process Personal Data.
+**Personal Data:** Any information relating to an identified or identifiable natural person, as defined in Article 4(1) GDPR.
 
-## 2. Scope and Purpose
+**Processing:** Any operation or set of operations performed on Personal Data, as defined in Article 4(2) GDPR.
 
-ScanOrbit processes Personal Data solely for the purpose of providing the ScanOrbit cloud infrastructure scanning service, including:
+**Controller:** The customer who determines the purposes and means of processing Personal Data by using the ScanOrbit service.
 
-- **User account management**: Authentication, authorization, and profile management
-- **AWS infrastructure scanning**: Discovering and analyzing cloud resources on behalf of the Controller
-- **Security analysis**: Identifying security issues, compliance gaps, and cost optimization opportunities
-- **Billing and subscription management**: Processing payments and managing service tiers
-- **Communication**: Sending transactional emails (verification, password reset, billing notifications)
+**Processor:** ScanOrbit, which processes Personal Data on behalf of the Controller.
+
+**Sub-processor:** A third party engaged by the Processor to carry out specific processing activities on behalf of the Controller.
+
+**Data Breach:** A breach of security leading to the accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to, Personal Data.
+
+---
+
+## 2. Scope, Purpose, and Duration
+
+### 2.1 Subject Matter
+
+The Processor provides an agentless AWS infrastructure scanning service. To deliver this service, the Processor processes Personal Data of the Controller's users and metadata from the Controller's AWS accounts.
+
+### 2.2 Purpose of Processing
+
+The Processor processes Personal Data solely for the following purposes:
+
+- **User account management:** Authentication, authorization, and profile management
+- **AWS infrastructure scanning:** Discovering and analyzing cloud resources on behalf of the Controller
+- **Security analysis:** Identifying security misconfigurations, compliance gaps, cost waste, and orphaned resources
+- **Billing and subscription management:** Processing payments and managing service tiers through Stripe
+- **Transactional communication:** Sending email notifications necessary for the service (verification, password reset, scan completion, billing)
+
+The Processor will not process Personal Data for any purpose other than those listed above unless instructed in writing by the Controller.
+
+### 2.3 Nature of Processing
+
+Processing operations include: collection, storage, organization, retrieval, consultation, analysis, alignment, combination, restriction, deletion, and destruction of Personal Data, as necessary to provide the scanning service described in the Terms of Service.
+
+### 2.4 Duration
+
+Processing begins when the Controller creates an account on the ScanOrbit platform. Processing continues for the duration of the service agreement. Upon termination or account deletion, processing ceases and Personal Data is handled in accordance with Section 11.
+
+---
 
 ## 3. Categories of Personal Data
 
-The following categories of Personal Data are processed:
-
 | Category | Data Elements | Purpose |
 |----------|--------------|---------|
-| Account Data | Email, full name, hashed password | Authentication and account management |
-| OAuth Data | Provider ID, encrypted tokens | Third-party authentication (Google, GitHub) |
-| Security Data | Encrypted TOTP secrets, hashed recovery codes | Two-factor authentication |
-| Billing Data | Stripe customer/subscription IDs | Payment processing |
-| Usage Data | IP addresses, user agent, timestamps | Security monitoring and audit logging |
-| AWS Data | Account IDs, resource metadata, IAM role ARNs | Infrastructure scanning service |
+| Account data | Email address, full name, hashed password | Authentication and account management |
+| OAuth data | Provider ID (Google or GitHub), encrypted access and refresh tokens | Third-party authentication |
+| Security data | Encrypted TOTP secret, hashed recovery codes | Two-factor authentication |
+| Billing data | Stripe customer ID, Stripe subscription ID, subscription tier and status | Payment processing and subscription management |
+| Usage data | IP addresses, user agent strings, login timestamps, API access logs | Security monitoring, audit logging, fraud prevention |
+| AWS metadata | AWS Account IDs, IAM Role ARNs, resource metadata (names, tags, regions, states, costs), security findings | Infrastructure scanning service |
+| Organization data (Team tier) | Organization name, member roles, member email addresses | Multi-user collaboration |
 
-## 4. Data Subjects
+---
 
-Personal Data is processed for the following categories of data subjects:
+## 4. Categories of Data Subjects
 
-- Users of the ScanOrbit platform (employees and contractors of the Controller)
-- Individuals whose data may appear in AWS resource metadata
+- Users of the ScanOrbit platform (employees, contractors, or agents of the Controller)
+- Individuals whose names or identifiers may appear in AWS resource metadata (e.g., resource tags, IAM user names)
+
+---
 
 ## 5. Obligations of the Processor
 
-ScanOrbit shall:
+The Processor shall:
 
-1. **Process only on instructions**: Process Personal Data only on documented instructions from the Controller, including transfers to third countries.
-2. **Confidentiality**: Ensure that persons authorized to process Personal Data have committed to confidentiality.
-3. **Security measures**: Implement appropriate technical and organizational measures as described in Section 8.
-4. **Subprocessors**: Not engage another processor without prior written authorization of the Controller (see Section 7).
-5. **Assist the Controller**: Assist the Controller in responding to data subject requests (access, rectification, erasure, portability).
-6. **Deletion**: Delete or return all Personal Data upon termination, unless retention is required by law.
-7. **Demonstrate compliance**: Make available all information necessary to demonstrate compliance and allow for audits.
+### 5.1 Process Only on Documented Instructions
+
+Process Personal Data only on documented instructions from the Controller. The Terms of Service, this DPA, and the Controller's use of the Service (including configuration choices made within the application) constitute the Controller's documented instructions. Any additional instructions must be provided in writing (email to dpa@scanorbit.cloud is sufficient).
+
+If the Processor believes that an instruction from the Controller infringes the GDPR or any other applicable data protection law, the Processor will promptly inform the Controller before carrying out the instruction.
+
+### 5.2 Confidentiality
+
+Ensure that all persons authorized to process Personal Data are bound by appropriate confidentiality obligations.
+
+### 5.3 Security
+
+Implement and maintain appropriate technical and organizational measures to protect Personal Data, as described in Section 8. These measures shall ensure a level of security appropriate to the risk, taking into account the state of the art, the costs of implementation, and the nature, scope, context, and purposes of processing.
+
+### 5.4 Sub-processors
+
+Not engage a new sub-processor without providing the Controller with prior notice in accordance with Section 7.
+
+### 5.5 Data Subject Requests
+
+Assist the Controller in fulfilling its obligations to respond to data subject requests under GDPR Articles 15 through 22 (access, rectification, erasure, restriction, portability, objection).
+
+If a data subject contacts the Processor directly with a request, the Processor will notify the Controller within 5 business days and will not respond to the data subject directly unless instructed by the Controller or required by law.
+
+The Processor will provide reasonable technical and organizational assistance to enable the Controller to respond to data subject requests within the timelines required by the GDPR.
+
+### 5.6 Data Protection Impact Assessment
+
+Assist the Controller, upon request, with Data Protection Impact Assessments (GDPR Article 35) and prior consultations with supervisory authorities (GDPR Article 36), to the extent that the Processor's assistance is necessary given the nature of the processing and the information available to the Processor.
+
+### 5.7 Breach Notification
+
+Notify the Controller of any Data Breach in accordance with Section 9.
+
+### 5.8 Deletion or Return
+
+Upon termination of the service agreement, delete or return all Personal Data in accordance with Section 11.
+
+### 5.9 Demonstrate Compliance
+
+Make available to the Controller all information reasonably necessary to demonstrate compliance with this DPA and the obligations under Article 28 GDPR. Allow for and contribute to audits in accordance with Section 12.
+
+---
 
 ## 6. Obligations of the Controller
 
 The Controller shall:
 
-1. Ensure a lawful basis for processing (e.g., legitimate interest, consent, contractual necessity)
-2. Provide documented instructions for processing
-3. Notify ScanOrbit of any data protection impact assessments where required
-4. Ensure that data subjects are informed about processing in accordance with GDPR Articles 13 and 14
-
-## 7. Subprocessors
-
-ScanOrbit uses the following subprocessors. A current list is maintained at [scanorbit.cloud/subprocessors](/subprocessors).
-
-The Controller is deemed to have given general written authorization for the engagement of subprocessors listed on the subprocessor page. ScanOrbit will notify the Controller of any intended changes to subprocessors, giving the Controller the opportunity to object.
-
-## 8. Security Measures
-
-ScanOrbit implements the following technical and organizational security measures:
-
-### Encryption
-- **In transit**: TLS 1.3 for all connections (database, cache, external APIs)
-- **At rest**: AES-256-GCM for sensitive data (OAuth tokens, 2FA secrets)
-- **Backups**: GPG-encrypted (AES-256) before storage
-
-### Access Control
-- Role-based access control (RBAC) for multi-tenant organizations
-- JWT-based authentication with short-lived access tokens (5 minutes)
-- Two-factor authentication (TOTP) support
-- Account lockout after repeated failed attempts
-
-### Infrastructure
-- **EU-only hosting**: All infrastructure hosted in the EU (Scaleway, Amsterdam)
-- **Network isolation**: Internal services communicate via private Docker network
-- **TLS certificates**: Self-signed certificates for internal service-to-service communication
-- **Reverse proxy**: Caddy with automatic HTTPS and security headers
-
-### Monitoring and Audit
-- Comprehensive audit logging of all data access operations
-- Structured logging with request tracing
-- Prometheus metrics and Grafana dashboards
-- Alerting via Slack and Telegram
-
-### Data Minimization
-- Read-only AWS access (no credentials stored, IAM role assumption)
-- PII masking in application logs
-- Minimal data collection (only what is necessary for service operation)
-
-## 9. Data Breach Notification
-
-ScanOrbit shall notify the Controller without undue delay, and in any event within 72 hours, after becoming aware of a personal data breach, providing:
-
-1. Description of the nature of the breach
-2. Categories and approximate number of data subjects affected
-3. Likely consequences of the breach
-4. Measures taken or proposed to address the breach
-
-## 10. International Data Transfers
-
-- **Primary infrastructure**: EU (Scaleway, Amsterdam) — no transfer outside EU
-- **Payment processing**: Stripe may process data in the US under Standard Contractual Clauses (SCCs)
-- **Email delivery**: When using Resend, data may transit through US servers under SCCs
-- **Self-hosted services**: Listmonk (newsletter) and Umami (analytics) are self-hosted on the same EU server
-
-## 11. Data Retention and Deletion
-
-ScanOrbit applies the following retention periods:
-
-| Data Type | Retention Period |
-|-----------|-----------------|
-| Stale resources | 90 days after last seen |
-| Resolved findings | 180 days after resolution |
-| Scan records | 365 days |
-| Audit logs | 730 days (2 years) |
-| Consent records | Indefinite (required for GDPR compliance proof) |
-
-Upon account deletion, ScanOrbit:
-1. Cancels any active subscriptions
-2. Removes the user from email marketing lists
-3. Deletes the user account and associated data
-4. Anonymizes audit logs (removes user ID, IP address, user agent)
-5. Preserves consent records (required by GDPR)
-
-## 12. Audit Rights
-
-The Controller has the right to conduct audits, including inspections, to verify ScanOrbit's compliance with this DPA. ScanOrbit shall:
-
-1. Make available all information necessary to demonstrate compliance
-2. Allow for and contribute to audits conducted by the Controller or an auditor mandated by the Controller
-3. Inform the Controller if an instruction infringes GDPR or other data protection provisions
-
-## 13. Term and Termination
-
-This DPA shall remain in effect for the duration of the service agreement. Upon termination:
-
-1. ScanOrbit will cease processing Personal Data
-2. Personal Data will be deleted or returned as per Section 11
-3. ScanOrbit will certify deletion upon request
-
-## 14. Contact
-
-For questions about this DPA or to exercise audit rights:
-
-- **Email**: [dpa@scanorbit.cloud](mailto:dpa@scanorbit.cloud)
-- **Data Protection Officer**: Available upon request
+1. Ensure that a lawful basis exists for the processing of Personal Data under the GDPR (e.g., contract, legitimate interest, consent) before instructing the Processor to process such data.
+2. Inform data subjects about the processing carried out by the Processor in accordance with GDPR Articles 13 and 14.
+3. Ensure that any instructions provided to the Processor comply with applicable data protection law.
+4. Notify the Processor promptly of any data subject request received directly by the Controller that requires the Processor's assistance.
+5. Conduct Data Protection Impact Assessments where required by GDPR Article 35.
 
 ---
 
-*This DPA is governed by the laws of the European Union and the member state where the Controller is established.*
+## 7. Sub-processors
+
+### 7.1 Authorized Sub-processors
+
+The Controller grants general written authorization for the Processor to engage the sub-processors listed below. Each sub-processor processes only the data categories indicated and has a GDPR-compliant Data Processing Agreement in place with the Processor.
+
+| Sub-processor | Purpose | Data Processed | Location |
+|---------------|---------|----------------|----------|
+| **Scaleway** | Infrastructure hosting (servers, database, backups) | All application data | EU (Amsterdam) |
+| **AWS** | Customer infrastructure scanning | AWS account metadata during scans | EU (Frankfurt) |
+| **Stripe** | Payment processing | Email, name, billing address, subscription data | USA (SCCs + DPA) |
+| **Resend** | Transactional and marketing email delivery | Email addresses, email content | USA (SCCs + DPA) |
+| **Google** | OAuth authentication (optional, only if used by data subject) | OAuth tokens, email, profile name | USA (SCCs + DPA) |
+| **GitHub** | OAuth authentication (optional, only if used by data subject) | OAuth tokens, email, profile name | USA (SCCs + DPA) |
+
+**Self-hosted on Processor's EU infrastructure (not sub-processors):**
+
+| Service | Purpose | Data Processed |
+|---------|---------|----------------|
+| **Umami** | Privacy-first web analytics | Anonymous page views only (no personal data, no cookies) |
+
+### 7.2 Changes to Sub-processors
+
+The Processor will notify the Controller by email at least 30 days before engaging a new sub-processor or replacing an existing one. The notice will identify the sub-processor, describe the processing to be performed, and state the location of processing.
+
+The Controller may object to the new sub-processor by notifying the Processor in writing within 30 days of receiving the notice. If the Controller objects on reasonable data protection grounds, the Processor will either not engage the sub-processor for the Controller's data or offer the Controller the option to terminate the agreement without penalty.
+
+If the Controller does not object within 30 days, the Controller is deemed to have accepted the new sub-processor.
+
+### 7.3 Sub-processor Liability
+
+The Processor remains fully liable to the Controller for the performance of each sub-processor's obligations. The Processor will impose data protection obligations on each sub-processor that are no less protective than those in this DPA.
+
+---
+
+## 8. Security Measures
+
+The Processor implements the following technical and organizational measures:
+
+### 8.1 Encryption
+
+- **In transit:** TLS 1.2 or higher for all external connections (application, API, database, email). Internal service-to-service communication is also encrypted.
+- **At rest:** AES-256-GCM encryption for sensitive data (OAuth tokens, TOTP secrets). Database connections are encrypted.
+- **Backups:** GPG-encrypted (AES-256) before storage in EU-based object storage.
+
+### 8.2 Access Control
+
+- Role-based access control (RBAC) for multi-tenant organizations
+- JWT-based authentication with short-lived access tokens (5-minute lifetime)
+- Refresh token rotation (7-day lifetime)
+- Two-factor authentication (TOTP) support
+- Account lockout after repeated failed authentication attempts
+- Principle of least privilege applied to all access
+
+### 8.3 Infrastructure
+
+- All infrastructure hosted in the EU (Scaleway, Amsterdam, Netherlands)
+- Internal services isolated via private Docker network
+- Reverse proxy (Caddy) with automatic HTTPS, security headers, and rate limiting
+- No AWS credentials stored — temporary credentials obtained through IAM role assumption for each scan
+
+### 8.4 Monitoring and Audit
+
+- Audit logging of all data access operations (user, action, timestamp, IP address)
+- Structured logging with request tracing
+- Prometheus metrics and Grafana dashboards for operational monitoring
+- Automated alerting for security anomalies
+
+### 8.5 Data Minimization
+
+- Read-only AWS access only (no write permissions)
+- Personal data in application logs is masked
+- Only data necessary for the service operation is collected
+- Automated retention cleanup runs daily
+
+---
+
+## 9. Data Breach Notification
+
+### 9.1 Notification to Controller
+
+The Processor will notify the Controller without undue delay, and in any event within 48 hours, after becoming aware of a Data Breach involving the Controller's Personal Data. The notification will include:
+
+1. A description of the nature of the breach, including the categories and approximate number of data subjects and records affected
+2. The name and contact details of the Processor's data protection contact
+3. A description of the likely consequences of the breach
+4. A description of the measures taken or proposed to address the breach, including measures to mitigate its effects
+
+### 9.2 Ongoing Cooperation
+
+If not all information is available at the time of initial notification, the Processor will provide information in phases as it becomes available. The Processor will cooperate with the Controller and take reasonable steps to assist in the investigation, mitigation, and remediation of the breach.
+
+### 9.3 Documentation
+
+The Processor will document all Data Breaches, including the facts, effects, and remedial action taken, regardless of whether the breach requires notification to a supervisory authority.
+
+---
+
+## 10. International Data Transfers
+
+### 10.1 Primary Data Location
+
+All primary application data (database, file storage, backups) is stored and processed within the European Union, specifically in Amsterdam, Netherlands.
+
+### 10.2 Transfers to Third Countries
+
+Certain sub-processors are located in the United States. Data transfers to these sub-processors are governed by:
+
+- **Standard Contractual Clauses (SCCs)** approved by the European Commission, incorporated into the Data Processing Agreements with each US-based sub-processor
+- **Supplementary measures** as appropriate, including encryption of data in transit and at rest
+
+The affected sub-processors and the data they process are listed in Section 7.1.
+
+### 10.3 No Other Transfers
+
+The Processor will not transfer Personal Data to any country outside the European Economic Area without the prior written consent of the Controller and without ensuring appropriate safeguards under GDPR Chapter V.
+
+---
+
+## 11. Data Retention and Deletion
+
+### 11.1 Retention Periods
+
+| Data Type | Retention Period |
+|-----------|-----------------|
+| Stale AWS resources | 90 days after last detected in a scan |
+| Resolved security findings | 180 days after resolution |
+| Scan records | 365 days |
+| Audit logs | 730 days (2 years) |
+| Consent records | Retained indefinitely (required as proof of consent under GDPR) |
+
+### 11.2 Automated Cleanup
+
+Retention policies are enforced by automated daily cleanup processes that run at 03:00 UTC. Data that has exceeded its retention period is permanently deleted.
+
+### 11.3 Account Termination
+
+Upon termination of the service agreement, the Controller may instruct the Processor to either:
+
+**(a) Delete** all Personal Data, or
+**(b) Return** all Personal Data in a machine-readable format (JSON export)
+
+The Controller must provide this instruction within 30 days of termination. If no instruction is received within 30 days, the Processor will delete all Personal Data.
+
+**Deletion process:**
+1. A 30-day grace period begins, during which the Controller can cancel the deletion and restore the account.
+2. After the grace period, the Processor permanently deletes the account and associated Personal Data from the live database.
+3. Backups containing the Controller's data are purged within 30 days after deletion from the live database.
+4. Audit logs are anonymized (user identifiers, IP addresses, and user agent strings are removed) but retained for their full retention period.
+5. Consent records are preserved as proof of consent under GDPR.
+
+Upon request, the Processor will certify in writing that deletion has been completed.
+
+---
+
+## 12. Audit Rights
+
+### 12.1 Right to Audit
+
+The Controller has the right to audit the Processor's compliance with this DPA. This includes the right to conduct inspections or to mandate an independent third-party auditor to do so.
+
+### 12.2 Audit Process
+
+Audits will be conducted subject to the following conditions:
+
+- The Controller will provide at least 30 days' written notice before an audit.
+- Audits will be conducted during normal business hours.
+- The Controller (or its auditor) will comply with reasonable confidentiality obligations regarding any information obtained during the audit.
+- Audits are limited to once per calendar year, unless a Data Breach has occurred or a supervisory authority requires an additional audit.
+- The Controller bears the costs of the audit, including any costs incurred by the Processor in providing reasonable assistance.
+
+### 12.3 Compliance Information
+
+The Processor will make available to the Controller all information reasonably necessary to demonstrate compliance with Article 28 GDPR, including documentation of security measures, sub-processor agreements, and breach response procedures.
+
+---
+
+## 13. Liability
+
+The liability of each party under this DPA is subject to the limitations and exclusions set out in the Terms of Service, except that nothing in the Terms of Service or this DPA limits or excludes liability for:
+
+- Intentional misconduct or gross negligence
+- Breach of confidentiality obligations
+- Obligations that cannot be limited under applicable law, including GDPR
+
+Each party is liable for damages caused by processing that infringes the GDPR in accordance with Article 82 GDPR.
+
+---
+
+## 14. Term and Termination
+
+This DPA takes effect when the Controller creates an account on the ScanOrbit platform and remains in effect for the duration of the service agreement. Upon termination of the service agreement, the provisions of this DPA continue to apply to any Personal Data still in the Processor's possession until that data is deleted or returned in accordance with Section 11.
+
+---
+
+## 15. Governing Law
+
+This DPA is governed by Dutch law, without prejudice to the mandatory data protection laws applicable to the Controller in its jurisdiction. Any disputes arising from this DPA will be resolved in accordance with the dispute resolution provisions of the Terms of Service.
+
+---
+
+## 16. Contact
+
+**Data protection contact:**
+Email: dpa@scanorbit.cloud
+
+**Business address:**
+ScanOrbit
+[YOUR FULL REGISTERED ADDRESS]
+Amsterdam, Netherlands
+KVK: [YOUR KVK NUMBER]
+BTW-ID: [YOUR BTW-ID]
+
+---
+
+**Version:** 2.0
+**Effective Date:** March 26, 2026
