@@ -10,10 +10,8 @@ async function checkScanCompletions(): Promise<void> {
   const res = await pool.query(
     `SELECT s.id, s.status, s.resources_discovered, s.resources_delta,
             s.findings_new, s.findings_resolved, s.error_message, s.completed_at,
-            a.name AS account_name, o.name AS org_name
+            s.org_id, s.aws_account_id
      FROM scans s
-     JOIN aws_accounts a ON s.aws_account_id = a.id
-     JOIN orgs o ON s.org_id = o.id
      WHERE s.completed_at >= $1
        AND s.status IN ('complete', 'partial', 'error')`,
     [twoMinAgo]
@@ -24,19 +22,22 @@ async function checkScanCompletions(): Promise<void> {
     const isNew = await redis.set(dedupKey, '1', 'EX', 86400, 'NX');
     if (!isNew) continue;
 
+    const orgShort = scan.org_id.slice(0, 8);
+    const accountShort = scan.aws_account_id.slice(0, 8);
+
     let text: string;
     if (scan.status === 'error') {
       text =
         `<b>Scan Failed</b>\n` +
-        `Org: ${escapeHtml(scan.org_name)}\n` +
-        `Account: ${escapeHtml(scan.account_name)}\n` +
+        `Org: <code>${orgShort}</code>\n` +
+        `Account: <code>${accountShort}</code>\n` +
         `Error: ${escapeHtml(scan.error_message || 'Unknown')}`;
     } else {
       const delta = scan.resources_delta != null ? ` (${scan.resources_delta >= 0 ? '+' : ''}${scan.resources_delta})` : '';
       text =
         `<b>Scan ${scan.status === 'complete' ? 'Completed' : 'Partial'}</b>\n` +
-        `Org: ${escapeHtml(scan.org_name)}\n` +
-        `Account: ${escapeHtml(scan.account_name)}\n` +
+        `Org: <code>${orgShort}</code>\n` +
+        `Account: <code>${accountShort}</code>\n` +
         `Resources: ${scan.resources_discovered ?? 0}${delta}`;
 
       if (scan.findings_new > 0 || scan.findings_resolved > 0) {

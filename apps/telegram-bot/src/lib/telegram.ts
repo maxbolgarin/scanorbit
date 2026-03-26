@@ -22,12 +22,3 @@ export async function sendAdminMessage(text: string): Promise<void> {
     logger.error('[Telegram] Failed to send message', err);
   }
 }
-
-/**
- * Mask email for GDPR compliance: "user@example.com" -> "u***r@example.com"
- */
-export function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!domain || local.length <= 2) return `***@${domain || '***'}`;
-  return `${local[0]}***${local[local.length - 1]}@${domain}`;
-}

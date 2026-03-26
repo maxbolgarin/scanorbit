@@ -165,7 +165,7 @@ export const awsAccountService = {
     });
 
     awsAccountsConnected.inc();
-    publishTelegramEvent({ type: 'aws_account_connected', orgId, accountName: data.name, awsAccountId: data.awsAccountId });
+    publishTelegramEvent({ type: 'aws_account_connected', orgId, awsAccountId: data.awsAccountId });
     return decryptAccountExternalId(account);
   },
 
@@ -491,7 +491,7 @@ export const awsAccountService = {
     // Track scan triggered and job enqueued
     scansTriggered.inc({ org_id: orgId });
     jobsEnqueued.inc({ job_type: 'scan_account' });
-    publishTelegramEvent({ type: 'scan_started', orgId, accountName: account.name, scanId: scan.id });
+    publishTelegramEvent({ type: 'scan_started', orgId, scanId: scan.id });
 
     return scan;
   },

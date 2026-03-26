@@ -97,7 +97,7 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
 
     authOperationsTotal.inc({ operation: 'google_oauth', status: 'new_user' });
     userSignupsTotal.inc({ method: 'google' });
-    publishTelegramEvent({ type: 'user_signup', email: newUser.email, method: 'google' });
+    publishTelegramEvent({ type: 'user_signup', userId: newUser.id, method: 'google' });
     return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
   }
 
@@ -153,7 +153,7 @@ async function completeOAuthSignup(consentToken: string): Promise<{ userId: stri
 
     authOperationsTotal.inc({ operation: 'github_oauth', status: 'new_user' });
     userSignupsTotal.inc({ method: 'github' });
-    publishTelegramEvent({ type: 'user_signup', email: newUser.email, method: 'github' });
+    publishTelegramEvent({ type: 'user_signup', userId: newUser.id, method: 'github' });
     return { userId: newUser.id, email: newUser.email, fullName: newUser.fullName, provider };
   }
 

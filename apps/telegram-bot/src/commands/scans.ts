@@ -12,9 +12,8 @@ export async function scansCommand(ctx: CommandContext<Context>): Promise<void> 
       [todayISO]
     ),
     pool.query(
-      `SELECT s.id, s.status, s.resources_discovered, s.created_at, a.name AS account_name
+      `SELECT s.id, s.status, s.resources_discovered, s.created_at, s.org_id
        FROM scans s
-       LEFT JOIN aws_accounts a ON s.aws_account_id = a.id
        ORDER BY s.created_at DESC
        LIMIT 5`
     ),
@@ -27,7 +26,8 @@ export async function scansCommand(ctx: CommandContext<Context>): Promise<void> 
   for (const scan of recentRes.rows) {
     const time = new Date(scan.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' });
     const resources = scan.resources_discovered != null ? ` (${scan.resources_discovered} resources)` : '';
-    recentLines += `  ${time} ${scan.account_name || 'deleted'} — ${scan.status}${resources}\n`;
+    const orgShort = scan.org_id?.slice(0, 8) || '???';
+    recentLines += `  ${time} <code>${orgShort}</code> — ${scan.status}${resources}\n`;
   }
 
   const text =

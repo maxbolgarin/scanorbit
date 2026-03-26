@@ -2,10 +2,10 @@ import { redis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
 
 export type TelegramEvent =
-  | { type: 'user_signup'; email: string; method: 'email' | 'google' | 'github' }
-  | { type: 'scan_started'; orgId: string; accountName: string; scanId: string }
-  | { type: 'aws_account_connected'; orgId: string; accountName: string; awsAccountId: string }
-  | { type: 'subscription_change'; orgId: string; orgName: string; tier: string; event: 'trial_started' | 'activated' | 'canceled' | 'payment_failed' }
+  | { type: 'user_signup'; userId: string; method: 'email' | 'google' | 'github' }
+  | { type: 'scan_started'; orgId: string; scanId: string }
+  | { type: 'aws_account_connected'; orgId: string; awsAccountId: string }
+  | { type: 'subscription_change'; orgId: string; tier: string; event: 'trial_started' | 'activated' | 'canceled' | 'payment_failed' }
   | { type: 'stuck_jobs'; stuckJobsRecovered: number; stuckScansErrored: number; jobsMovedToDLQ: number };
 
 const CHANNEL = 'telegram:events';

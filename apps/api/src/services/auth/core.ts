@@ -104,7 +104,7 @@ async function signup(
 
   authOperationsTotal.inc({ operation: 'signup', status: 'success' });
   userSignupsTotal.inc({ method: 'email' });
-  publishTelegramEvent({ type: 'user_signup', email: email.toLowerCase(), method: 'email' });
+  publishTelegramEvent({ type: 'user_signup', userId: user.id, method: 'email' });
 
   return {
     user,
@@ -382,7 +382,7 @@ async function completeSignup(
   await signupCodes.cleanup(email);
 
   userSignupsTotal.inc({ method: 'email' });
-  publishTelegramEvent({ type: 'user_signup', email, method: 'email' });
+  publishTelegramEvent({ type: 'user_signup', userId: user.id, method: 'email' });
 
   return { user };
 }
