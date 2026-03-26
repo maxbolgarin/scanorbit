@@ -1,0 +1,169 @@
+---
+import { Icon } from "astro-icon/components";
+
+const dataFlowSteps = [
+  {
+    icon: "lucide:cloud",
+    title: "Your AWS Account",
+    details: "You create and control the IAM role. Revoke anytime. All API calls logged in CloudTrail.",
+  },
+  {
+    icon: "lucide:lock",
+    title: "Read-Only IAM Role",
+    details: "Describe* and List* actions only. No write, create, or delete. Temporary credentials (1hr expiry).",
+  },
+  {
+    icon: "lucide:server",
+    title: "ScanOrbit Engine",
+    details: "Scaleway, Amsterdam, NL. Metadata only — never your actual data. AES-256-GCM at rest.",
+  },
+  {
+    icon: "lucide:layout-dashboard",
+    title: "Your Dashboard",
+    details: "TLS 1.2+ in transit. JWT with 5-min expiry. 2FA supported.",
+  },
+];
+
+const complianceCards = [
+  {
+    icon: "lucide:shield-check",
+    title: "Read-Only Access",
+    detail: "Zero write permissions. You control the IAM role.",
+  },
+  {
+    icon: "lucide:map-pin",
+    title: "EU Data Residency",
+    detail: "All data stored in Amsterdam, NL. GDPR Art. 44 compliant.",
+  },
+  {
+    icon: "lucide:cloud-off",
+    title: "Agentless Architecture",
+    detail: "No software on your instances. No SSH. No network access.",
+  },
+  {
+    icon: "lucide:lock",
+    title: "Encryption",
+    detail: "AES-256-GCM at rest. TLS 1.2+ in transit.",
+  },
+  {
+    icon: "lucide:scroll-text",
+    title: "Audit Logging",
+    detail: "Every action logged. CloudTrail compatible.",
+  },
+  {
+    icon: "lucide:eye",
+    title: "Full Transparency",
+    detail: "We publish what we don't have yet. No hidden limitations.",
+  },
+];
+
+const legalLinks = [
+  { icon: "lucide:shield", label: "Security Policy", href: "/security" },
+  { icon: "lucide:file-text", label: "Privacy Policy", href: "/privacy" },
+  { icon: "lucide:file-check", label: "DPA", href: "/dpa" },
+  { icon: "lucide:scale", label: "Terms of Service", href: "/terms" },
+  { icon: "lucide:cookie", label: "Cookie Policy", href: "/cookies" },
+];
+---
+
+<section id="security" class="py-24 bg-deep-space relative">
+  <div class="container mx-auto px-6">
+    <!-- Section header -->
+    <div class="text-center mb-16 max-w-3xl mx-auto">
+      <h2 class="text-3xl md:text-5xl font-bold mb-6">
+        <span class="text-cloud-gray">Security & </span>
+        <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+          Transparency
+        </span>
+      </h2>
+      <p class="text-lg text-slate-gray">
+        We ask for access to your AWS account. Here's exactly how we handle that responsibility.
+      </p>
+    </div>
+
+    <!-- Data Flow Diagram -->
+    <div class="max-w-5xl mx-auto mb-20">
+      <!-- Desktop: horizontal flow -->
+      <div class="hidden md:flex items-stretch justify-between relative">
+        {dataFlowSteps.map((step, i) => (
+          <div class="flex items-stretch flex-1">
+            <!-- Step card -->
+            <div class="flex-1 bg-midnight rounded-xl border border-border-subtle p-6 text-center hover:border-cyber-cyan/30 transition-colors">
+              <div class="w-12 h-12 mx-auto mb-4 rounded-lg bg-gradient-to-br from-orbit-purple/20 to-cyber-cyan/20 flex items-center justify-center">
+                <Icon name={step.icon} class="w-6 h-6 text-cyber-cyan" />
+              </div>
+              <h3 class="font-semibold text-cloud-gray mb-2 text-sm">{step.title}</h3>
+              <p class="text-slate-gray text-xs leading-relaxed">{step.details}</p>
+            </div>
+            <!-- Arrow connector -->
+            {i < dataFlowSteps.length - 1 && (
+              <div class="flex items-center px-2">
+                <div class="flex items-center gap-1">
+                  <div class="w-6 h-px bg-gradient-to-r from-orbit-purple/60 to-cyber-cyan/60"></div>
+                  <Icon name="lucide:chevron-right" class="w-4 h-4 text-cyber-cyan/60 flex-shrink-0" />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <!-- Mobile: vertical flow -->
+      <div class="md:hidden space-y-3">
+        {dataFlowSteps.map((step, i) => (
+          <div>
+            <div class="bg-midnight rounded-xl border border-border-subtle p-5 hover:border-cyber-cyan/30 transition-colors">
+              <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orbit-purple/20 to-cyber-cyan/20 flex items-center justify-center flex-shrink-0">
+                  <Icon name={step.icon} class="w-5 h-5 text-cyber-cyan" />
+                </div>
+                <div>
+                  <h3 class="font-semibold text-cloud-gray mb-1 text-sm">{step.title}</h3>
+                  <p class="text-slate-gray text-xs leading-relaxed">{step.details}</p>
+                </div>
+              </div>
+            </div>
+            {i < dataFlowSteps.length - 1 && (
+              <div class="flex justify-center py-1">
+                <Icon name="lucide:chevron-down" class="w-4 h-4 text-cyber-cyan/40" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Compliance Grid -->
+    <div class="max-w-5xl mx-auto mb-16">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {complianceCards.map((card) => (
+          <div class="flex items-start gap-4 p-5 bg-midnight rounded-xl border border-border-subtle hover:border-neon-green/20 transition-colors">
+            <div class="w-10 h-10 rounded-lg bg-neon-green/10 flex items-center justify-center flex-shrink-0">
+              <Icon name={card.icon} class="w-5 h-5 text-neon-green" />
+            </div>
+            <div>
+              <h3 class="font-semibold text-cloud-gray mb-1 text-sm">{card.title}</h3>
+              <p class="text-slate-gray text-xs">{card.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Legal Documents Bar -->
+    <div class="max-w-4xl mx-auto mb-10">
+      <p class="text-sm text-slate-gray text-center mb-4">Review our documentation</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        {legalLinks.map((link) => (
+          <a
+            href={link.href}
+            class="flex items-center gap-2 px-4 py-2 bg-midnight rounded-full border border-border-subtle hover:border-cyber-cyan/30 text-slate-gray hover:text-cloud-gray transition-colors text-sm"
+          >
+            <Icon name={link.icon} class="w-4 h-4" />
+            {link.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>

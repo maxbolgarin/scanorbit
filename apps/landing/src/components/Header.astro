@@ -2,17 +2,22 @@
 import { Icon } from "astro-icon/components";
 import { signupUrl, loginUrl } from "../config";
 
-const featuresDropdown = [
-  { label: "Core Features", href: "/#features" },
-  { label: "How it Saves Money", href: "/#comparison" },
+const productDropdown = [
   { label: "How it Works", href: "/#how-it-works" },
+  { label: "Features", href: "/#features" },
+  { label: "Comparison", href: "/#comparison" },
 ];
 
 const resourcesDropdown = [
   { label: "API Reference", href: "/api-reference" },
-  { label: "Security", href: "/security" },
+  { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
+];
+
+const legalDropdown = [
+  { label: "Security Policy", href: "/security" },
   { label: "Privacy Policy", href: "/privacy" },
+  { label: "DPA", href: "/dpa" },
   { label: "Terms of Service", href: "/terms" },
   { label: "Cookie Policy", href: "/cookies" },
 ];
@@ -30,15 +35,15 @@ const resourcesDropdown = [
 
     <!-- Navigation -->
     <div class="hidden md:flex items-center gap-1">
-      <!-- Features Dropdown -->
+      <!-- Product Dropdown -->
       <div class="relative group">
         <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
-          Features
+          Product
           <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
         </button>
         <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
           <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
-            {featuresDropdown.map((item) => (
+            {productDropdown.map((item) => (
               <a
                 href={item.href}
                 class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
@@ -49,6 +54,16 @@ const resourcesDropdown = [
           </div>
         </div>
       </div>
+
+      <!-- Security -->
+      <a href="/#security" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        Security
+      </a>
+
+      <!-- Pricing -->
+      <a href="/#pricing" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        Pricing
+      </a>
 
       <!-- Resources Dropdown -->
       <div class="relative group">
@@ -70,20 +85,25 @@ const resourcesDropdown = [
         </div>
       </div>
 
-      <!-- Pricing -->
-      <a href="/#pricing" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
-        Pricing
-      </a>
-
-      <!-- FAQ -->
-      <a href="/#faq" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
-        FAQ
-      </a>
-
-      <!-- Blog -->
-      <a href="/blog" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
-        Blog
-      </a>
+      <!-- Legal Dropdown -->
+      <div class="relative group">
+        <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+          Legal
+          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+        </button>
+        <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+          <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
+            {legalDropdown.map((item) => (
+              <a
+                href={item.href}
+                class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Theme Toggle + CTA Buttons -->
@@ -116,32 +136,36 @@ const resourcesDropdown = [
         href={signupUrl}
         target="_blank"
         rel="noopener noreferrer"
-        class="px-4 py-2 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-medium text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
+        class="hidden sm:block px-4 py-2 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-medium text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
       >
         Get Started
       </a>
+      <!-- Mobile Menu Button -->
+      <button class="md:hidden p-2 text-slate-gray" id="mobile-menu-btn">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
     </div>
-
-    <!-- Mobile Menu Button -->
-    <button class="md:hidden p-2 text-slate-gray" id="mobile-menu-btn">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
   </nav>
 
   <!-- Mobile Menu -->
   <div class="hidden md:hidden bg-midnight border-t border-slate-gray/10" id="mobile-menu">
     <div class="container mx-auto px-6 py-4 space-y-2">
-      <a href="/#features" class="block py-2 text-slate-gray hover:text-cloud-gray">Core Features</a>
-      <a href="/#comparison" class="block py-2 text-slate-gray hover:text-cloud-gray">How it Saves Money</a>
+      <p class="text-xs text-slate-gray/60 uppercase tracking-wider pt-1 pb-1">Product</p>
       <a href="/#how-it-works" class="block py-2 text-slate-gray hover:text-cloud-gray">How it Works</a>
+      <a href="/#features" class="block py-2 text-slate-gray hover:text-cloud-gray">Features</a>
+      <a href="/#comparison" class="block py-2 text-slate-gray hover:text-cloud-gray">Comparison</a>
+      <a href="/#security" class="block py-2 text-slate-gray hover:text-cloud-gray">Security</a>
       <a href="/#pricing" class="block py-2 text-slate-gray hover:text-cloud-gray">Pricing</a>
-      <a href="/security" class="block py-2 text-slate-gray hover:text-cloud-gray">Security</a>
-      <a href="/#faq" class="block py-2 text-slate-gray hover:text-cloud-gray">FAQ</a>
-      <a href="/blog" class="block py-2 text-slate-gray hover:text-cloud-gray">Blog</a>
+      <p class="text-xs text-slate-gray/60 uppercase tracking-wider pt-3 pb-1">Resources</p>
       <a href="/api-reference" class="block py-2 text-slate-gray hover:text-cloud-gray">API Reference</a>
+      <a href="/blog" class="block py-2 text-slate-gray hover:text-cloud-gray">Blog</a>
       <a href="/contact" class="block py-2 text-slate-gray hover:text-cloud-gray">Contact</a>
+      <p class="text-xs text-slate-gray/60 uppercase tracking-wider pt-3 pb-1">Legal</p>
+      <a href="/security" class="block py-2 text-slate-gray hover:text-cloud-gray">Security Policy</a>
+      <a href="/privacy" class="block py-2 text-slate-gray hover:text-cloud-gray">Privacy Policy</a>
+      <a href="/dpa" class="block py-2 text-slate-gray hover:text-cloud-gray">DPA</a>
       <button id="mobile-theme-toggle" class="block py-2 text-slate-gray hover:text-cloud-gray w-full text-left">
         <span id="mobile-theme-label">Switch to Light</span>
       </button>

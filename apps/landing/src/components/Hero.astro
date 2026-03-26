@@ -13,8 +13,8 @@ import { signupUrl } from "../config";
   </div>
 
   <!-- Orbiting particles -->
-  <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-orbit-purple/20 rounded-full blur-3xl animate-float"></div>
-  <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyber-cyan/10 rounded-full blur-3xl animate-float" style="animation-delay: -3s;"></div>
+  <div class="absolute top-1/4 left-1/4 w-96 h-96 hero-orb-purple rounded-full blur-3xl animate-float"></div>
+  <div class="absolute bottom-1/4 right-1/4 w-80 h-80 hero-orb-cyan rounded-full blur-3xl animate-float" style="animation-delay: -3s;"></div>
 
   <div class="container mx-auto px-6 py-20 relative z-10">
     <div class="text-center max-w-4xl mx-auto">
@@ -22,17 +22,17 @@ import { signupUrl } from "../config";
       <!-- Main heading -->
       <h1 class="text-5xl md:text-7xl font-bold mb-6">
         <span class="hero-heading-primary">
-          Scan Your AWS
+          Know What's Actually
         </span>
         <br />
         <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
-          Infrastructure
+          Running in Your AWS
         </span>
       </h1>
 
       <!-- Subheading -->
       <p class="text-xl md:text-2xl text-slate-gray mb-10 max-w-2xl mx-auto">
-        See your actual waste and compliance risks. No agents. No modifications. EU-hosted.
+        Find orphaned resources, expiring certificates, and GDPR violations. Read-only access. EU-hosted. No agents.
       </p>
 
       <!-- Value props row -->
@@ -47,7 +47,7 @@ import { signupUrl } from "../config";
         </div>
         <div class="flex items-center gap-2 text-cloud-gray">
           <Icon name="lucide:shield" class="w-5 h-5 text-cyber-cyan" />
-          <span>Track issues</span>
+          <span>GDPR compliance checks</span>
         </div>
       </div>
 
@@ -64,7 +64,7 @@ import { signupUrl } from "../config";
         </a>
         <a
           href="#how-it-works"
-          class="group px-8 py-4 bg-midnight border border-slate-gray/30 hover:border-cyber-cyan/50 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center gap-2"
+          class="group px-8 py-4 hero-secondary-btn rounded-lg font-semibold text-lg transition-all duration-300 flex items-center gap-2"
         >
           See How It Works
         </a>
@@ -72,15 +72,15 @@ import { signupUrl } from "../config";
 
       <!-- Trust badges -->
       <div class="flex flex-wrap items-center justify-center gap-6">
-        <div class="flex items-center gap-2 px-4 py-2 bg-midnight/50 rounded-full border border-neon-green/20">
+        <div class="flex items-center gap-2 px-4 py-2 hero-trust-badge rounded-full">
           <Icon name="lucide:shield" class="w-4 h-4 text-neon-green" />
           <span class="text-sm text-slate-gray">Read-only access</span>
         </div>
-        <div class="flex items-center gap-2 px-4 py-2 bg-midnight/50 rounded-full border border-neon-green/20">
+        <div class="flex items-center gap-2 px-4 py-2 hero-trust-badge rounded-full">
           <Icon name="lucide:server" class="w-4 h-4 text-neon-green" />
-          <span class="text-sm text-slate-gray">Privacy focused</span>
+          <span class="text-sm text-slate-gray">EU-hosted (Amsterdam)</span>
         </div>
-        <div class="flex items-center gap-2 px-4 py-2 bg-midnight/50 rounded-full border border-neon-green/20">
+        <div class="flex items-center gap-2 px-4 py-2 hero-trust-badge rounded-full">
           <Icon name="lucide:cloud-off" class="w-4 h-4 text-neon-green" />
           <span class="text-sm text-slate-gray">Agentless setup</span>
         </div>

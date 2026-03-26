@@ -3,6 +3,7 @@ import { getEntry } from "astro:content";
 import Layout from "../layouts/Layout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import LegalNav from "../components/LegalNav.astro";
 
 const entry = await getEntry("legal", "privacy-policy");
 const { Content } = await entry.render();
@@ -32,119 +33,10 @@ const { Content } = await entry.render();
         <article class="legal-content">
           <Content />
         </article>
+
+        <LegalNav current="/privacy" />
       </div>
     </section>
   </main>
   <Footer />
 </Layout>
-
-<style is:global>
-  .legal-content {
-    color: var(--color-slate-gray);
-    line-height: 1.8;
-  }
-
-  .legal-content h2 {
-    color: var(--color-cloud-gray);
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-top: 3rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--legal-border);
-  }
-
-  .legal-content h3 {
-    color: var(--color-cloud-gray);
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-top: 2rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .legal-content p {
-    margin-bottom: 1rem;
-  }
-
-  .legal-content strong {
-    color: var(--color-cloud-gray);
-  }
-
-  .legal-content ul,
-  .legal-content ol {
-    margin-bottom: 1rem;
-    padding-left: 1.5rem;
-  }
-
-  .legal-content li {
-    margin-bottom: 0.5rem;
-  }
-
-  .legal-content ul {
-    list-style-type: disc;
-  }
-
-  .legal-content ol {
-    list-style-type: decimal;
-  }
-
-  .legal-content a {
-    color: var(--color-cyber-cyan);
-    text-decoration: none;
-    transition: text-decoration 0.2s;
-  }
-
-  .legal-content a:hover {
-    text-decoration: underline;
-  }
-
-  .legal-content hr {
-    border: none;
-    border-top: 1px solid var(--legal-border);
-    margin: 2rem 0;
-  }
-
-  .legal-content table {
-    width: 100%;
-    margin: 1.5rem 0;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .legal-content thead {
-    background-color: var(--color-midnight);
-  }
-
-  .legal-content th {
-    color: var(--color-cloud-gray);
-    font-weight: 600;
-    text-align: left;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--legal-border-strong);
-  }
-
-  .legal-content td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--legal-border-subtle);
-  }
-
-  .legal-content tbody tr:hover {
-    background-color: var(--legal-hover-bg);
-  }
-
-  .legal-content code {
-    background-color: var(--color-midnight);
-    padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
-    font-size: 0.875em;
-    font-family: var(--font-mono);
-  }
-
-  .legal-content blockquote {
-    border-left: 3px solid var(--color-cyber-cyan);
-    padding-left: 1rem;
-    margin: 1.5rem 0;
-    color: var(--color-cloud-gray);
-    font-style: italic;
-  }
-</style>
