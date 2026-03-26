@@ -288,6 +288,7 @@ export const stripeService = {
       payment_method_types: ['card'],
       automatic_tax: { enabled: true },
       tax_id_collection: { enabled: true },
+      customer_update: { address: 'auto' },
       line_items: [
         {
           price: priceId,

@@ -275,7 +275,7 @@ send-docker-compose:
 send-caddyfile:
 	scp deploy/Caddyfile deploy@scanorbit.cloud:/opt/scanorbit/deploy/Caddyfile
 
-send-env:
+send-envs:
 	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
 
 send-deploy-simple: send-docker-compose send-caddyfile send-env
