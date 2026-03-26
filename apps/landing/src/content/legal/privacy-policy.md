@@ -129,12 +129,12 @@ Certain third-party services we use to operate ScanOrbit are based in the United
 | Data Type | Retention Period | Reason |
 |-----------|-----------------|--------|
 | Account information | Until account deletion requested | Required to operate your account |
-| AWS resource data | 90 days after resource is no longer detected | Enables comparison across scans |
-| Scan results | 365 days | Historical comparison and trend analysis |
-| Resolved security findings | 180 days | Track resolution progress over time |
+| AWS resource data | Free: 7 days, Pro: 90 days, Team: 180 days after resource is no longer detected | Enables comparison across scans based on subscription features |
+| Scan results | Free: 30 days, Pro: 365 days, Team: 730 days | Historical comparison and trend analysis based on subscription features |
+| Resolved security findings | Free: 14 days, Pro: 180 days, Team: 365 days | Track resolution progress over time |
 | Open security findings | Until resolved or account deleted | Active issue tracking |
 | Audit logs | 730 days (2 years) | Security monitoring and compliance |
-| Consent records | Retained indefinitely | Required as proof of consent under GDPR |
+| Consent records | Retained only as long as needed to demonstrate consent and comply with legal obligations, then deleted or anonymized | Required as proof of consent under GDPR |
 | Backups containing deleted data | 30 days after deletion completes | Disaster recovery; then permanently purged |
 
 **Account deletion process:**
@@ -168,7 +168,7 @@ If you are a member of an organization on ScanOrbit's Team tier, other members o
 
 This sharing is necessary to provide the multi-user collaboration features of the Team tier. The organization administrator controls who is invited to the organization and can remove members at any time.
 
-If you are invited to an organization, you consent to this visibility when you accept the invitation. If you leave or are removed from an organization, other members can no longer see your personal information.
+If you are invited to an organization, this visibility is part of the Team collaboration functionality. If you leave or are removed from an organization, other members can no longer see your personal information.
 
 **Legal basis:** Performance of a contract (GDPR Article 6(1)(b)) — multi-user access is a core feature of the Team subscription.
 
@@ -191,10 +191,10 @@ We use the following third-party services. Each processes only the data categori
 |---------|---------|----------------|
 | **Umami** | Privacy-first web analytics | Anonymous page views only (no cookies, no personal data) |
 
-**What sub-processors do not have access to:**
-- Your AWS scan data or security findings
-- Your resource inventory or infrastructure details
-- Your AWS IAM role credentials (we use temporary role assumption; no credentials are stored)
+**Scope limits for sub-processors:**
+- US-based sub-processors (Stripe, Resend, Google OAuth, GitHub OAuth) do not process your AWS scan data, security findings, or infrastructure inventory
+- We do not store long-term AWS access keys or secret keys; scans use temporary credentials obtained through role assumption
+- Hosting and cloud infrastructure providers (such as Scaleway and AWS) may process data required to operate the service under our instructions and contractual safeguards
 
 ### 5.4 Legal Disclosure
 
@@ -318,25 +318,23 @@ We cannot modify, delete, create, or write anything in your AWS account. The IAM
 ### 10.1 Essential Cookies
 
 We use essential cookies only:
-- **Session token:** keeps you logged in
-- **CSRF token:** prevents cross-site request forgery attacks
-- **User preferences:** theme and language settings
+- **Authentication session cookie (`refresh_token`):** keeps you logged in securely between requests
 
 These cookies are necessary for the service to function and do not require consent under the ePrivacy Directive.
 
 ### 10.2 Analytics (Umami)
 
-We use Umami, an open-source analytics tool that we self-host on our own EU infrastructure. Umami is designed to be privacy-friendly:
+We use Umami, an open-source analytics tool that we self-host on our own EU infrastructure. Umami is configured to minimize personal data processing:
 
 - No cookies are set
-- No personal data is collected
-- No IP addresses are stored (discarded immediately after country-level geolocation)
+- No direct identifiers (such as names, email addresses, or account IDs) are intentionally collected for analytics
+- IP addresses are not stored as part of analytics records (discarded immediately after country-level geolocation)
 - No cross-site or cross-device tracking
 - No behavioral profiles are built
 
 We collect only: page URLs, referrer, general browser type, general operating system, device category (desktop/mobile/tablet), and country.
 
-**Legal basis:** Legitimate interest (GDPR Article 6(1)(f)). Since Umami does not collect personal data or use cookies, no consent is required under GDPR or the Dutch Telecommunicatiewet.
+**Legal basis:** Legitimate interest (GDPR Article 6(1)(f)). Because analytics is configured without cookies and without direct identifiers, we do not request consent for this analytics setup under GDPR and the Dutch Telecommunicatiewet.
 
 You can block analytics using browser extensions such as uBlock Origin or by enabling Do Not Track in your browser settings.
 
@@ -395,6 +393,10 @@ BTW-ID: NL005398711B41
 | Website analytics (Umami) | Legitimate interest (Art. 6(1)(f)) — no personal data collected |
 | Marketing emails | Consent (Art. 6(1)(a)) — explicit opt-in, withdrawable at any time |
 | Communication and support | Performance of a contract (Art. 6(1)(b)) and/or consent |
+
+### 14.1 Contractual Necessity of Data Provision
+
+Providing account and billing data is necessary to create and maintain your ScanOrbit account and subscription. If you choose not to provide required data, we may be unable to provide the service (or parts of it), including authentication, billing, and account support.
 
 ---
 

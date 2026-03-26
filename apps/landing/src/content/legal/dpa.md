@@ -38,13 +38,13 @@ The Processor provides an agentless AWS infrastructure scanning service. To deli
 
 ### 2.2 Purpose of Processing
 
-The Processor processes Personal Data solely for the following purposes:
+The Processor processes Personal Data solely for the following purposes on documented instructions from the Controller:
 
 - **User account management:** Authentication, authorization, and profile management
 - **AWS infrastructure scanning:** Discovering and analyzing cloud resources on behalf of the Controller
 - **Security analysis:** Identifying security misconfigurations, compliance gaps, cost waste, and orphaned resources
 - **Billing and subscription management:** Processing payments and managing service tiers through Stripe
-- **Transactional communication:** Sending email notifications necessary for the service (verification, password reset, scan completion, billing)
+- **Transactional communication:** Sending service-related email notifications (for example verification, password reset, scan completion, and billing events)
 
 The Processor will not process Personal Data for any purpose other than those listed above unless instructed in writing by the Controller.
 
@@ -85,7 +85,7 @@ The Processor shall:
 
 ### 5.1 Process Only on Documented Instructions
 
-Process Personal Data only on documented instructions from the Controller. The Terms of Service, this DPA, and the Controller's use of the Service (including configuration choices made within the application) constitute the Controller's documented instructions. Any additional instructions must be provided in writing (email to dpa@scanorbit.cloud is sufficient).
+Process Personal Data only on documented instructions from the Controller. The Terms of Service, this DPA, and the Controller's use of the Service (including configuration choices made within the application) constitute the Controller's documented instructions. Any additional instructions must be provided in writing (email to support@scanorbit.cloud is sufficient).
 
 If the Processor believes that an instruction from the Controller infringes the GDPR or any other applicable data protection law, the Processor will promptly inform the Controller before carrying out the instruction.
 
@@ -148,7 +148,7 @@ The Controller grants general written authorization for the Processor to engage 
 | Sub-processor | Purpose | Data Processed | Location |
 |---------------|---------|----------------|----------|
 | **Scaleway** | Infrastructure hosting (servers, database, backups) | All application data | EU (Amsterdam) |
-| **AWS** | Customer infrastructure scanning | AWS account metadata during scans | EU (Frankfurt) |
+| **AWS** | Customer infrastructure scanning | AWS account metadata during scans | Region selected by Controller in its AWS environment |
 | **Stripe** | Payment processing | Email, name, billing address, subscription data | USA (SCCs + DPA) |
 | **Resend** | Transactional and marketing email delivery | Email addresses, email content | USA (SCCs + DPA) |
 | **Google** | OAuth authentication (optional, only if used by data subject) | OAuth tokens, email, profile name | USA (SCCs + DPA) |
@@ -202,7 +202,7 @@ The Processor implements the following technical and organizational measures:
 
 ### 8.4 Monitoring and Audit
 
-- Audit logging of all data access operations (user, action, timestamp, IP address)
+- Audit logging is enabled by default for API access and sensitive data operations (user, action, timestamp, IP address), with documented endpoint exclusions and GDPR objection handling
 - Structured logging with request tracing
 - Prometheus metrics and Grafana dashboards for operational monitoring
 - Automated alerting for security anomalies
@@ -245,16 +245,16 @@ All primary application data (database, file storage, backups) is stored and pro
 
 ### 10.2 Transfers to Third Countries
 
-Certain sub-processors are located in the United States. Data transfers to these sub-processors are governed by:
+Certain sub-processors are located outside the European Economic Area, including in the United States. Data transfers to these sub-processors are governed by:
 
-- **Standard Contractual Clauses (SCCs)** approved by the European Commission, incorporated into the Data Processing Agreements with each US-based sub-processor
+- **Standard Contractual Clauses (SCCs)** approved by the European Commission, incorporated into the Data Processing Agreements with applicable sub-processors
 - **Supplementary measures** as appropriate, including encryption of data in transit and at rest
 
 The affected sub-processors and the data they process are listed in Section 7.1.
 
-### 10.3 No Other Transfers
+### 10.3 Additional Transfers
 
-The Processor will not transfer Personal Data to any country outside the European Economic Area without the prior written consent of the Controller and without ensuring appropriate safeguards under GDPR Chapter V.
+The Processor will not transfer Personal Data to countries outside the European Economic Area except as described in this DPA (including Section 7) or on documented instructions from the Controller, and only with appropriate safeguards under GDPR Chapter V.
 
 ---
 
@@ -264,9 +264,9 @@ The Processor will not transfer Personal Data to any country outside the Europea
 
 | Data Type | Retention Period |
 |-----------|-----------------|
-| Stale AWS resources | 90 days after last detected in a scan |
-| Resolved security findings | 180 days after resolution |
-| Scan records | 365 days |
+| Stale AWS resources | Tier-based: Free 7 days, Pro 90 days, Team 180 days after last detected in a scan |
+| Resolved security findings | Tier-based: Free 14 days, Pro 180 days, Team 365 days after resolution |
+| Scan records | Tier-based: Free 30 days, Pro 365 days, Team 730 days |
 | Audit logs | 730 days (2 years) |
 | Consent records | Retained indefinitely (required as proof of consent under GDPR) |
 
@@ -343,14 +343,13 @@ This DPA is governed by Dutch law, without prejudice to the mandatory data prote
 ## 16. Contact
 
 **Data protection contact:**
-Email: dpa@scanorbit.cloud
+Email: support@scanorbit.cloud
 
 **Business address:**
 ScanOrbit
-[YOUR FULL REGISTERED ADDRESS]
-Amsterdam, Netherlands
-KVK: [YOUR KVK NUMBER]
-BTW-ID: [YOUR BTW-ID]
+Keizersgracht 241, Amsterdam, 1016EA Netherlands
+KVK: 99611252
+BTW-ID: NL005398711B41
 
 ---
 

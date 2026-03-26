@@ -38,7 +38,11 @@ ScanOrbit is not a substitute for professional security advice, a comprehensive 
 
 ### 2.1 Who Can Use ScanOrbit
 
-To use ScanOrbit, you must be at least 16 years of age (in accordance with Dutch law), legally capable of entering into a binding agreement, and not prohibited by applicable law from using the Service.
+To use ScanOrbit, you must be legally capable of entering into a binding agreement and not prohibited by applicable law from using the Service.
+
+If you are using ScanOrbit on behalf of a company or other legal entity, you represent that you have authority to bind that entity to these Terms.
+
+If you are under 18, you may use the Service only with involvement and consent of a parent or legal guardian and only to the extent permitted by applicable law.
 
 ### 2.2 Account Registration
 
@@ -104,7 +108,7 @@ ScanOrbit offers the following plans:
 
 **Free:** One AWS account. One successful scan (retries allowed on errors). Shows finding count and severity summary. Does not include detailed resource lists, finding details, or infrastructure map.
 
-**Pro:** Three AWS accounts. Unlimited scans with 60-minute cooldown. Full access to resources, findings, and infrastructure map. Data export (CSV/JSON). Email support.
+**Pro:** Three AWS accounts. Unlimited scans with 60-minute cooldown. Full access to resources, findings, and infrastructure map. Email support.
 
 **Team:** 10 AWS accounts. Unlimited scans with no cooldown. All Pro features plus multi-user organization access with role-based permissions, organization overview dashboard, access to API, audit logs, and priority support. You can add up to 5 team members included for free, and pay for additional members.
 
@@ -126,7 +130,11 @@ We may change our prices. If we increase the price of your current plan, we will
 
 ### 5.5 Refunds
 
-Subscription payments are non-refundable for partial billing periods. If you cancel, you keep access until the end of your current billing period but will not receive a refund for the remainder. If we terminate your account for reasons other than a Terms violation, we will refund the unused portion of your current billing period.
+Unless required otherwise by mandatory consumer protection law, subscription payments are non-refundable for partial billing periods. If you cancel, you keep access until the end of your current billing period but will not receive a refund for the remainder.
+
+If we terminate your account for reasons other than a Terms violation, we will refund the unused portion of your current billing period.
+
+Nothing in this Section limits rights that cannot be waived under applicable law, including statutory consumer rights in the EU.
 
 ### 5.6 Taxes
 
@@ -136,17 +144,17 @@ All prices are exclusive of taxes unless stated otherwise. You are responsible f
 
 ## 6. Right of Withdrawal (EU Consumers)
 
-If you are a consumer in the European Union, you have the right to withdraw from a distance purchase within 14 days without giving a reason, under the EU Consumer Rights Directive (2011/83/EU).
+If you are a consumer in the European Union, you may have a statutory right to withdraw from distance contracts within 14 days, subject to the exceptions and conditions in the EU Consumer Rights Directive (2011/83/EU) as implemented in your country.
 
 **For free trials:** You can cancel at any time during the trial at no cost.
 
-**For paid subscriptions:** Because ScanOrbit is a digital service, we will ask you at checkout to:
-1. Consent to the immediate provision of the service (before the 14-day withdrawal period expires), and
-2. Acknowledge that by doing so, you waive your right of withdrawal once the service has been fully provided.
+**For paid subscriptions (digital service):** At checkout, we may ask you to expressly request immediate performance before the 14-day withdrawal period ends and acknowledge the legal consequences of that request.
 
-If you do not give this consent, the service will begin after the 14-day withdrawal period.
+Where immediate performance starts during the withdrawal period, refund entitlement may be reduced to account for the service already provided, or otherwise handled as required by applicable law. Any mandatory consumer rights remain unaffected.
 
-**To exercise your right of withdrawal** (where applicable), email support@scanorbit.cloud within 14 days of your purchase with a clear statement of your decision. We will refund the full amount within 14 days using the same payment method.
+If immediate performance is not requested, service access may begin after the withdrawal period or as otherwise required by law.
+
+**To exercise your right of withdrawal** (where applicable), email support@scanorbit.cloud within 14 days of purchase with a clear statement of your decision. We will process any refund owed under applicable law within 14 days, using the original payment method unless otherwise agreed.
 
 ---
 
@@ -268,9 +276,10 @@ If you have a dispute regarding the Service:
 2. **Mediation.** If direct communication does not resolve the dispute, either party may propose mediation in Amsterdam, Netherlands.
 3. **Courts.** If the dispute is not resolved through mediation, it may be brought before the competent courts in Amsterdam, Netherlands. If you are a consumer in the EU, you may also bring a claim in the courts of your place of residence.
 
-### 14.3 EU Online Dispute Resolution
+### 14.3 EU Consumer Dispute Resolution Information
 
-If you are a consumer in the EU, you can submit complaints through the European Online Dispute Resolution (ODR) platform at https://ec.europa.eu/odr.
+If you are a consumer in the EU, you may use your local consumer dispute resolution bodies and consumer protection channels available in your country of residence. Information about EU consumer redress and national dispute resolution bodies is available at:
+https://consumer-redress.ec.europa.eu/
 
 ---
 
@@ -288,7 +297,7 @@ If any provision of these Terms is found to be invalid or unenforceable by a cou
 
 ### 16.2 Entire Agreement
 
-These Terms, together with the [Privacy Policy](/privacy) and [Cookie Policy](/cookies), constitute the entire agreement between you and ScanOrbit regarding the Service and supersede any prior agreements or understandings.
+These Terms, together with the [Privacy Policy](/privacy), [Cookie Policy](/cookies), and (where applicable) the [Data Processing Agreement](/dpa), constitute the entire agreement between you and ScanOrbit regarding the Service and supersede any prior agreements or understandings.
 
 ### 16.3 No Waiver
 
