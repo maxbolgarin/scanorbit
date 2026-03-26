@@ -149,6 +149,37 @@ describe('stripeService', () => {
         tax_id_collection: { enabled: true },
       }));
     });
+
+    it('includes trial when org has never used one', async () => {
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'none', trialUsedAt: null }]) as any)
+        .mockImplementationOnce(() => createChain([{ stripeCustomerId: 'cus_existing' }]) as any);
+
+      mockStripeCustomersRetrieve.mockResolvedValue({ id: 'cus_existing' });
+      mockStripeCheckoutCreate.mockResolvedValue({ id: 'cs_123', url: 'https://checkout.stripe.com/session' });
+
+      await stripeService.createCheckoutSession('org-1', 'user-1', 'pro', 'http://localhost/success', 'http://localhost/cancel');
+
+      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(expect.objectContaining({
+        subscription_data: expect.objectContaining({ trial_period_days: 14 }),
+      }));
+    });
+
+    it('skips trial when org has already used one', async () => {
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'canceled', trialUsedAt: new Date('2026-03-16') }]) as any)
+        .mockImplementationOnce(() => createChain([{ stripeCustomerId: 'cus_existing' }]) as any);
+
+      mockStripeCustomersRetrieve.mockResolvedValue({ id: 'cus_existing' });
+      mockStripeCheckoutCreate.mockResolvedValue({ id: 'cs_456', url: 'https://checkout.stripe.com/session2' });
+
+      await stripeService.createCheckoutSession('org-1', 'user-1', 'pro', 'http://localhost/success', 'http://localhost/cancel');
+
+      const callArgs = mockStripeCheckoutCreate.mock.calls[0][0];
+      expect(callArgs.subscription_data).not.toHaveProperty('trial_period_days');
+    });
   });
 
   describe('handleCheckoutComplete', () => {

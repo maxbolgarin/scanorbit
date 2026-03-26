@@ -259,7 +259,7 @@ export const stripeService = {
 
     // Prevent creating checkout when org already has an active/trialing subscription
     const [existingOrg] = await db
-      .select({ subscriptionStatus: orgs.subscriptionStatus })
+      .select({ subscriptionStatus: orgs.subscriptionStatus, trialUsedAt: orgs.trialUsedAt })
       .from(orgs)
       .where(eq(orgs.id, orgId))
       .limit(1);
@@ -278,7 +278,10 @@ export const stripeService = {
       throw new HTTP400Error(`Stripe price not configured for tier: ${targetTier}`);
     }
 
-    // Create checkout session with trial
+    // Only offer trial if the org has never used one before
+    const trialDays = existingOrg?.trialUsedAt ? undefined : stripeConfig.trialDays;
+
+    // Create checkout session
     const session = await getStripeClient().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -292,7 +295,7 @@ export const stripeService = {
         },
       ],
       subscription_data: {
-        trial_period_days: stripeConfig.trialDays,
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: {
           orgId,
           targetTier,
@@ -482,6 +485,8 @@ export const stripeService = {
         tier,
         tierUpgradedAt: new Date(),
         trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+        // Mark trial as used so future checkouts won't grant another trial
+        ...(subscription.trial_end ? { trialUsedAt: new Date() } : {}),
         subscriptionEndsAt: getSubscriptionEndDate(subscription),
         updatedAt: new Date(),
       })

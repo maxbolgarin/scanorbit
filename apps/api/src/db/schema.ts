@@ -65,6 +65,7 @@ export const orgs = pgTable('orgs', {
   stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   subscriptionStatus: varchar('subscription_status', { length: 50 }).default('none'), // 'none', 'trialing', 'active', 'canceled', 'past_due', 'unpaid'
   trialEndsAt: timestamp('trial_ends_at'),
+  trialUsedAt: timestamp('trial_used_at'),
   subscriptionEndsAt: timestamp('subscription_ends_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

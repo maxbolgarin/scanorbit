@@ -1,0 +1,1 @@
+ALTER TABLE "orgs" ADD COLUMN "trial_used_at" timestamp;
