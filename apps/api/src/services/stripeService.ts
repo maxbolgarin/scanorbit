@@ -257,14 +257,16 @@ export const stripeService = {
     // Verify admin access
     await verifyOrgAdmin(orgId, userId);
 
-    // Prevent creating checkout when org already has an active/trialing subscription
+    // Prevent creating checkout when org already has an active (paid) subscription.
+    // Trialing orgs are allowed — they can switch plans via a new checkout that
+    // preserves the remaining trial end date.
     const [existingOrg] = await db
-      .select({ subscriptionStatus: orgs.subscriptionStatus, trialUsedAt: orgs.trialUsedAt })
+      .select({ subscriptionStatus: orgs.subscriptionStatus, trialUsedAt: orgs.trialUsedAt, trialEndsAt: orgs.trialEndsAt })
       .from(orgs)
       .where(eq(orgs.id, orgId))
       .limit(1);
 
-    if (existingOrg && ['active', 'trialing'].includes(existingOrg.subscriptionStatus || '')) {
+    if (existingOrg?.subscriptionStatus === 'active') {
       throw new HTTP400Error('Organization already has an active subscription. Use the billing portal to change plans.');
     }
 
@@ -278,8 +280,17 @@ export const stripeService = {
       throw new HTTP400Error(`Stripe price not configured for tier: ${targetTier}`);
     }
 
-    // Only offer trial if the org has never used one before
-    const trialDays = existingOrg?.trialUsedAt ? undefined : stripeConfig.trialDays;
+    // Determine trial configuration:
+    // - Trialing org switching plans: preserve the exact remaining trial end date
+    // - First-time subscriber: grant configured trial days
+    // - Returning subscriber (trialUsedAt set): no trial
+    const isTrialing = existingOrg?.subscriptionStatus === 'trialing';
+    let trialConfig: { trial_end: number } | { trial_period_days: number } | Record<string, never> = {};
+    if (isTrialing && existingOrg?.trialEndsAt) {
+      trialConfig = { trial_end: Math.floor(existingOrg.trialEndsAt.getTime() / 1000) };
+    } else if (!existingOrg?.trialUsedAt) {
+      trialConfig = { trial_period_days: stripeConfig.trialDays };
+    }
 
     // Create checkout session
     const session = await getStripeClient().checkout.sessions.create({
@@ -296,7 +307,7 @@ export const stripeService = {
         },
       ],
       subscription_data: {
-        ...(trialDays ? { trial_period_days: trialDays } : {}),
+        ...trialConfig,
         metadata: {
           orgId,
           targetTier,
@@ -394,8 +405,14 @@ export const stripeService = {
       throw new HTTP400Error('Cannot switch plan on a canceled subscription. Please resubscribe.');
     }
 
-    // Only allow switches on active or trialing subscriptions
-    if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+    // Only allow switches on active (paid) subscriptions — not during trial.
+    // During trial the user must go through Stripe Checkout for the new plan so
+    // they explicitly see and agree to the new pricing (trial end date is preserved).
+    if (subscription.status === 'trialing') {
+      throw new HTTP400Error('Cannot switch plan during a trial. Please use the plan selection page to start a new checkout.');
+    }
+
+    if (subscription.status !== 'active') {
       throw new HTTP400Error(`Cannot switch plan while subscription is ${subscription.status}. Please resolve billing issues first.`);
     }
 

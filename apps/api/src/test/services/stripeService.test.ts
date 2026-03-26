@@ -150,10 +150,10 @@ describe('stripeService', () => {
       }));
     });
 
-    it('includes trial when org has never used one', async () => {
+    it('includes trial_period_days when org has never used one', async () => {
       const { db } = await import('../../lib/db.js');
       vi.mocked(db.select)
-        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'none', trialUsedAt: null }]) as any)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'none', trialUsedAt: null, trialEndsAt: null }]) as any)
         .mockImplementationOnce(() => createChain([{ stripeCustomerId: 'cus_existing' }]) as any);
 
       mockStripeCustomersRetrieve.mockResolvedValue({ id: 'cus_existing' });
@@ -169,7 +169,7 @@ describe('stripeService', () => {
     it('skips trial when org has already used one', async () => {
       const { db } = await import('../../lib/db.js');
       vi.mocked(db.select)
-        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'canceled', trialUsedAt: new Date('2026-03-16') }]) as any)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'canceled', trialUsedAt: new Date('2026-03-16'), trialEndsAt: null }]) as any)
         .mockImplementationOnce(() => createChain([{ stripeCustomerId: 'cus_existing' }]) as any);
 
       mockStripeCustomersRetrieve.mockResolvedValue({ id: 'cus_existing' });
@@ -179,6 +179,34 @@ describe('stripeService', () => {
 
       const callArgs = mockStripeCheckoutCreate.mock.calls[0][0];
       expect(callArgs.subscription_data).not.toHaveProperty('trial_period_days');
+      expect(callArgs.subscription_data).not.toHaveProperty('trial_end');
+    });
+
+    it('preserves trial_end timestamp when org is currently trialing', async () => {
+      const trialEnd = new Date('2026-03-23T11:02:00Z');
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'trialing', trialUsedAt: new Date('2026-03-16'), trialEndsAt: trialEnd }]) as any)
+        .mockImplementationOnce(() => createChain([{ stripeCustomerId: 'cus_existing' }]) as any);
+
+      mockStripeCustomersRetrieve.mockResolvedValue({ id: 'cus_existing' });
+      mockStripeCheckoutCreate.mockResolvedValue({ id: 'cs_789', url: 'https://checkout.stripe.com/session3' });
+
+      await stripeService.createCheckoutSession('org-1', 'user-1', 'team', 'http://localhost/success', 'http://localhost/cancel');
+
+      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(expect.objectContaining({
+        subscription_data: expect.objectContaining({ trial_end: Math.floor(trialEnd.getTime() / 1000) }),
+      }));
+    });
+
+    it('throws 400 when org has an active (paid) subscription', async () => {
+      const { db } = await import('../../lib/db.js');
+      vi.mocked(db.select)
+        .mockImplementationOnce(() => createChain([{ subscriptionStatus: 'active', trialUsedAt: new Date(), trialEndsAt: null }]) as any);
+
+      await expect(
+        stripeService.createCheckoutSession('org-1', 'user-1', 'pro', 'http://localhost/success', 'http://localhost/cancel')
+      ).rejects.toThrow('already has an active subscription');
     });
   });
 
@@ -472,6 +500,17 @@ describe('stripeService', () => {
       selectResult = [{ stripeSubscriptionId: 'sub_123', tier: 'pro' }];
       await expect(stripeService.switchPlan('org-1', 'user-1', 'pro'))
         .rejects.toThrow('Already on the pro plan');
+    });
+
+    it('throws 400 when subscription is in trial', async () => {
+      selectResult = [{ stripeSubscriptionId: 'sub_123', tier: 'pro' }];
+      mockStripeSubscriptionsRetrieve.mockResolvedValue({
+        status: 'trialing',
+        cancel_at_period_end: false,
+        items: { data: [{ id: 'si_1', price: { id: 'price_pro' } }] },
+      });
+      await expect(stripeService.switchPlan('org-1', 'user-1', 'team'))
+        .rejects.toThrow('Cannot switch plan during a trial. Please use the plan selection page');
     });
   });
 
