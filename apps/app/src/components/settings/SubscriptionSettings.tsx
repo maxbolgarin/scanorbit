@@ -285,9 +285,10 @@ export function SubscriptionSettings() {
       return;
     }
 
-    // If trialing, use switchPlan to change plan while preserving trial period
+    // If trialing, use Stripe Checkout so the user explicitly confirms the new
+    // plan/pricing. createCheckoutSession preserves the remaining trial end date.
     if (status?.subscriptionStatus === 'trialing' && tier !== 'free') {
-      setWaiverAction('switch');
+      setWaiverAction('checkout');
       setWaiverModalOpen(true);
       return;
     }
