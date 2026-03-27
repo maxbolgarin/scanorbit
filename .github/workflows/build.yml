@@ -43,7 +43,7 @@ env:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     outputs:
       api: ${{ steps.filter.outputs.api }}
       app: ${{ steps.filter.outputs.app }}
@@ -76,7 +76,7 @@ jobs:
     name: Build API
     needs: changes
     if: needs.changes.outputs.api == 'true' || inputs.api
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     permissions:
       contents: read
       packages: write
@@ -118,7 +118,7 @@ jobs:
     name: Build App
     needs: changes
     if: needs.changes.outputs.app == 'true' || inputs.app
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     permissions:
       contents: read
       packages: write
@@ -163,7 +163,7 @@ jobs:
     name: Build Landing
     needs: changes
     if: needs.changes.outputs.landing == 'true' || inputs.landing
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     permissions:
       contents: read
       packages: write
@@ -205,7 +205,7 @@ jobs:
     name: Build Workers
     needs: changes
     if: needs.changes.outputs.workers == 'true' || inputs.workers
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     permissions:
       contents: read
       packages: write
@@ -250,7 +250,7 @@ jobs:
     name: Build Telegram Bot
     needs: changes
     if: needs.changes.outputs.telegram-bot == 'true' || inputs.telegram-bot
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     permissions:
       contents: read
       packages: write
@@ -297,7 +297,7 @@ jobs:
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       contains(needs.*.result, 'success')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     steps:
       - name: Compute deployed services
         id: services
