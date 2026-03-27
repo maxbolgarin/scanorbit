@@ -34,7 +34,7 @@ const { mockAccountLockoutStore, mockTwoFactorStore, mockRefreshTokenStore } = v
 }));
 
 vi.mock('../../../lib/redis.js', () => ({
-  redis: { on: vi.fn(), eval: vi.fn() },
+  redis: { on: vi.fn(), eval: vi.fn(), publish: vi.fn().mockResolvedValue(0) },
   accountLockoutStore: mockAccountLockoutStore,
   signupCodes: {
     checkResendCooldown: vi.fn().mockResolvedValue({ allowed: true }),

@@ -1,25 +1,10 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useAuthStore } from "@/stores/auth-store";
-import { useSubscriptionStatus } from "@/hooks/use-subscription";
-import { toast } from "@/hooks/use-toast";
-import * as api from "@/lib/api";
 
-function isAllowedStripeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:' &&
-      (parsed.hostname === 'checkout.stripe.com' ||
-       parsed.hostname === 'billing.stripe.com');
-  } catch {
-    return false;
-  }
-}
+import { useSubscriptionStatus } from "@/hooks/use-subscription";
 
 interface PaywallBlockerProps {
   feature: "resources" | "findings" | "infrastructure-map";
@@ -43,7 +28,6 @@ const featureConfig: Record<string, { title: string; description: string }> = {
 
 export function PaywallBlocker({ feature, children }: PaywallBlockerProps) {
   const config = featureConfig[feature];
-  const { org } = useAuthStore();
   const { status } = useSubscriptionStatus();
 
   const canStartTrial =
@@ -51,24 +35,7 @@ export function PaywallBlocker({ feature, children }: PaywallBlockerProps) {
     status?.subscriptionStatus === "none" &&
     status?.tier === "free";
 
-  const checkoutMutation = useMutation({
-    mutationFn: () => api.createCheckoutSession(org!.id, "pro"),
-    onSuccess: (data) => {
-      if (isAllowedStripeUrl(data.url)) {
-        window.location.href = data.url;
-      } else {
-        toast({ title: "Error", description: "Invalid redirect URL", type: "error" });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Checkout Failed",
-        description:
-          error instanceof Error ? error.message : "Failed to start checkout",
-        type: "error",
-      });
-    },
-  });
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-6">
@@ -87,15 +54,8 @@ export function PaywallBlocker({ feature, children }: PaywallBlockerProps) {
           </p>
           {canStartTrial ? (
             <div className="flex flex-col items-center gap-2">
-              <Button
-                onClick={() => checkoutMutation.mutate()}
-                disabled={checkoutMutation.isPending}
-              >
-                {checkoutMutation.isPending ? (
-                  <LoadingSpinner className="h-4 w-4 mr-2" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
+              <Button onClick={() => navigate("/checkout?plan=pro")}>
+                <Sparkles className="h-4 w-4 mr-2" />
                 Start 7-Day Free Trial
               </Button>
               <Button variant="link" size="sm" asChild>

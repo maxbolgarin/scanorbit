@@ -19,7 +19,7 @@ vi.mock('../../lib/db.js', () => ({
 }));
 
 vi.mock('../../lib/redis.js', () => ({
-  redis: { rpush: vi.fn().mockResolvedValue(1), on: vi.fn() },
+  redis: { rpush: vi.fn().mockResolvedValue(1), on: vi.fn(), publish: vi.fn().mockResolvedValue(0) },
 }));
 
 vi.mock('../../lib/logger.js', () => ({

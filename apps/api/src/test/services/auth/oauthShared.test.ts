@@ -26,6 +26,7 @@ vi.mock('../../../lib/redis.js', () => ({
     on: vi.fn(),
     set: vi.fn().mockResolvedValue('OK'),
     eval: vi.fn().mockResolvedValue('1'),
+    publish: vi.fn().mockResolvedValue(0),
   },
   oauthConsentStore: {
     store: vi.fn().mockResolvedValue('consent-token-123'),

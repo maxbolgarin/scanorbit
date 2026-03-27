@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+
 import {
   Card,
   CardContent,
@@ -11,17 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { useScanStatus } from "@/hooks/use-aws-accounts";
 import { useSubscriptionStatus } from "@/hooks/use-subscription";
-import { useAuthStore } from "@/stores/auth-store";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { CheckCircle2, Radar, AlertCircle, Orbit, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import * as api from "@/lib/api";
 
 export default function Scanning() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
   const { data: scan, isLoading, error } = useScanStatus(scanId || null);
-  const { org } = useAuthStore();
   const { status: subStatus } = useSubscriptionStatus();
   const [showTrialOffer, setShowTrialOffer] = useState(false);
 
@@ -30,27 +27,7 @@ export default function Scanning() {
     subStatus?.subscriptionStatus === "none" &&
     subStatus?.tier === "free";
 
-  const checkoutMutation = useMutation({
-    mutationFn: () => api.createCheckoutSession(org!.id, "pro"),
-    onSuccess: (data) => {
-      try {
-        const parsed = new URL(data.url);
-        if (parsed.protocol === 'https:' && (parsed.hostname === 'checkout.stripe.com' || parsed.hostname === 'billing.stripe.com')) {
-          window.location.href = data.url;
-          return;
-        }
-      } catch { /* invalid URL */ }
-      toast({ title: "Error", description: "Invalid redirect URL", type: "error" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Checkout Failed",
-        description:
-          error instanceof Error ? error.message : "Failed to start checkout",
-        type: "error",
-      });
-    },
-  });
+  const startCheckout = () => navigate("/checkout?plan=pro");
 
   useEffect(() => {
     if (scan?.status === "complete") {
@@ -163,15 +140,8 @@ export default function Scanning() {
                       Start your 7-day free trial to access detailed findings, resource lists, and infrastructure maps.
                     </p>
                     <div className="mt-4 flex flex-col gap-2">
-                      <Button
-                        onClick={() => checkoutMutation.mutate()}
-                        disabled={checkoutMutation.isPending}
-                      >
-                        {checkoutMutation.isPending ? (
-                          <LoadingSpinner className="h-4 w-4 mr-2" />
-                        ) : (
-                          <Sparkles className="h-4 w-4 mr-2" />
-                        )}
+                      <Button onClick={startCheckout}>
+                        <Sparkles className="h-4 w-4 mr-2" />
                         Start 7-Day Free Trial
                       </Button>
                       <Button
