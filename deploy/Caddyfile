@@ -6,7 +6,7 @@
 # Common hardening: block attack patterns, scanner probes, and malicious UAs (before upstreams)
 (block_scanners) {
 	# ── Path traversal & encoding attacks ──
-	@path_attacks path_regexp path_attacks (?i)(\.\.|%2e%2e|%252e|%00|%0a|%0d|;|%3b)
+	@path_attacks path_regexp path_attacks (?i)(\.\.|%2e%2e|%252e|%2f|%252f|%00|%0a|%0d|;|%3b)
 	respond @path_attacks 404
 
 	# ── Dotfile access (/.env, /.git, /.vscode, etc.) ──

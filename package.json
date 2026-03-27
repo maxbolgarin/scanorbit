@@ -29,8 +29,8 @@
     "db:reset": "pnpm --filter @scanorbit/api db:reset"
   },
   "devDependencies": {
-    "@types/node": "^25.4.0",
-    "turbo": "^2.8.14",
+    "@types/node": "^25.5.0",
+    "turbo": "^2.8.20",
     "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@10.27.0",
@@ -41,8 +41,9 @@
   "pnpm": {
     "overrides": {
       "tar": ">=7.5.11",
-      "flatted": ">=3.4.0",
-      "undici": ">=7.24.0"
+      "flatted": ">=3.4.2",
+      "undici": ">=7.24.0",
+      "fast-xml-parser": ">=5.5.6"
     }
   }
 }

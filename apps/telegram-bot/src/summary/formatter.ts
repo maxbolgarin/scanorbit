@@ -21,7 +21,7 @@ export function formatSummary(data: SummaryData): string {
     .join(' | ');
 
   const topPathsLines = data.topPaths
-    .map((p) => `  ${p.path} — ${p.count}`)
+    .map((p) => `  <code>${p.path}</code> — ${p.count}`)
     .join('\n');
 
   const issues: string[] = [];

@@ -376,6 +376,110 @@ groups:
           runbook_url: "https://docs.scanorbit.cloud/runbooks/scan-failures"
 
   # ============================================================================
+  # Security & Breach Detection Alerts
+  # ============================================================================
+  - name: security_detection
+    interval: 30s
+    rules:
+      - alert: HighFailedLoginRate
+        # Detects brute-force login attempts
+        expr: |
+          sum(rate(user_logins_total{status="failed"}[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of failed login attempts"
+          description: "{{ $value | humanize }} failed logins/sec over the last 5 minutes. Possible brute-force attack."
+
+      - alert: FailedLoginSpike
+        # Detects sudden spike in failed logins compared to baseline
+        expr: |
+          sum(increase(user_logins_total{status="failed"}[5m])) > 50
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Failed login spike detected"
+          description: "{{ $value }} failed login attempts in the last 5 minutes. Investigate immediately."
+
+      - alert: UnusualAuthErrors
+        # Detects unusual auth operation failures (OAuth, 2FA, token refresh)
+        expr: |
+          sum(rate(auth_operations_total{status="error"}[10m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual authentication error rate"
+          description: "Auth operation errors at {{ $value | humanize }}/sec. May indicate credential stuffing or token manipulation."
+
+      - alert: BulkDataExport
+        # Detects unusual GDPR data export activity
+        expr: |
+          sum(increase(http_requests_total{route="/api/gdpr/export", status_code="200"}[1h])) > 5
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple data export requests detected"
+          description: "{{ $value }} successful data exports in the last hour. Verify these are legitimate."
+
+      - alert: BulkAccountDeletion
+        # Detects unusual deletion request activity
+        expr: |
+          sum(increase(http_requests_total{route=~"/api/gdpr/delete.*", method="POST", status_code="200"}[1h])) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple account deletion requests"
+          description: "{{ $value }} deletion requests in the last hour. May indicate compromised admin or automated attack."
+
+      - alert: APIRequestRateAnomaly
+        # Detects abnormally high request rate (potential scraping or DDoS)
+        expr: |
+          sum(rate(http_requests_total{job="scanorbit-api"}[1m])) > 100
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormally high API request rate"
+          description: "API receiving {{ $value | humanize }} req/sec. Possible scraping, enumeration, or DDoS."
+
+      - alert: APIRequestRateCritical
+        expr: |
+          sum(rate(http_requests_total{job="scanorbit-api"}[1m])) > 500
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical API request rate"
+          description: "API receiving {{ $value | humanize }} req/sec. Investigate immediately."
+
+      - alert: SensitiveEndpointErrors
+        # Detects high error rates on auth-related endpoints
+        expr: |
+          sum(rate(http_requests_total{route=~"/auth/.*|/api/gdpr/.*", status_code=~"4.."}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on sensitive endpoints"
+          description: "{{ $value | humanize }} errors/sec on auth/GDPR endpoints. May indicate unauthorized access attempts."
+
+      - alert: UnauthorizedAccessSpike
+        # Detects spike in 401/403 responses
+        expr: |
+          sum(increase(http_requests_total{status_code=~"401|403"}[5m])) > 100
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spike in unauthorized access attempts"
+          description: "{{ $value }} unauthorized (401/403) responses in the last 5 minutes."
+
+  # ============================================================================
   # Resource Utilization Alerts
   # ============================================================================
   - name: resource_utilization

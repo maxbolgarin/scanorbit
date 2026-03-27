@@ -275,6 +275,12 @@ authRoute.get('/logout', async (c) => {
 
 // POST /auth/refresh - Get new access token using refresh token
 authRoute.post('/refresh', async (c) => {
+  // Defense-in-depth: validate Origin header to prevent CSRF on this cookie-only endpoint
+  const origin = c.req.header('Origin');
+  if (origin && origin !== config.frontendUrl) {
+    throw new HTTP401Error('Invalid origin');
+  }
+
   const refreshToken = getCookie(c, 'refresh_token');
 
   if (!refreshToken) {
