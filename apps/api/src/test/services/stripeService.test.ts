@@ -502,15 +502,20 @@ describe('stripeService', () => {
         .rejects.toThrow('Already on the pro plan');
     });
 
-    it('throws 400 when subscription is in trial', async () => {
+    it('allows switching plan during trial', async () => {
       selectResult = [{ stripeSubscriptionId: 'sub_123', tier: 'pro' }];
       mockStripeSubscriptionsRetrieve.mockResolvedValue({
         status: 'trialing',
         cancel_at_period_end: false,
         items: { data: [{ id: 'si_1', price: { id: 'price_pro' } }] },
+        metadata: {},
       });
-      await expect(stripeService.switchPlan('org-1', 'user-1', 'team'))
-        .rejects.toThrow('Cannot switch plan during a trial. Please use the plan selection page');
+      mockStripeSubscriptionsUpdate.mockResolvedValue({});
+      await stripeService.switchPlan('org-1', 'user-1', 'team');
+      expect(mockStripeSubscriptionsUpdate).toHaveBeenCalledWith('sub_123', expect.objectContaining({
+        items: [{ id: 'si_1', price: expect.any(String) }],
+        proration_behavior: 'none',
+      }));
     });
   });
 

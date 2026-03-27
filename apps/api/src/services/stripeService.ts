@@ -405,14 +405,12 @@ export const stripeService = {
       throw new HTTP400Error('Cannot switch plan on a canceled subscription. Please resubscribe.');
     }
 
-    // Only allow switches on active (paid) subscriptions — not during trial.
-    // During trial the user must go through Stripe Checkout for the new plan so
-    // they explicitly see and agree to the new pricing (trial end date is preserved).
-    if (subscription.status === 'trialing') {
-      throw new HTTP400Error('Cannot switch plan during a trial. Please use the plan selection page to start a new checkout.');
-    }
-
-    if (subscription.status !== 'active') {
+    // Allow switches on active or trialing subscriptions.
+    // During trial the subscription item is updated in-place so the trial end
+    // date is preserved and the user starts paying the new price when the trial
+    // ends. The withdrawal waiver consent is collected by the frontend before
+    // calling this endpoint.
+    if (subscription.status !== 'active' && subscription.status !== 'trialing') {
       throw new HTTP400Error(`Cannot switch plan while subscription is ${subscription.status}. Please resolve billing issues first.`);
     }
 
