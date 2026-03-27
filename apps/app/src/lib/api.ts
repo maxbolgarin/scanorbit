@@ -1568,13 +1568,14 @@ export async function upgradeSubscription(
 export async function createCheckoutSession(
   _orgId: string,
   targetTier: SubscriptionTier,
+  withdrawalWaiverConsented: boolean,
   successUrl?: string,
   cancelUrl?: string
 ): Promise<CheckoutSession> {
   try {
     const { data } = await api.post<{ data: CheckoutSession }>(
       `/stripe/checkout`,
-      { targetTier, successUrl, cancelUrl }
+      { targetTier, withdrawalWaiverConsented, successUrl, cancelUrl }
     );
     return data.data;
   } catch (error) {
@@ -1601,12 +1602,13 @@ export async function createPortalSession(
 // Stripe: Switch subscription plan (preserves trial)
 export async function switchPlan(
   _orgId: string,
-  targetTier: SubscriptionTier
+  targetTier: SubscriptionTier,
+  withdrawalWaiverConsented: boolean
 ): Promise<{ switched: boolean; targetTier: string }> {
   try {
     const { data } = await api.post<{ data: { switched: boolean; targetTier: string } }>(
       `/stripe/switch-plan`,
-      { targetTier }
+      { targetTier, withdrawalWaiverConsented }
     );
     return data.data;
   } catch (error) {

@@ -12,6 +12,7 @@ import { config, stripeConfig } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { HTTP400Error } from '../lib/errors.js';
 import { publishTelegramEvent } from '../services/telegramEventService.js';
+import { consentService } from '../services/consentService.js';
 import type { Variables } from '../types/index.js';
 import type Stripe from 'stripe';
 
@@ -44,6 +45,9 @@ function isAllowedRedirectUrl(url: string): boolean {
 // Validation schemas
 const checkoutSchema = z.object({
   targetTier: z.enum(['pro', 'team']),
+  withdrawalWaiverConsented: z.literal(true, {
+    message: 'You must consent to the withdrawal waiver before proceeding to checkout',
+  }),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
 });
@@ -96,6 +100,19 @@ stripeRoute.post(
       cancelUrl || defaultCancelUrl
     );
 
+    // Log withdrawal waiver consent (immutable GDPR record)
+    const admin = await orgService.getOrgAdminEmail(orgId);
+    if (admin) {
+      await consentService.logWithdrawalWaiverConsent({
+        userId,
+        email: admin.email,
+        orgId,
+        targetTier,
+        ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || undefined,
+        userAgent: c.req.header('user-agent') || undefined,
+      });
+    }
+
     return c.json({ data: session });
   }
 );
@@ -107,6 +124,9 @@ stripeRoute.post(
  */
 const switchPlanSchema = z.object({
   targetTier: z.enum(['pro', 'team']),
+  withdrawalWaiverConsented: z.literal(true, {
+    message: 'You must consent to the withdrawal waiver before proceeding',
+  }),
 });
 
 stripeRoute.post(
@@ -128,6 +148,20 @@ stripeRoute.post(
     }
 
     await stripeService.switchPlan(orgId, userId, targetTier);
+
+    // Log withdrawal waiver consent for plan switch
+    const admin = await orgService.getOrgAdminEmail(orgId);
+    if (admin) {
+      await consentService.logWithdrawalWaiverConsent({
+        userId,
+        email: admin.email,
+        orgId,
+        targetTier,
+        ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || undefined,
+        userAgent: c.req.header('user-agent') || undefined,
+      });
+    }
+
     return c.json({ data: { switched: true, targetTier } });
   }
 );

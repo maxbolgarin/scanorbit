@@ -25,7 +25,7 @@ interface ConsentMetadata {
 interface LogConsentParams {
   userId?: string;
   email: string;
-  consentType: 'terms_and_privacy' | 'marketing' | 'processing_restriction' | 'objection';
+  consentType: 'terms_and_privacy' | 'marketing' | 'processing_restriction' | 'objection' | 'withdrawal_waiver';
   consentGiven: boolean;
   ipAddress?: string;
   userAgent?: string;
@@ -85,6 +85,33 @@ export const consentService = {
       metadata: {
         signupSource: 'web',
         action: 'signup_completed',
+      },
+    });
+  },
+
+  /**
+   * Log withdrawal waiver consent (EU 14-day cooling-off period waiver)
+   * Called when user consents to immediate service access before checkout
+   */
+  async logWithdrawalWaiverConsent(params: {
+    userId: string;
+    email: string;
+    orgId: string;
+    targetTier: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    await this.logConsent({
+      userId: params.userId,
+      email: params.email,
+      consentType: 'withdrawal_waiver',
+      consentGiven: true,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+      metadata: {
+        action: 'checkout_withdrawal_waiver',
+        orgId: params.orgId,
+        targetTier: params.targetTier,
       },
     });
   },

@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TierBadge } from "@/components/shared/TierBadge";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { UpgradeConfirmModal } from "./UpgradeConfirmModal";
+import { WithdrawalWaiverModal } from "./WithdrawalWaiverModal";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
@@ -134,6 +135,8 @@ export function SubscriptionSettings() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [waiverModalOpen, setWaiverModalOpen] = useState(false);
+  const [waiverAction, setWaiverAction] = useState<'checkout' | 'switch'>('checkout');
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("pro");
   const checkoutSyncedRef = useRef(false);
 
@@ -207,7 +210,7 @@ export function SubscriptionSettings() {
   // Stripe checkout mutation
   const checkoutMutation = useMutation({
     mutationFn: (targetTier: SubscriptionTier) =>
-      api.createCheckoutSession(org!.id, targetTier),
+      api.createCheckoutSession(org!.id, targetTier, true),
     onSuccess: (data) => {
       // Validate Stripe URL before redirect
       try {
@@ -254,7 +257,7 @@ export function SubscriptionSettings() {
   // Switch plan mutation (preserves trial)
   const switchPlanMutation = useMutation({
     mutationFn: (targetTier: SubscriptionTier) =>
-      api.switchPlan(org!.id, targetTier),
+      api.switchPlan(org!.id, targetTier, true),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["subscription"] });
       await refreshAuth();
@@ -284,7 +287,8 @@ export function SubscriptionSettings() {
 
     // If trialing, use switchPlan to change plan while preserving trial period
     if (status?.subscriptionStatus === 'trialing' && tier !== 'free') {
-      switchPlanMutation.mutate(tier);
+      setWaiverAction('switch');
+      setWaiverModalOpen(true);
       return;
     }
 
@@ -294,9 +298,10 @@ export function SubscriptionSettings() {
       return;
     }
 
-    // For new subscriptions, use Stripe checkout
+    // For new subscriptions, use Stripe checkout with withdrawal waiver
     if (tier !== 'free') {
-      checkoutMutation.mutate(tier);
+      setWaiverAction('checkout');
+      setWaiverModalOpen(true);
     } else {
       // Downgrading to free - open modal for confirmation
       setUpgradeModalOpen(true);
@@ -305,6 +310,15 @@ export function SubscriptionSettings() {
 
   const handleConfirmUpgrade = () => {
     upgradeMutation.mutate(selectedTier);
+  };
+
+  const handleWaiverConfirm = () => {
+    if (waiverAction === 'switch') {
+      switchPlanMutation.mutate(selectedTier);
+    } else {
+      checkoutMutation.mutate(selectedTier);
+    }
+    setWaiverModalOpen(false);
   };
 
   const handleManageSubscription = () => {
@@ -533,6 +547,18 @@ export function SubscriptionSettings() {
             }
           )}
         </div>
+        <p className="text-xs text-muted-foreground text-center mt-4">
+          Subscriptions renew automatically each month. Cancel anytime from your account settings or the billing portal.
+          7-day free trial for new subscribers.{" "}
+          <a
+            href="https://scanorbit.cloud/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            Terms of Service
+          </a>
+        </p>
       </div>
 
       {/* Upgrade Modal (for downgrade confirmation) */}
@@ -543,6 +569,16 @@ export function SubscriptionSettings() {
         onConfirm={handleConfirmUpgrade}
         isLoading={upgradeMutation.isPending}
         stripeEnabled={!!status?.stripeEnabled}
+      />
+
+      {/* Withdrawal Waiver Modal (EU consumer protection) */}
+      <WithdrawalWaiverModal
+        open={waiverModalOpen}
+        onOpenChange={setWaiverModalOpen}
+        targetTier={selectedTier}
+        onConfirm={handleWaiverConfirm}
+        isLoading={checkoutMutation.isPending || switchPlanMutation.isPending}
+        isTrial={waiverAction === 'checkout' && subscriptionStatus === 'none'}
       />
     </div>
   );
