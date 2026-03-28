@@ -50,6 +50,7 @@ stripe_webhook_secret:STRIPE_WEBHOOK_SECRET:Stripe webhook secret
 aws_access_key_id:AWS_ACCESS_KEY_ID:AWS access key ID
 aws_secret_access_key:AWS_SECRET_ACCESS_KEY:AWS secret access key
 backup_encryption_key:BACKUP_ENCRYPTION_KEY:Backup encryption key (openssl rand -hex 32)
+secrets_master_key:SECRETS_MASTER_KEY:Secrets backup encryption key (openssl rand -hex 32)
 scw_access_key:SCW_ACCESS_KEY:Scaleway access key
 scw_secret_key:SCW_SECRET_KEY:Scaleway secret key
 "

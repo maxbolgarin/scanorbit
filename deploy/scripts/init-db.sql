@@ -680,13 +680,16 @@ ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO so_analyzer;
 
 -- ---------------------------------------------------------------------------
--- so_backup: read-only on all tables (for pg_dump)
+-- so_backup: read-only on all tables and sequences (for pg_dump)
 -- ---------------------------------------------------------------------------
 GRANT CONNECT ON DATABASE scanorbit TO so_backup;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO so_backup;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO so_backup;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
   GRANT SELECT ON TABLES TO so_backup;
+ALTER DEFAULT PRIVILEGES FOR ROLE so_migrate IN SCHEMA public
+  GRANT SELECT ON SEQUENCES TO so_backup;
 
 -- ---------------------------------------------------------------------------
 -- so_exporter: pg_monitor role (statistics views only)

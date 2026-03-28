@@ -25,4 +25,8 @@ resource "scaleway_instance_ip" "main" {
     "project:${var.project_name}",
     "environment:${var.environment}",
   ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

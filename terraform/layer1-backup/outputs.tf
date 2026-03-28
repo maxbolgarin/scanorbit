@@ -45,22 +45,6 @@ output "backup_writer_secret_key" {
 }
 
 # =============================================================================
-# Backup Reader Outputs (for restore operations)
-# =============================================================================
-
-output "backup_reader_access_key" {
-  description = "Access key for backup-reader (use during restore)"
-  value       = scaleway_iam_api_key.backup_reader.access_key
-  sensitive   = true
-}
-
-output "backup_reader_secret_key" {
-  description = "Secret key for backup-reader (use during restore)"
-  value       = scaleway_iam_api_key.backup_reader.secret_key
-  sensitive   = true
-}
-
-# =============================================================================
 # DNS Outputs
 # =============================================================================
 

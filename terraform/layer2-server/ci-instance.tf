@@ -7,6 +7,10 @@ resource "scaleway_instance_ip" "ci" {
     "environment:${var.environment}",
     "role:ci-runner",
   ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "scaleway_instance_server" "ci" {

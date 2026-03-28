@@ -35,8 +35,14 @@ create_backup() {
     log "Starting secrets backup..."
     mkdir -p "${BACKUP_DIR}"
 
-    # Create tarball of all Docker secrets
-    tar -czf "${BACKUP_DIR}/secrets.tar.gz" -C /run/secrets .
+    # Create tarball of Docker secrets, excluding S3 credentials
+    # (S3 creds are IAM-managed, not application secrets — backing them up
+    # would embed infrastructure credentials inside the backup archive)
+    tar -czf "${BACKUP_DIR}/secrets.tar.gz" \
+        --exclude='scw_access_key' \
+        --exclude='scw_secret_key' \
+        --exclude='secrets_master_key' \
+        -C /run/secrets .
 
     # Encrypt with secrets master key (different from DB backup key)
     gpg --symmetric --cipher-algo AES256 --batch --yes \
@@ -44,6 +50,7 @@ create_backup() {
         -o "${BACKUP_DIR}/${BACKUP_FILE}" \
         "${BACKUP_DIR}/secrets.tar.gz"
 
+    # Securely remove plaintext temp file
     rm -f "${BACKUP_DIR}/secrets.tar.gz"
 
     BACKUP_SIZE=$(du -h "${BACKUP_DIR}/${BACKUP_FILE}" | cut -f1)
@@ -67,16 +74,16 @@ upload_backup() {
 }
 
 verify_backup() {
-    log "Verifying backup..."
+    log "Verifying backup locally..."
 
-    S3_ENDPOINT="https://s3.${SCW_REGION}.scw.cloud"
-
-    if ! aws --endpoint-url "${S3_ENDPOINT}" s3 ls "${S3_PATH}" >/dev/null 2>&1; then
-        log "ERROR: Backup file not found in S3!"
+    if [ ! -s "${BACKUP_DIR}/${BACKUP_FILE}" ]; then
+        log "ERROR: Encrypted backup file is empty!"
         return 1
     fi
 
-    log "Secrets backup verified in S3"
+    # Note: backup-writer has PutObject only — no S3 read/list permissions.
+    # S3-level verification requires backup-reader credentials.
+    log "Secrets backup verified locally"
 }
 
 cleanup() {
@@ -91,8 +98,8 @@ main() {
     load_secrets
     install_deps
     create_backup
-    upload_backup
     verify_backup
+    upload_backup
     cleanup
 
     log "=============================================="

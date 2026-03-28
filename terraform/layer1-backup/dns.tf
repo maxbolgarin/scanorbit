@@ -12,6 +12,10 @@ resource "scaleway_domain_record" "root" {
   type     = "A"
   data     = var.app_server_ip
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # CNAME: www.scanorbit.cloud -> scanorbit.cloud
@@ -21,6 +25,10 @@ resource "scaleway_domain_record" "www" {
   type     = "CNAME"
   data     = "${var.domain}."
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # A record: app.scanorbit.cloud -> app server
@@ -30,6 +38,10 @@ resource "scaleway_domain_record" "app" {
   type     = "A"
   data     = var.app_server_ip
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # A record: api.scanorbit.cloud -> app server
@@ -39,6 +51,10 @@ resource "scaleway_domain_record" "api" {
   type     = "A"
   data     = var.app_server_ip
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # A record: ci.scanorbit.cloud -> CI runner
@@ -48,4 +64,8 @@ resource "scaleway_domain_record" "ci" {
   type     = "A"
   data     = var.ci_server_ip
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

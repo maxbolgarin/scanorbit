@@ -52,22 +52,39 @@ create_backup() {
     # Create backup directory
     mkdir -p "${BACKUP_DIR}"
 
-    # Dump database, compress, and encrypt
+    # Dump database to temp file first so we can check pg_dump exit code.
+    # In POSIX sh without pipefail, a failing pg_dump in a pipeline is silent.
     log "Dumping database..."
-    pg_dump --clean --if-exists --no-owner --no-privileges --format=plain 2>/dev/null | \
-        gzip | \
-        gpg --symmetric --cipher-algo AES256 --batch --yes \
-            --passphrase "${BACKUP_ENCRYPTION_KEY}" \
-        > "${BACKUP_DIR}/${BACKUP_FILE}"
-
-    BACKUP_SIZE=$(du -h "${BACKUP_DIR}/${BACKUP_FILE}" | cut -f1)
-    if [ ! -s "${BACKUP_DIR}/${BACKUP_FILE}" ]; then
-        log "ERROR: Backup file is empty! pg_dump may have failed."
+    DUMP_FILE="${BACKUP_DIR}/scanorbit_dump.sql"
+    if ! pg_dump --clean --if-exists --no-owner --no-privileges --format=plain > "${DUMP_FILE}" 2>/dev/null; then
+        log "ERROR: pg_dump failed!"
+        rm -f "${DUMP_FILE}"
         return 1
     fi
 
-    # Calculate checksum
-    sha256sum "${BACKUP_DIR}/${BACKUP_FILE}" > "${BACKUP_DIR}/${BACKUP_FILE}.sha256"
+    if [ ! -s "${DUMP_FILE}" ]; then
+        log "ERROR: pg_dump produced an empty file!"
+        rm -f "${DUMP_FILE}"
+        return 1
+    fi
+
+    # Compress and encrypt
+    gzip -c "${DUMP_FILE}" | \
+        gpg --symmetric --cipher-algo AES256 --batch --yes \
+            --passphrase "${BACKUP_ENCRYPTION_KEY}" \
+        > "${BACKUP_DIR}/${BACKUP_FILE}"
+    rm -f "${DUMP_FILE}"
+
+    BACKUP_SIZE=$(du -h "${BACKUP_DIR}/${BACKUP_FILE}" | cut -f1)
+    if [ ! -s "${BACKUP_DIR}/${BACKUP_FILE}" ]; then
+        log "ERROR: Encrypted backup file is empty!"
+        return 1
+    fi
+
+    # Calculate checksum (filename only, no path — portable across containers)
+    cd "${BACKUP_DIR}"
+    sha256sum "${BACKUP_FILE}" > "${BACKUP_FILE}.sha256"
+    cd - >/dev/null
 
     log "Backup created: ${BACKUP_FILE} (${BACKUP_SIZE})"
 }
@@ -104,40 +121,27 @@ cleanup() {
     rm -f "${BACKUP_DIR}/${BACKUP_FILE}" "${BACKUP_DIR}/${BACKUP_FILE}.sha256"
 }
 
-# Verify backup by downloading, decrypting, and checking SQL content
+# Verify backup locally before cleanup.
+# Note: backup-writer has PutObject only — no S3 read/list permissions.
+# Full S3 verification requires backup-reader credentials (restore operations).
 verify_backup() {
-    log "Verifying backup..."
+    log "Verifying backup locally before upload cleanup..."
 
-    S3_ENDPOINT="https://s3.${SCW_REGION}.scw.cloud"
-
-    # Check if file exists in S3
-    if ! aws --endpoint-url "${S3_ENDPOINT}" s3 ls "${S3_PATH}" >/dev/null 2>&1; then
-        log "ERROR: Backup file not found in S3!"
-        return 1
-    fi
-
-    # Download and decrypt to verify integrity
-    VERIFY_DIR="${BACKUP_DIR}/verify"
-    mkdir -p "${VERIFY_DIR}"
-
-    aws --endpoint-url "${S3_ENDPOINT}" s3 cp "${S3_PATH}" "${VERIFY_DIR}/${BACKUP_FILE}" --quiet
-
-    # Verify checksum
-    aws --endpoint-url "${S3_ENDPOINT}" s3 cp "${S3_PATH}.sha256" "${VERIFY_DIR}/${BACKUP_FILE}.sha256" --quiet 2>/dev/null || true
-    if [ -f "${VERIFY_DIR}/${BACKUP_FILE}.sha256" ]; then
-        cd "${VERIFY_DIR}"
+    # Verify checksum of local file
+    if [ -f "${BACKUP_DIR}/${BACKUP_FILE}.sha256" ]; then
+        cd "${BACKUP_DIR}"
         if ! sha256sum -c "${BACKUP_FILE}.sha256" >/dev/null 2>&1; then
-            log "ERROR: Checksum verification failed!"
-            rm -rf "${VERIFY_DIR}"
+            log "ERROR: Local checksum verification failed!"
+            cd - >/dev/null
             return 1
         fi
         cd - >/dev/null
-        log "Checksum verified"
+        log "Local checksum verified"
     fi
 
     # Decrypt and decompress to verify the SQL is valid
     if gpg --decrypt --batch --yes --passphrase "${BACKUP_ENCRYPTION_KEY}" \
-        "${VERIFY_DIR}/${BACKUP_FILE}" 2>/dev/null | \
+        "${BACKUP_DIR}/${BACKUP_FILE}" 2>/dev/null | \
         gunzip 2>/dev/null | \
         head -5 | grep -q "PostgreSQL database dump"; then
         log "Backup content verified: valid PostgreSQL dump"
@@ -145,7 +149,6 @@ verify_backup() {
         log "WARNING: Could not confirm backup contains a valid PostgreSQL dump header"
     fi
 
-    rm -rf "${VERIFY_DIR}"
     log "Backup verification passed"
     return 0
 }
@@ -159,8 +162,8 @@ main() {
     load_secrets
     install_deps
     create_backup
-    upload_backup
     verify_backup
+    upload_backup
     cleanup
 
     log "=============================================="

@@ -1,0 +1,74 @@
+---
+# =============================================================================
+# Check status of CI machine
+# =============================================================================
+# Usage:
+#   cd ansible
+#   ansible-playbook playbooks/status-ci.yml
+# =============================================================================
+
+- name: CI machine status
+  hosts: ci
+  become: false
+
+  tasks:
+    - name: Check GitHub Actions runner
+      ansible.builtin.shell: |
+        if systemctl is-active --quiet actions.runner.*.service 2>/dev/null; then
+          echo "RUNNING"
+          systemctl status actions.runner.*.service --no-pager 2>/dev/null | head -5
+        elif [ -d ~/actions-runner ]; then
+          echo "INSTALLED but NOT RUNNING"
+        else
+          echo "NOT INSTALLED"
+        fi
+      register: runner_status
+      ignore_errors: true
+
+    - name: Display runner status
+      ansible.builtin.debug:
+        msg: "{{ runner_status.stdout_lines }}"
+
+    - name: Docker status
+      ansible.builtin.command: docker info --format "Server Version{{ ':' }} {{ '{{' }}.ServerVersion{{ '}}' }}, Containers{{ ':' }} {{ '{{' }}.Containers{{ '}}' }} ({{ '{{' }}.ContainersRunning{{ '}}' }} running)"
+      register: docker_info
+      ignore_errors: true
+
+    - name: Display Docker
+      ansible.builtin.debug:
+        msg: "{{ docker_info.stdout | default('Docker NOT available') }}"
+
+    - name: Memory usage
+      ansible.builtin.command: free -h
+      register: memory
+
+    - name: Display memory
+      ansible.builtin.debug:
+        msg: "{{ memory.stdout_lines }}"
+
+    - name: CPU info
+      ansible.builtin.shell: |
+        echo "Load average: $(cat /proc/loadavg | cut -d' ' -f1-3)"
+        echo "CPU cores: $(nproc)"
+        echo "CPU usage: $(top -bn1 | grep 'Cpu(s)' | awk '{print 100 - $8 "%"}')"
+      register: cpu
+
+    - name: Display CPU
+      ansible.builtin.debug:
+        msg: "{{ cpu.stdout_lines }}"
+
+    - name: Disk usage
+      ansible.builtin.command: df -h /
+      register: disk
+
+    - name: Display disk
+      ansible.builtin.debug:
+        msg: "{{ disk.stdout_lines }}"
+
+    - name: Uptime
+      ansible.builtin.command: uptime
+      register: uptime
+
+    - name: Display uptime
+      ansible.builtin.debug:
+        msg: "{{ uptime.stdout }}"

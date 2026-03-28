@@ -106,4 +106,8 @@ resource "scaleway_object_bucket_lock_configuration" "backups" {
       days = 7
     }
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

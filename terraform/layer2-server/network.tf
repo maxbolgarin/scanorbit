@@ -7,6 +7,10 @@ resource "scaleway_vpc" "main" {
     "project:${var.project_name}",
     "environment:${var.environment}",
   ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "scaleway_vpc_private_network" "main" {
@@ -23,6 +27,10 @@ resource "scaleway_vpc_private_network" "main" {
     "project:${var.project_name}",
     "environment:${var.environment}",
   ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "scaleway_ipam_ip" "ci_private" {

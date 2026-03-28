@@ -1,0 +1,94 @@
+---
+# =============================================================================
+# Check status of all services
+# =============================================================================
+# Usage:
+#   cd ansible
+#   ansible-playbook playbooks/status.yml
+# =============================================================================
+
+- name: ScanOrbit service status
+  hosts: app
+  become: false
+
+  tasks:
+    - name: Docker compose status
+      ansible.builtin.command:
+        cmd: docker compose ps --format "table {{ '{{' }}.Name{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{' }}.Ports{{ '}}' }}"
+        chdir: "{{ deploy_dir }}"
+      register: compose_ps
+
+    - name: Display services
+      ansible.builtin.debug:
+        msg: "{{ compose_ps.stdout_lines }}"
+
+    - name: Check API health via Docker
+      ansible.builtin.command:
+        cmd: docker compose exec -T api wget -qO- http://localhost:4000/health
+        chdir: "{{ deploy_dir }}"
+      register: api_health
+      ignore_errors: true
+
+    - name: API health
+      ansible.builtin.debug:
+        msg: "API: {{ api_health.stdout | default('UNREACHABLE') }}"
+
+    - name: Check PostgreSQL
+      ansible.builtin.command:
+        cmd: docker compose exec -T postgres pg_isready -U scanorbit
+        chdir: "{{ deploy_dir }}"
+      register: pg_status
+      ignore_errors: true
+
+    - name: PostgreSQL status
+      ansible.builtin.debug:
+        msg: "PostgreSQL: {{ 'OK' if pg_status.rc == 0 else 'DOWN' }}"
+
+    - name: Check Redis
+      ansible.builtin.command:
+        cmd: >
+          docker compose exec -T redis sh -c
+          "redis-cli --tls --cert /data/certs/redis.crt --key /data/certs/redis.key --cacert /data/certs/ca.crt
+          -a $(cat /run/secrets/redis_password) ping"
+        chdir: "{{ deploy_dir }}"
+      register: redis_status
+      ignore_errors: true
+
+    - name: Redis status
+      ansible.builtin.debug:
+        msg: "Redis: {{ 'OK' if redis_status.stdout is defined and redis_status.stdout is search('PONG') else 'DOWN' }}"
+
+    - name: Memory usage
+      ansible.builtin.command: free -h
+      register: memory
+
+    - name: Display memory
+      ansible.builtin.debug:
+        msg: "{{ memory.stdout_lines }}"
+
+    - name: CPU info
+      ansible.builtin.shell: |
+        echo "Load average: $(cat /proc/loadavg | cut -d' ' -f1-3)"
+        echo "CPU cores: $(nproc)"
+        echo "CPU usage: $(top -bn1 | grep 'Cpu(s)' | awk '{print 100 - $8 "%"}')"
+      register: cpu
+
+    - name: Display CPU
+      ansible.builtin.debug:
+        msg: "{{ cpu.stdout_lines }}"
+
+    - name: Disk usage
+      ansible.builtin.command: df -h /
+      register: disk
+
+    - name: Display disk
+      ansible.builtin.debug:
+        msg: "{{ disk.stdout_lines }}"
+
+    - name: Docker container resource usage
+      ansible.builtin.command: docker stats --no-stream --format "table {{ '{{' }}.Name{{ '}}' }}\t{{ '{{' }}.CPUPerc{{ '}}' }}\t{{ '{{' }}.MemUsage{{ '}}' }}\t{{ '{{' }}.MemPerc{{ '}}' }}"
+      register: docker_stats
+
+    - name: Display container resources
+      ansible.builtin.debug:
+        msg: "{{ docker_stats.stdout_lines }}"

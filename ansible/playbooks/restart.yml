@@ -1,0 +1,36 @@
+---
+# =============================================================================
+# Restart services — pull latest images and restart
+# =============================================================================
+# Usage:
+#   cd ansible
+#   ansible-playbook playbooks/restart.yml                        # All services
+#   ansible-playbook playbooks/restart.yml -e services="api app"  # Specific services
+# =============================================================================
+
+- name: Restart ScanOrbit services
+  hosts: app
+  become: false
+  vars:
+    services: ""
+
+  tasks:
+    - name: Pull latest images
+      ansible.builtin.command:
+        cmd: "docker compose pull {{ services }}"
+        chdir: "{{ deploy_dir }}"
+
+    - name: Restart services
+      ansible.builtin.command:
+        cmd: "docker compose up -d {{ services }}"
+        chdir: "{{ deploy_dir }}"
+
+    - name: Show service status
+      ansible.builtin.command:
+        cmd: docker compose ps --format "table {{ '{{' }}.Name{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}"
+        chdir: "{{ deploy_dir }}"
+      register: result
+
+    - name: Display
+      ansible.builtin.debug:
+        msg: "{{ result.stdout_lines }}"

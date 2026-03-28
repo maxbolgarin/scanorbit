@@ -589,13 +589,17 @@ services:
     volumes:
       - ./certs/postgres/ca.crt:/certs/postgres-ca.crt:ro
     working_dir: /app/apps/api
+    user: root
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        # Write crontab directly (avoids crontab SUID requirement in containers)
-        echo "0 3 * * * cd /app/apps/api && node dist/jobs/retention-cleanup.js >> /var/log/retention.log 2>&1" > /etc/crontabs/root
-        # Run crond in foreground
+        echo "0 3 * * * cd /app/apps/api && node dist/jobs/retention-cleanup.js >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
         crond -f -l 2
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep crond || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       migrate:
         condition: service_completed_successfully

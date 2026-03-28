@@ -1,4 +1,4 @@
-.PHONY: install dev build test lint clean docker-up docker-down docker-build tunnel-umami help
+.PHONY: install dev build test lint clean docker-up docker-down docker-build tunnel-umami help deploy deploy-sync deploy-restart deploy-status deploy-bootstrap deploy-services
 
 # Colors for help output
 BLUE := \033[34m
@@ -52,6 +52,16 @@ help:
 	@echo "  $(BLUE)tf-test-plan$(RESET)         Plan Terraform changes"
 	@echo "  $(BLUE)tf-test-apply$(RESET)        Apply Terraform configuration"
 	@echo "  $(BLUE)tf-test-destroy$(RESET)      Destroy test infrastructure"
+	@echo ""
+	@echo "$(YELLOW)Deployment (Ansible):$(RESET)"
+	@echo "  $(BLUE)deploy-init$(RESET)         First deploy (requires secrets.env with all secrets + GHCR creds)"
+	@echo "  $(BLUE)deploy$(RESET)              Full deploy (sync + bootstrap + services)"
+	@echo "  $(BLUE)deploy-sync$(RESET)         Sync deploy files to server"
+	@echo "  $(BLUE)deploy-restart$(RESET)      Pull latest images and restart services"
+	@echo "  $(BLUE)deploy-status$(RESET)       Check status of app server services"
+	@echo "  $(BLUE)deploy-status-ci$(RESET)    Check status of CI machine"
+	@echo "  $(BLUE)deploy-bootstrap$(RESET)    Run bootstrap (secrets, TLS, permissions)"
+	@echo "  $(BLUE)deploy-services$(RESET)     Start/restart all Docker services"
 	@echo ""
 	@echo "$(YELLOW)Terraform (Production Infrastructure):$(RESET)"
 	@echo "  $(BLUE)tf-prod-init$(RESET)         Initialize Terraform"
@@ -262,41 +272,66 @@ tf-prod-destroy:
 	cd terraform/scaleway && terraform destroy
 
 # =============================================================================
-# Deployment
+# Deployment (Ansible)
 # =============================================================================
-# App VM firewall: no public SSH. Use CI VM as jump host and the app private IP.
-# Override: make CI_SSH_HOST=ci.example.com APP_PRIVATE_IP=10.10.0.3 send-docker-compose
+# All deployment operations go through Ansible playbooks in ansible/
+
+deploy-init:
+	@test -f secrets.env || (echo "ERROR: secrets.env not found. Create it with all secrets + GITHUB_USERNAME + GITHUB_TOKEN"; exit 1)
+	cd ansible && ansible-playbook playbooks/deploy.yml -e secrets_file=../secrets.env
+
+deploy:
+	cd ansible && ansible-playbook playbooks/deploy.yml
+
+deploy-sync:
+	cd ansible && ansible-playbook playbooks/sync.yml
+
+deploy-restart:
+	cd ansible && ansible-playbook playbooks/restart.yml
+
+deploy-status:
+	cd ansible && ansible-playbook playbooks/status.yml
+
+deploy-status-ci:
+	cd ansible && ansible-playbook playbooks/status-ci.yml
+
+deploy-bootstrap:
+	cd ansible && ansible-playbook playbooks/deploy.yml --tags bootstrap
+
+deploy-services:
+	cd ansible && ansible-playbook playbooks/deploy.yml --tags services
+
+# =============================================================================
+# Legacy — direct SSH/rsync (kept for quick one-off operations)
+# =============================================================================
+SSH_USER = deploy
 CI_SSH_HOST ?= ci.scanorbit.cloud
-APP_PRIVATE_IP ?= $(shell cd $(CURDIR)/terraform/scaleway && terraform output -raw app_private_ip 2>/dev/null)
-SSH_jump = -o ProxyJump=deploy@$(CI_SSH_HOST)
+APP_PRIVATE_IP ?= 10.10.0.3
+SSH_JUMP = ssh -J $(SSH_USER)@$(CI_SSH_HOST)
 
 send-deploy-files:
-	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
-	scp -r $(SSH_jump) deploy/ deploy@$(APP_PRIVATE_IP):/opt/scanorbit/
-	scp $(SSH_jump) deploy/docker-compose.yml deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/docker-compose.yml
-	scp $(SSH_jump) .env.prod deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/.env
+	rsync -avz --progress \
+	    -e "$(SSH_JUMP)" \
+	    deploy/ \
+	    $(SSH_USER)@$(APP_PRIVATE_IP):/opt/scanorbit/
 
 send-docker-compose:
-	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
-	scp $(SSH_jump) deploy/docker-compose.yml deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/docker-compose.yml
+	scp -o "ProxyJump=$(SSH_USER)@$(CI_SSH_HOST)" deploy/docker-compose.yml deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/docker-compose.yml
 
 send-caddyfile:
-	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
-	scp $(SSH_jump) deploy/Caddyfile deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/Caddyfile
+	scp -o "ProxyJump=$(SSH_USER)@$(CI_SSH_HOST)" deploy/Caddyfile deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/Caddyfile
 
 send-envs:
-	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
-	scp $(SSH_jump) .env.prod deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/.env
+	scp -o "ProxyJump=$(SSH_USER)@$(CI_SSH_HOST)" .env.prod deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/.env
 
 send-deploy-simple: send-docker-compose send-caddyfile send-envs
 
 send-env: send-envs
 
 send-ssh-key:
-	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
-	scp $(SSH_jump) deploy/.ssh/id_ed25519_github.pub deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/id_ed25519_github.pub
-	scp $(SSH_jump) deploy/.ssh/id_ed25519_github deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/id_ed25519_github
-	scp $(SSH_jump) deploy/.ssh/config deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/config
+	scp -o "ProxyJump=$(SSH_USER)@$(CI_SSH_HOST)" deploy/.ssh/id_ed25519_github.pub deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/id_ed25519_github.pub
+	scp -o "ProxyJump=$(SSH_USER)@$(CI_SSH_HOST)" deploy/.ssh/id_ed25519_github deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/id_ed25519_github
+	scp -o "ProxyJump=$(SSH_USER)@$(CI_SSH_HOST)" deploy/.ssh/config deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/config
 
 
 # SSH tunnels for production monitoring
