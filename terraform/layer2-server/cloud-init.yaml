@@ -1,7 +1,7 @@
 #cloud-config
 
 # =============================================================================
-# CI Runner / Jump Host Cloud-Init
+# Security-Hardened Cloud-Init for ScanOrbit VM
 # =============================================================================
 # Features:
 # - Non-root deploy user with sudo access
@@ -9,9 +9,7 @@
 # - Root login disabled
 # - fail2ban for brute-force protection
 # - Automatic security updates
-# - UFW firewall (SSH only)
-# - Docker for CI builds
-# - GitHub Actions self-hosted runners
+# - UFW firewall
 # =============================================================================
 
 package_update: true
@@ -25,12 +23,11 @@ packages:
   - lsb-release
   - git
   - make
-  - jq
   - fail2ban
   - unattended-upgrades
   - apt-listchanges
 
-# Create non-root user for deployments and runner management
+# Create non-root user for deployments
 users:
   - name: deploy
     groups: [sudo, docker]
@@ -42,7 +39,7 @@ users:
 %{ endfor ~}
 
 write_files:
-  # SSH hardening configuration (identical to app VM)
+  # SSH hardening configuration
   - path: /etc/ssh/sshd_config.d/99-hardening.conf
     content: |
       # Disable root login
@@ -118,90 +115,39 @@ write_files:
         }
       }
 
-  # GitHub Actions runner setup script
-  - path: /opt/setup-runners.sh
+  # =============================================================================
+  # GDPR Compliance Scripts (loaded from deploy/scripts/)
+  # =============================================================================
+
+  # TLS Certificate Generation Script
+  - path: /opt/scanorbit/deploy/scripts/generate-certs.sh
+    permissions: "0755"
+    content: |
+      ${indent(6, script_gen_certs)}
+
+  # Application setup script
+  - path: /opt/setup-app.sh
     permissions: "0755"
     content: |
       #!/bin/bash
-      set -euo pipefail
-      # sudo -u deploy drops your shell env; pass the PAT explicitly, e.g.:
-      #   sudo -u deploy env GITHUB_PAT="$GITHUB_PAT" /opt/setup-runners.sh
+      set -e
 
-      RUNNER_VERSION="2.322.0"
-      RUNNER_ARCH="linux-x64"
-      RUNNER_USER="deploy"
-      RUNNER_HOME="/home/$RUNNER_USER"
-      # Prefer env (e.g. rotated PAT) over token baked at instance creation; Terraform $$ → literal $
-      GITHUB_PAT="$${GITHUB_PAT:-${github_runner_token}}"
-      if [ -z "$GITHUB_PAT" ]; then
-        echo "ERROR: GITHUB_PAT is empty. Export GITHUB_PAT or set TF_VAR_github_runner_token when applying Terraform." >&2
-        echo 'If you used sudo -u deploy, pass the var: sudo -u deploy env GITHUB_PAT="$GITHUB_PAT" /opt/setup-runners.sh' >&2
-        exit 1
-      fi
-      RUNNER_LABELS="${runner_labels}"
-      RUNNER_COUNT=${runner_count}
+      APP_DIR="/opt/scanorbit"
+      DEPLOY_DIR="$$APP_DIR/deploy"
 
-      # Repos to register runners for (space-separated)
-      REPOS="${join(" ", github_runner_repos)}"
+      # Create application directory structure
+      sudo mkdir -p $$APP_DIR
+      sudo chown deploy:deploy $$APP_DIR
+      cd $$APP_DIR
 
-      for REPO in $REPOS; do
-        REPO_SHORT=$(echo "$REPO" | cut -d'/' -f2)
-
-        # Get registration token from GitHub API
-        REG_JSON=$(curl -sS -X POST \
-          -H "Authorization: Bearer $GITHUB_PAT" \
-          -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/$REPO/actions/runners/registration-token")
-        REG_TOKEN=$(echo "$REG_JSON" | jq -r .token)
-
-        if [ -z "$REG_TOKEN" ] || [ "$REG_TOKEN" = "null" ]; then
-          echo "ERROR: Failed to get registration token for $REPO" >&2
-          echo "GitHub API response: $REG_JSON" >&2
-          echo "GITHUB_PAT length (0 means empty or overwritten by stale script): $${#GITHUB_PAT}" >&2
-          echo 'Stale /opt/setup-runners.sh overwrites env PAT unless it uses $${GITHUB_PAT:-<baked>}; sync from repo or re-run cloud-init.' >&2
-          continue
-        fi
-
-        for i in $(seq 1 $RUNNER_COUNT); do
-          RUNNER_DIR="$RUNNER_HOME/actions-runner-$REPO_SHORT-$i"
-          RUNNER_NAME="$(hostname)-$REPO_SHORT-$i"
-
-          echo "Setting up runner $RUNNER_NAME for $REPO..."
-
-          mkdir -p "$RUNNER_DIR"
-          cd "$RUNNER_DIR"
-
-          # Download runner
-          curl -sL "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-$RUNNER_ARCH-$RUNNER_VERSION.tar.gz" | tar xz
-
-          chown -R $RUNNER_USER:$RUNNER_USER "$RUNNER_DIR"
-
-          # Configure runner (as deploy user)
-          sudo -u $RUNNER_USER ./config.sh \
-            --url "https://github.com/$REPO" \
-            --token "$REG_TOKEN" \
-            --name "$RUNNER_NAME" \
-            --labels "$RUNNER_LABELS" \
-            --unattended \
-            --replace
-
-          # Install and start as systemd service
-          ./svc.sh install $RUNNER_USER
-          ./svc.sh start
-
-          echo "Runner $RUNNER_NAME started successfully"
-        done
-      done
-
-  # Docker cleanup cron (prevent disk fill from CI builds)
-  - path: /etc/cron.daily/docker-cleanup
-    permissions: "0755"
-    content: |
-      #!/bin/bash
-      docker system prune -af --filter "until=24h" > /dev/null 2>&1 || true
+      # Create required directories
+      mkdir -p data/postgres data/redis logs
+      mkdir -p deploy/certs/postgres deploy/certs/redis
+      sudo chmod +x /opt/scanorbit/deploy/scripts/generate-certs.sh
+      sudo /opt/scanorbit/deploy/scripts/generate-certs.sh
 
 runcmd:
-  # Install Docker using official apt repository
+  # Install Docker using official apt repository (ensures latest version)
   - apt-get update
   - apt-get install -y ca-certificates curl gnupg
   - install -m 0755 -d /etc/apt/keyrings
@@ -222,8 +168,8 @@ runcmd:
   - docker --version
   - docker compose version
 
-  # Install and start GitHub runners
-  - /opt/setup-runners.sh
+  # Run application setup as deploy user
+  - sudo -u deploy /opt/setup-app.sh
 
   # Enable and start fail2ban
   - systemctl enable fail2ban
@@ -236,16 +182,21 @@ runcmd:
   # Restart SSH to apply hardening
   - systemctl restart ssh
 
-  # Configure firewall (SSH only — no web traffic on this VM)
+  # Configure firewall (ufw)
   - ufw default deny incoming
   - ufw default allow outgoing
-  - ufw allow 22/tcp comment 'SSH'
+  - ufw allow from ${private_network_cidr} to any port 22 proto tcp comment 'SSH from private network only'
+  - ufw allow 80/tcp comment 'HTTP'
+  - ufw allow 443/tcp comment 'HTTPS'
   - ufw --force enable
 
 final_message: |
-  CI Runner / Jump Host setup complete.
-  - 3 GitHub runners registered per repo
-  - SSH hardened (key-only, fail2ban)
-  - Docker installed for CI builds
-  - UFW firewall enabled (SSH only)
-  Access: ssh deploy@ci.scanorbit.cloud
+        Setup complete
+        SSH access: via jump host only (ssh -J deploy@ci.scanorbit.cloud deploy@<private-ip>)
+        Next steps:
+        1. Copy deployment files (from repository root):
+           rsync -avz --exclude='certs/' --exclude='data/' --exclude='logs/' \
+             deploy/ deploy@<private-ip>:/opt/scanorbit/
+           scp deploy/docker-compose.yml deploy@<private-ip>:/opt/scanorbit/deploy/docker-compose.yml
+           scp .env.prod deploy@<private-ip>:/opt/scanorbit/deploy/.env
+        2. Start services: cd /opt/scanorbit/deploy && docker compose up -d
