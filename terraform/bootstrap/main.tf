@@ -4,7 +4,7 @@ terraform {
   required_providers {
     scaleway = {
       source  = "scaleway/scaleway"
-      version = "~> 2.0"
+      version = "~> 2.70"
     }
   }
 }
@@ -36,5 +36,9 @@ resource "scaleway_object_bucket" "terraform_state" {
     environment = var.environment
     purpose     = "terraform-state"
     managed_by  = "bootstrap"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }

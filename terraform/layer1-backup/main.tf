@@ -4,16 +4,15 @@ terraform {
   required_providers {
     scaleway = {
       source  = "scaleway/scaleway"
-      version = "~> 2.0"
+      version = "~> 2.70"
     }
   }
 }
 
-# Admin credentials — deliberately required, never stored on disk.
-# Export TF_VAR_scw_admin_access_key and TF_VAR_scw_admin_secret_key
-# from your password manager before running.
+# Admin credentials — set via SCW_ACCESS_KEY and SCW_SECRET_KEY env vars.
+# Export from your password manager before running.
 provider "scaleway" {
-  access_key = var.scw_admin_access_key
-  secret_key = var.scw_admin_secret_key
-  region     = var.scw_region
+  organization_id = var.organization_id
+  project_id      = var.project_id
+  region          = var.scw_region
 }

@@ -42,5 +42,6 @@ resource "scaleway_instance_server" "ci" {
 
   lifecycle {
     prevent_destroy = false
+    ignore_changes  = [user_data]
   }
 }

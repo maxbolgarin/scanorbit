@@ -1,24 +1,13 @@
 # =============================================================================
-# Deploy Credentials
-# =============================================================================
-# Set via: TF_VAR_scw_deploy_access_key and TF_VAR_scw_deploy_secret_key
-# These come from Layer 1 output: deploy_access_key / deploy_secret_key
-
-variable "scw_deploy_access_key" {
-  description = "Scaleway deploy access key (from Layer 1 output)"
-  type        = string
-  sensitive   = true
-}
-
-variable "scw_deploy_secret_key" {
-  description = "Scaleway deploy secret key (from Layer 1 output)"
-  type        = string
-  sensitive   = true
-}
-
-# =============================================================================
 # General
 # =============================================================================
+# Deploy credentials are passed via env vars: SCW_ACCESS_KEY, SCW_SECRET_KEY
+# S3 backend auth via: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+
+variable "project_id" {
+  description = "Scaleway project ID (from Console -> Project Settings)"
+  type        = string
+}
 
 variable "scw_zone" {
   description = "Scaleway zone for resources"
@@ -70,22 +59,6 @@ variable "ssh_public_keys" {
   description = "List of SSH public keys for the deploy user"
   type        = list(string)
   default     = []
-}
-
-# =============================================================================
-# GDPR Compliance
-# =============================================================================
-
-variable "data_volume_size" {
-  description = "Size of the encrypted data volume in GB"
-  type        = number
-  default     = 20
-}
-
-variable "enable_backups" {
-  description = "Enable automated backups to Object Storage"
-  type        = bool
-  default     = true
 }
 
 # =============================================================================

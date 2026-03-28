@@ -1,28 +1,23 @@
 # =============================================================================
-# Admin Credentials (from password manager, never on disk)
-# =============================================================================
-# Set via: TF_VAR_scw_admin_access_key and TF_VAR_scw_admin_secret_key
-
-variable "scw_admin_access_key" {
-  description = "Scaleway admin access key (from password manager)"
-  type        = string
-  sensitive   = true
-}
-
-variable "scw_admin_secret_key" {
-  description = "Scaleway admin secret key (from password manager)"
-  type        = string
-  sensitive   = true
-}
-
-# =============================================================================
 # General
 # =============================================================================
+# Admin credentials are passed via env vars: SCW_ACCESS_KEY, SCW_SECRET_KEY
+# S3 backend auth via: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 
 variable "scw_region" {
   description = "Scaleway region"
   type        = string
   default     = "nl-ams"
+}
+
+variable "organization_id" {
+  description = "Scaleway organization ID (from Console -> Organization -> Settings)"
+  type        = string
+}
+
+variable "project_id" {
+  description = "Scaleway project ID (from Console -> Project Settings)"
+  type        = string
 }
 
 variable "project_name" {
@@ -49,9 +44,19 @@ variable "domain" {
 variable "app_server_ip" {
   description = "Public IP of the app server (for DNS A records). Updated after Layer 2 apply."
   type        = string
+
+  validation {
+    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.app_server_ip))
+    error_message = "app_server_ip must be a valid IPv4 address."
+  }
 }
 
 variable "ci_server_ip" {
   description = "Public IP of the CI server (for DNS A record). Updated after Layer 2 apply."
   type        = string
+
+  validation {
+    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.ci_server_ip))
+    error_message = "ci_server_ip must be a valid IPv4 address."
+  }
 }

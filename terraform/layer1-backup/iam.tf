@@ -8,9 +8,8 @@
 # The admin identity (scanorbit-admin) is created manually in the console.
 # =============================================================================
 
-data "scaleway_account_project" "default" {
-  name = "default"
-}
+# Project ID passed as variable to avoid needing organization-level read permissions.
+# Get it from: Scaleway Console -> Project Settings -> Project ID
 
 # =============================================================================
 # Deploy Identity — Layer 2 operations
@@ -27,21 +26,25 @@ resource "scaleway_iam_policy" "deploy" {
   application_id = scaleway_iam_application.deploy.id
 
   rule {
-    project_ids = [data.scaleway_account_project.default.id]
+    project_ids = [var.project_id]
     permission_set_names = [
       "InstancesFullAccess",
       "VPCFullAccess",
-      "IPsFullAccess",
-      "SecurityGroupsFullAccess",
       "ObjectStorageBucketsRead",
       "ObjectStorageObjectsRead",
     ]
   }
+
+  rule {
+    organization_id      = var.organization_id
+    permission_set_names = ["ProjectReadOnly"]
+  }
 }
 
 resource "scaleway_iam_api_key" "deploy" {
-  application_id = scaleway_iam_application.deploy.id
-  description    = "Daily deploy key for Layer 2 Terraform and server management"
+  application_id     = scaleway_iam_application.deploy.id
+  description        = "Daily deploy key for Layer 2 Terraform and server management"
+  default_project_id = var.project_id
 }
 
 # =============================================================================
@@ -53,47 +56,53 @@ resource "scaleway_iam_application" "backup_writer" {
   description = "Server backup cron: PutObject only on backup bucket. No delete, no list."
 }
 
-resource "scaleway_iam_api_key" "backup_writer" {
+resource "scaleway_iam_policy" "backup_writer" {
+  name           = "${var.project_name}-backup-writer-policy"
+  description    = "IAM-level grant: ObjectStorageObjectsWrite. Without this, the bucket policy Allow is never evaluated."
   application_id = scaleway_iam_application.backup_writer.id
-  description    = "Backup writer key — used as Docker secret on the server"
+
+  rule {
+    project_ids          = [var.project_id]
+    permission_set_names = ["ObjectStorageObjectsWrite"]
+  }
 }
 
-# Bucket policy: combined access rules for the backup bucket.
-# - backup-writer: PutObject only
-# - deploy identity: explicit deny (has ObjectStorageRead for TF state bucket,
-#   but this deny blocks access to the backup bucket specifically)
-resource "scaleway_object_bucket_policy" "backups" {
-  bucket = scaleway_object_bucket.backups.id
-  policy = jsonencode({
-    Version = "2023-04-17"
-    Statement = [
-      {
-        Sid    = "AllowBackupWriterPutOnly"
-        Effect = "Allow"
-        Principal = {
-          SCW = "application_id:${scaleway_iam_application.backup_writer.id}"
-        }
-        Action = [
-          "s3:PutObject",
-        ]
-        Resource = [
-          "${scaleway_object_bucket.backups.name}/*",
-        ]
-      },
-      {
-        Sid    = "DenyDeployAllAccess"
-        Effect = "Deny"
-        Principal = {
-          SCW = "application_id:${scaleway_iam_application.deploy.id}"
-        }
-        Action = [
-          "s3:*",
-        ]
-        Resource = [
-          "${scaleway_object_bucket.backups.name}",
-          "${scaleway_object_bucket.backups.name}/*",
-        ]
-      },
-    ]
-  })
+resource "scaleway_iam_api_key" "backup_writer" {
+  application_id     = scaleway_iam_application.backup_writer.id
+  description        = "Backup writer key — used as Docker secret on the server"
+  default_project_id = var.project_id
 }
+
+# =============================================================================
+# Backup Reader Identity — restore operations only
+# =============================================================================
+
+resource "scaleway_iam_application" "backup_reader" {
+  name        = "${var.project_name}-backup-reader"
+  description = "Restore operations: read-only access to backup bucket."
+}
+
+resource "scaleway_iam_policy" "backup_reader" {
+  name           = "${var.project_name}-backup-reader-policy"
+  description    = "IAM-level grant: ObjectStorageObjectsRead + ObjectStorageBucketsRead for restore."
+  application_id = scaleway_iam_application.backup_reader.id
+
+  rule {
+    project_ids          = [var.project_id]
+    permission_set_names = ["ObjectStorageObjectsRead", "ObjectStorageBucketsRead"]
+  }
+}
+
+resource "scaleway_iam_api_key" "backup_reader" {
+  application_id     = scaleway_iam_application.backup_reader.id
+  description        = "Backup reader key — used for restore operations"
+  default_project_id = var.project_id
+}
+
+# NOTE: Bucket policy removed — Scaleway's bucket policy evaluation blocks
+# ALL principals not explicitly listed, including the admin identity.
+# IAM policies alone provide sufficient protection:
+#   - deploy: ObjectStorageRead only (can read, cannot write/delete backups)
+#   - backup-writer: ObjectStorageObjectsWrite only (can upload, cannot delete/list)
+#   - backup-reader: ObjectStorageObjectsRead + BucketsRead (for restore)
+# The backup bucket is in Layer 1's state — deploy credentials cannot destroy it.

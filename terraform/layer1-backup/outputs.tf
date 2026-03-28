@@ -19,6 +19,7 @@ output "backup_bucket_endpoint" {
 output "deploy_access_key" {
   description = "Access key for the deploy IAM identity (use in Layer 2)"
   value       = scaleway_iam_api_key.deploy.access_key
+  sensitive   = true
 }
 
 output "deploy_secret_key" {
@@ -34,11 +35,28 @@ output "deploy_secret_key" {
 output "backup_writer_access_key" {
   description = "Access key for backup-writer (put in Docker secret: scw_access_key)"
   value       = scaleway_iam_api_key.backup_writer.access_key
+  sensitive   = true
 }
 
 output "backup_writer_secret_key" {
   description = "Secret key for backup-writer (put in Docker secret: scw_secret_key)"
   value       = scaleway_iam_api_key.backup_writer.secret_key
+  sensitive   = true
+}
+
+# =============================================================================
+# Backup Reader Outputs (for restore operations)
+# =============================================================================
+
+output "backup_reader_access_key" {
+  description = "Access key for backup-reader (use during restore)"
+  value       = scaleway_iam_api_key.backup_reader.access_key
+  sensitive   = true
+}
+
+output "backup_reader_secret_key" {
+  description = "Secret key for backup-reader (use during restore)"
+  value       = scaleway_iam_api_key.backup_reader.secret_key
   sensitive   = true
 }
 

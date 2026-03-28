@@ -31,7 +31,7 @@ wait_for_ssh() {
 
     echo "Waiting for SSH on ${host}..."
     while [ $attempt -lt $max_attempts ]; do
-        if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "deploy@${host}" "echo ok" >/dev/null 2>&1; then
+        if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "deploy@${host}" "echo ok" >/dev/null 2>&1; then
             echo "SSH available on ${host}"
             return 0
         fi
@@ -69,7 +69,7 @@ echo "Waiting 30s for cloud-init to finish setup..."
 sleep 30
 
 # Wait for app VM via jump host
-ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
     -J "deploy@${CI_PUBLIC_IP}" \
     "deploy@${APP_PRIVATE_IP}" "echo 'App VM SSH ready'"
 
@@ -133,13 +133,13 @@ log "Step 8: Restoring database from backup"
 
 echo "Listing available backups..."
 ssh -J "deploy@${CI_PUBLIC_IP}" "deploy@${APP_PRIVATE_IP}" \
-    "cd /opt/scanorbit && docker compose run --rm db-restore --list"
+    "cd /opt/scanorbit && docker compose --profile restore run --rm db-restore --list"
 
 echo ""
 read -p "Enter backup path to restore (e.g., db/daily/scanorbit_20260327_020000.sql.gz.gpg): " BACKUP_PATH
 
 ssh -J "deploy@${CI_PUBLIC_IP}" "deploy@${APP_PRIVATE_IP}" \
-    "cd /opt/scanorbit && docker compose run --rm db-restore ${BACKUP_PATH}"
+    "cd /opt/scanorbit && docker compose --profile restore run --rm db-restore ${BACKUP_PATH}"
 
 # ─── Step 9: Start all services ──────────────────────────────────────────────
 

@@ -83,11 +83,20 @@ resource "scaleway_object_bucket" "backups" {
     encrypted   = "true"
     managed_by  = "layer1-backup"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Object Lock: 7-day GOVERNANCE retention.
 # Prevents backup-writer from deleting recent backups.
 # Admin can override in emergencies.
+#
+# Note: Object Lock retention and lifecycle expiration are independent.
+# Object Lock prevents deletion/overwrite within the retention window (7 days).
+# Lifecycle rules auto-expire objects after their retention period (30/90/365 days).
+# Both are required: Lock for short-term immutability, lifecycle for long-term cleanup.
 resource "scaleway_object_bucket_lock_configuration" "backups" {
   bucket = scaleway_object_bucket.backups.name
 

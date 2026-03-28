@@ -4,16 +4,15 @@ terraform {
   required_providers {
     scaleway = {
       source  = "scaleway/scaleway"
-      version = "~> 2.0"
+      version = "~> 2.70"
     }
   }
 }
 
-# Deploy credentials — restricted identity with NO Object Storage access.
-# Safe to store in shell profile.
+# Deploy credentials — set via SCW_ACCESS_KEY and SCW_SECRET_KEY env vars.
+# Restricted identity with NO backup bucket access. Safe to store in shell profile.
 provider "scaleway" {
-  access_key = var.scw_deploy_access_key
-  secret_key = var.scw_deploy_secret_key
+  project_id = var.project_id
   region     = var.scw_region
   zone       = var.scw_zone
 }
