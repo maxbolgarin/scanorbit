@@ -75,7 +75,9 @@ jobs:
   build-api:
     name: Build API
     needs: changes
-    if: needs.changes.outputs.api == 'true' || inputs.api
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.api == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.api)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
@@ -117,7 +119,9 @@ jobs:
   build-app:
     name: Build App
     needs: changes
-    if: needs.changes.outputs.app == 'true' || inputs.app
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.app == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.app)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
@@ -162,7 +166,9 @@ jobs:
   build-landing:
     name: Build Landing
     needs: changes
-    if: needs.changes.outputs.landing == 'true' || inputs.landing
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.landing == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.landing)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
@@ -204,7 +210,9 @@ jobs:
   build-workers:
     name: Build Workers
     needs: changes
-    if: needs.changes.outputs.workers == 'true' || inputs.workers
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.workers == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.workers)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
@@ -249,7 +257,9 @@ jobs:
   build-telegram-bot:
     name: Build Telegram Bot
     needs: changes
-    if: needs.changes.outputs.telegram-bot == 'true' || inputs.telegram-bot
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.telegram-bot == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.telegram-bot)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
