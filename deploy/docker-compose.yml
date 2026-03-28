@@ -64,6 +64,8 @@ secrets:
     file: ./secrets/aws_secret_access_key
   backup_encryption_key:
     file: ./secrets/backup_encryption_key
+  secrets_master_key:
+    file: ./secrets/secrets_master_key
   scw_access_key:
     file: ./secrets/scw_access_key
   scw_secret_key:
@@ -492,6 +494,45 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - scanorbit
+
+  # Docker Secrets Backup (weekly + on-demand)
+  secrets-backup:
+    image: postgres:17-alpine
+    restart: "no"
+    profiles: ["backup-extras"]
+    environment:
+      - SCW_BUCKET_NAME=${SCW_BUCKET_NAME:-scanorbit-backups}
+      - SCW_REGION=${SCW_REGION:-nl-ams}
+    secrets:
+      - secrets_master_key
+      - scw_access_key
+      - scw_secret_key
+    volumes:
+      - ./scripts/backup-secrets.sh:/usr/local/bin/backup-secrets.sh:ro
+      - backup_temp:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-secrets.sh"]
+    networks:
+      - scanorbit
+
+  # Monitoring Configs Backup (weekly + on-demand)
+  configs-backup:
+    image: postgres:17-alpine
+    restart: "no"
+    profiles: ["backup-extras"]
+    environment:
+      - SCW_BUCKET_NAME=${SCW_BUCKET_NAME:-scanorbit-backups}
+      - SCW_REGION=${SCW_REGION:-nl-ams}
+    secrets:
+      - backup_encryption_key
+      - scw_access_key
+      - scw_secret_key
+    volumes:
+      - ./scripts/backup-configs.sh:/usr/local/bin/backup-configs.sh:ro
+      - grafana_data:/grafana-data:ro
+      - backup_temp:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-configs.sh"]
     networks:
       - scanorbit
 

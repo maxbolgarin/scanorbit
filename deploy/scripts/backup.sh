@@ -31,7 +31,7 @@ else
 fi
 
 BACKUP_FILE="scanorbit_${TIMESTAMP}.sql.gz.gpg"
-S3_PATH="s3://${SCW_BUCKET_NAME}/${BACKUP_TYPE}/${BACKUP_FILE}"
+S3_PATH="s3://${SCW_BUCKET_NAME}/db/${BACKUP_TYPE}/${BACKUP_FILE}"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"

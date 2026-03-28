@@ -37,13 +37,13 @@ list_backups() {
     log "Available backups in s3://${SCW_BUCKET_NAME}:"
     echo ""
     echo "=== Daily Backups (last 30 days) ==="
-    aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/daily/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No daily backups found"
+    aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/db/daily/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No daily backups found"
     echo ""
     echo "=== Weekly Backups (last 90 days) ==="
-    aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/weekly/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No weekly backups found"
+    aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/db/weekly/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No weekly backups found"
     echo ""
     echo "=== Monthly Backups (last 365 days) ==="
-    aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/monthly/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No monthly backups found"
+    aws --endpoint-url "${S3_ENDPOINT}" s3 ls "s3://${SCW_BUCKET_NAME}/db/monthly/" 2>/dev/null | grep ".sql.gz.gpg$" | tail -10 || echo "No monthly backups found"
 }
 
 # Download backup from S3
@@ -164,8 +164,8 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0 --list"
-    echo "  $0 --verify daily/scanorbit_20240115_020000.sql.gz.gpg"
-    echo "  $0 daily/scanorbit_20240115_020000.sql.gz.gpg"
+    echo "  $0 --verify db/daily/scanorbit_20240115_020000.sql.gz.gpg"
+    echo "  $0 db/daily/scanorbit_20240115_020000.sql.gz.gpg"
     echo ""
     echo "Required environment variables (or Docker secrets):"
     echo "  PGHOST, PGUSER, PGDATABASE"
@@ -173,8 +173,8 @@ usage() {
     echo ""
     echo "Run inside Docker:"
     echo "  docker compose -f docker-compose.yml run --rm db-restore --list"
-    echo "  docker compose -f docker-compose.yml run --rm db-restore --verify daily/<file>"
-    echo "  docker compose -f docker-compose.yml run --rm db-restore daily/<file>"
+    echo "  docker compose -f docker-compose.yml run --rm db-restore --verify db/daily/<file>"
+    echo "  docker compose -f docker-compose.yml run --rm db-restore db/daily/<file>"
 }
 
 # Main
