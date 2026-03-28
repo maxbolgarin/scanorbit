@@ -1,9 +1,9 @@
 # Build stage
-FROM node:25-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@10.27.0
 
 # Copy root-level package files (monorepo)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
@@ -21,11 +21,11 @@ COPY apps/api ./apps/api
 RUN pnpm --filter @scanorbit/api run build
 
 # Production stage
-FROM node:25-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 
 # Install pnpm for production deps
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@10.27.0
 
 # Copy root-level package files (monorepo)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./

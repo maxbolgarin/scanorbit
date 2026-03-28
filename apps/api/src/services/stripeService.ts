@@ -297,6 +297,7 @@ export const stripeService = {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
+      billing_address_collection: 'required',
       automatic_tax: { enabled: true },
       tax_id_collection: { enabled: true },
       customer_update: { address: 'auto', name: 'auto' },
