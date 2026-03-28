@@ -132,28 +132,42 @@ Push to main → GitHub Actions builds images → Pushes to GHCR → Watchtower 
 ### 1. Infrastructure Setup (Scaleway)
 
 ```bash
-cd deploy/scaleway
+cd terraform/scaleway
 
 # Configure variables
 cp terraform.tfvars.example terraform.tfvars
-vim terraform.tfvars  # Set domain, ssh_public_keys, etc.
+vim terraform.tfvars  # Set domain, ssh_public_keys, runner config, etc.
+
+# Set GitHub PAT for runner registration
+export TF_VAR_github_runner_token="ghp_xxxx..."
 
 # Deploy infrastructure
 terraform init
 terraform apply
 
-# Note the public IP
-terraform output public_ip
+# Note the outputs
+terraform output ci_public_ip       # CI VM (SSH entry point)
+terraform output app_private_ip     # App VM private IP (for jump SSH)
 ```
 
-Configure these DNS records (Scaleway DNS or your provider):
+This creates two VMs connected via a private network:
 
-| Record | Type | Value |
-|--------|------|-------|
-| `scanorbit.cloud` | A | VM Public IP |
+| VM | Role | Public Access |
+|----|------|---------------|
+| App VM | Docker host (all services) | HTTP/HTTPS only |
+| CI VM | GitHub runners + SSH jump host | SSH only |
+
+DNS records (created automatically by Terraform):
+
+| Record | Type | Target |
+|--------|------|--------|
+| `scanorbit.cloud` | A | App VM Public IP |
 | `www.scanorbit.cloud` | CNAME | scanorbit.cloud |
-| `app.scanorbit.cloud` | A | VM Public IP |
-| `api.scanorbit.cloud` | A | VM Public IP |
+| `app.scanorbit.cloud` | A | App VM Public IP |
+| `api.scanorbit.cloud` | A | App VM Public IP |
+| `ci.scanorbit.cloud` | A | CI VM Public IP |
+
+SSH access: `ssh deploy@ci.scanorbit.cloud` (CI VM), then jump to App VM via private network.
 
 ### 2. GitHub Repository Setup
 
@@ -163,8 +177,11 @@ Configure these DNS records (Scaleway DNS or your provider):
 
 2. **Add Repository Variables** (Settings → Secrets and variables → Actions → Variables)
    - `VITE_PUBLIC_API_URL` = `https://api.scanorbit.cloud`
+   - Optional `PROD_DEPLOY_JUMP_HOST` — set to `ci.scanorbit.cloud` only if deploy jobs do **not** run on the self-hosted CI VM (see `deploy/README.md`).
 
-3. **Push to main** — GitHub Actions will build and push images to GHCR
+3. **Add Action secrets for deploy** — `PROD_DEPLOY_HOST` (app **private** IP from `terraform output -raw app_private_ip`), `PROD_DEPLOY_USER`, `PROD_DEPLOY_SSH_KEY`. Details: `deploy/README.md` Step 2.
+
+4. **Push to main** — GitHub Actions will build and push images to GHCR
 
 ### 3. Prepare Environment File
 
@@ -182,25 +199,29 @@ vim .env  # Set all required values (see Environment Variables section)
 
 ### 4. Copy Deployment Files to Server
 
-Copy only the required files (scripts are pre-installed via Terraform cloud-init):
+Copy only the required files (scripts are pre-installed via Terraform cloud-init).
+The App VM has no public SSH — use jump through CI VM:
 
 ```bash
-# Get the public IP from terraform output
-PUBLIC_IP=$(cd deploy/scaleway && terraform output -raw public_ip)
-
-# Copy docker-compose, Caddyfile, and environment
+# With ~/.ssh/config ProxyJump configured (see terraform/scaleway/README.md):
 scp deploy/docker-compose.yml deploy/Caddyfile \
-    deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
+    scanorbit-app:/opt/scanorbit/deploy/
 
-scp .env deploy@${PUBLIC_IP}:/opt/scanorbit/deploy/
+scp .env scanorbit-app:/opt/scanorbit/deploy/
+
+# Or with explicit jump:
+scp -o ProxyJump=deploy@ci.scanorbit.cloud \
+    deploy/docker-compose.yml deploy/Caddyfile \
+    deploy@<app-private-ip>:/opt/scanorbit/deploy/
 ```
 
 ### 5. Generate TLS Certificates
 
-SSH into the server and generate certificates (scripts are pre-installed):
+SSH into the App VM via jump host and generate certificates (scripts are pre-installed):
 
 ```bash
-ssh deploy@scanorbit.cloud
+ssh -J deploy@ci.scanorbit.cloud deploy@<app-private-ip>
+# Or: ssh scanorbit-app  (with ~/.ssh/config)
 
 cd /opt/scanorbit/deploy
 ./scripts/generate-certs.sh
@@ -986,8 +1007,9 @@ See `deploy/test/README.md` for more details on test resources.
 ### Infrastructure Security
 - **Read-Only Access** — ScanOrbit only requires read permissions to scan AWS
 - **Role Assumption** — Uses IAM roles with external ID, no stored credentials
-- **SSH Hardening** — Root disabled, key-only auth, fail2ban protection
-- **Firewall** — Only ports 22, 80, 443 open via UFW
+- **SSH Hardening** — Root disabled, key-only auth, strong ciphers, fail2ban on both VMs
+- **Network Isolation** — App VM has no public SSH; accessible only via jump through CI VM over private network
+- **Firewall** — App VM: HTTP/HTTPS only. CI VM: SSH only. Private network for inter-VM communication
 
 ### GDPR Compliance
 - **EU Data Residency** — Deployed in Amsterdam (nl-ams) region

@@ -6,13 +6,10 @@ resource "scaleway_instance_security_group" "main" {
   outbound_default_policy = "accept"
   enable_default_security = false # Unblock SMTP (account is verified)
 
-  # SSH access (open to all - use SSH keys for security)
-  inbound_rule {
-    action   = "accept"
-    port     = 22
-    protocol = "TCP"
-    ip_range = "0.0.0.0/0"
-  }
+  # SSH: No public access — app VM is reachable only via private network
+  # (jump through CI VM at ci.scanorbit.cloud).
+  # Scaleway security groups only apply to public traffic;
+  # private network traffic bypasses them automatically.
 
   # HTTP for Let's Encrypt ACME challenge
   inbound_rule {

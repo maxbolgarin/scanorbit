@@ -20,7 +20,7 @@ on:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     outputs:
       node: ${{ steps.filter.outputs.node }}
       go: ${{ steps.filter.outputs.go }}
@@ -45,7 +45,7 @@ jobs:
     name: Lint & Typecheck
     needs: [changes]
     if: needs.changes.outputs.node == 'true' || inputs.force_node
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Check Internet Connectivity
         run: |
@@ -80,7 +80,7 @@ jobs:
     name: Audit Node.js Dependencies
     needs: [changes]
     if: needs.changes.outputs.node == 'true' || inputs.force_node
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -104,7 +104,7 @@ jobs:
     name: Audit Go Dependencies
     needs: [changes]
     if: needs.changes.outputs.go == 'true' || inputs.force_go
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -126,7 +126,7 @@ jobs:
     name: Lint Go Workers
     needs: [changes]
     if: needs.changes.outputs.go == 'true' || inputs.force_go
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -148,7 +148,7 @@ jobs:
     name: Test Go Workers
     needs: [changes]
     if: needs.changes.outputs.go == 'true' || inputs.force_go
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -187,7 +187,7 @@ jobs:
     name: Integration Test Go Workers
     needs: [changes]
     if: needs.changes.outputs.go == 'true' || inputs.force_go
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     services:
       postgres:
         image: postgres:17-alpine
@@ -246,7 +246,7 @@ jobs:
     name: Build Check
     needs: [changes]
     if: needs.changes.outputs.node == 'true' || inputs.force_node
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5

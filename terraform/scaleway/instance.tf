@@ -12,8 +12,9 @@ resource "scaleway_instance_server" "main" {
   # Scripts are loaded from deploy/scripts/ (canonical source)
   user_data = {
     cloud-init = templatefile("${path.module}/cloud-init.yaml", {
-      ssh_public_keys  = var.ssh_public_keys
-      script_gen_certs = file("${path.module}/generate-certs.sh")
+      ssh_public_keys      = var.ssh_public_keys
+      script_gen_certs     = file("${path.module}/generate-certs.sh")
+      private_network_cidr = "10.10.0.0/24"
     })
   }
 
@@ -33,5 +34,8 @@ resource "scaleway_instance_server" "main" {
   lifecycle {
     # Prevent accidental destruction
     prevent_destroy = false
+    # Ignore cloud-init changes to avoid VM recreation
+    # UFW changes applied manually on the live VM
+    ignore_changes = [user_data]
   }
 }

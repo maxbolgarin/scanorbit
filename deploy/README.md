@@ -7,12 +7,18 @@ Complete guide to deploy ScanOrbit from scratch on a Scaleway VM.
 ```
 Internet
   │
-  ├── :80/:443 ──► Caddy (reverse proxy, auto TLS)
-  │                  ├── scanorbit.cloud      ──► Landing (Astro/nginx)
-  │                  ├── app.scanorbit.cloud   ──► App (React SPA/nginx)
-  │                  └── api.scanorbit.cloud   ──► API (Node.js/Hono)
+  ├── ci.scanorbit.cloud (:22) ──► CI VM (jump host + GitHub runners)
+  │                                  ├── 3 runners × 2 repos (scanorbit + biomaxing)
+  │                                  └── SSH jump to App VM
   │
-  └── Internal Docker network (172.22.0.0/16)
+  ├── :80/:443 ──► App VM ──► Caddy (reverse proxy, auto TLS)
+  │                              ├── scanorbit.cloud      ──► Landing (Astro/nginx)
+  │                              ├── app.scanorbit.cloud   ──► App (React SPA/nginx)
+  │                              └── api.scanorbit.cloud   ──► API (Node.js/Hono)
+  │
+  ├── Private Network (10.10.0.0/24) ──► CI VM ◄──► App VM
+  │
+  └── App VM Internal Docker network (172.22.0.0/16)
        ├── PostgreSQL 17 (TLS, encrypted backups to Scaleway S3)
        ├── Redis 7 (TLS + password)
        ├── Scanner Worker (Go) — scans AWS accounts
@@ -22,9 +28,11 @@ Internet
        └── Umami (analytics, localhost only)
 ```
 
+**SSH Access**: The App VM has no public SSH. Access it via jump host: `ssh -J deploy@ci.scanorbit.cloud deploy@<app-private-ip>`.
+
 **Secrets** are stored as Docker secret files (`/run/secrets/`), never in env vars or `docker inspect`.
 
-**CI/CD**: Push to `main` → GitHub Actions builds Docker images → GHCR → Watchtower auto-pulls.
+**CI/CD**: Push to `main` → GitHub Actions (on CI VM runners) builds Docker images → GHCR → Watchtower auto-pulls on App VM.
 
 
 ## Prerequisites
@@ -49,6 +57,11 @@ cp terraform.tfvars.example terraform.tfvars
 #   - domain (your domain managed in Scaleway DNS)
 #   - admin_email (for Let's Encrypt)
 #   - ssh_public_keys (your public key content)
+#   - github_runner_repos (repos to register runners for)
+#   - github_runner_count (runners per repo, default 3)
+
+# Set GitHub PAT for runner registration (not stored in tfvars)
+export TF_VAR_github_runner_token="ghp_xxxx..."
 
 terraform init
 terraform plan
@@ -56,15 +69,25 @@ terraform apply
 ```
 
 This creates:
-- VM instance with Docker, fail2ban, UFW, SSH hardening
-- DNS records: `scanorbit.cloud`, `www`, `app`, `api`
+- **App VM** — Docker host with fail2ban, UFW (HTTP/HTTPS only), SSH hardening
+- **CI VM** — Jump host with GitHub runners, fail2ban, UFW (SSH only), SSH hardening
+- **Private Network** — 10.10.0.0/24 connecting both VMs
+- DNS records: `scanorbit.cloud`, `www`, `app`, `api`, `ci`
 - S3 bucket for encrypted backups
 - IAM API key for backup operations
 
 Save the outputs:
 ```bash
-terraform output              # public IP, SSH command, backup keys
+terraform output                       # all outputs
+terraform output ci_public_ip          # CI VM (SSH entry point)
+terraform output app_private_ip        # App VM private IP (for jump SSH)
 terraform output -raw backup_secret_key  # save this for secrets setup
+```
+
+Verify CI VM and runners:
+```bash
+ssh deploy@ci.scanorbit.cloud          # test SSH to CI VM
+# Check GitHub → Settings → Actions → Runners for registered runners
 ```
 
 
@@ -76,8 +99,17 @@ In your GitHub repo, set these **repository variables** (Settings → Secrets an
 |---|---|
 | `VITE_PUBLIC_API_URL` | `https://api.scanorbit.cloud` |
 | `VITE_SCANORBIT_AWS_ACCOUNT_ID` | Your AWS account ID |
+| `PROD_DEPLOY_JUMP_HOST` | **Optional.** SSH jump hostname (`ci.<yourdomain>`). Set this when workflow runners are **not** on the VPC (e.g. GitHub-hosted). **Leave unset** when using self-hosted runners on the CI VM so deploy connects directly to the app private IP. |
 
-GitHub Actions uses `GITHUB_TOKEN` (automatic) for GHCR authentication. No additional secrets needed.
+Set these **repository secrets** (Settings → Actions → Secrets):
+
+| Secret | Value |
+|---|---|
+| `PROD_DEPLOY_HOST` | App VM **private** IPv4 from Terraform: `terraform output -raw app_private_ip` |
+| `PROD_DEPLOY_USER` | `deploy` |
+| `PROD_DEPLOY_SSH_KEY` | SSH private key whose public half is in `ssh_public_keys` (Terraform / cloud-init) |
+
+GitHub Actions uses `GITHUB_TOKEN` (automatic) for GHCR authentication. No additional secrets needed for GHCR.
 
 ### First build
 
@@ -91,16 +123,14 @@ Push to `main` or trigger the Release workflow manually. This builds and pushes 
 
 ## Step 3: Deploy Configuration Files
 
-From your local machine:
+From your local machine (via jump host to App VM):
 
 ```bash
-# Send all deploy files to the VM
+# Send all deploy files to the App VM
 make send-deploy-files
 
-# This runs:
-#   scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
-#   scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
-#   scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
+# This uses SSH jump through CI VM to reach the App VM.
+# Ensure your ~/.ssh/config has the ProxyJump configured (see SSH Access below).
 ```
 
 Or individually:
@@ -116,7 +146,8 @@ make send-env             # just .env
 The bootstrap script sets up everything needed before starting services: Docker secrets, TLS certificates, GHCR authentication, and file permissions.
 
 ```bash
-ssh deploy@scanorbit.cloud
+# SSH to App VM via jump host
+ssh -J deploy@ci.scanorbit.cloud deploy@<app-private-ip>
 cd /opt/scanorbit/deploy
 
 # Prepare secrets file
@@ -294,6 +325,8 @@ make tunnel-grafana   # open http://localhost:3001
 
 ### SSH tunnels to internal services
 
+Tunnels go through the CI VM (jump host) to the App VM:
+
 ```bash
 make tunnel-grafana       # Grafana    → localhost:3001
 make tunnel-umami         # Umami      → localhost:3002
@@ -341,15 +374,20 @@ docker compose restart postgres redis api scanner analyzer
 
 ## Monitoring
 
-All monitoring services bind to `127.0.0.1` only — access via SSH tunnel.
+All monitoring services bind to `127.0.0.1` on the App VM — access via SSH tunnel through the jump host.
 
 | Service | Local port | Tunnel command |
 |---|---|---|
 | Grafana | 3001 | `make tunnel-grafana` |
-| Prometheus | 9092 | `ssh -N -L 9092:localhost:9092 deploy@scanorbit.cloud` |
-| Loki | 3100 | `ssh -N -L 3100:localhost:3100 deploy@scanorbit.cloud` |
-| Alertmanager | 9093 | `ssh -N -L 9093:localhost:9093 deploy@scanorbit.cloud` |
+| Prometheus | 9092 | `ssh -N -J deploy@ci.scanorbit.cloud -L 9092:localhost:9092 deploy@<app-private-ip>` |
+| Loki | 3100 | `ssh -N -J deploy@ci.scanorbit.cloud -L 3100:localhost:3100 deploy@<app-private-ip>` |
+| Alertmanager | 9093 | `ssh -N -J deploy@ci.scanorbit.cloud -L 9093:localhost:9093 deploy@<app-private-ip>` |
 | Umami | 3002 | `make tunnel-umami` |
+
+With `~/.ssh/config` ProxyJump configured (see SSH Access section in Terraform README), you can simplify:
+```bash
+ssh -N -L 3001:localhost:3001 scanorbit-app   # Grafana
+```
 
 ### Metrics endpoints (internal)
 
@@ -381,12 +419,15 @@ GDPR data retention cleanup runs daily at 03:00 UTC:
 
 ## Security
 
-- **VM**: SSH key-only auth, fail2ban, UFW (22/80/443 only), auto security updates
+- **App VM**: No public SSH, UFW allows HTTP/HTTPS + SSH from private network only, fail2ban, auto security updates
+- **CI VM**: SSH-only (jump host), fail2ban, UFW allows SSH only, GitHub runners as systemd services
+- **Private Network**: 10.10.0.0/24 connecting both VMs, App VM SSH only accessible via jump through CI VM
+- **SSH Hardening**: Key-only auth, strong ciphers (ChaCha20, AES-256-GCM), root login disabled, deploy user only
 - **Docker**: Socket proxy for Watchtower (no direct socket access), isolated internal network
 - **Secrets**: Docker secret files (`/run/secrets/`), never in env vars or process listings
 - **TLS**: Caddy auto-TLS for public, self-signed certs for internal PostgreSQL/Redis
 - **DB**: Per-service users with least-privilege grants, password auth + TLS required, no public port exposure
-- **Monitoring**: All dashboards on `127.0.0.1` only, accessed via SSH tunnel
+- **Monitoring**: All dashboards on `127.0.0.1` only, accessed via SSH tunnel through jump host
 
 
 ## Troubleshooting

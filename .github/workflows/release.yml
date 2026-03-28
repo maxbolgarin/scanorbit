@@ -12,7 +12,7 @@ env:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     outputs:
       api: ${{ steps.filter.outputs.api }}
       app: ${{ steps.filter.outputs.app }}
@@ -44,7 +44,7 @@ jobs:
   # Run semantic-release to create version tag and GitHub release
   release:
     name: Semantic Release
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: write
       issues: write
@@ -85,7 +85,7 @@ jobs:
       - release
       - changes
     if: needs.changes.outputs.api == 'true'
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
       packages: write
@@ -129,7 +129,7 @@ jobs:
       - release
       - changes
     if: needs.changes.outputs.app == 'true'
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
       packages: write
@@ -176,7 +176,7 @@ jobs:
       - release
       - changes
     if: needs.changes.outputs.landing == 'true'
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
       packages: write
@@ -220,7 +220,7 @@ jobs:
       - release
       - changes
     if: needs.changes.outputs.workers == 'true'
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
       packages: write
@@ -267,7 +267,7 @@ jobs:
       - release
       - changes
     if: needs.changes.outputs.telegram-bot == 'true'
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     permissions:
       contents: read
       packages: write
@@ -313,7 +313,7 @@ jobs:
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       contains(needs.*.result, 'success')
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Compute deployed services
         id: services
@@ -326,12 +326,17 @@ jobs:
           [ "${{ needs.build-telegram-bot.result }}" = "success" ] && services="$services telegram-bot"
           echo "services=$services" >> "$GITHUB_OUTPUT"
 
+      # App VM has no public SSH — target private IP (secret). If runners are not on the VPC,
+      # set repository variable PROD_DEPLOY_JUMP_HOST (e.g. ci.scanorbit.cloud) so the action uses ProxyJump.
       - name: Deploy changed services
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_DEPLOY_HOST }}
           username: ${{ secrets.PROD_DEPLOY_USER }}
           key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          proxy_host: ${{ vars.PROD_DEPLOY_JUMP_HOST }}
+          proxy_username: ${{ secrets.PROD_DEPLOY_USER }}
+          proxy_key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
           script: |
             SERVICES=""
             [ "${{ needs.build-api.result }}" = "success" ] && SERVICES="$SERVICES api"

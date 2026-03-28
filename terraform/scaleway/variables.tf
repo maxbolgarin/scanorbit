@@ -65,3 +65,37 @@ variable "enable_backups" {
   type        = bool
   default     = true
 }
+
+# =============================================================================
+# CI Runner / Jump Host Variables
+# =============================================================================
+
+variable "ci_instance_type" {
+  description = "Scaleway instance type for CI runner VM"
+  type        = string
+  default     = "DEV1-M"
+}
+
+variable "github_runner_token" {
+  description = "GitHub PAT with repo scope for runner registration (set via TF_VAR_github_runner_token)"
+  type        = string
+  sensitive   = true
+}
+
+variable "github_runner_repos" {
+  description = "GitHub repositories to register runners for (owner/repo format)"
+  type        = list(string)
+  default     = ["maxbolgarin/scanorbit", "maxbolgarin/biomaxing"]
+}
+
+variable "github_runner_count" {
+  description = "Number of GitHub Actions runners to install per repo"
+  type        = number
+  default     = 3
+}
+
+variable "github_runner_labels" {
+  description = "Comma-separated labels for GitHub runners"
+  type        = string
+  default     = "self-hosted,linux,x64"
+}

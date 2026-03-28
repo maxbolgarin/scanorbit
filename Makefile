@@ -264,40 +264,55 @@ tf-prod-destroy:
 # =============================================================================
 # Deployment
 # =============================================================================
+# App VM firewall: no public SSH. Use CI VM as jump host and the app private IP.
+# Override: make CI_SSH_HOST=ci.example.com APP_PRIVATE_IP=10.10.0.3 send-docker-compose
+CI_SSH_HOST ?= ci.scanorbit.cloud
+APP_PRIVATE_IP ?= $(shell cd $(CURDIR)/terraform/scaleway && terraform output -raw app_private_ip 2>/dev/null)
+SSH_jump = -o ProxyJump=deploy@$(CI_SSH_HOST)
+
 send-deploy-files:
-	scp -r deploy/ deploy@scanorbit.cloud:/opt/scanorbit/
-	scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml
-	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
+	scp -r $(SSH_jump) deploy/ deploy@$(APP_PRIVATE_IP):/opt/scanorbit/
+	scp $(SSH_jump) deploy/docker-compose.yml deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/docker-compose.yml
+	scp $(SSH_jump) .env.prod deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/.env
 
 send-docker-compose:
-	scp deploy/docker-compose.yml deploy@scanorbit.cloud:/opt/scanorbit/deploy/docker-compose.yml 
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
+	scp $(SSH_jump) deploy/docker-compose.yml deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/docker-compose.yml
 
 send-caddyfile:
-	scp deploy/Caddyfile deploy@scanorbit.cloud:/opt/scanorbit/deploy/Caddyfile
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
+	scp $(SSH_jump) deploy/Caddyfile deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/Caddyfile
 
 send-envs:
-	scp .env.prod deploy@scanorbit.cloud:/opt/scanorbit/deploy/.env
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
+	scp $(SSH_jump) .env.prod deploy@$(APP_PRIVATE_IP):/opt/scanorbit/deploy/.env
 
-send-deploy-simple: send-docker-compose send-caddyfile send-env
+send-deploy-simple: send-docker-compose send-caddyfile send-envs
+
+send-env: send-envs
 
 send-ssh-key:
-	scp deploy/.ssh/id_ed25519_github.pub deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github.pub
-	scp deploy/.ssh/id_ed25519_github deploy@scanorbit.cloud:/home/deploy/.ssh/id_ed25519_github
-	scp deploy/.ssh/config deploy@scanorbit.cloud:/home/deploy/.ssh/config
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
+	scp $(SSH_jump) deploy/.ssh/id_ed25519_github.pub deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/id_ed25519_github.pub
+	scp $(SSH_jump) deploy/.ssh/id_ed25519_github deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/id_ed25519_github
+	scp $(SSH_jump) deploy/.ssh/config deploy@$(APP_PRIVATE_IP):/home/deploy/.ssh/config
 
 
 # SSH tunnels for production monitoring
 tunnel-grafana:
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
 	@echo "$(YELLOW)Opening SSH tunnel to production Grafana...$(RESET)"
 	@echo "  Grafana will be available at: http://localhost:3001"
 	@echo "  Press Ctrl+C to close the tunnel"
 	@echo ""
-	ssh -N -L 3001:localhost:3001 deploy@scanorbit.cloud
+	ssh -N -L 3001:localhost:3001 -J deploy@$(CI_SSH_HOST) deploy@$(APP_PRIVATE_IP)
 
 tunnel-umami:
+	@test -n "$(APP_PRIVATE_IP)" || (echo "APP_PRIVATE_IP unset — run terraform in terraform/scaleway or set APP_PRIVATE_IP=…"; exit 1)
 	@echo "$(YELLOW)Opening SSH tunnel to production Umami analytics...$(RESET)"
 	@echo "  Umami will be available at: http://localhost:3002"
 	@echo "  Press Ctrl+C to close the tunnel"
 	@echo ""
-	ssh -N -L 3002:localhost:3002 deploy@scanorbit.cloud
+	ssh -N -L 3002:localhost:3002 -J deploy@$(CI_SSH_HOST) deploy@$(APP_PRIVATE_IP)
 
