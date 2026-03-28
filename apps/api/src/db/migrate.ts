@@ -304,14 +304,16 @@ async function runMigrations() {
     `);
     const hasAppTables = parseInt(appTablesCheck.rows[0].count) > 0;
 
-    // If tables exist but no migrations are tracked, try to sync
+    // If tables exist but no migrations are tracked, sync only the initial schema migration (0000).
+    // We must NOT sync subsequent migrations because they may not have been applied yet —
+    // marking them as applied would cause Drizzle to skip them permanently.
     if (hasAppTables && appliedMigrationsBefore.length === 0) {
       console.log('⚠️  Detected existing tables but empty migrations table.');
-      console.log('   Attempting to sync migration tracking...\n');
-      
+      console.log('   Syncing only the initial schema migration (0000)...\n');
+
       try {
-        await syncMigrationTracking(pool, migrationsFolder, journal);
-        console.log('✅ Migration tracking synced!\n');
+        await syncMigrationTracking(pool, migrationsFolder, journal, 1);
+        console.log('✅ Initial migration tracking synced!\n');
       } catch (syncError) {
         console.warn('⚠️  Could not auto-sync migrations:', syncError instanceof Error ? syncError.message : String(syncError));
         console.log('   Continuing with normal migration process...\n');
