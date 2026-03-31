@@ -336,7 +336,7 @@ jobs:
             [ "${{ needs.build-landing.result }}" = "success" ] && SERVICES="$SERVICES landing"
             [ "${{ needs.build-workers.result }}" = "success" ] && SERVICES="$SERVICES scanner analyzer"
             [ "${{ needs.build-telegram-bot.result }}" = "success" ] && SERVICES="$SERVICES telegram-bot"
-            /opt/scanorbit/scripts/deploy.sh $SERVICES
+            /opt/scanorbit/deploy/scripts/deploy.sh $SERVICES
 
       - name: Notify Telegram
         env:

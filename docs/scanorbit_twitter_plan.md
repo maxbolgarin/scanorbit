@@ -1,299 +1,522 @@
-# ScanOrbit — Twitter контент-план
+# ScanOrbit — Twitter Posts (280 char limit, no formatting)
 
-## Стратегия
-
-**Цель:** не продавать, а стать узнаваемым лицом в AWS/DevOps нише.
-С 0 подписчиков Twitter работает как social proof, не как канал продаж.
-
-**Частота:** 3 твита в неделю (пн, ср, пт). Можно писать батчем в воскресенье.
-**Соотношение:** 80% полезный контент / 10% личный опыт / 10% продукт
+Each tweet marked with character count. Posts over 280 chars are split into threads (1/2, 2/2).
 
 ---
 
-## 5 форматов твитов
+## WEEK 1
 
-### 1. AWS Quick Tip (2 раза в неделю)
+### Monday — AWS Quick Tip
+*Source: Orphaned EBS Volumes*
 
-Короткие практические факты, которые DevOps реально полезны.
+The default DeleteOnTermination on non-root EBS volumes is false.
 
-**Примеры:**
+Every time you terminate an EC2 instance, the extra volumes stay behind. Running. Billing.
 
-> TIL: A single AWS account can accumulate 100+ unused Elastic IPs, idle load balancers, and detached EBS volumes without anyone noticing.
->
-> The billing dashboard won't flag most of them.
->
-> Here's a quick CLI one-liner to find detached EBS volumes:
-> `aws ec2 describe-volumes --filters Name=status,Values=available`
+One Terraform line prevents this:
+delete_on_termination = true
 
 ---
 
-> Most AWS accounts have at least one security group with 0.0.0.0/0 on port 22.
->
-> Not because someone wanted it. Because someone forgot to remove it after debugging.
->
-> Quick check:
-> `aws ec2 describe-security-groups --filters Name=ip-permission.cidr,Values=0.0.0.0/0`
+### Wednesday — Inherited Account
+*Source: Audit Checklist*
+
+Last time I ran through my own AWS audit checklist:
+
+- 3 IAM users without MFA
+- 2 security groups open to the internet on port 22
+- Unattached EBS volumes in a region I forgot I used
+
+Total time: 40 minutes.
+Total wasted per month: $87.
 
 ---
 
-> AWS has 200+ services. The average startup uses 15–20.
->
-> But most teams can't answer a simple question: "What exactly is running in our account right now?"
->
-> No CloudWatch dashboard will tell you that.
+### Friday — Blog Post (1/2)
+*Source: Orphaned EBS Volumes article*
+
+Wrote about orphaned EBS volumes in AWS.
+
+Almost every account has them. They sit in "available" state, not attached to anything, billing you for storage nobody uses.
+
+A single 500 GB gp3 volume = ~$40/month. Five of those = $2,400/year doing nothing.
 
 ---
 
-> You can have resources in us-east-1 that nobody on your team created.
->
-> Some AWS services (like IAM, Route53, CloudFront) default to us-east-1 regardless of your region setting.
->
-> Always scan all regions. Not just the one you think you're using.
+### Friday — Blog Post (2/2)
+
+Quick check in the CLI:
+aws ec2 describe-volumes --filters Name=status,Values=available
+
+Three ways to find and fix them:
+scanorbit.cloud/blog/how-to-find-orphaned-ebs-volumes-in-aws
 
 ---
 
-> AWS Cost Explorer shows you what you're paying for.
->
-> It doesn't show you what you're paying for but not using.
->
-> Big difference.
+## WEEK 2
+
+### Monday — AWS Quick Tip
+*Source: Open Security Groups*
+
+Scanners like Shodan index newly exposed services within minutes.
+
+Open port 22 to 0.0.0.0/0 at 2pm, brute-force attempts start by 2:15.
+
+Check yours:
+aws ec2 describe-security-groups --filters "Name=ip-permission.cidr,Values=0.0.0.0/0"
 
 ---
 
-> A single misconfigured S3 bucket policy can expose your entire data lake to the public internet.
->
-> `aws s3api get-bucket-policy-status --bucket YOUR_BUCKET`
->
-> If IsPublic: true — you have a problem.
+### Wednesday — Building in Public
+*Source: personal*
+
+Solo founder update:
+
+- 3 blog articles live
+- Reddit account ready, posting starts this week
+- Dev.to, Hashnode, Medium set up
+- Paying customers: 0
+
+No ads. No cold outreach. Just writing useful AWS content and hoping it compounds.
+
+Ask me in 3 months if this was stupid.
 
 ---
 
-> Your AWS account has more IAM roles than you think.
->
-> Many are auto-created by services like Lambda, ECS, CloudFormation.
->
-> Over time they accumulate. Some have admin-level permissions nobody remembers granting.
->
-> `aws iam list-roles --query 'Roles[?AssumeRolePolicyDocument]'`
+### Friday — AWS Quick Tip
+*Source: Resource Inventory*
+
+AWS has 200+ services. The Console shows each one on a separate page, one region at a time.
+
+There is no "show me everything in my account" button.
+
+You'd think this would be solved by now. It mostly isn't.
 
 ---
 
-### 2. "I inherited an AWS account" stories (1 раз в неделю)
+## WEEK 3
 
-Самый резонансный формат. Каждый DevOps хоть раз получал чужой аккаунт.
+### Monday — AWS Quick Tip
+*Source: Unused Resources*
 
-**Примеры:**
+AWS resources that cost money when you forget about them:
 
-> Started a new job. Inherited an AWS account with:
->
-> - 47 EC2 instances, 12 of them stopped but with attached EBS
-> - 3 RDS instances nobody could name the app for
-> - An S3 bucket last accessed in 2021
-> - Total bill: $4,200/month
->
-> First week was just archaeology.
+- Unattached EBS volumes (~$40/mo per 500GB)
+- Unused Elastic IPs ($3.65/mo each)
+- NAT Gateways routing nothing ($32/mo)
+- Load balancers with zero targets ($16/mo)
 
----
-
-> "Can you take a look at our AWS?" — the 6 scariest words for a DevOps engineer.
->
-> What they mean: nobody has looked at it for 2 years and the original engineer left.
+I check quarterly. Always find something.
 
 ---
 
-> Every AWS account tells a story.
->
-> Unused NAT Gateways = someone tried a multi-AZ setup and gave up.
-> Empty ECR repos = the containerization project that never shipped.
-> 5 VPCs = 5 different "architectures" from 5 different engineers.
+### Wednesday — Inherited Account
+*Source: Onboarding article*
+
+"Can you take a look at our AWS?"
+
+Translation: nobody has looked at it for a year and the person who built it left.
+
+First thing I do: list all regions with active resources. Then find everything running that shouldn't be.
+
+Usually saves 20-30% on the bill in week one.
 
 ---
 
-> The first thing I do when I inherit an AWS account:
->
-> 1. List all regions with active resources
-> 2. Find everything that's running but shouldn't be
-> 3. Map what's connected to what
-> 4. Figure out what can be safely turned off
->
-> Usually saves 20-30% on the bill in week one.
+### Friday — Blog Post (1/2)
+*Source: Open Security Groups article*
+
+Wrote about finding open security groups in AWS.
+
+Port 22 open to 0.0.0.0/0 is the most common misconfiguration I see. It happens because someone opens SSH for debugging and forgets to close it.
 
 ---
 
-### 3. Building in public (1 раз в 2 недели)
+### Friday — Blog Post (2/2)
 
-Личный опыт строительства micro-SaaS. Люди любят такой контент.
+The Console makes it hard to catch because you have to check each region separately.
 
-**Примеры:**
-
-> Building an AWS account analyzer as a solo dev.
->
-> Week 1: MVP done, scans 15 AWS services.
-> Week 4: Added multi-account support.
-> Week 8: First blog post published.
-> Week 12: First user signed up.
->
-> Slow is fine. Shipping is what matters.
+CLI command that scans all regions + how to fix it:
+scanorbit.cloud/blog/how-to-find-open-security-groups-aws
 
 ---
 
-> The hardest part of building a micro-SaaS isn't the code.
->
-> It's writing blog posts about your product when your brain just wants to write more code.
->
-> Marketing is a different muscle. And it hurts.
+## WEEK 4
+
+### Monday — AWS Quick Tip
+*Source: Cost Visibility*
+
+AWS Cost Explorer shows what you're paying for.
+
+It doesn't show what you're paying for but not using.
+
+A $40/month orphaned volume sitting unattached for six months looks identical to one actively serving data. Both show up as "EBS charges."
 
 ---
 
-> Spent 3 months building an AWS tool.
-> Spent 0 months telling anyone about it.
-> Got 1 signup.
->
-> Lesson learned: distribution > product.
+### Wednesday — Hot Take
+*Source: Architecture Monitoring*
+
+People confuse monitoring with visibility.
+
+Monitoring: is the thing I know about working correctly?
+Visibility: what do I actually have running?
+
+Most teams invest in the first and ignore the second. Then wonder why there's $200/month in resources nobody remembers creating.
 
 ---
 
-> Solo founder week: Monday-Friday writing code. Saturday-Sunday writing about code.
->
-> The writing is harder.
+### Friday — Blog Post (1/2)
+*Source: Resource Inventory article*
+
+New article: why AWS doesn't have a "show me everything" button.
+
+AWS knows every resource in your account. It knows the relationships between them. But there's no single screen that shows it all.
 
 ---
 
-### 4. AWS Memes / Hot takes (1 раз в 2 недели)
+### Friday — Blog Post (2/2)
 
-Юмор и спорные мнения получают engagement.
+The workarounds range from "almost good enough" to "I'll write a script and regret it later."
 
-**Примеры:**
-
-> AWS pricing is designed so that only AWS understands it.
-
----
-
-> CloudFormation templates are just YAML-shaped anxiety.
+What I tried and what works:
+scanorbit.cloud/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console
 
 ---
 
-> "We use all AWS best practices" usually means "we use whatever the first tutorial told us to."
+## WEEK 5
+
+### Monday — AWS Quick Tip
+*Source: Compliance Checklist*
+
+Your AWS root account should have MFA and should never be used for anything.
+
+If your root account has access keys, delete them right now. Stop reading. Go delete them.
+
+Number one CIS benchmark failure. Easiest one to fix.
 
 ---
 
-> Every company has two AWS architectures:
->
-> 1. The one in the diagram
-> 2. The one actually running
+### Wednesday — Inherited Account
+*Source: Multi-Account Visibility*
+
+Every AWS account tells a story.
+
+Unused NAT Gateways = someone tried multi-AZ and gave up.
+Empty ECR repos = containerization project that never shipped.
+5 VPCs = 5 architectures from 5 engineers.
+Resources in ap-southeast-1 = a latency test nobody cleaned up.
 
 ---
 
-> The AWS Console is the world's most expensive IDE.
+### Friday — Blog Post (1/2)
+*Source: Unused Resources article*
+
+Wrote about finding unused AWS resources.
+
+The pattern across hundreds of accounts: 15-30% of the monthly bill goes to resources doing absolutely nothing. Not overprovisioned. Completely idle.
 
 ---
 
-> Unpopular opinion: most startups don't need Kubernetes. They need to understand what's already running in their AWS account.
+### Friday — Blog Post (2/2)
+
+The frustrating part: AWS won't flag most of this for you. Cost Explorer shows totals per service, not "this specific volume has been sitting unattached since January."
+
+scanorbit.cloud/blog/how-to-find-unused-aws-resources-cut-costs
 
 ---
 
-### 5. Ответы на свои блог-посты (совпадает с расписанием дистрибуции)
+## WEEK 6
 
-Когда постишь статью на площадку, делаешь тред из ключевых тейков.
+### Monday — AWS Quick Tip
+*Source: Compliance Checklist*
 
-**Пример:**
+CloudTrail should be enabled in ALL regions. Not just the one you deploy to.
 
-> I just wrote about auditing AWS security groups.
->
-> The TL;DR:
->
-> → 80% of accounts have at least one overly permissive rule
-> → Default SGs are the main culprit
-> → One CLI command can find them all
->
-> Full post: [link]
+A bad actor isn't going to use your preferred region.
+
+Also turn on log file validation. Proves your logs haven't been tampered with. Single checkbox. No reason not to.
 
 ---
 
-## Еженедельный календарь
+### Wednesday — Building in Public
+*Source: personal*
 
-| День | Формат | Пример типа |
-|------|--------|-------------|
-| Понедельник | AWS Quick Tip | CLI one-liner, факт о сервисе |
-| Среда | "Inherited account" / Hot take / Building in public | Ротация |
-| Пятница | AWS Quick Tip ИЛИ блог-пост тред (если неделя дистрибуции) | Совмещай с площадкой |
+The hardest part of building a micro-SaaS isn't the code.
 
----
+It's writing blog posts about your product when your brain just wants to write more code.
 
-## Reply-стратегия (5 мин/день)
-
-Самый быстрый способ получить подписчиков с 0 — отвечать на чужие твиты.
-
-### Кого фолловить и reply'ить:
-
-| Аккаунт | Почему |
-|---------|--------|
-| @QuinnyPig (Corey Quinn) | Last Week in AWS, самый известный AWS-контент-мейкер |
-| @jeffbarr | AWS Chief Evangelist, огромный reach |
-| @kelaboratory | AWS DevOps контент |
-| @iamvickyav | AWS tips |
-| @StephaneMaarek | AWS certifications, huge audience |
-| @CloudNativeFdn | CNCF news |
-| @taborwang | AWS content creator |
-
-### Как отвечать:
-
-**НЕ:** "Great post!" / "Thanks for sharing!"
-**ДА:** Добавить конкретную деталь, свой опыт, или уточнение.
-
-**Пример:**
-
-Чужой твит: "AWS Cost Explorer is underrated"
-
-Твой reply:
-> True, but it still doesn't show you resources that cost $0 but shouldn't exist — like unused EIPs, detached volumes, or idle NAT Gateways. Those are the silent killers of AWS budgets.
+Blog articles take 4-6 hours each. The feature code takes 2-3. Marketing is a different muscle. And it hurts.
 
 ---
 
-Чужой твит: "Just started managing a multi-account AWS org"
+### Friday — Blog Post (1/2)
+*Source: Audit Checklist article*
 
-Твой reply:
-> First thing I'd do: run `aws organizations list-accounts` then check each account for resources in ALL regions, not just the default one. You'll be surprised what's hiding in ap-southeast-1.
+Published an AWS audit checklist for solo engineers.
 
----
-
-## Хэштеги
-
-Не больше 2 на твит. Использовать только если органично:
-
-- #AWS
-- #DevOps
-- #CloudSecurity
-- #BuildInPublic (для personal/product твитов)
+If you're the only DevOps person on a small team, there's no second pair of eyes. No security team running scans. It's just you.
 
 ---
 
-## Батч-процесс: как написать 12 твитов за 30 минут
+### Friday — Blog Post (2/2)
 
-1. Открой терминал, вспомни 3 AWS-проблемы, которые видел на этой неделе
-2. На каждую проблему — один tip-твит + один "inherited account" твит
-3. Добавь 1 building-in-public + 1 hot take
-4. Запланируй через Twitter scheduling (или Buffer/Typefully бесплатный тариф)
-5. На 4 недели вперёд = 30 минут раз в месяц
+This is the checklist I actually use. Takes about an hour. Covers IAM, security groups, S3 exposure, cost waste, and region hygiene.
+
+scanorbit.cloud/blog/aws-account-audit-checklist-solo-engineers
 
 ---
 
-## Метрики (первые 3 месяца)
+## WEEK 7
 
-| Месяц | Цель подписчики | Цель impressions/неделя |
-|-------|----------------|----------------------|
-| 1 | 30 | 1,000 |
-| 2 | 70 | 3,000 |
-| 3 | 150 | 5,000 |
+### Monday — AWS Quick Tip
+*Source: Infrastructure Map*
 
-Не гонись за числами. Тебе нужны не 10K подписчиков, а 50 правильных людей (DevOps, CTOs, solo engineers), которые запомнят ScanOrbit.
+The VPC console has a "Resource Map" feature now. Decent for understanding network topology of a single VPC.
+
+But it doesn't span VPCs, doesn't include Lambda or S3, doesn't work across regions.
+
+So you still need something else for the full picture.
 
 ---
 
-## Правило: что НЕ делать
+### Wednesday — Hot Take
 
-1. **Не постить "Check out my product!" чаще 1 раза в 2 недели.** Люди отписываются от рекламы.
-2. **Не покупать подписчиков.** Мертвые аккаунты убивают reach.
-3. **Не постить больше 1 раза в день.** С 0 подписчиков это выглядит как спам-бот.
-4. **Не игнорировать replies.** Если кто-то ответил — ответь. Это редкость на маленьком аккаунте.
-5. **Не использовать AI-голос.** Пиши как человек: коротко, конкретно, с opinion. "AWS pricing is confusing" лучше чем "Navigating the complexities of AWS cost optimization strategies."
+Unpopular opinion: most startups don't need Kubernetes. They need to understand what's already running in their AWS account.
+
+I've seen teams spend months on k8s while their existing infra had 15 orphaned volumes and 4 open security groups.
+
+---
+
+### Friday — Blog Post (1/2)
+*Source: Cost Visibility article*
+
+New post on AWS cost visibility for small teams.
+
+Monthly ritual at most startups: open Cost Explorer, look at total, compare to last month. If it stayed the same, move on.
+
+Works until the bill jumps $400 and nobody can explain why.
+
+---
+
+### Friday — Blog Post (2/2)
+
+What actually works at the 3-5 person scale (hint: not a FinOps platform):
+scanorbit.cloud/blog/aws-cost-visibility-small-teams-beyond-billing-dashboard
+
+---
+
+## WEEK 8
+
+### Monday — AWS Quick Tip
+*Source: Compliance Checklist*
+
+First enterprise customer asks for your SOC2 report. Panic.
+
+But most of the work is AWS config you should already have:
+- MFA on all IAM users
+- CloudTrail in all regions
+- EBS encryption by default
+- No 0.0.0.0/0 on port 22
+
+Do this first. Worry about the audit firm later.
+
+---
+
+### Wednesday — Inherited Account
+*Source: Onboarding article*
+
+Best onboarding task for a new DevOps hire: hand them the security audit checklist.
+
+They check IAM, scan security groups, find orphaned volumes, verify logging.
+
+They get context. You get an audit report you needed anyway. Beats "read the wiki" every time.
+
+---
+
+### Friday — Blog Post (1/2)
+*Source: Multi-Account article*
+
+New article on AWS multi-account visibility.
+
+Every growing team ends up with multiple accounts. The problem: each one is another place where resources exist without anyone knowing.
+
+---
+
+### Friday — Blog Post (2/2)
+
+I've talked to CTOs surprised to learn they had running EC2 instances in accounts they thought were empty.
+
+What breaks and how to fix it:
+scanorbit.cloud/blog/aws-multi-account-visibility-ctos
+
+---
+
+## WEEK 9
+
+### Monday — AWS Quick Tip
+*Source: Infrastructure Map*
+
+Terraform state is not an inventory.
+
+It shows what Terraform thinks exists. Console-created resources won't be there. Resources from other tools won't be there.
+
+I've seen teams treat state as truth and miss entire categories of resources created outside it.
+
+---
+
+### Wednesday — GDPR / EU
+*Source: positioning*
+
+Most AWS security tools store your scan results on US servers.
+
+If you're an EU company, that's a GDPR consideration most teams overlook.
+
+Built ScanOrbit in Amsterdam for this. EU-hosted, no data leaves Europe. Small thing until an auditor asks where your scan data lives.
+
+---
+
+### Friday — Blog Post (1/2)
+*Source: Onboarding article*
+
+Wrote about onboarding a new DevOps engineer to an existing AWS account.
+
+Most teams give them an IAM login, point at a half-outdated wiki, and say "ask if you have questions."
+
+---
+
+### Friday — Blog Post (2/2)
+
+Then the new person spends two weeks clicking through console pages trying to figure out what nobody documented.
+
+A better process:
+scanorbit.cloud/blog/how-to-onboard-devops-engineer-existing-aws-account
+
+---
+
+## WEEK 10
+
+### Monday — AWS Quick Tip
+*Source: Cost Visibility*
+
+AWS Cost Anomaly Detection catches sudden spikes but not slow steady waste.
+
+It won't flag a $40/month orphaned volume that's been there since March. The spend is consistent, not anomalous.
+
+Silent waste needs a different approach than alerting.
+
+---
+
+### Wednesday — Building in Public
+*Source: personal*
+
+Writing blog articles about AWS security and costs is my entire marketing strategy.
+
+No ads. No cold outreach. No sales calls. Just content aimed at people with the problems my tool solves.
+
+We'll see if it compounds.
+
+---
+
+### Friday — Blog Post (1/2)
+*Source: Compliance Checklist article*
+
+New post: AWS compliance checklist for startups approaching SOC2.
+
+Usually starts with a sales call. Enterprise prospect asks for your SOC2 report. You don't have one.
+
+---
+
+### Friday — Blog Post (2/2)
+
+Most of the technical work is config you should already have. The hard part is knowing the order.
+
+Week-by-week sequence from IAM to encryption:
+scanorbit.cloud/blog/aws-compliance-checklist-soc2-cis-benchmarks-startups
+
+---
+
+## WEEK 11
+
+### Monday — AWS Quick Tip
+*Source: Architecture Monitoring*
+
+Resource Explorer is a search engine, not an inventory.
+
+Good for "show me all S3 buckets." Bad for "show me everything and let me spot problems."
+
+Search works when you know what to look for. "What do we have?" is a different question entirely.
+
+---
+
+### Wednesday — Hot Take
+
+Every company has two AWS architectures:
+
+1. The one in the diagram
+2. The one actually running
+
+They match for about a week after you draw the diagram. Then someone adds a service through the console at 11pm.
+
+---
+
+### Friday — Blog Post (1/2)
+*Source: Infrastructure Map article*
+
+New article on building an AWS infrastructure map.
+
+Someone asks you to diagram your AWS setup. You open draw.io, draw a VPC box, add EC2 instances. Then pause.
+
+Wait, is the NAT Gateway in the public or private subnet?
+
+---
+
+### Friday — Blog Post (2/2)
+
+30 minutes later you're staring at something incomplete and wrong. Probably both. And it'll be outdated within a week.
+
+What works and what doesn't:
+scanorbit.cloud/blog/building-aws-infrastructure-map-tools-approaches
+
+---
+
+## EVERGREEN (post anytime to fill gaps)
+
+### Hot Take 1
+AWS pricing is designed so that only AWS understands it.
+
+### Hot Take 2
+"We use AWS best practices" usually means "we use whatever the first tutorial told us to."
+
+### Hot Take 3
+The AWS Console is the world's most expensive IDE.
+
+### Quick Tip — EIPs
+Since February 2024, AWS charges for ALL public IPv4 addresses. An Elastic IP not associated with a running instance costs $3.65/month.
+
+Doesn't sound like much until you have 12 of them across different regions.
+
+### Quick Tip — Log Retention
+CloudWatch Logs retains data forever by default.
+
+If you have log groups from a service you killed two years ago, they're still storing data and charging you.
+
+Set retention on every log group. 30 days is fine for most apps.
+
+### Quick Tip — S3
+A misconfigured S3 bucket policy can expose your entire data lake to the public internet.
+
+Check:
+aws s3api get-bucket-policy-status --bucket YOUR_BUCKET
+
+If IsPublic is true, you have a problem.
+
+### Inherited Account
+"Can you take a look at our AWS?"
+
+The 6 scariest words for a DevOps engineer. Translation: nobody has looked at it for 2 years and the original engineer left.
+
+### Quick Tip — IAM Roles
+Your AWS account has more IAM roles than you think. Many are auto-created by Lambda, ECS, CloudFormation.
+
+They accumulate. Some have admin-level permissions nobody remembers granting. Worth a quarterly review.
