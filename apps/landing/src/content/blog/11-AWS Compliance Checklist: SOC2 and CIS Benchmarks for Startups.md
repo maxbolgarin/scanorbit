@@ -34,7 +34,7 @@ This is where auditors look first, and it's where most startups fail hardest.
 
 **No root account usage.** The AWS root account should have MFA enabled and should never be used for daily operations. Create IAM users or use SSO. If your root account has access keys, delete them. This sounds basic but I still see root access keys in production accounts regularly.
 
-**MFA on every human user.** No exceptions. The [IAM audit section of the account checklist](/blog/aws-account-audit-checklist-solo-engineers) has the CLI commands to check this in bulk. If any user has a password but no MFA device, that's a CIS finding and an auditor will flag it.
+**MFA on every human user.** No exceptions. The [IAM audit section of the account checklist](/blog/aws-account-audit-checklist-for-solo-engineers) has the CLI commands to check this in bulk. If any user has a password but no MFA device, that's a CIS finding and an auditor will flag it.
 
 **No inline IAM policies.** Attach managed policies to groups, assign users to groups. Inline policies on individual users are harder to audit and easier to lose track of. An auditor wants to see that you have a consistent, reviewable permission structure.
 
@@ -80,7 +80,7 @@ aws ec2 describe-volumes \
 
 This doesn't get talked about enough in compliance contexts, but auditors notice it.
 
-[Unused resources](/blog/how-to-find-unused-aws-resources-cut-costs) aren't just a cost problem. An [orphaned EBS volume](/blog/how-to-find-orphaned-ebs-volumes-in-aws) that's unencrypted and contains old data is a compliance finding. A load balancer with no targets might have been pointing at a decommissioned service that handled customer data. Stale resources in [unexpected regions](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console) can be a data residency violation, which matters a lot if your customers care about GDPR.
+[Unused resources](/blog/how-to-find-unused-aws-resources-and-cut-costs) aren't just a cost problem. An [orphaned EBS volume](/blog/how-to-find-orphaned-ebs-volumes-in-aws) that's unencrypted and contains old data is a compliance finding. A load balancer with no targets might have been pointing at a decommissioned service that handled customer data. Stale resources in [unexpected regions](/blog/why-you-cant-get-full-aws-resource-inventory-from-console) can be a data residency violation, which matters a lot if your customers care about GDPR.
 
 Clean accounts are easier to audit. That's not a compliance requirement per se, but it's practical reality. The fewer resources you have sitting around doing nothing, the fewer questions the auditor asks and the faster the process goes.
 
@@ -94,7 +94,7 @@ The technical controls are the foundation. But SOC2 is about more than just AWS 
 
 **Vendor management.** You need to document your third-party vendors and their security practices. For an AWS-hosted SaaS, AWS itself is a vendor, and you can point to AWS's own SOC2 report for infrastructure-level controls. But you also need to cover other tools: your email provider, your monitoring service, your payment processor.
 
-**People processes.** Onboarding, offboarding, access reviews. When someone leaves the team, do you revoke their access? Can you prove it? When a [new engineer joins](/blog/how-to-onboard-devops-engineer-existing-aws-account), do they get appropriate access or admin by default?
+**People processes.** Onboarding, offboarding, access reviews. When someone leaves the team, do you revoke their access? Can you prove it? When a [new engineer joins](/blog/how-to-onboard-devops-engineer-to-aws-account), do they get appropriate access or admin by default?
 
 ## What this costs
 
@@ -102,7 +102,7 @@ Rough numbers for a small startup. The SOC2 audit itself: $15,000-$50,000 depend
 
 The AWS configuration changes cost almost nothing. Most of what I've described above is either free (MFA, encryption, access policies) or very cheap (CloudTrail, Config for a subset of resources). The main cost is time.
 
-If you're starting from zero, expect 2-4 months of prep work before you're ready for the audit. If you've already been doing [regular account audits](/blog/aws-account-audit-checklist-solo-engineers), you're probably closer than you think.
+If you're starting from zero, expect 2-4 months of prep work before you're ready for the audit. If you've already been doing [regular account audits](/blog/aws-account-audit-checklist-for-solo-engineers), you're probably closer than you think.
 
 ## Where to start today
 
@@ -122,4 +122,4 @@ If you want to see where your account stands right now, [ScanOrbit](https://scan
 
 ---
 
-*Part of our series on AWS security and compliance. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-solo-engineers), [How to Find and Fix Open Security Groups](/blog/how-to-find-open-security-groups-aws), and [How to Find Unused AWS Resources and Cut Costs](/blog/how-to-find-unused-aws-resources-cut-costs).*
+*Part of our series on AWS security and compliance. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-for-solo-engineers), [How to Find and Fix Open Security Groups](/blog/how-to-find-open-security-groups-aws), and [How to Find Unused AWS Resources and Cut Costs](/blog/how-to-find-unused-aws-resources-and-cut-costs).*

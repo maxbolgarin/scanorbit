@@ -132,7 +132,7 @@ aws logs describe-log-groups \
 
 ## Why this is harder than it should be
 
-You'd think finding unused resources would be a built-in AWS feature. It mostly isn't. The [AWS Console doesn't give you a unified view of everything in your account](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console), and the tools AWS provides each cover different slices of the problem.
+You'd think finding unused resources would be a built-in AWS feature. It mostly isn't. The [AWS Console doesn't give you a unified view of everything in your account](/blog/why-you-cant-get-full-aws-resource-inventory-from-console), and the tools AWS provides each cover different slices of the problem.
 
 Cost Explorer shows cost per service but not per resource. Resource Explorer shows resources but not their cost or whether they're idle. Trusted Advisor flags some unused resources but only on Business or Enterprise support plans ($100+/month). Config records resource state changes but doesn't tell you what's wasting money.
 
@@ -162,8 +162,8 @@ Then address the slow leaks: CloudWatch Log retention, old snapshots, and ECR li
 
 For anything you're not sure about, don't delete it. Snapshot EBS volumes before removing them. Tag questionable resources with a review date. Put a calendar reminder to check back in two weeks. If nothing broke, clean them up.
 
-The [AWS audit checklist](/blog/aws-account-audit-checklist-solo-engineers) covers the security side of this same process if you want to combine cost cleanup with a broader account review. They work well back-to-back since you're already looking at the same resources.
+The [AWS audit checklist](/blog/aws-account-audit-checklist-for-solo-engineers) covers the security side of this same process if you want to combine cost cleanup with a broader account review. They work well back-to-back since you're already looking at the same resources.
 
 ---
 
-*Part of our series on AWS infrastructure hygiene. See also: [How to Find Orphaned EBS Volumes](/blog/how-to-find-orphaned-ebs-volumes-in-aws), [How to Find Open Security Groups](/blog/how-to-find-open-security-groups-aws), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console).*
+*Part of our series on AWS infrastructure hygiene. See also: [How to Find Orphaned EBS Volumes](/blog/how-to-find-orphaned-ebs-volumes-in-aws), [How to Find Open Security Groups](/blog/how-to-find-open-security-groups-aws), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-full-aws-resource-inventory-from-console).*

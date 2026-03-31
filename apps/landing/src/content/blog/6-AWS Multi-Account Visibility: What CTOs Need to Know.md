@@ -18,7 +18,7 @@ The multi-account strategy itself is sound. AWS recommends it. Separating worklo
 
 The part they don't emphasize is that every new account is another place where resources can exist without anyone knowing. A developer spins up a test RDS instance in the sandbox account and forgets about it. Someone creates an IAM user with admin access in a dev account "just for testing." A failed CloudFormation deployment leaves orphaned resources in a staging account that nobody checks regularly.
 
-Multiply these by the number of accounts you have. Now multiply by the [30+ AWS regions each account has access to](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console). The visibility problem grows quadratically.
+Multiply these by the number of accounts you have. Now multiply by the [30+ AWS regions each account has access to](/blog/why-you-cant-get-full-aws-resource-inventory-from-console). The visibility problem grows quadratically.
 
 I've talked to CTOs who were genuinely surprised to learn they had running EC2 instances in accounts they thought were empty. Not because anyone was negligent. Just because nobody had an easy way to check.
 
@@ -28,7 +28,7 @@ When I say visibility, I don't mean dashboards with green checkmarks. I mean bei
 
 **What resources exist across all our accounts right now?** Not what we think exists based on Terraform state files (those drift). Not what someone remembers deploying. What's actually there.
 
-**What's costing money that shouldn't be?** Across every account, every region. [Unused resources](/blog/how-to-find-unused-aws-resources-cut-costs) in a single account are annoying. Unused resources spread across ten accounts are invisible until someone aggregates the billing.
+**What's costing money that shouldn't be?** Across every account, every region. [Unused resources](/blog/how-to-find-unused-aws-resources-and-cut-costs) in a single account are annoying. Unused resources spread across ten accounts are invisible until someone aggregates the billing.
 
 **Are there security misconfigurations we don't know about?** An [open security group in a dev account](/blog/how-to-find-open-security-groups-aws) is still an open security group. If that account has any access to internal services or data, the risk is real.
 
@@ -60,7 +60,7 @@ From what I've seen working with engineering teams, the approaches that produce 
 
 ### The DIY approach
 
-Write scripts that assume a role in each member account and enumerate resources. This is what the [CLI audit scripts](/blog/aws-account-audit-checklist-solo-engineers) do at a single-account level. Scaling it to multiple accounts means adding role assumption:
+Write scripts that assume a role in each member account and enumerate resources. This is what the [CLI audit scripts](/blog/aws-account-audit-checklist-for-solo-engineers) do at a single-account level. Scaling it to multiple accounts means adding role assumption:
 
 ```bash
 for account_id in 111111111111 222222222222 333333333333; do
@@ -100,7 +100,7 @@ If you're a CTO looking at this problem and wondering where to start, here's the
 
 **Second: aggregate your costs.** Enable Cost Explorer with account-level grouping. Identify which accounts are spending more than expected. The account with the surprising bill is where you start digging.
 
-**Third: audit your highest-risk accounts first.** Production accounts and any account with access to customer data. Use the [security audit checklist](/blog/aws-account-audit-checklist-solo-engineers) as a starting template and expand it per account.
+**Third: audit your highest-risk accounts first.** Production accounts and any account with access to customer data. Use the [security audit checklist](/blog/aws-account-audit-checklist-for-solo-engineers) as a starting template and expand it per account.
 
 **Fourth: decide on an ongoing approach.** Whether that's AWS Config Aggregator, a third-party platform, or something lighter like ScanOrbit, pick something that runs without someone remembering to trigger it. The value of multi-account visibility isn't a single audit. It's knowing that when something drifts, you'll find out before it becomes a problem.
 
@@ -108,4 +108,4 @@ The worst outcome isn't having multi-account complexity. It's having it without 
 
 ---
 
-*Part of our series on AWS infrastructure visibility. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-solo-engineers), [How to Find Unused AWS Resources and Cut Costs](/blog/how-to-find-unused-aws-resources-cut-costs), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console).*
+*Part of our series on AWS infrastructure visibility. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-for-solo-engineers), [How to Find Unused AWS Resources and Cut Costs](/blog/how-to-find-unused-aws-resources-and-cut-costs), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-full-aws-resource-inventory-from-console).*

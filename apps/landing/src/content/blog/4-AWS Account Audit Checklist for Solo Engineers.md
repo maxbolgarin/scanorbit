@@ -52,7 +52,7 @@ aws ec2 describe-security-groups \
   --output table
 ```
 
-Run this for each region you use, or loop through all regions if you're not 100% sure which ones have resources (you'd be surprised, [most accounts have resources in regions nobody remembers deploying to](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console)).
+Run this for each region you use, or loop through all regions if you're not 100% sure which ones have resources (you'd be surprised, [most accounts have resources in regions nobody remembers deploying to](/blog/why-you-cant-get-full-aws-resource-inventory-from-console)).
 
 **S3 bucket public access.** AWS has gotten better about blocking public access by default, but older buckets or buckets created through automation might still have public ACLs or bucket policies.
 
@@ -156,4 +156,4 @@ Not comprehensive, but it catches 80% of what goes wrong in solo-managed account
 
 ---
 
-*Part of our series on AWS infrastructure hygiene. See also: [How to Find and Fix Open Security Groups](/blog/how-to-find-open-security-groups-aws), [How to Find Orphaned EBS Volumes](/blog/how-to-find-orphaned-ebs-volumes-in-aws), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console).*
+*Part of our series on AWS infrastructure hygiene. See also: [How to Find and Fix Open Security Groups](/blog/how-to-find-open-security-groups-aws), [How to Find Orphaned EBS Volumes](/blog/how-to-find-orphaned-ebs-volumes-in-aws), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-full-aws-resource-inventory-from-console).*

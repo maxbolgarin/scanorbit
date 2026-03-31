@@ -24,7 +24,7 @@ Monitoring answers: "Is the thing I know about working correctly?" You have an R
 
 Visibility answers a different question: "What do I actually have?" Not what I think I have. Not what my infrastructure-as-code says I should have. What's literally sitting in my AWS account right now, across every region, costing money and potentially exposing attack surface.
 
-These are different problems. Most teams invest heavily in the first one and almost nothing in the second. Then they're surprised when the [AWS bill has $200/month in resources nobody remembers creating](/blog/how-to-find-unused-aws-resources-cut-costs).
+These are different problems. Most teams invest heavily in the first one and almost nothing in the second. Then they're surprised when the [AWS bill has $200/month in resources nobody remembers creating](/blog/how-to-find-unused-aws-resources-and-cut-costs).
 
 ## What CloudWatch dashboards actually cover
 
@@ -46,7 +46,7 @@ So what does work? A few approaches, from manual to automated.
 
 ### AWS CLI resource enumeration
 
-The brute-force method. Write scripts that call describe/list APIs for every service you care about, across every region. I covered the basics in the [AWS audit checklist](/blog/aws-account-audit-checklist-solo-engineers), but here's a broader sweep:
+The brute-force method. Write scripts that call describe/list APIs for every service you care about, across every region. I covered the basics in the [AWS audit checklist](/blog/aws-account-audit-checklist-for-solo-engineers), but here's a broader sweep:
 
 ```bash
 for region in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output text); do
@@ -79,7 +79,7 @@ for region in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output
 done
 ```
 
-This takes a couple of minutes to run and gives you a region-by-region count of your main resource types. It's rough. It doesn't show dependencies or costs. But it catches the "wait, we have Lambda functions in ap-southeast-1?" moments, and those moments happen more often than you'd expect. I wrote about [why resources end up in unexpected regions](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console) separately because it's a whole thing.
+This takes a couple of minutes to run and gives you a region-by-region count of your main resource types. It's rough. It doesn't show dependencies or costs. But it catches the "wait, we have Lambda functions in ap-southeast-1?" moments, and those moments happen more often than you'd expect. I wrote about [why resources end up in unexpected regions](/blog/why-you-cant-get-full-aws-resource-inventory-from-console) separately because it's a whole thing.
 
 The downside is obvious: this script covers five resource types. AWS has hundreds. And the script doesn't tell you anything about the resources beyond their count. You need deeper queries to understand what's actually going on.
 
@@ -93,7 +93,7 @@ It also doesn't cover every resource type, doesn't show cost data, and doesn't f
 
 ### AWS Config
 
-Config records resource configurations and changes over time. If you enable it across all regions (and all accounts, if you're using [multiple accounts](/blog/aws-multi-account-visibility-ctos)), you get a historical record of what existed and how it changed.
+Config records resource configurations and changes over time. If you enable it across all regions (and all accounts, if you're using [multiple accounts](/blog/aws-multi-account-visibility-what-ctos-need-to-know)), you get a historical record of what existed and how it changed.
 
 The advanced query feature lets you run SQL-like queries across your configuration data:
 
@@ -121,7 +121,7 @@ Honestly? A combination.
 
 Use CloudWatch for what it's good at: monitoring the health and performance of resources you already know about. Keep your dashboards, keep your alarms. That part works.
 
-For architecture visibility, run the CLI enumeration script (or something like it) at least monthly. It takes five minutes and catches the obvious things. Add it to your [regular audit process](/blog/aws-account-audit-checklist-solo-engineers) and you'll avoid most surprises.
+For architecture visibility, run the CLI enumeration script (or something like it) at least monthly. It takes five minutes and catches the obvious things. Add it to your [regular audit process](/blog/aws-account-audit-checklist-for-solo-engineers) and you'll avoid most surprises.
 
 For ongoing, automated visibility, you need something that runs without you remembering to trigger it. AWS Config is one option if you're willing to invest in the setup and cost. Third-party tools are another.
 
@@ -131,4 +131,4 @@ The point isn't which tool you pick. The point is recognizing that CloudWatch da
 
 ---
 
-*Part of our series on AWS infrastructure visibility. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-solo-engineers), [How to Find Unused AWS Resources](/blog/how-to-find-unused-aws-resources-cut-costs), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-a-full-aws-resource-inventory-from-the-console).*
+*Part of our series on AWS infrastructure visibility. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-for-solo-engineers), [How to Find Unused AWS Resources](/blog/how-to-find-unused-aws-resources-and-cut-costs), and [Why You Can't Get a Full Resource Inventory from the Console](/blog/why-you-cant-get-full-aws-resource-inventory-from-console).*

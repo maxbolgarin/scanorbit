@@ -20,9 +20,9 @@ Here's what actually works.
 
 The worst time to figure out what's in your AWS account is when someone is waiting for you to explain it. Do this before the new person's first day.
 
-If you have architecture diagrams, dust them off. They're probably outdated (they always are, I wrote about [why infrastructure maps decay so fast](/blog/building-aws-infrastructure-map-tools-approaches)), but even a stale diagram gives someone a starting point. Label which parts are still accurate and which have drifted. Honest annotations are more useful than a perfect diagram that doesn't exist.
+If you have architecture diagrams, dust them off. They're probably outdated (they always are, I wrote about [why infrastructure maps decay so fast](/blog/building-aws-infrastructure-map-tools-and-approaches)), but even a stale diagram gives someone a starting point. Label which parts are still accurate and which have drifted. Honest annotations are more useful than a perfect diagram that doesn't exist.
 
-If you don't have diagrams, at minimum create a resource inventory. Run the [CLI enumeration scripts](/blog/aws-architecture-monitoring-without-cloudwatch-dashboards) across all regions and dump the output into a document. It takes five minutes and gives the new person something concrete to look at instead of poking around the console blindly.
+If you don't have diagrams, at minimum create a resource inventory. Run the [CLI enumeration scripts](/blog/how-to-monitor-aws-architecture-without-cloudwatch-dashboards) across all regions and dump the output into a document. It takes five minutes and gives the new person something concrete to look at instead of poking around the console blindly.
 
 What the document should cover:
 
@@ -38,11 +38,11 @@ This doesn't need to be beautiful. A markdown file in your team's repo is fine. 
 
 Give them IAM access with the minimum permissions they need for their first week. Not admin. I know it feels easier to hand someone AdministratorAccess and sort it out later, but "later" never comes. Start with read access across the account and write access to development/staging environments. Expand as needed.
 
-If your account doesn't already have proper [IAM hygiene](/blog/aws-account-audit-checklist-solo-engineers), the new hire's onboarding is a good forcing function to fix it. Create a proper IAM user with MFA, attach a scoped policy, and document the permission sets you use. You'll need this documentation anyway as the team grows.
+If your account doesn't already have proper [IAM hygiene](/blog/aws-account-audit-checklist-for-solo-engineers), the new hire's onboarding is a good forcing function to fix it. Create a proper IAM user with MFA, attach a scoped policy, and document the permission sets you use. You'll need this documentation anyway as the team grows.
 
 Make sure CloudTrail is active. This isn't about watching the new person. It's about having an audit trail so that if something breaks during the first few weeks, you can figure out what happened instead of guessing. I've been in situations where a console change caused an outage and nobody could tell who did what because logging was off. Unpleasant.
 
-Set up a budget alert if you don't have one. New engineers experiment. They spin things up to understand how they work. That's fine and expected. But a budget alert at 110% of your normal monthly spend catches the "forgot to terminate the m5.2xlarge" situation before it becomes a $500 surprise. Takes two minutes to configure, and [it's one of the cheapest insurance policies you can have](/blog/aws-cost-visibility-small-teams-beyond-billing-dashboard).
+Set up a budget alert if you don't have one. New engineers experiment. They spin things up to understand how they work. That's fine and expected. But a budget alert at 110% of your normal monthly spend catches the "forgot to terminate the m5.2xlarge" situation before it becomes a $500 surprise. Takes two minutes to configure, and [it's one of the cheapest insurance policies you can have](/blog/aws-cost-visibility-for-small-teams).
 
 ## The guided tour (not the sink-or-swim)
 
@@ -62,7 +62,7 @@ Don't try to cover everything. The goal is orientation, not total knowledge tran
 
 ## Give them a first task that builds context
 
-The best onboarding tasks are ones that force the new person to explore the account while doing something useful. My favorite: run a [security and cost audit](/blog/aws-account-audit-checklist-solo-engineers).
+The best onboarding tasks are ones that force the new person to explore the account while doing something useful. My favorite: run a [security and cost audit](/blog/aws-account-audit-checklist-for-solo-engineers).
 
 Hand them the audit checklist and ask them to run through it. They'll check IAM users, scan for [open security groups](/blog/how-to-find-open-security-groups-aws), look for [orphaned EBS volumes](/blog/how-to-find-orphaned-ebs-volumes-in-aws), and verify that logging is enabled. In the process, they'll touch most of the major service consoles, learn what exists in the account, and probably find a few things that need fixing.
 
@@ -76,7 +76,7 @@ If you're running an AWS Organization with multiple accounts, onboarding gets ha
 
 Start with a list of accounts and what each one is for. Production, staging, sandbox, shared services, whatever your structure looks like. Explain which account they'll work in most often and which ones they shouldn't touch without a conversation.
 
-The [multi-account visibility problem](/blog/aws-multi-account-visibility-ctos) is worth acknowledging openly. If you don't have cross-account tooling, say so. If you rely on role-switching to check different accounts, show them how. If cost data is aggregated through consolidated billing but resource visibility isn't, explain the gap. Honesty about what you don't have is better than pretending the setup is more organized than it is.
+The [multi-account visibility problem](/blog/aws-multi-account-visibility-what-ctos-need-to-know) is worth acknowledging openly. If you don't have cross-account tooling, say so. If you rely on role-switching to check different accounts, show them how. If cost data is aggregated through consolidated billing but resource visibility isn't, explain the gap. Honesty about what you don't have is better than pretending the setup is more organized than it is.
 
 For organizations with more than five or six accounts, manual onboarding hits its limits. The new person can't realistically click through every account and every region. This is where automated scanning pays off: run [ScanOrbit](https://scanorbit.cloud) across the accounts and hand the new person the results. Here's every resource across every account, here's what's misconfigured, here's what's costing money for no reason. That report replaces a week of manual exploration. Full disclosure: I built this, and this exact onboarding use case was one of the reasons.
 
@@ -98,4 +98,4 @@ The goal of onboarding isn't to transfer everything in your head. It's to give t
 
 ---
 
-*Part of our series on AWS infrastructure for growing teams. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-solo-engineers), [Building an AWS Infrastructure Map](/blog/building-aws-infrastructure-map-tools-approaches), and [AWS Multi-Account Visibility for CTOs](/blog/aws-multi-account-visibility-ctos).*
+*Part of our series on AWS infrastructure for growing teams. See also: [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-for-solo-engineers), [Building an AWS Infrastructure Map](/blog/building-aws-infrastructure-map-tools-and-approaches), and [AWS Multi-Account Visibility for CTOs](/blog/aws-multi-account-visibility-what-ctos-need-to-know).*

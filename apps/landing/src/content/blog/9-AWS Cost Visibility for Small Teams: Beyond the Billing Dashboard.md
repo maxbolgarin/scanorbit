@@ -64,11 +64,11 @@ You can also create per-service budgets if you know roughly what each service sh
 
 ### The unused resource sweep
 
-Once a quarter, run through the [unused resource checklist](/blog/how-to-find-unused-aws-resources-cut-costs). Check for unattached EBS volumes, unused Elastic IPs, idle load balancers, and NAT Gateways connected to nothing. This is where the silent waste lives.
+Once a quarter, run through the [unused resource checklist](/blog/how-to-find-unused-aws-resources-and-cut-costs). Check for unattached EBS volumes, unused Elastic IPs, idle load balancers, and NAT Gateways connected to nothing. This is where the silent waste lives.
 
 The CLI commands in that guide take about 20 minutes to run across all regions. In my experience, teams find $50-300/month in waste on the first sweep. Not life-changing, but that's $600-3,600/year that was going nowhere.
 
-If you're running [multiple accounts](/blog/aws-multi-account-visibility-ctos), multiply the time by the number of accounts. This is where manual approaches start to feel like a part-time job.
+If you're running [multiple accounts](/blog/aws-multi-account-visibility-what-ctos-need-to-know), multiply the time by the number of accounts. This is where manual approaches start to feel like a part-time job.
 
 ### Resource-level cost attribution (without perfect tagging)
 
@@ -104,4 +104,4 @@ Whatever you use, the principle is the same. Small teams need cost visibility th
 
 ---
 
-*Part of our series on AWS infrastructure for small teams. See also: [How to Find Unused Resources and Cut Costs](/blog/how-to-find-unused-aws-resources-cut-costs), [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-solo-engineers), and [AWS Multi-Account Visibility for CTOs](/blog/aws-multi-account-visibility-ctos).*
+*Part of our series on AWS infrastructure for small teams. See also: [How to Find Unused Resources and Cut Costs](/blog/how-to-find-unused-aws-resources-and-cut-costs), [AWS Account Audit Checklist for Solo Engineers](/blog/aws-account-audit-checklist-for-solo-engineers), and [AWS Multi-Account Visibility for CTOs](/blog/aws-multi-account-visibility-what-ctos-need-to-know).*
