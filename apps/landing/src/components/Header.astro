@@ -28,7 +28,7 @@ const legalDropdown = [
   <nav aria-label="Main navigation" class="container mx-auto px-6 py-4 flex items-center justify-between">
     <!-- Logo -->
     <a href="/" class="flex items-center gap-2 group">
-      <Icon name="lucide:orbit" class="w-8 h-8 text-cyber-cyan group-hover:animate-spin" />
+      <Icon name="lucide:orbit" class="w-8 h-8 text-cyber-cyan group-hover:animate-spin" aria-hidden="true" />
       <span class="text-xl font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
         ScanOrbit
       </span>
@@ -38,15 +38,16 @@ const legalDropdown = [
     <div class="hidden md:flex items-center gap-1">
       <!-- Product Dropdown -->
       <div class="relative group">
-        <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        <button class="nav-dropdown-btn flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors" aria-expanded="false" aria-haspopup="true">
           Product
-          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" aria-hidden="true" />
         </button>
-        <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+        <div class="nav-dropdown-menu absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" role="menu">
           <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
             {productDropdown.map((item) => (
               <a
                 href={item.href}
+                role="menuitem"
                 class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
               >
                 {item.label}
@@ -68,15 +69,16 @@ const legalDropdown = [
 
       <!-- Resources Dropdown -->
       <div class="relative group">
-        <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        <button class="nav-dropdown-btn flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors" aria-expanded="false" aria-haspopup="true">
           Resources
-          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" aria-hidden="true" />
         </button>
-        <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+        <div class="nav-dropdown-menu absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" role="menu">
           <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
             {resourcesDropdown.map((item) => (
               <a
                 href={item.href}
+                role="menuitem"
                 class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
               >
                 {item.label}
@@ -88,15 +90,16 @@ const legalDropdown = [
 
       <!-- Legal Dropdown -->
       <div class="relative group">
-        <button class="flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
+        <button class="nav-dropdown-btn flex items-center gap-1 px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors" aria-expanded="false" aria-haspopup="true">
           Legal
-          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+          <Icon name="lucide:chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" aria-hidden="true" />
         </button>
-        <div class="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+        <div class="nav-dropdown-menu absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" role="menu">
           <div class="bg-midnight border border-slate-gray/10 rounded-xl p-2 min-w-[200px] shadow-xl shadow-black/20">
             {legalDropdown.map((item) => (
               <a
                 href={item.href}
+                role="menuitem"
                 class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
               >
                 {item.label}
@@ -113,15 +116,15 @@ const legalDropdown = [
       <button
         id="theme-toggle"
         class="p-2 rounded-lg text-slate-gray hover:text-cloud-gray transition-colors"
-        aria-label="Toggle theme"
+        aria-label="Switch to light theme"
       >
         <!-- Sun icon (shown in dark mode) -->
-        <svg id="theme-icon-sun" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <svg id="theme-icon-sun" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
           <circle cx="12" cy="12" r="5" />
           <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
         </svg>
         <!-- Moon icon (shown in light mode) -->
-        <svg id="theme-icon-moon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <svg id="theme-icon-moon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>
       </button>
@@ -142,8 +145,8 @@ const legalDropdown = [
         Get Started
       </a>
       <!-- Mobile Menu Button -->
-      <button class="md:hidden p-2 text-slate-gray" id="mobile-menu-btn">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button class="md:hidden p-2 text-slate-gray" id="mobile-menu-btn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-menu">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
@@ -151,7 +154,7 @@ const legalDropdown = [
   </nav>
 
   <!-- Mobile Menu -->
-  <div class="hidden md:hidden bg-midnight border-t border-slate-gray/10" id="mobile-menu">
+  <div class="hidden md:hidden bg-midnight border-t border-slate-gray/10 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain" id="mobile-menu">
     <div class="container mx-auto px-6 py-4 space-y-2">
       <p class="text-xs text-slate-gray/60 uppercase tracking-wider pt-1 pb-1">Product</p>
       <a href="/#how-it-works" class="block py-2 text-slate-gray hover:text-cloud-gray">How it Works</a>
@@ -180,7 +183,63 @@ const legalDropdown = [
   const mobileMenuBtn = document.getElementById('mobile-menu-btn');
   const mobileMenu = document.getElementById('mobile-menu');
   mobileMenuBtn?.addEventListener('click', () => {
-    mobileMenu?.classList.toggle('hidden');
+    const isOpen = !mobileMenu?.classList.toggle('hidden');
+    mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
+    document.body.classList.toggle('overflow-hidden', isOpen);
+  });
+
+  // Dropdown keyboard navigation
+  document.querySelectorAll<HTMLButtonElement>('.nav-dropdown-btn').forEach((btn) => {
+    const menu = btn.nextElementSibling as HTMLElement | null;
+    if (!menu) return;
+    const items = menu.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]');
+
+    function open() {
+      menu!.classList.add('!opacity-100', '!visible');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+    function close() {
+      menu!.classList.remove('!opacity-100', '!visible');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        open();
+        items[0]?.focus();
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      if (expanded) { close(); } else { open(); items[0]?.focus(); }
+    });
+
+    items.forEach((item, i) => {
+      item.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          items[Math.min(i + 1, items.length - 1)]?.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (i === 0) { btn.focus(); close(); }
+          else items[i - 1]?.focus();
+        } else if (e.key === 'Escape') {
+          close();
+          btn.focus();
+        } else if (e.key === 'Tab') {
+          close();
+        }
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!btn.parentElement?.contains(e.target as Node)) close();
+    });
   });
 
   // Theme toggle
@@ -195,6 +254,7 @@ const legalDropdown = [
     sunIcon?.classList.toggle('hidden', !isDark);
     moonIcon?.classList.toggle('hidden', isDark);
     if (mobileLabel) mobileLabel.textContent = isDark ? 'Switch to Light' : 'Switch to Dark';
+    if (toggle) toggle.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', isDark ? '#08080f' : '#ffffff');
   }

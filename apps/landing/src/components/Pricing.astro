@@ -111,9 +111,9 @@ const pricingSchemaLd = {
                     <span class="text-right">
                       {typeof value === "boolean" ? (
                         value ? (
-                          <Icon name="lucide:check" class="w-5 h-5 text-neon-green" />
+                          <Icon name="lucide:check" class="w-5 h-5 text-neon-green" aria-hidden="true" />
                         ) : (
-                          <Icon name="lucide:x" class="w-5 h-5 text-slate-gray/30" />
+                          <Icon name="lucide:x" class="w-5 h-5 text-slate-gray/30" aria-hidden="true" />
                         )
                       ) : (
                         <span class="text-cloud-gray text-sm font-medium">{value}</span>
@@ -153,11 +153,11 @@ const pricingSchemaLd = {
             <!-- Header with plan names and prices -->
             <thead>
               <tr class="border-b border-slate-gray/10">
-                <th class="text-left py-4 px-6 text-slate-gray font-medium">
+                <th scope="col" class="text-left py-4 px-6 text-slate-gray font-medium">
                   Feature
                 </th>
                 {plans.map((plan) => (
-                  <th class="py-4 px-6 text-center min-w-[140px]">
+                  <th scope="col" class="py-4 px-6 text-center min-w-[140px]">
                     <div class="flex flex-col items-center gap-2">
                       <span class="text-lg font-bold text-cloud-gray">{plan.name}</span>
                       <div class="flex items-baseline gap-0.5">
@@ -180,7 +180,7 @@ const pricingSchemaLd = {
                         {typeof value === "boolean" ? (
                           value ? (
                             <div class="flex justify-center">
-                              <Icon name="lucide:check" class="w-5 h-5 text-neon-green" />
+                              <Icon name="lucide:check" class="w-5 h-5 text-neon-green" aria-hidden="true" />
                             </div>
                           ) : (
                             <span class="text-slate-gray/50">—</span>

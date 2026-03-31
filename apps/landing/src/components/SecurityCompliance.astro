@@ -90,7 +90,7 @@ const legalLinks = [
             <!-- Step card -->
             <div class="flex-1 bg-midnight rounded-xl border border-border-subtle p-6 text-center hover:border-cyber-cyan/30 transition-colors">
               <div class="w-12 h-12 mx-auto mb-4 rounded-lg bg-gradient-to-br from-orbit-purple/20 to-cyber-cyan/20 flex items-center justify-center">
-                <Icon name={step.icon} class="w-6 h-6 text-cyber-cyan" />
+                <Icon name={step.icon} class="w-6 h-6 text-cyber-cyan" aria-hidden="true" />
               </div>
               <h3 class="font-semibold text-cloud-gray mb-2 text-sm">{step.title}</h3>
               <p class="text-slate-gray text-xs leading-relaxed">{step.details}</p>
@@ -100,7 +100,7 @@ const legalLinks = [
               <div class="flex items-center px-2">
                 <div class="flex items-center gap-1">
                   <div class="w-6 h-px bg-gradient-to-r from-orbit-purple/60 to-cyber-cyan/60"></div>
-                  <Icon name="lucide:chevron-right" class="w-4 h-4 text-cyber-cyan/60 flex-shrink-0" />
+                  <Icon name="lucide:chevron-right" class="w-4 h-4 text-cyber-cyan/60 flex-shrink-0" aria-hidden="true" />
                 </div>
               </div>
             )}
@@ -115,7 +115,7 @@ const legalLinks = [
             <div class="bg-midnight rounded-xl border border-border-subtle p-5 hover:border-cyber-cyan/30 transition-colors">
               <div class="flex items-start gap-4">
                 <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orbit-purple/20 to-cyber-cyan/20 flex items-center justify-center flex-shrink-0">
-                  <Icon name={step.icon} class="w-5 h-5 text-cyber-cyan" />
+                  <Icon name={step.icon} class="w-5 h-5 text-cyber-cyan" aria-hidden="true" />
                 </div>
                 <div>
                   <h3 class="font-semibold text-cloud-gray mb-1 text-sm">{step.title}</h3>
@@ -125,7 +125,7 @@ const legalLinks = [
             </div>
             {i < dataFlowSteps.length - 1 && (
               <div class="flex justify-center py-1">
-                <Icon name="lucide:chevron-down" class="w-4 h-4 text-cyber-cyan/40" />
+                <Icon name="lucide:chevron-down" class="w-4 h-4 text-cyber-cyan/40" aria-hidden="true" />
               </div>
             )}
           </div>
@@ -139,7 +139,7 @@ const legalLinks = [
         {complianceCards.map((card) => (
           <div class="flex items-start gap-4 p-5 bg-midnight rounded-xl border border-border-subtle hover:border-neon-green/20 transition-colors">
             <div class="w-10 h-10 rounded-lg bg-neon-green/10 flex items-center justify-center flex-shrink-0">
-              <Icon name={card.icon} class="w-5 h-5 text-neon-green" />
+              <Icon name={card.icon} class="w-5 h-5 text-neon-green" aria-hidden="true" />
             </div>
             <div>
               <h3 class="font-semibold text-cloud-gray mb-1 text-sm">{card.title}</h3>
@@ -159,7 +159,7 @@ const legalLinks = [
             href={link.href}
             class="flex items-center gap-2 px-4 py-2 bg-midnight rounded-full border border-border-subtle hover:border-cyber-cyan/30 text-slate-gray hover:text-cloud-gray transition-colors text-sm"
           >
-            <Icon name={link.icon} class="w-4 h-4" />
+            <Icon name={link.icon} class="w-4 h-4" aria-hidden="true" />
             {link.label}
           </a>
         ))}

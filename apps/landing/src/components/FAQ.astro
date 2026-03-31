@@ -84,13 +84,13 @@ for (const faq of faqs) {
 
       <!-- FAQ items -->
       <div class="space-y-4">
-        {faqs.map((faq) => (
+        {faqs.map((faq, i) => (
           <details class="group bg-midnight rounded-xl border border-border-subtle hover:border-cyber-cyan/20 transition-colors">
-            <summary class="flex items-center justify-between p-6 cursor-pointer list-none">
+            <summary class="flex items-center justify-between p-6 cursor-pointer list-none" aria-controls={`faq-answer-${i}`}>
               <h3 class="font-medium text-cloud-gray pr-4">{faq.question}</h3>
-              <Icon name="lucide:chevron-down" class="w-5 h-5 text-slate-gray group-open:rotate-180 transition-transform flex-shrink-0" />
+              <Icon name="lucide:chevron-down" class="w-5 h-5 text-slate-gray group-open:rotate-180 transition-transform flex-shrink-0" aria-hidden="true" />
             </summary>
-            <div class="px-6 pb-6 pt-0">
+            <div id={`faq-answer-${i}`} class="px-6 pb-6 pt-0">
               <p class="text-slate-gray">{faq.answer}</p>
             </div>
           </details>

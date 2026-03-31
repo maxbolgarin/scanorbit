@@ -34,10 +34,10 @@ const features = [
             <caption class="sr-only">Comparison of ScanOrbit, AWS Cost Explorer, and Manual Audit</caption>
             <thead>
               <tr>
-                <th class="text-left py-5 px-6 text-slate-gray font-medium bg-deep-space">
+                <th scope="col" class="text-left py-5 px-6 text-slate-gray font-medium bg-deep-space">
                   Feature
                 </th>
-                <th class="py-5 px-6 bg-gradient-to-b from-orbit-purple/20 to-cyber-cyan/10 border-x border-cyber-cyan/20">
+                <th scope="col" class="py-5 px-6 bg-gradient-to-b from-orbit-purple/20 to-cyber-cyan/10 border-x border-cyber-cyan/20">
                   <div class="flex flex-col items-center gap-1">
                     <span class="text-lg font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
                       ScanOrbit
@@ -45,10 +45,10 @@ const features = [
                     <span class="text-xs text-cyber-cyan/70">Recommended</span>
                   </div>
                 </th>
-                <th class="py-5 px-6 bg-deep-space">
+                <th scope="col" class="py-5 px-6 bg-deep-space">
                   <span class="text-slate-gray font-medium">AWS Cost Explorer</span>
                 </th>
-                <th class="py-5 px-6 bg-deep-space">
+                <th scope="col" class="py-5 px-6 bg-deep-space">
                   <span class="text-slate-gray font-medium">Manual Audit</span>
                 </th>
               </tr>
@@ -62,13 +62,13 @@ const features = [
                       feature.scanorbit ? (
                         <div class="flex justify-center">
                           <div class="w-7 h-7 rounded-full bg-neon-green/20 flex items-center justify-center">
-                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green" />
+                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green" aria-hidden="true" />
                           </div>
                         </div>
                       ) : (
                         <div class="flex justify-center">
                           <div class="w-7 h-7 rounded-full bg-alert-red/20 flex items-center justify-center">
-                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red" />
+                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red" aria-hidden="true" />
                           </div>
                         </div>
                       )
@@ -81,13 +81,13 @@ const features = [
                       feature.explorer ? (
                         <div class="flex justify-center">
                           <div class="w-7 h-7 rounded-full bg-neon-green/10 flex items-center justify-center">
-                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green/70" />
+                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green/70" aria-hidden="true" />
                           </div>
                         </div>
                       ) : (
                         <div class="flex justify-center">
                           <div class="w-7 h-7 rounded-full bg-alert-red/10 flex items-center justify-center">
-                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red/70" />
+                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red/70" aria-hidden="true" />
                           </div>
                         </div>
                       )
@@ -100,13 +100,13 @@ const features = [
                       feature.manual ? (
                         <div class="flex justify-center">
                           <div class="w-7 h-7 rounded-full bg-neon-green/10 flex items-center justify-center">
-                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green/70" />
+                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green/70" aria-hidden="true" />
                           </div>
                         </div>
                       ) : (
                         <div class="flex justify-center">
                           <div class="w-7 h-7 rounded-full bg-alert-red/10 flex items-center justify-center">
-                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red/70" />
+                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red/70" aria-hidden="true" />
                           </div>
                         </div>
                       )

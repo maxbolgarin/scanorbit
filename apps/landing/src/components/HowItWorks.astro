@@ -167,7 +167,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
               }
             `}>
               <span class="step-number">{step.number}</span>
-              <Icon name="lucide:check" class="step-check w-5 h-5 hidden" />
+              <Icon name="lucide:check" class="step-check w-5 h-5 hidden" aria-hidden="true" />
             </div>
 
             {/* Step label */}
@@ -200,7 +200,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
               <div class="group space-y-6">
                 <div class="flex items-center gap-4">
                   <div class={`w-12 h-12 rounded-xl bg-gradient-to-br from-${step.color}/20 to-${step.color}/5 flex items-center justify-center`}>
-                    <Icon name={step.icon} class={`w-6 h-6 ${colors.text}`} />
+                    <Icon name={step.icon} class={`w-6 h-6 ${colors.text}`} aria-hidden="true" />
                   </div>
                   <div>
                     <h3 class="text-2xl font-bold text-cloud-gray">{step.title}</h3>
@@ -215,7 +215,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
                 <div class="grid grid-cols-2 gap-3">
                   {step.features.map((feature) => (
                     <div class={`flex items-center gap-2.5 p-3 rounded-lg bg-deep-space/50 border ${colors.pillBorder} transition-colors duration-300`}>
-                      <Icon name={feature.icon} class={`w-4 h-4 ${colors.text}`} />
+                      <Icon name={feature.icon} class={`w-4 h-4 ${colors.text}`} aria-hidden="true" />
                       <span class="text-sm text-cloud-gray">{feature.label}</span>
                     </div>
                   ))}
@@ -263,7 +263,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
         class="group inline-flex items-center gap-3 px-8 py-4 bg-orbit-purple hover:bg-orbit-purple/90 rounded-xl font-semibold text-lg text-white transition-all duration-300 hover:shadow-[0_0_40px_rgba(107,70,193,0.5)] hover:scale-105"
       >
         Start Free Scan
-        <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
       </a>
       <p class="text-slate-gray text-sm mt-4">No credit card required</p>
     </div>
