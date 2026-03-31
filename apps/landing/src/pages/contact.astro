@@ -4,6 +4,44 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import { Icon } from "astro-icon/components";
 
+const contactSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "ScanOrbit",
+  url: "https://scanorbit.cloud",
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Amsterdam",
+    addressCountry: "NL",
+  },
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      email: "support@scanorbit.cloud",
+      availableLanguage: "English",
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "security",
+      email: "security@scanorbit.cloud",
+      availableLanguage: "English",
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "privacy",
+      email: "dpa@scanorbit.cloud",
+      availableLanguage: "English",
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "general",
+      email: "hello@scanorbit.cloud",
+      availableLanguage: "English",
+    },
+  ],
+};
+
 const contactChannels = [
   {
     icon: "lucide:help-circle",
@@ -148,3 +186,5 @@ const contactChannels = [
   </main>
   <Footer />
 </Layout>
+
+<script type="application/ld+json" set:html={JSON.stringify(contactSchemaLd)} />

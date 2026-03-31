@@ -1,6 +1,12 @@
 ---
 import { Icon } from "astro-icon/components";
 
+const faqSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [] as { "@type": string; name: string; acceptedAnswer: { "@type": string; text: string } }[],
+};
+
 const faqs = [
   {
     question: "How do you prevent unauthorized access?",
@@ -47,6 +53,17 @@ const faqs = [
     answer: "Currently we support AWS only. Azure and GCP support is on our roadmap. Contact us if you're interested in multi-cloud support.",
   },
 ];
+
+for (const faq of faqs) {
+  faqSchemaLd.mainEntity.push({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  });
+}
 ---
 
 <section id="faq" class="py-24 bg-deep-space relative">
@@ -93,3 +110,5 @@ const faqs = [
     </div>
   </div>
 </section>
+
+<script type="application/ld+json" set:html={JSON.stringify(faqSchemaLd)} />

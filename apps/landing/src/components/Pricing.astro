@@ -42,6 +42,26 @@ const features = [
 ];
 
 const planKeys = ["free", "pro", "team"] as const;
+
+const pricingSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: "ScanOrbit",
+  description: "Agentless AWS infrastructure scanner. Discover orphaned resources, security misconfigurations, and compliance violations.",
+  brand: {
+    "@type": "Organization",
+    name: "ScanOrbit",
+  },
+  offers: plans.map((plan) => ({
+    "@type": "Offer",
+    name: `ScanOrbit ${plan.name}`,
+    price: plan.price.replace("€", ""),
+    priceCurrency: "EUR",
+    availability: "https://schema.org/InStock",
+    url: plan.ctaLink,
+    ...(plan.period ? { priceValidUntil: new Date(new Date().getFullYear() + 1, 0, 1).toISOString().split("T")[0] } : {}),
+  })),
+};
 ---
 
 <section id="pricing" class="py-16 bg-midnight relative overflow-hidden">
@@ -129,6 +149,7 @@ const planKeys = ["free", "pro", "team"] as const;
       <div class="bg-deep-space rounded-2xl border border-slate-gray/10 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full">
+            <caption class="sr-only">ScanOrbit pricing plans comparison: Free, Pro, and Team</caption>
             <!-- Header with plan names and prices -->
             <thead>
               <tr class="border-b border-slate-gray/10">
@@ -219,3 +240,5 @@ const planKeys = ["free", "pro", "team"] as const;
 
   </div>
 </section>
+
+<script type="application/ld+json" set:html={JSON.stringify(pricingSchemaLd)} />

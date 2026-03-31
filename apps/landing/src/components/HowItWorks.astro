@@ -73,6 +73,20 @@ const steps = [
   },
 ];
 
+const howToSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to scan your AWS infrastructure with ScanOrbit",
+  description: "No agents to install. No SSH access required. Just a simple IAM role with read-only permissions.",
+  step: steps.map((step, index) => ({
+    "@type": "HowToStep",
+    position: index + 1,
+    name: step.title,
+    text: step.description,
+    image: `https://scanorbit.cloud${step.screenshotDark}`,
+  })),
+};
+
 const colorMap: Record<string, { bg: string; text: string; border: string; glow: string; pillBorder: string }> = {
   "orbit-purple": {
     bg: "bg-orbit-purple",
@@ -255,6 +269,8 @@ const colorMap: Record<string, { bg: string; text: string; border: string; glow:
     </div>
   </div>
 </section>
+
+<script type="application/ld+json" set:html={JSON.stringify(howToSchemaLd)} />
 
 <style>
   /* Theme-aware screenshots */
