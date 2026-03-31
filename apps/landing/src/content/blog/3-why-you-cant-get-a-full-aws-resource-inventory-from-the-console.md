@@ -1,7 +1,7 @@
 ---
 title: "Why You Can't Get a Full AWS Resource Inventory from the Console"
 description: "AWS has no single screen that shows everything in your account. Here's why building a complete resource inventory is harder than it should be, and what actually works."
-pubDate: 2026-03-24
+pubDate: 2026-01-29
 author: "Maksim"
 draft: false
 tags: ["aws", "cloud-inventory", "infrastructure", "devops"]
