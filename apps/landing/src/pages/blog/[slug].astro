@@ -9,7 +9,7 @@ export async function getStaticPaths() {
     (post) => !post.data.draft
   );
   return posts.map((post) => ({
-    params: { slug: post.id },
+    params: { slug: post.data.link },
     props: { post },
   }));
 }
@@ -32,7 +32,7 @@ const modDateFormatted = post.data.updatedDate?.toLocaleDateString("en-US", {
 
 // Related posts (same tags, excluding current)
 const allPosts = (await getCollection("blog")).filter(
-  (p) => !p.data.draft && p.id !== post.id
+  (p) => !p.data.draft && p.data.link !== post.data.link
 );
 const relatedPosts = allPosts
   .map((p) => ({
@@ -64,7 +64,7 @@ const breadcrumbJsonLd = {
       "@type": "ListItem",
       position: 3,
       name: post.data.title,
-      item: new URL(`/blog/${post.id}`, Astro.site).href,
+      item: new URL(`/blog/${post.data.link}`, Astro.site).href,
     },
   ],
 };
@@ -152,7 +152,7 @@ const breadcrumbJsonLd = {
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {relatedPosts.map((related) => (
                 <a
-                  href={`/blog/${related.id}`}
+                  href={`/blog/${related.data.link}`}
                   class="block p-4 rounded-xl border border-slate-gray/10 hover:border-orbit-purple/40 bg-midnight/30 transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.08)]"
                 >
                   <h3 class="font-medium text-cloud-gray mb-2 line-clamp-2">

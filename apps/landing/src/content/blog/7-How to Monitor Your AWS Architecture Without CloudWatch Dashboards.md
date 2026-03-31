@@ -1,6 +1,7 @@
 ---
 title: "How to Monitor Your AWS Architecture Without CloudWatch Dashboards"
 description: "CloudWatch dashboards show you metrics for things you already know about. The harder problem is understanding what you actually have running. Here's how to get an architecture-level view of your AWS account without building dashboards for every service."
+link: "how-to-monitor-aws-architecture-without-cloudwatch-dashboards"
 pubDate: 2026-03-21
 author: "Maksim"
 draft: false

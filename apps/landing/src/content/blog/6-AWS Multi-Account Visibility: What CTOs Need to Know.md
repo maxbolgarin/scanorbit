@@ -1,6 +1,7 @@
 ---
 title: "AWS Multi-Account Visibility: What CTOs Need to Know"
 description: "Managing multiple AWS accounts is standard practice. Seeing what's actually in them is a different problem entirely. Here's what breaks when visibility doesn't scale with your account structure."
+link: "aws-multi-account-visibility-what-ctos-need-to-know"
 pubDate: 2026-03-11
 author: "Maksim"
 draft: false

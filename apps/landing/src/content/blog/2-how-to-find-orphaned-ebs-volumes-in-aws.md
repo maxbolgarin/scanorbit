@@ -1,6 +1,7 @@
 ---
 title: "How to Find Orphaned EBS Volumes in AWS (3 Methods)"
 description: "Orphaned EBS volumes silently inflate your AWS bill every month. Learn three ways to find and clean them up — from the AWS Console to CLI automation to dedicated scanning tools."
+link: "how-to-find-orphaned-ebs-volumes-in-aws"
 pubDate: 2026-01-12
 author: "Maksim"
 draft: false

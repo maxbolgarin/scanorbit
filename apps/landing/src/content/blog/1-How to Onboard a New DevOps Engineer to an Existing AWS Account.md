@@ -1,6 +1,7 @@
 ---
 title: "How to Onboard a New DevOps Engineer to an Existing AWS Account"
 description: "Handing someone the keys to an AWS account they've never seen is harder than it looks. Here's a practical onboarding process that gives a new DevOps engineer real context fast, not just a login and a prayer."
+link: "how-to-onboard-devops-engineer-to-aws-account"
 pubDate: 2025-12-24
 author: "Maksim"
 draft: false

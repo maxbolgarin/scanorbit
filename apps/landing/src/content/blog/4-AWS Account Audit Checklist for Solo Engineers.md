@@ -1,6 +1,7 @@
 ---
 title: "AWS Account Audit Checklist for Solo Engineers"
 description: "A practical AWS account audit checklist built for solo engineers and small teams. Covers security, cost waste, IAM hygiene, and compliance checks you can run in under an hour."
+link: "aws-account-audit-checklist-for-solo-engineers"
 pubDate: 2026-02-11
 author: "Maksim"
 draft: false

@@ -1,6 +1,7 @@
 ---
 title: "How to Find Unused AWS Resources and Cut Costs"
 description: "Unused AWS resources silently inflate your bill every month. Here's how to find idle EC2 instances, orphaned volumes, unused IPs, and forgotten load balancers — with CLI commands and practical cleanup steps."
+link: "how-to-find-unused-aws-resources-and-cut-costs"
 pubDate: 2026-02-24
 author: "Maksim"
 draft: false

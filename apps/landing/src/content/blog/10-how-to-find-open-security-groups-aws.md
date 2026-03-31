@@ -1,6 +1,7 @@
 ---
 title: "How to Find and Fix Open Security Groups in AWS"
 description: "Open security groups are one of the most common AWS misconfigurations. Learn how to detect port 22, 3389, and 0.0.0.0/0 exposure using the Console and CLI."
+link: "how-to-find-open-security-groups-aws"
 pubDate: 2026-04-03
 author: "Maksim"
 tags: ["aws", "security groups", "cloud security", "aws misconfiguration", "network security"]

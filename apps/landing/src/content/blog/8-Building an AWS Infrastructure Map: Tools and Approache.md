@@ -1,6 +1,7 @@
 ---
 title: "Building an AWS Infrastructure Map: Tools and Approaches"
 description: "You need a map of your AWS infrastructure but AWS doesn't give you one. Here's what works for generating architecture diagrams, from manual tools to automated discovery, and where each approach breaks down."
+link: "building-aws-infrastructure-map-tools-and-approaches"
 pubDate: 2026-03-25
 author: "Maksim"
 draft: false

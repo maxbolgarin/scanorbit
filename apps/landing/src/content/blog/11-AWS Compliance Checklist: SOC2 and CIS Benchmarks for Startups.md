@@ -1,6 +1,7 @@
 ---
 title: "AWS Compliance Checklist: SOC2 and CIS Benchmarks for Startups"
 description: "Your first enterprise customer wants to see your SOC2 report. Here's what that actually means for your AWS account, which CIS benchmarks matter, and how to get compliant without hiring a full-time security team."
+link: "aws-compliance-checklist-soc2-cis-benchmarks-for-startups"
 pubDate: 2026-04-08
 author: "Maksim"
 draft: false

@@ -1,6 +1,7 @@
 ---
 title: "AWS Cost Visibility for Small Teams: Beyond the Billing Dashboard"
 description: "The AWS billing dashboard tells you how much you spent. It doesn't tell you why. Here's how small teams can actually understand their AWS costs without dedicated FinOps tooling."
+link: "aws-cost-visibility-for-small-teams"
 pubDate: 2026-03-31
 author: "Maksim"
 draft: false
