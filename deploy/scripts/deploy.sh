@@ -5,7 +5,7 @@
 # Called by GitHub Actions after new images are pushed to GHCR.
 set -euo pipefail
 
-DEPLOY_DIR="/opt/scanorbit/deploy"
+DEPLOY_DIR="/opt/scanorbit"
 COMPOSE="docker compose -f $DEPLOY_DIR/docker-compose.yml"
 
 cd "$DEPLOY_DIR"
