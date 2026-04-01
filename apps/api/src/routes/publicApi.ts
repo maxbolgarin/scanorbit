@@ -18,7 +18,7 @@ const publicApiRoute = new Hono<{ Variables: Variables }>();
 publicApiRoute.use(
   cors({
     origin: '*',
-    allowMethods: ['GET', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['X-API-Key', 'Content-Type'],
     maxAge: 86400,
   })
@@ -154,6 +154,18 @@ publicApiRoute.get('/findings/:id', async (c) => {
 // Scans
 // =============================================================================
 
+// POST /api/v1/scans/trigger — trigger a scan via API
+const triggerScanSchema = z.object({
+  accountId: z.string().uuid(),
+});
+
+publicApiRoute.post('/scans/trigger', zValidator('json', triggerScanSchema), async (c) => {
+  const orgId = c.get('orgId');
+  const { accountId } = c.req.valid('json');
+  const scan = await awsAccountService.enqueueScan(orgId, accountId);
+  return c.json({ data: { scanId: scan.id, status: scan.status } }, 201);
+});
+
 // GET /api/v1/scans/active
 publicApiRoute.get('/scans/active', async (c) => {
   const orgId = c.get('orgId');
@@ -168,6 +180,14 @@ publicApiRoute.get('/scans/recent', async (c) => {
   const limit = Math.min(Math.max(isNaN(limitRaw) ? 10 : limitRaw, 1), 100);
   const recentScans = await awsAccountService.getRecentScans(orgId, limit, false);
   return c.json({ data: recentScans });
+});
+
+// GET /api/v1/scans/:id — get scan status
+publicApiRoute.get('/scans/:id', async (c) => {
+  const orgId = c.get('orgId');
+  const scanId = c.req.param('id');
+  const scan = await awsAccountService.getScan(orgId, scanId);
+  return c.json({ data: scan });
 });
 
 // =============================================================================
