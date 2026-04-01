@@ -3,7 +3,7 @@ import { createChain } from '../helpers/mockDb.js';
 
 let selectResult: unknown[] = [];
 
-const { mockRedis, mockWebhookDeliveryService } = vi.hoisted(() => ({
+const { mockRedis, mockWebhookDeliveryService, mockSlackService } = vi.hoisted(() => ({
   mockRedis: {
     set: vi.fn().mockResolvedValue('OK'),
     get: vi.fn().mockResolvedValue(null),
@@ -13,6 +13,9 @@ const { mockRedis, mockWebhookDeliveryService } = vi.hoisted(() => ({
   mockWebhookDeliveryService: {
     enqueueDelivery: vi.fn().mockResolvedValue('delivery-id-1'),
     startDeliveryWorker: vi.fn(),
+  },
+  mockSlackService: {
+    sendNotification: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -35,6 +38,10 @@ vi.mock('../../lib/logger.js', () => ({
 
 vi.mock('../../services/webhookDeliveryService.js', () => ({
   webhookDeliveryService: mockWebhookDeliveryService,
+}));
+
+vi.mock('../../services/slackService.js', () => ({
+  slackService: mockSlackService,
 }));
 
 vi.mock('../../db/schema.js', () => ({
@@ -136,6 +143,7 @@ describe('notificationCronService', () => {
     mockRedis.set.mockResolvedValue('OK');
     mockRedis.get.mockResolvedValue(null);
     mockWebhookDeliveryService.enqueueDelivery.mockResolvedValue('delivery-id-1');
+    mockSlackService.sendNotification.mockResolvedValue(undefined);
 
     const { db } = await import('../../lib/db.js');
     vi.mocked(db.select).mockImplementation(() => createChain(selectResult) as any);
@@ -359,6 +367,41 @@ describe('notificationCronService', () => {
         }),
       );
     });
+
+    it('calls slackService.sendNotification with scan.completed event', async () => {
+      const { db } = await import('../../lib/db.js');
+
+      const scan = makeScan();
+      const webhook = makeWebhook(['scan.completed']);
+
+      vi.mocked(db.select).mockImplementation(() => createChain([webhook]) as any);
+
+      await dispatchScanCompleted(scan as any);
+
+      expect(mockSlackService.sendNotification).toHaveBeenCalledWith(
+        'org-1',
+        'scan.completed',
+        expect.objectContaining({ event: 'scan.completed' }),
+      );
+    });
+
+    it('still enqueues webhook delivery when slackService throws', async () => {
+      const { db } = await import('../../lib/db.js');
+
+      const scan = makeScan();
+      const webhook = makeWebhook(['scan.completed']);
+
+      vi.mocked(db.select).mockImplementation(() => createChain([webhook]) as any);
+      mockSlackService.sendNotification.mockRejectedValue(new Error('slack down'));
+
+      await dispatchScanCompleted(scan as any);
+
+      expect(mockWebhookDeliveryService.enqueueDelivery).toHaveBeenCalledWith(
+        'webhook-1',
+        'scan.completed',
+        expect.objectContaining({ event: 'scan.completed' }),
+      );
+    });
   });
 
   describe('dispatchNewFindings', () => {
@@ -526,6 +569,76 @@ describe('notificationCronService', () => {
       await dispatchNewFindings(scan as any);
 
       expect(mockWebhookDeliveryService.enqueueDelivery).not.toHaveBeenCalled();
+    });
+
+    it('calls slackService.sendNotification for finding.new_critical', async () => {
+      const { db } = await import('../../lib/db.js');
+
+      const scan = makeScan();
+      const criticalFinding = makeFinding('critical');
+      const webhook = makeWebhook(['finding.new_critical']);
+
+      let callCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return createChain([criticalFinding]) as any;
+        return createChain([webhook]) as any;
+      });
+
+      await dispatchNewFindings(scan as any);
+
+      expect(mockSlackService.sendNotification).toHaveBeenCalledWith(
+        'org-1',
+        'finding.new_critical',
+        expect.objectContaining({ event: 'finding.new_critical' }),
+      );
+    });
+
+    it('calls slackService.sendNotification for finding.new_high', async () => {
+      const { db } = await import('../../lib/db.js');
+
+      const scan = makeScan();
+      const highFinding = makeFinding('high');
+      const webhook = makeWebhook(['finding.new_high']);
+
+      let callCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return createChain([highFinding]) as any;
+        return createChain([webhook]) as any;
+      });
+
+      await dispatchNewFindings(scan as any);
+
+      expect(mockSlackService.sendNotification).toHaveBeenCalledWith(
+        'org-1',
+        'finding.new_high',
+        expect.objectContaining({ event: 'finding.new_high' }),
+      );
+    });
+
+    it('still enqueues webhook delivery for critical findings when slackService throws', async () => {
+      const { db } = await import('../../lib/db.js');
+
+      const scan = makeScan();
+      const criticalFinding = makeFinding('critical');
+      const webhook = makeWebhook(['finding.new_critical']);
+
+      let callCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return createChain([criticalFinding]) as any;
+        return createChain([webhook]) as any;
+      });
+      mockSlackService.sendNotification.mockRejectedValue(new Error('slack down'));
+
+      await dispatchNewFindings(scan as any);
+
+      expect(mockWebhookDeliveryService.enqueueDelivery).toHaveBeenCalledWith(
+        'webhook-1',
+        'finding.new_critical',
+        expect.objectContaining({ event: 'finding.new_critical' }),
+      );
     });
   });
 });

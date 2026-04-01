@@ -4,6 +4,7 @@ import { redis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
 import { scans, findings, orgWebhooks } from '../db/schema.js';
 import { webhookDeliveryService } from './webhookDeliveryService.js';
+import { slackService } from './slackService.js';
 
 const POLL_INTERVAL_MS = 60_000;
 const LOCK_KEY = 'notif:cron:lock';
@@ -78,6 +79,12 @@ async function dispatchScanCompleted(scan: typeof scans.$inferSelect): Promise<v
       await webhookDeliveryService.enqueueDelivery(webhook.id, 'scan.completed', payload);
     }
   }
+
+  try {
+    await slackService.sendNotification(scan.orgId, 'scan.completed', payload);
+  } catch (err) {
+    logger.error('slack notification failed for scan.completed', err as Error);
+  }
 }
 
 async function dispatchNewFindings(scan: typeof scans.$inferSelect): Promise<void> {
@@ -128,6 +135,12 @@ async function dispatchNewFindings(scan: typeof scans.$inferSelect): Promise<voi
         await webhookDeliveryService.enqueueDelivery(webhook.id, 'finding.new_critical', payload);
       }
     }
+
+    try {
+      await slackService.sendNotification(scan.orgId, 'finding.new_critical', payload);
+    } catch (err) {
+      logger.error('slack notification failed for finding.new_critical', err as Error);
+    }
   }
 
   // Dispatch finding.new_high
@@ -152,6 +165,12 @@ async function dispatchNewFindings(scan: typeof scans.$inferSelect): Promise<voi
       if (webhook.eventTypes.includes('finding.new_high')) {
         await webhookDeliveryService.enqueueDelivery(webhook.id, 'finding.new_high', payload);
       }
+    }
+
+    try {
+      await slackService.sendNotification(scan.orgId, 'finding.new_high', payload);
+    } catch (err) {
+      logger.error('slack notification failed for finding.new_high', err as Error);
     }
   }
 }
