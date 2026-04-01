@@ -4,6 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WebhookSettings } from "@/components/integrations/WebhookSettings";
+import { SlackSettings } from "@/components/integrations/SlackSettings";
+import { NotificationPreferences } from "@/components/integrations/NotificationPreferences";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSubscriptionStatus } from "@/hooks/use-subscription";
 import { TIER_LIMITS } from "@/types";
@@ -110,28 +112,10 @@ export default function Integrations() {
           <WebhookSettings />
         </TabsContent>
         <TabsContent value="slack">
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-              <MessageSquare className="h-10 w-10 text-muted-foreground/50" />
-              <p className="font-medium">Slack Integration</p>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Slack integration is coming soon. You will be able to receive
-                scan results and alerts directly in your Slack channels.
-              </p>
-            </CardContent>
-          </Card>
+          <SlackSettings />
         </TabsContent>
         <TabsContent value="notifications">
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-              <Bell className="h-10 w-10 text-muted-foreground/50" />
-              <p className="font-medium">Email Notifications</p>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Notification preferences are coming soon. You will be able to
-                configure digest frequency, timezone, and alert thresholds.
-              </p>
-            </CardContent>
-          </Card>
+          <NotificationPreferences />
         </TabsContent>
       </Tabs>
     </div>
