@@ -18,6 +18,7 @@ import { redis } from './lib/redis.js';
 import { startSubscriberCron } from './services/subscriberCronService.js';
 import { startDripScheduler } from './services/dripSchedulerService.js';
 import { startNotificationCron } from './services/notificationCronService.js';
+import { startDigestCron } from './services/digestCronService.js';
 import { webhookDeliveryService } from './services/webhookDeliveryService.js';
 import type { Variables } from './types/index.js';
 
@@ -300,6 +301,7 @@ try {
       startSubscriberCron();
       startDripScheduler();
       startNotificationCron();
+      startDigestCron();
       webhookDeliveryService.startDeliveryWorker();
     }
   );
