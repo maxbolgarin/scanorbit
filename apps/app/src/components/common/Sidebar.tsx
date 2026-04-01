@@ -22,6 +22,7 @@ import {
   BookOpen,
   Users,
   Code,
+  Plug,
   MoreHorizontal,
   Bug,
 } from "lucide-react";
@@ -89,6 +90,11 @@ export function Sidebar() {
       label: "API",
       href: "/api-access",
       icon: Code,
+    },
+    {
+      label: "Integrations",
+      href: "/integrations",
+      icon: Plug,
     },
     {
       label: "Settings",
@@ -238,6 +244,11 @@ export function MobileNav() {
       label: "API",
       href: "/api-access",
       icon: Code,
+    },
+    {
+      label: "Integrations",
+      href: "/integrations",
+      icon: Plug,
     },
     {
       label: "Settings",

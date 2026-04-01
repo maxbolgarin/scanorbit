@@ -41,6 +41,7 @@ export interface TierLimits {
   canViewAuditLogs: boolean;
   canInviteMembers: boolean;
   canConfigureWebhooks: boolean;
+  canConfigureNotifications: boolean;
   canUseApiKeys: boolean;
 }
 
@@ -58,6 +59,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: false,
     canInviteMembers: false,
     canConfigureWebhooks: false,
+    canConfigureNotifications: false,
     canUseApiKeys: false,
   },
   pro: {
@@ -72,7 +74,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canExportData: false,
     canViewAuditLogs: false,
     canInviteMembers: false,
-    canConfigureWebhooks: false,
+    canConfigureWebhooks: true,
+    canConfigureNotifications: true,
     canUseApiKeys: false,
   },
   team: {
@@ -88,6 +91,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: true,
     canInviteMembers: true,
     canConfigureWebhooks: true,
+    canConfigureNotifications: true,
     canUseApiKeys: true,
   },
 };
