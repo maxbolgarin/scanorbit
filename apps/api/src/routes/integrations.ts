@@ -6,6 +6,7 @@ import { requireOrgId } from '../middlewares/requireOrgId.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { webhookService } from '../services/webhookService.js';
 import { notificationPreferenceService } from '../services/notificationPreferenceService.js';
+import { slackService } from '../services/slackService.js';
 import { getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 import { HTTP403Error } from '../lib/errors.js';
 import { TIER_LIMITS, type Variables } from '../types/index.js';
@@ -185,6 +186,98 @@ integrationsRoute.patch('/preferences', zValidator('json', updatePreferencesSche
   const body = c.req.valid('json');
   const prefs = await notificationPreferenceService.updatePreferences(userId, orgId, body);
   return c.json({ data: prefs });
+});
+
+// GET /integrations/slack — get Slack integration status (tier-gated)
+integrationsRoute.get('/slack', async (c) => {
+  const orgId = c.get('orgId');
+
+  await checkNotificationTier(orgId);
+
+  const integration = await slackService.getIntegration(orgId);
+  if (!integration) return c.json({ data: null });
+  // Strip accessToken from response
+  const { accessToken: _accessToken, ...safe } = integration;
+  return c.json({ data: safe });
+});
+
+// GET /integrations/slack/authorize — get OAuth authorize URL (tier-gated, admin-only)
+integrationsRoute.get('/slack/authorize', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+
+  await checkNotificationTier(orgId);
+  await verifyOrgAdmin(orgId, userId);
+
+  const url = slackService.getOAuthUrl(orgId);
+  return c.json({ data: { url } });
+});
+
+// POST /integrations/slack/callback — handle OAuth callback (tier-gated)
+integrationsRoute.post(
+  '/slack/callback',
+  zValidator('json', z.object({ code: z.string() })),
+  async (c) => {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+
+    await checkNotificationTier(orgId);
+
+    const { code } = c.req.valid('json');
+    const integration = await slackService.handleOAuthCallback(code, orgId, userId);
+    const { accessToken: _accessToken, ...safe } = integration;
+    return c.json({ data: safe });
+  }
+);
+
+// GET /integrations/slack/channels — list Slack channels (tier-gated)
+integrationsRoute.get('/slack/channels', async (c) => {
+  const orgId = c.get('orgId');
+
+  await checkNotificationTier(orgId);
+
+  const channels = await slackService.listChannels(orgId);
+  return c.json({ data: channels });
+});
+
+// PUT /integrations/slack/channels — update channel mappings (tier-gated, admin-only)
+integrationsRoute.put(
+  '/slack/channels',
+  zValidator(
+    'json',
+    z.object({
+      mappings: z.array(
+        z.object({
+          eventType: z.string(),
+          channelId: z.string(),
+          channelName: z.string(),
+        })
+      ),
+    })
+  ),
+  async (c) => {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+
+    await checkNotificationTier(orgId);
+    await verifyOrgAdmin(orgId, userId);
+
+    const { mappings } = c.req.valid('json');
+    const result = await slackService.updateChannelMappings(orgId, mappings);
+    return c.json({ data: result });
+  }
+);
+
+// DELETE /integrations/slack — disconnect Slack (tier-gated, admin-only)
+integrationsRoute.delete('/slack', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+
+  await checkNotificationTier(orgId);
+  await verifyOrgAdmin(orgId, userId);
+
+  await slackService.disconnect(orgId);
+  return c.json({ data: { success: true } });
 });
 
 export default integrationsRoute;

@@ -82,6 +82,13 @@ export const config = {
     },
   },
 
+  // Slack Integration
+  slack: {
+    clientId: process.env.SLACK_CLIENT_ID || '',
+    clientSecret: readSecret('SLACK_CLIENT_SECRET', 'slack_client_secret'),
+    signingSecret: readSecret('SLACK_SIGNING_SECRET', 'slack_signing_secret'),
+  },
+
   // Bug report notification recipient
   bugReportEmail: process.env.BUG_REPORT_EMAIL || 'support@scanorbit.cloud',
 
