@@ -67,9 +67,19 @@ export const webhookService = {
   /**
    * List all webhooks for an org. The secret is NOT included in the response.
    */
-  async listWebhooks(orgId: string): Promise<OrgWebhook[]> {
+  async listWebhooks(orgId: string): Promise<Omit<OrgWebhook, 'secret'>[]> {
     return db
-      .select()
+      .select({
+        id: orgWebhooks.id,
+        orgId: orgWebhooks.orgId,
+        url: orgWebhooks.url,
+        eventTypes: orgWebhooks.eventTypes,
+        isActive: orgWebhooks.isActive,
+        description: orgWebhooks.description,
+        createdBy: orgWebhooks.createdBy,
+        createdAt: orgWebhooks.createdAt,
+        updatedAt: orgWebhooks.updatedAt,
+      })
       .from(orgWebhooks)
       .where(eq(orgWebhooks.orgId, orgId))
       .orderBy(desc(orgWebhooks.createdAt));

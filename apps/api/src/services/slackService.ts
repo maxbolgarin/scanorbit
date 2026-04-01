@@ -7,6 +7,14 @@ import { slackIntegrations, slackChannelMappings } from '../db/schema.js';
 import type { SlackIntegration, SlackChannelMapping } from '../db/schema.js';
 import { HTTP404Error } from '../lib/errors.js';
 
+const SLACK_TIMEOUT_MS = 10_000;
+
+function withTimeout(ms: number): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cleanup: () => clearTimeout(timeoutId) };
+}
+
 interface SlackChannel {
   id: string;
   name: string;
@@ -35,16 +43,23 @@ export const slackService = {
   // Exchange OAuth code for token, encrypt, store
   async handleOAuthCallback(code: string, orgId: string, userId: string): Promise<SlackIntegration> {
     // Exchange code for token
-    const response = await fetch('https://slack.com/api/oauth.v2.access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: config.slack.clientId,
-        client_secret: config.slack.clientSecret,
-        code,
-        redirect_uri: `${config.frontendUrl}/integrations/slack/callback`,
-      }),
-    });
+    const { signal: oauthSignal, cleanup: oauthCleanup } = withTimeout(SLACK_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch('https://slack.com/api/oauth.v2.access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.slack.clientId,
+          client_secret: config.slack.clientSecret,
+          code,
+          redirect_uri: `${config.frontendUrl}/integrations/slack/callback`,
+        }),
+        signal: oauthSignal,
+      });
+    } finally {
+      oauthCleanup();
+    }
     const data = await response.json() as any;
     if (!data.ok) throw new Error(`Slack OAuth failed: ${data.error}`);
 
@@ -93,9 +108,16 @@ export const slackService = {
     if (!integration) throw new HTTP404Error('Slack integration not found');
 
     const token = decryptOAuthToken(integration.accessToken);
-    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const { signal: listSignal, cleanup: listCleanup } = withTimeout(SLACK_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200', {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: listSignal,
+      });
+    } finally {
+      listCleanup();
+    }
     const data = await response.json() as any;
     if (!data.ok) throw new Error(`Slack API error: ${data.error}`);
 
@@ -115,15 +137,22 @@ export const slackService = {
     const body: any = { channel: channelId, text };
     if (blocks) body.blocks = blocks;
 
-    const response = await fetch('https://slack.com/api/chat.postMessage', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    const data = await response.json() as any;
+    const { signal: msgSignal, cleanup: msgCleanup } = withTimeout(SLACK_TIMEOUT_MS);
+    let msgResponse: Response;
+    try {
+      msgResponse = await fetch('https://slack.com/api/chat.postMessage', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: msgSignal,
+      });
+    } finally {
+      msgCleanup();
+    }
+    const data = await msgResponse.json() as any;
     if (!data.ok) {
       logger.error('Slack message failed', new Error(data.error), { channelId, orgId });
     }

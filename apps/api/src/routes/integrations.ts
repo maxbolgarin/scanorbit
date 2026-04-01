@@ -9,7 +9,7 @@ import { notificationPreferenceService } from '../services/notificationPreferenc
 import { slackService } from '../services/slackService.js';
 import { getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 import { HTTP403Error } from '../lib/errors.js';
-import { TIER_LIMITS, type Variables } from '../types/index.js';
+import { TIER_LIMITS, ALL_NOTIFICATION_EVENT_TYPES, type Variables } from '../types/index.js';
 
 const integrationsRoute = new Hono<{ Variables: Variables }>();
 
@@ -33,15 +33,24 @@ const updatePreferencesSchema = z.object({
   notifyHighFindings: z.boolean().optional(),
 });
 
+const httpUrlSchema = z.string().url().max(2048).refine(
+  u => u.startsWith('https://') || u.startsWith('http://'),
+  'URL must use http or https',
+);
+
+const eventTypesSchema = z.array(
+  z.enum(ALL_NOTIFICATION_EVENT_TYPES as [string, ...string[]]),
+).min(1);
+
 const createWebhookSchema = z.object({
-  url: z.string().url().max(2048),
-  eventTypes: z.array(z.string()).min(1),
+  url: httpUrlSchema,
+  eventTypes: eventTypesSchema,
   description: z.string().max(255).optional(),
 });
 
 const updateWebhookSchema = z.object({
-  url: z.string().url().max(2048).optional(),
-  eventTypes: z.array(z.string()).min(1).optional(),
+  url: httpUrlSchema.optional(),
+  eventTypes: eventTypesSchema.optional(),
   isActive: z.boolean().optional(),
   description: z.string().max(255).optional(),
 });
@@ -91,10 +100,7 @@ integrationsRoute.get('/webhooks', async (c) => {
   await checkWebhookTier(orgId);
 
   const webhooks = await webhookService.listWebhooks(orgId);
-  // Strip secret field from each webhook
-  const safeWebhooks = webhooks.map(({ secret: _secret, ...rest }) => rest);
-
-  return c.json({ data: safeWebhooks });
+  return c.json({ data: webhooks });
 });
 
 // PATCH /integrations/webhooks/:id — update webhook (admin-only, tier-gated)
@@ -248,10 +254,13 @@ integrationsRoute.put(
     z.object({
       mappings: z.array(
         z.object({
-          eventType: z.string(),
+          eventType: z.enum(ALL_NOTIFICATION_EVENT_TYPES as [string, ...string[]]),
           channelId: z.string(),
           channelName: z.string(),
         })
+      ).refine(
+        arr => new Set(arr.map(m => m.eventType)).size === arr.length,
+        'Duplicate event types not allowed',
       ),
     })
   ),

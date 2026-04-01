@@ -48,8 +48,8 @@ export async function processDigests(): Promise<void> {
         if (userDay !== 1) continue; // 1 = Monday
       }
 
-      // Redis dedup
-      const dateStr = now.toISOString().slice(0, 10);
+      // Redis dedup — use user's local date, not UTC
+      const dateStr = getLocalDate(now, pref.timezone);
       const dedupKey = `digest:sent:${pref.userId}:${dateStr}`;
       const fresh = await redis.set(dedupKey, '1', 'EX', DEDUP_TTL, 'NX');
       if (!fresh) continue;
@@ -92,6 +92,19 @@ export function getHourInTimezone(date: Date, timezone: string): number {
     return parseInt(formatter.format(date), 10);
   } catch {
     return date.getUTCHours(); // fallback to UTC
+  }
+}
+
+export function getLocalDate(date: Date, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10); // fallback to UTC
   }
 }
 

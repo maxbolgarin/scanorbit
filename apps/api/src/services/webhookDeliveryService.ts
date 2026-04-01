@@ -8,7 +8,7 @@ import { redis } from '../lib/redis.js';
 
 const QUEUE_KEY = 'jobs:webhook_delivery';
 const LOCK_KEY = 'webhook:delivery:lock';
-const LOCK_TTL_SECONDS = 4;
+const LOCK_TTL_SECONDS = 10; // Must exceed WORKER_INTERVAL_MS / 1000 to prevent duplicate processing
 const WORKER_INTERVAL_MS = 5000;
 const MAX_ATTEMPTS = 3;
 const DELIVERY_TIMEOUT_MS = 10_000;

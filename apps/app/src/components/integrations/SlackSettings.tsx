@@ -6,6 +6,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -49,6 +57,7 @@ export function SlackSettings() {
   >({});
   const [isSaving, setIsSaving] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   // Load existing mappings and fetch channels when connected
   useEffect(() => {
@@ -74,7 +83,11 @@ export function SlackSettings() {
     setIsConnecting(true);
     try {
       const result = await api.getSlackAuthorizeUrl();
-      window.location.href = result.data.url;
+      const url = result.data.url;
+      if (!url.startsWith('https://slack.com/')) {
+        throw new Error('Invalid Slack authorization URL');
+      }
+      window.location.href = url;
     } catch (err) {
       toast({
         title: "Failed to start Slack authorization",
@@ -86,14 +99,10 @@ export function SlackSettings() {
   };
 
   const handleDisconnect = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to disconnect Slack? All channel mappings will be removed."
-    );
-    if (!confirmed) return;
-
     try {
       await disconnectSlack.mutateAsync();
       setMappings({});
+      setConfirmDisconnect(false);
       toast({ title: "Slack disconnected", type: "success" });
     } catch (err) {
       toast({
@@ -212,12 +221,11 @@ export function SlackSettings() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDisconnect}
-                  disabled={disconnectSlack.isPending}
+                  onClick={() => setConfirmDisconnect(true)}
                   className="gap-1.5 text-destructive hover:text-destructive"
                 >
                   <Unlink className="h-3.5 w-3.5" />
-                  {disconnectSlack.isPending ? "Disconnecting..." : "Disconnect"}
+                  Disconnect
                 </Button>
               )}
             </div>
@@ -276,6 +284,34 @@ export function SlackSettings() {
           </div>
         )}
       </CardContent>
+
+      {/* Disconnect Confirmation Dialog */}
+      <Dialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect Slack</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to disconnect Slack? All channel mappings
+              will be removed. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDisconnect(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDisconnect}
+              disabled={disconnectSlack.isPending}
+            >
+              {disconnectSlack.isPending ? "Disconnecting..." : "Disconnect"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
