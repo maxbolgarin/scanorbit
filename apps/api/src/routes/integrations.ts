@@ -5,6 +5,7 @@ import { requireAuth } from '../middlewares/auth.js';
 import { requireOrgId } from '../middlewares/requireOrgId.js';
 import { requireNoProcessingRestriction } from '../middlewares/processingRestriction.js';
 import { webhookService } from '../services/webhookService.js';
+import { notificationPreferenceService } from '../services/notificationPreferenceService.js';
 import { getOrgTier, verifyOrgAdmin } from '../services/orgService.js';
 import { HTTP403Error } from '../lib/errors.js';
 import { TIER_LIMITS, type Variables } from '../types/index.js';
@@ -23,6 +24,14 @@ integrationsRoute.use('*', async (c, next) => {
 });
 
 // Validation schemas
+const updatePreferencesSchema = z.object({
+  digestFrequency: z.enum(['daily', 'weekly', 'off']).optional(),
+  timezone: z.string().max(50).optional(),
+  notifyScanComplete: z.boolean().optional(),
+  notifyCriticalFindings: z.boolean().optional(),
+  notifyHighFindings: z.boolean().optional(),
+});
+
 const createWebhookSchema = z.object({
   url: z.string().url().max(2048),
   eventTypes: z.array(z.string()).min(1),
@@ -46,6 +55,14 @@ async function checkWebhookTier(orgId: string): Promise<void> {
   const tier = await getOrgTier(orgId);
   if (!TIER_LIMITS[tier].canConfigureWebhooks) {
     throw new HTTP403Error('Webhook configuration is not available on your current plan. Upgrade to Pro or Team to configure webhooks.');
+  }
+}
+
+// Helper: check that the org's tier allows notification configuration
+async function checkNotificationTier(orgId: string): Promise<void> {
+  const tier = await getOrgTier(orgId);
+  if (!TIER_LIMITS[tier].canConfigureNotifications) {
+    throw new HTTP403Error('Notification configuration is not available on your current plan. Upgrade to Pro or Team to configure notifications.');
   }
 }
 
@@ -146,5 +163,28 @@ integrationsRoute.get(
     });
   }
 );
+
+// GET /integrations/preferences — get notification preferences (tier-gated)
+integrationsRoute.get('/preferences', async (c) => {
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+
+  await checkNotificationTier(orgId);
+
+  const prefs = await notificationPreferenceService.getPreferences(userId, orgId);
+  return c.json({ data: prefs });
+});
+
+// PATCH /integrations/preferences — update notification preferences (tier-gated)
+integrationsRoute.patch('/preferences', zValidator('json', updatePreferencesSchema), async (c) => {
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+
+  await checkNotificationTier(orgId);
+
+  const body = c.req.valid('json');
+  const prefs = await notificationPreferenceService.updatePreferences(userId, orgId, body);
+  return c.json({ data: prefs });
+});
 
 export default integrationsRoute;
