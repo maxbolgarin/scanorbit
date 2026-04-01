@@ -11,6 +11,7 @@ import newsletterRoute from './newsletter.js';
 import webhooksRoute from './webhooks.js';
 import publicApiRoute from './publicApi.js';
 import bugReportsRoute from './bug-reports.js';
+import integrationsRoute from './integrations.js';
 import type { Variables } from '../types/index.js';
 
 const routes = new Hono<{ Variables: Variables }>();
@@ -37,6 +38,9 @@ routes.route('/webhooks', webhooksRoute);
 
 // Bug reports
 routes.route('/bug-reports', bugReportsRoute);
+
+// Integrations (webhooks)
+routes.route('/integrations', integrationsRoute);
 
 // Public API v1 (API key authentication)
 routes.route('/api/v1', publicApiRoute);
