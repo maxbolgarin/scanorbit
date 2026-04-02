@@ -1809,6 +1809,101 @@ export async function updateGdprProfile(updates: { fullName?: string }): Promise
 }
 
 // =============================================================================
+// Integrations
+// =============================================================================
+
+// Webhooks
+export async function getWebhooks(): Promise<{ data: any[] }> {
+  try {
+    const { data: result } = await api.get('/integrations/webhooks');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function createWebhook(params: { url: string; eventTypes: string[]; description?: string }): Promise<{ data: { webhook: any; secret: string } }> {
+  try {
+    const { data: result } = await api.post('/integrations/webhooks', params);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function updateWebhook(id: string, params: { url?: string; eventTypes?: string[]; isActive?: boolean; description?: string }): Promise<{ data: any }> {
+  try {
+    const { data: result } = await api.patch(`/integrations/webhooks/${id}`, params);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function deleteWebhook(id: string): Promise<void> {
+  try {
+    await api.delete(`/integrations/webhooks/${id}`);
+  } catch (error) { handleApiError(error); }
+}
+
+export async function testWebhook(id: string): Promise<{ data: { statusCode: number; success: boolean } }> {
+  try {
+    const { data: result } = await api.post(`/integrations/webhooks/${id}/test`);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function getWebhookDeliveries(id: string, page = 1, limit = 20): Promise<{ data: any[]; pagination: any }> {
+  try {
+    const { data: result } = await api.get(`/integrations/webhooks/${id}/deliveries`, { params: { page, limit } });
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+// Notification Preferences
+export async function getNotificationPreferences(): Promise<{ data: any }> {
+  try {
+    const { data: result } = await api.get('/integrations/preferences');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function updateNotificationPreferences(params: { digestFrequency?: string; timezone?: string; notifyScanComplete?: boolean; notifyCriticalFindings?: boolean; notifyHighFindings?: boolean }): Promise<{ data: any }> {
+  try {
+    const { data: result } = await api.patch('/integrations/preferences', params);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+// Slack
+export async function getSlackIntegration(): Promise<{ data: any | null }> {
+  try {
+    const { data: result } = await api.get('/integrations/slack');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function getSlackAuthorizeUrl(): Promise<{ data: { url: string } }> {
+  try {
+    const { data: result } = await api.get('/integrations/slack/authorize');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function getSlackChannels(): Promise<{ data: any[] }> {
+  try {
+    const { data: result } = await api.get('/integrations/slack/channels');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function updateSlackChannelMappings(mappings: { eventType: string; channelId: string; channelName: string }[]): Promise<void> {
+  try {
+    await api.put('/integrations/slack/channels', { mappings });
+  } catch (error) { handleApiError(error); }
+}
+
+export async function disconnectSlack(): Promise<void> {
+  try {
+    await api.delete('/integrations/slack');
+  } catch (error) { handleApiError(error); }
+}
+
+// =============================================================================
 // Bug Reports
 // =============================================================================
 

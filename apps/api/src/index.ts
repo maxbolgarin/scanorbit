@@ -17,6 +17,9 @@ import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
 import { startSubscriberCron } from './services/subscriberCronService.js';
 import { startDripScheduler } from './services/dripSchedulerService.js';
+import { startNotificationCron } from './services/notificationCronService.js';
+import { startDigestCron } from './services/digestCronService.js';
+import { webhookDeliveryService } from './services/webhookDeliveryService.js';
 import type { Variables } from './types/index.js';
 
 const app = new Hono<{ Variables: Variables }>();
@@ -297,6 +300,9 @@ try {
       // Start subscriber lifecycle polling and drip scheduler
       startSubscriberCron();
       startDripScheduler();
+      startNotificationCron();
+      startDigestCron();
+      webhookDeliveryService.startDeliveryWorker();
     }
   );
 

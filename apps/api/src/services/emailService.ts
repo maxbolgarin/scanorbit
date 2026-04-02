@@ -699,6 +699,18 @@ export const emailService = {
   },
 
   /**
+   * Send a digest email (daily or weekly report)
+   */
+  async sendDigestEmail(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }): Promise<EmailResult> {
+    return sendEmail(params.to, params.subject, params.text, params.html);
+  },
+
+  /**
    * Verify email provider connection (useful for health checks)
    */
   async verifyConnection(): Promise<{ success: boolean; error?: string; provider: string }> {

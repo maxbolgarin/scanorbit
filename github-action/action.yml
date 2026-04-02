@@ -1,0 +1,133 @@
+name: 'ScanOrbit Security Scan'
+description: 'Trigger ScanOrbit AWS infrastructure scan and report findings'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  api-key:
+    description: 'ScanOrbit API key (Team tier required)'
+    required: true
+  account-id:
+    description: 'AWS account ID to scan (UUID from ScanOrbit)'
+    required: true
+  api-url:
+    description: 'ScanOrbit API base URL'
+    required: false
+    default: 'https://api.scanorbit.cloud'
+  fail-on-critical:
+    description: 'Fail the workflow if new critical findings are detected'
+    required: false
+    default: 'true'
+  wait-for-completion:
+    description: 'Wait for scan to complete before reporting'
+    required: false
+    default: 'true'
+  timeout:
+    description: 'Maximum seconds to wait for scan completion'
+    required: false
+    default: '600'
+
+outputs:
+  scan-id:
+    description: 'The ID of the triggered scan'
+    value: ${{ steps.trigger.outputs.scan-id }}
+  findings-count:
+    description: 'Total number of findings'
+    value: ${{ steps.results.outputs.findings-count }}
+  critical-count:
+    description: 'Number of critical findings'
+    value: ${{ steps.results.outputs.critical-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Trigger scan
+      id: trigger
+      shell: bash
+      env:
+        API_URL: ${{ inputs.api-url }}
+        API_KEY: ${{ inputs.api-key }}
+        ACCOUNT_ID: ${{ inputs.account-id }}
+      run: |
+        RESPONSE=$(curl -s --max-time 30 -w "\n%{http_code}" \
+          -X POST "${API_URL}/api/v1/scans/trigger" \
+          -H "X-API-Key: ${API_KEY}" \
+          -H "Content-Type: application/json" \
+          -d "{\"accountId\": \"${ACCOUNT_ID}\"}")
+        HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+        BODY=$(echo "$RESPONSE" | sed '$d')
+        if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+          echo "::error::Failed to trigger scan: $BODY"
+          exit 1
+        fi
+        SCAN_ID=$(echo "$BODY" | jq -r '.data.scanId // empty')
+        if [ -z "$SCAN_ID" ]; then
+          echo "::error::Failed to parse scan ID from response"
+          exit 1
+        fi
+        echo "scan-id=$SCAN_ID" >> "$GITHUB_OUTPUT"
+        echo "Scan triggered: $SCAN_ID"
+
+    - name: Wait for completion
+      if: inputs.wait-for-completion == 'true'
+      shell: bash
+      env:
+        API_URL: ${{ inputs.api-url }}
+        API_KEY: ${{ inputs.api-key }}
+        SCAN_ID: ${{ steps.trigger.outputs.scan-id }}
+        TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        ELAPSED=0
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          RESPONSE=$(curl -s --max-time 30 \
+            "${API_URL}/api/v1/scans/${SCAN_ID}" \
+            -H "X-API-Key: ${API_KEY}")
+          STATUS=$(echo "$RESPONSE" | jq -r '.data.status // "unknown"')
+          echo "Scan status: $STATUS (${ELAPSED}s elapsed)"
+          if [ "$STATUS" = "complete" ] || [ "$STATUS" = "partial" ]; then
+            break
+          fi
+          if [ "$STATUS" = "error" ]; then
+            echo "::error::Scan failed"
+            exit 1
+          fi
+          sleep 15
+          ELAPSED=$((ELAPSED + 15))
+        done
+        if [ $ELAPSED -ge $TIMEOUT ]; then
+          echo "::warning::Scan timed out after ${TIMEOUT}s"
+        fi
+
+    - name: Fetch results
+      id: results
+      shell: bash
+      env:
+        API_URL: ${{ inputs.api-url }}
+        API_KEY: ${{ inputs.api-key }}
+      run: |
+        FINDINGS=$(curl -s --max-time 30 \
+          "${API_URL}/api/v1/findings?limit=100" \
+          -H "X-API-Key: ${API_KEY}")
+        TOTAL=$(echo "$FINDINGS" | jq '.pagination.total // 0')
+        CRITICAL=$(echo "$FINDINGS" | jq '[.data[]? | select(.severity == "critical")] | length')
+        HIGH=$(echo "$FINDINGS" | jq '[.data[]? | select(.severity == "high")] | length')
+        echo "findings-count=$TOTAL" >> "$GITHUB_OUTPUT"
+        echo "critical-count=$CRITICAL" >> "$GITHUB_OUTPUT"
+        echo "## ScanOrbit Results" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Severity | Count |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Critical | $CRITICAL |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| High | $HIGH |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Total | $TOTAL |" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Fail on critical
+      if: inputs.fail-on-critical == 'true'
+      shell: bash
+      env:
+        CRITICAL_COUNT: ${{ steps.results.outputs.critical-count }}
+      run: |
+        if [ "${CRITICAL_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+          echo "::error::${CRITICAL_COUNT} critical findings detected"
+          exit 1
+        fi

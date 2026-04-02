@@ -41,6 +41,7 @@ const Settings = lazy(() => import("@/pages/Settings"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Api = lazy(() => import("@/pages/Api"));
 const Docs = lazy(() => import("@/pages/Docs"));
+const Integrations = lazy(() => import("@/pages/Integrations"));
 
 function PageLoader() {
   return (
@@ -186,6 +187,7 @@ function App() {
             <Route path="settings" element={<ErrorBoundary fallback={<PageError />}><Settings /></ErrorBoundary>} />
             <Route path="profile" element={<ErrorBoundary fallback={<PageError />}><Profile /></ErrorBoundary>} />
             <Route path="api-access" element={<ErrorBoundary fallback={<PageError />}><Api /></ErrorBoundary>} />
+            <Route path="integrations" element={<ErrorBoundary fallback={<PageError />}><Integrations /></ErrorBoundary>} />
             <Route path="docs" element={<ErrorBoundary fallback={<PageError />}><Docs /></ErrorBoundary>} />
             <Route path="docs/:articleId" element={<ErrorBoundary fallback={<PageError />}><Docs /></ErrorBoundary>} />
 

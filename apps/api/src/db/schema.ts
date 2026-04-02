@@ -85,6 +85,9 @@ export const orgsRelations = relations(orgs, ({ many }) => ({
   certificates: many(certificates),
   findings: many(findings),
   scans: many(scans),
+  webhooks: many(orgWebhooks),
+  slackIntegrations: many(slackIntegrations),
+  notificationPreferences: many(notificationPreferences),
 }));
 
 // User-Org memberships
@@ -669,6 +672,132 @@ export const dripLog = pgTable('drip_log', {
   index('drip_log_subscriber_email_idx').on(table.subscriberEmail),
 ]);
 
+// Webhooks
+export const orgWebhooks = pgTable('org_webhooks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 2048 }).notNull(),
+  secret: text('secret').notNull(), // HMAC secret, encrypted via AES-256-GCM
+  eventTypes: jsonb('event_types').$type<string[]>().default([]).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  description: varchar('description', { length: 255 }),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('org_webhooks_org_id_idx').on(table.orgId),
+]);
+
+export const orgWebhooksRelations = relations(orgWebhooks, ({ one }) => ({
+  org: one(orgs, {
+    fields: [orgWebhooks.orgId],
+    references: [orgs.id],
+  }),
+  creator: one(users, {
+    fields: [orgWebhooks.createdBy],
+    references: [users.id],
+  }),
+}));
+
+// Webhook Delivery Logs
+export const webhookDeliveryLogs = pgTable('webhook_delivery_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  webhookId: uuid('webhook_id').notNull().references(() => orgWebhooks.id, { onDelete: 'cascade' }),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  payload: jsonb('payload').notNull(),
+  statusCode: integer('status_code'),
+  responseBody: text('response_body'), // first 1KB
+  attempts: integer('attempts').default(0).notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // 'pending', 'success', 'failed'
+  nextRetryAt: timestamp('next_retry_at'),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('webhook_delivery_logs_webhook_id_idx').on(table.webhookId),
+  index('webhook_delivery_logs_status_idx').on(table.status),
+  index('webhook_delivery_logs_created_at_idx').on(table.createdAt),
+]);
+
+export const webhookDeliveryLogsRelations = relations(webhookDeliveryLogs, ({ one }) => ({
+  webhook: one(orgWebhooks, {
+    fields: [webhookDeliveryLogs.webhookId],
+    references: [orgWebhooks.id],
+  }),
+}));
+
+// Notification Preferences
+export const notificationPreferences = pgTable('notification_preferences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  digestFrequency: varchar('digest_frequency', { length: 20 }).default('weekly').notNull(),
+  timezone: varchar('timezone', { length: 50 }).default('UTC').notNull(),
+  notifyScanComplete: boolean('notify_scan_complete').default(true).notNull(),
+  notifyCriticalFindings: boolean('notify_critical_findings').default(true).notNull(),
+  notifyHighFindings: boolean('notify_high_findings').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('notification_preferences_user_org_idx').on(table.userId, table.orgId),
+]);
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+  org: one(orgs, {
+    fields: [notificationPreferences.orgId],
+    references: [orgs.id],
+  }),
+}));
+
+// Slack Integrations
+export const slackIntegrations = pgTable('slack_integrations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  teamId: varchar('team_id', { length: 50 }).notNull(),
+  teamName: varchar('team_name', { length: 255 }),
+  accessToken: text('access_token').notNull(), // Encrypted via AES-256-GCM
+  botUserId: varchar('bot_user_id', { length: 50 }),
+  installedBy: uuid('installed_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('slack_integrations_org_id_idx').on(table.orgId),
+]);
+
+export const slackIntegrationsRelations = relations(slackIntegrations, ({ one, many }) => ({
+  org: one(orgs, {
+    fields: [slackIntegrations.orgId],
+    references: [orgs.id],
+  }),
+  installer: one(users, {
+    fields: [slackIntegrations.installedBy],
+    references: [users.id],
+  }),
+  channelMappings: many(slackChannelMappings),
+}));
+
+// Slack Channel Mappings
+export const slackChannelMappings = pgTable('slack_channel_mappings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slackIntegrationId: uuid('slack_integration_id').notNull().references(() => slackIntegrations.id, { onDelete: 'cascade' }),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  channelId: varchar('channel_id', { length: 50 }).notNull(),
+  channelName: varchar('channel_name', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('slack_channel_mappings_integration_event_idx').on(table.slackIntegrationId, table.eventType),
+]);
+
+export const slackChannelMappingsRelations = relations(slackChannelMappings, ({ one }) => ({
+  slackIntegration: one(slackIntegrations, {
+    fields: [slackChannelMappings.slackIntegrationId],
+    references: [slackIntegrations.id],
+  }),
+}));
+
 // Type exports for use in services
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -718,3 +847,13 @@ export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
 export type BugReport = typeof bugReports.$inferSelect;
 export type NewBugReport = typeof bugReports.$inferInsert;
+export type OrgWebhook = typeof orgWebhooks.$inferSelect;
+export type NewOrgWebhook = typeof orgWebhooks.$inferInsert;
+export type WebhookDeliveryLog = typeof webhookDeliveryLogs.$inferSelect;
+export type NewWebhookDeliveryLog = typeof webhookDeliveryLogs.$inferInsert;
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type NewNotificationPreference = typeof notificationPreferences.$inferInsert;
+export type SlackIntegration = typeof slackIntegrations.$inferSelect;
+export type NewSlackIntegration = typeof slackIntegrations.$inferInsert;
+export type SlackChannelMapping = typeof slackChannelMappings.$inferSelect;
+export type NewSlackChannelMapping = typeof slackChannelMappings.$inferInsert;

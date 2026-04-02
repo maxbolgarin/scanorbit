@@ -24,6 +24,7 @@ export interface TierLimits {
   canViewAuditLogs: boolean;
   canInviteMembers: boolean;
   canConfigureWebhooks: boolean;
+  canConfigureNotifications: boolean;
   canUseApiKeys: boolean;
 }
 
@@ -41,6 +42,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: false,
     canInviteMembers: false,
     canConfigureWebhooks: false,
+    canConfigureNotifications: false,
     canUseApiKeys: false,
   },
   pro: {
@@ -55,7 +57,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canExportData: false,
     canViewAuditLogs: false,
     canInviteMembers: false,
-    canConfigureWebhooks: false,
+    canConfigureWebhooks: true,
+    canConfigureNotifications: true,
     canUseApiKeys: false,
   },
   team: {
@@ -71,6 +74,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     canViewAuditLogs: true,
     canInviteMembers: true,
     canConfigureWebhooks: true,
+    canConfigureNotifications: true,
     canUseApiKeys: true,
   },
 } as const;
@@ -290,6 +294,16 @@ export const JobStatus = {
   ERROR: 'error',
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
+
+export const NotificationEventType = {
+  SCAN_COMPLETED: 'scan.completed',
+  FINDING_NEW_CRITICAL: 'finding.new_critical',
+  FINDING_NEW_HIGH: 'finding.new_high',
+  WEEKLY_DIGEST: 'weekly_digest',
+} as const;
+export type NotificationEventType = (typeof NotificationEventType)[keyof typeof NotificationEventType];
+
+export const ALL_NOTIFICATION_EVENT_TYPES: NotificationEventType[] = Object.values(NotificationEventType);
 
 // Scanner Types
 export const ScannerType = {
