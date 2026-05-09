@@ -9,48 +9,44 @@ const faqSchemaLd = {
 
 const faqs = [
   {
-    question: "How do you prevent unauthorized access?",
-    answer: "We use a read-only IAM role with zero write permissions. Our policy only includes Describe* and List* actions - we literally cannot modify, create, or delete any resources in your AWS account.",
+    question: "Is ScanOrbit really free?",
+    answer: "Yes. ScanOrbit is open source — there is no SaaS, no signup, no paywalled tier. You clone the repository, run it on your own infrastructure, and keep full control of your data and operating costs.",
   },
   {
-    question: "Is my data safe?",
-    answer: "All data is encrypted at rest (AES-256) and in transit (TLS 1.3). We only store metadata about your resources - never the actual data inside them. Everything is hosted in EU data centers.",
+    question: "How do I deploy ScanOrbit?",
+    answer: "The repository ships with a docker-compose stack and Ansible playbooks for production. Follow the Production Deployment section of the README to spin up the API, app, workers, PostgreSQL, and Redis on any VM that runs Docker.",
   },
   {
-    question: "Do you modify any AWS resources?",
-    answer: "Never. We only scan and report. Our IAM role has no write permissions. We can't start, stop, create, or delete anything. It's technically impossible for us to make changes.",
+    question: "What are the system requirements?",
+    answer: "A small Linux VM (2 vCPU / 4 GB RAM is plenty for a single AWS account), Docker and docker-compose, plus outbound HTTPS access to the AWS APIs you want to scan. Postgres and Redis come bundled in the compose stack.",
   },
   {
-    question: "What's included in the Free plan?",
-    answer: "The Free plan includes 1 AWS account, all scanner types, single successful scan, overall health score. It's perfect for trying out ScanOrbit and getting started with basic infrastructure monitoring.",
+    question: "How do you prevent unauthorized access to my AWS account?",
+    answer: "ScanOrbit uses a read-only IAM role with zero write permissions. The policy only includes Describe* and List* actions — the scanner literally cannot modify, create, or delete any resources. You generate the role yourself, and you can revoke it at any time.",
   },
   {
-    question: "What's the difference between Pro and Team?",
-    answer: "Pro (€19/month) is for individual DevOps engineers - you get 1 AWS account, access to all investigating tools, unlimited scans with cooldown, data retention. Team (€79/month) allows to add many AWS accounts, API access, scan priority, team collaboration features, and priority email support.",
+    question: "Does ScanOrbit modify any AWS resources?",
+    answer: "Never. The scanner only reads metadata. The recommended IAM role has no write permissions, so it's technically impossible for the tool to make changes to your account.",
   },
   {
-    question: "Is there a free trial for paid plans?",
-    answer: "Yes! Both Pro and Team plans come with a 7-day free trial. Just enter your card to start — you won't be charged during the trial. You can also use our Free plan indefinitely to evaluate the core functionality.",
+    question: "Where is my data stored?",
+    answer: "Wherever you deploy it. Because ScanOrbit is self-hosted, all scan results live in the PostgreSQL database on your server. Data never leaves your infrastructure unless you configure an external integration yourself.",
   },
   {
     question: "What scanner types are available?",
-    answer: "We offer orphaned resource detection (EBS volumes, Elastic IPs, snapshots), SSL certificate expiry tracking, data residency compliance checks, and complete cloud inventory. Free plan has limited access, while Pro and Team get all scanner types.",
+    answer: "Orphaned resource detection (EBS volumes, Elastic IPs, snapshots), SSL certificate expiry tracking, data residency compliance checks, security misconfiguration checks, and complete cloud inventory with a dependency graph.",
   },
   {
-    question: "How long is data retained?",
-    answer: "Free: 7 days. Pro: 90 days. Team is negotiable. TTL counting starts after the last scan. You can request deletion at any time.",
+    question: "Can I scan multiple AWS accounts?",
+    answer: "Yes. There are no artificial seat or account limits — connect as many AWS accounts as your hardware can comfortably scan. The dashboard supports consolidated views across accounts.",
   },
   {
-    question: "Can I connect multiple AWS accounts?",
-    answer: "Free and Pro plans support 1 AWS account. Team plan supports many AWS accounts with consolidated dashboards and cross-account reporting.",
-  },
-  {
-    question: "Can I cancel anytime?",
-    answer: "Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period. No long-term contracts or cancellation fees.",
+    question: "How can I contribute or report issues?",
+    answer: "Open an issue or pull request on the GitHub repository. The project is MIT-licensed and welcomes contributions: new scanners, additional cloud providers, documentation improvements, and bug reports are all appreciated.",
   },
   {
     question: "Do you support other cloud providers?",
-    answer: "Currently we support AWS only. Azure and GCP support is on our roadmap. Contact us if you're interested in multi-cloud support.",
+    answer: "Currently AWS only. Azure and GCP support are on the roadmap. If you'd like to help build them, contributions are welcome on GitHub.",
   },
 ];
 
@@ -101,10 +97,12 @@ for (const faq of faqs) {
       <div class="mt-12 text-center">
         <p class="text-slate-gray mb-4">Still have questions?</p>
         <a
-          href="mailto:hello@scanorbit.cloud"
+          href="https://github.com/maxbolgarin/scanorbit/issues"
+          target="_blank"
+          rel="noopener noreferrer"
           class="text-cyber-cyan hover:underline"
         >
-          Contact us directly
+          Open an issue on GitHub
         </a>
       </div>
     </div>

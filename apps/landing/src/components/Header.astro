@@ -1,12 +1,13 @@
 ---
 import { Icon } from "astro-icon/components";
-import { signupUrl, loginUrl } from "../config";
+import { githubUrl, selfHostDocsUrl } from "../config";
 
 const productDropdown = [
   { label: "How it Works", href: "/#how-it-works" },
   { label: "Features", href: "/#features" },
   { label: "Comparison", href: "/#comparison" },
   { label: "Security", href: "/#security" },
+  { label: "Self-host", href: selfHostDocsUrl, external: true },
 ];
 
 const resourcesDropdown = [
@@ -49,6 +50,7 @@ const legalDropdown = [
                 href={item.href}
                 role="menuitem"
                 class="block px-4 py-2.5 rounded-lg text-sm text-slate-gray hover:text-cloud-gray hover:bg-deep-space transition-colors"
+                {...(item.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
               >
                 {item.label}
               </a>
@@ -62,9 +64,14 @@ const legalDropdown = [
         Blog
       </a>
 
-      <!-- Pricing -->
-      <a href="/#pricing" class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors">
-        Pricing
+      <!-- GitHub -->
+      <a
+        href={githubUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="px-4 py-2 text-slate-gray hover:text-cloud-gray transition-colors"
+      >
+        GitHub
       </a>
 
       <!-- Resources Dropdown -->
@@ -129,20 +136,21 @@ const legalDropdown = [
         </svg>
       </button>
       <a
-        href={loginUrl}
+        href={selfHostDocsUrl}
         target="_blank"
         rel="noopener noreferrer"
         class="hidden sm:block text-slate-gray hover:text-cloud-gray transition-colors"
       >
-        Login
+        Self-host
       </a>
       <a
-        href={signupUrl}
+        href={githubUrl}
         target="_blank"
         rel="noopener noreferrer"
-        class="hidden sm:block px-4 py-2 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-medium text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
+        class="hidden sm:flex items-center gap-2 px-4 py-2 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-medium text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
       >
-        Get Started
+        <Icon name="lucide:github" class="w-4 h-4" aria-hidden="true" />
+        Star on GitHub
       </a>
       <!-- Mobile Menu Button -->
       <button class="md:hidden p-2 text-slate-gray" id="mobile-menu-btn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-menu">
@@ -161,7 +169,8 @@ const legalDropdown = [
       <a href="/#features" class="block py-2 text-slate-gray hover:text-cloud-gray">Features</a>
       <a href="/#comparison" class="block py-2 text-slate-gray hover:text-cloud-gray">Comparison</a>
       <a href="/#security" class="block py-2 text-slate-gray hover:text-cloud-gray">Security</a>
-      <a href="/#pricing" class="block py-2 text-slate-gray hover:text-cloud-gray">Pricing</a>
+      <a href={selfHostDocsUrl} target="_blank" rel="noopener noreferrer" class="block py-2 text-slate-gray hover:text-cloud-gray">Self-host</a>
+      <a href={githubUrl} target="_blank" rel="noopener noreferrer" class="block py-2 text-slate-gray hover:text-cloud-gray">GitHub</a>
       <a href="/blog" class="block py-2 text-slate-gray hover:text-cloud-gray">Blog</a>
       <p class="text-xs text-slate-gray/60 uppercase tracking-wider pt-3 pb-1">Resources</p>
       <a href="/api-reference" class="block py-2 text-slate-gray hover:text-cloud-gray">API Reference</a>

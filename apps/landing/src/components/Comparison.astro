@@ -6,8 +6,9 @@ const features = [
   { name: "Orphaned resources", scanorbit: true, explorer: false, manual: true },
   { name: "SSL expiry alerts", scanorbit: true, explorer: false, manual: false },
   { name: "Data residency checks", scanorbit: true, explorer: false, manual: "Varies" },
-  { name: "GDPR-safe (EU hosting)", scanorbit: true, explorer: false, manual: "Varies" },
-  { name: "Starting cost", scanorbit: "€0/mo", explorer: "Free (limited)", manual: "€5k-50k" },
+  { name: "Self-hosted (your data, your servers)", scanorbit: true, explorer: false, manual: "Varies" },
+  { name: "Open source", scanorbit: true, explorer: false, manual: false },
+  { name: "Cost", scanorbit: "Free, self-hosted", explorer: "Free (limited)", manual: "€5k-50k" },
 ];
 ---
 
@@ -125,7 +126,7 @@ const features = [
       <!-- Explanation paragraph -->
       <div class="mt-10 text-center max-w-3xl mx-auto">
         <p class="text-slate-gray leading-relaxed">
-          AWS Cost Explorer shows billing data but can't detect orphaned resources, expiring SSL certificates, or GDPR residency violations. Manual audits cost €5k–50k, take weeks to complete, and go stale the moment your infrastructure changes. ScanOrbit combines all of this in one agentless tool with a 5-minute setup.
+          AWS Cost Explorer shows billing data but can't detect orphaned resources, expiring SSL certificates, or GDPR residency violations. Manual audits cost €5k–50k and go stale the moment your infrastructure changes. ScanOrbit is open source — clone the repo, run it on your own infrastructure, and own every piece of the stack.
         </p>
       </div>
     </div>

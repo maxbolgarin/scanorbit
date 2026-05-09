@@ -1,9 +1,7 @@
-// App URL configuration
-// In development: localhost:3000
-// In production: app.scanorbit.cloud
-const baseUrl = import.meta.env.DEV
-  ? "http://localhost:3000"
-  : "https://app.scanorbit.cloud";
-
-export const signupUrl = `${baseUrl}/signup`;
-export const loginUrl = `${baseUrl}/login`;
+// ScanOrbit is open source and self-hosted. The landing page links to the
+// GitHub repository and self-hosting documentation rather than a hosted SaaS.
+export const githubUrl = "https://github.com/maxbolgarin/scanorbit";
+export const githubIssuesUrl = `${githubUrl}/issues`;
+export const githubReleasesUrl = `${githubUrl}/releases`;
+export const selfHostDocsUrl = `${githubUrl}#production-deployment`;
+export const quickStartUrl = `${githubUrl}#development-setup`;

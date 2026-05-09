@@ -1,19 +1,21 @@
 ---
 import { Icon } from "astro-icon/components";
-import Newsletter from "./Newsletter.astro";
+import { githubUrl, githubIssuesUrl, githubReleasesUrl, selfHostDocsUrl } from "../config";
 
 const footerLinks = {
   features: [
     { label: "Core Features", href: "/#features" },
-    { label: "How it Saves Money", href: "/#comparison" },
+    { label: "Comparison", href: "/#comparison" },
     { label: "How it Works", href: "/#how-it-works" },
   ],
   resources: [
+    { label: "GitHub", href: githubUrl, external: true },
+    { label: "Self-host Guide", href: selfHostDocsUrl, external: true },
+    { label: "Releases", href: githubReleasesUrl, external: true },
+    { label: "Report an Issue", href: githubIssuesUrl, external: true },
     { label: "Blog", href: "/blog" },
     { label: "API Reference", href: "/api-reference" },
-    { label: "Security", href: "/security" },
     { label: "Contact", href: "/contact" },
-    { label: "Pricing", href: "/#pricing" },
     { label: "FAQ", href: "/#faq" },
   ],
   legal: [
@@ -22,18 +24,12 @@ const footerLinks = {
     { label: "Cookie Policy", href: "/cookies" },
     { label: "Security Policy", href: "/security" },
     { label: "DPA", href: "/dpa" },
-    { label: "EU Dispute Resolution", href: "https://ec.europa.eu/odr" },
   ],
 };
 ---
 
 <footer class="bg-midnight border-t border-deep-space">
   <div class="container mx-auto px-6 py-16">
-    <!-- Newsletter -->
-    <div class="mb-12">
-      <Newsletter />
-    </div>
-
     <!-- Link columns -->
     <div class="grid grid-cols-2 md:grid-cols-3 gap-8 mb-12">
       <!-- Features -->
@@ -56,7 +52,11 @@ const footerLinks = {
         <ul class="space-y-3">
           {footerLinks.resources.map((link) => (
             <li>
-              <a href={link.href} class="text-slate-gray hover:text-cyber-cyan transition-colors text-sm">
+              <a
+                href={link.href}
+                class="text-slate-gray hover:text-cyber-cyan transition-colors text-sm"
+                {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
                 {link.label}
               </a>
             </li>
@@ -73,7 +73,6 @@ const footerLinks = {
               <a
                 href={link.href}
                 class="text-slate-gray hover:text-cyber-cyan transition-colors text-sm"
-                {...(link.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               >
                 {link.label}
               </a>
@@ -98,17 +97,28 @@ const footerLinks = {
           </span>
         </a>
         <p class="text-slate-gray text-sm mb-1">
-          Agentless AWS scanner. Discover waste, ensure compliance.
+          Open-source, self-hosted AWS scanner. Discover waste, ensure compliance.
         </p>
         <p class="text-slate-gray text-xs">
-          Built for security from day 1. EU-hosted infrastructure.
+          Run it on your own infrastructure. Your data never leaves your servers.
         </p>
       </div>
 
-      <!-- Copyright -->
-      <p class="text-slate-gray text-sm">
-        &copy; {new Date().getFullYear()} ScanOrbit. All rights reserved.
-      </p>
+      <!-- GitHub + Copyright -->
+      <div class="flex flex-col md:items-end gap-3">
+        <a
+          href={githubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-deep-space hover:bg-deep-space/70 border border-slate-gray/10 rounded-lg text-sm text-cloud-gray transition-colors"
+        >
+          <Icon name="lucide:github" class="w-4 h-4" aria-hidden="true" />
+          Star on GitHub
+        </a>
+        <p class="text-slate-gray text-sm">
+          &copy; {new Date().getFullYear()} ScanOrbit contributors.
+        </p>
+      </div>
     </div>
   </div>
 </footer>

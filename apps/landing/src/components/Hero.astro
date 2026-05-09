@@ -1,6 +1,6 @@
 ---
 import { Icon } from "astro-icon/components";
-import { signupUrl } from "../config";
+import { githubUrl, selfHostDocsUrl } from "../config";
 ---
 
 <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
@@ -32,18 +32,18 @@ import { signupUrl } from "../config";
 
       <!-- Subheading -->
       <p class="text-xl md:text-2xl text-slate-gray mb-10 max-w-2xl mx-auto">
-        Find orphaned resources, expiring certificates, and GDPR violations. Read-only access. EU-hosted. No agents.
+        Open source, self-hosted AWS scanner. Find orphaned resources, expiring certificates, and GDPR violations. Read-only. No agents.
       </p>
 
       <!-- Value props row -->
       <div class="flex flex-wrap justify-center gap-6 mb-12">
         <div class="flex items-center gap-2 text-cloud-gray">
-          <Icon name="lucide:clock" class="w-5 h-5 text-cyber-cyan" aria-hidden="true" />
-          <span>5 minute setup</span>
+          <Icon name="lucide:server" class="w-5 h-5 text-cyber-cyan" aria-hidden="true" />
+          <span>Self-hosted</span>
         </div>
         <div class="flex items-center gap-2 text-cloud-gray">
           <Icon name="lucide:search" class="w-5 h-5 text-cyber-cyan" aria-hidden="true" />
-          <span>Make a map of your infrastructure</span>
+          <span>Map your entire infrastructure</span>
         </div>
         <div class="flex items-center gap-2 text-cloud-gray">
           <Icon name="lucide:shield" class="w-5 h-5 text-cyber-cyan" aria-hidden="true" />
@@ -54,19 +54,23 @@ import { signupUrl } from "../config";
       <!-- CTA buttons -->
       <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
         <a
-          href={signupUrl}
+          href={githubUrl}
           target="_blank"
           rel="noopener noreferrer"
           class="group px-8 py-4 bg-orbit-purple hover:bg-orbit-purple/90 rounded-lg font-semibold text-lg text-white transition-all duration-300 hover:shadow-[0_0_30px_rgba(107,70,193,0.5)] flex items-center gap-2"
         >
-          Start Free Today
+          <Icon name="lucide:github" class="w-5 h-5" aria-hidden="true" />
+          View on GitHub
           <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
         </a>
         <a
-          href="#how-it-works"
+          href={selfHostDocsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           class="group px-8 py-4 hero-secondary-btn rounded-lg font-semibold text-lg transition-all duration-300 flex items-center gap-2"
         >
-          See How It Works
+          <Icon name="lucide:book-open" class="w-5 h-5" aria-hidden="true" />
+          Self-host Guide
         </a>
       </div>
 
@@ -77,8 +81,8 @@ import { signupUrl } from "../config";
           <span class="text-sm text-slate-gray">Read-only access</span>
         </div>
         <div class="flex items-center gap-2 px-4 py-2 hero-trust-badge rounded-full">
-          <Icon name="lucide:server" class="w-4 h-4 text-neon-green" aria-hidden="true" />
-          <span class="text-sm text-slate-gray">EU-hosted (Amsterdam)</span>
+          <Icon name="lucide:code" class="w-4 h-4 text-neon-green" aria-hidden="true" />
+          <span class="text-sm text-slate-gray">Open source</span>
         </div>
         <div class="flex items-center gap-2 px-4 py-2 hero-trust-badge rounded-full">
           <Icon name="lucide:cloud-off" class="w-4 h-4 text-neon-green" aria-hidden="true" />
