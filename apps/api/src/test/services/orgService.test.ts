@@ -48,41 +48,9 @@ describe('orgService', () => {
   });
 
   describe('getOrgTier', () => {
-    it('returns org tier from database', async () => {
-      selectResult = [{ tier: 'pro' }];
+    it('always returns team for the OSS build', async () => {
       const tier = await getOrgTier('org-1');
-      expect(tier).toBe('pro');
-    });
-
-    it('defaults to free when tier is null', async () => {
-      selectResult = [{ tier: null }];
-      const tier = await getOrgTier('org-1');
-      expect(tier).toBe('free');
-    });
-
-    it('defaults to free when org not found', async () => {
-      selectResult = [];
-      const tier = await getOrgTier('nonexistent');
-      expect(tier).toBe('free');
-    });
-
-    it('defaults to free when tier column missing', async () => {
-      const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        throw new Error('column "tier" does not exist');
-      });
-
-      const tier = await getOrgTier('org-1');
-      expect(tier).toBe('free');
-    });
-
-    it('re-throws non-column errors', async () => {
-      const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        throw new Error('connection refused');
-      });
-
-      await expect(getOrgTier('org-1')).rejects.toThrow('connection refused');
+      expect(tier).toBe('team');
     });
   });
 
@@ -208,52 +176,19 @@ describe('orgService', () => {
   });
 
   describe('getSubscriptionStatus', () => {
-    it('returns subscription status for team tier', async () => {
+    it('returns the team tier with scanning enabled', async () => {
       let callCount = 0;
       const { db } = await import('../../lib/db.js');
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         if (callCount === 1) return createChain([{ role: 'admin' }]) as any; // membership
-        if (callCount === 2) {return createChain([{
-          tier: 'team',
-          tierUpgradedAt: new Date(),
-          subscriptionStatus: 'active',
-          trialEndsAt: null,
-          subscriptionEndsAt: null,
-          stripeCustomerId: 'cus_123',
-        }]) as any;} // org
-        // getOrgTier
-        return createChain([{ tier: 'team' }]) as any;
+        return createChain([{ id: 'org-1', createdAt: new Date() }]) as any; // org
       });
 
       const result = await orgService.getSubscriptionStatus('org-1', 'user-1');
       expect(result.tier).toBe('team');
       expect(result.scanStatus.canScan).toBe(true);
-    });
-
-    it('returns free tier with scan blocked after successful scan', async () => {
-      let callCount = 0;
-      const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return createChain([{ role: 'member' }]) as any; // membership
-        if (callCount === 2) {return createChain([{
-          tier: 'free',
-          tierUpgradedAt: null,
-          subscriptionStatus: null,
-          trialEndsAt: null,
-          subscriptionEndsAt: null,
-          stripeCustomerId: null,
-        }]) as any;} // org
-        if (callCount === 3) return createChain([{ tier: 'free' }]) as any; // getOrgTier
-        // successful scan check
-        return createChain([{ id: 'scan-1' }]) as any;
-      });
-
-      const result = await orgService.getSubscriptionStatus('org-1', 'user-1');
-      expect(result.tier).toBe('free');
-      expect(result.scanStatus.canScan).toBe(false);
-      expect(result.scanStatus.reason).toContain('Free tier');
+      expect(result.stripeEnabled).toBe(false);
     });
 
     it('throws 403 for non-member', async () => {
@@ -277,35 +212,9 @@ describe('orgService', () => {
   });
 
   describe('upgradeSubscription', () => {
-    it('upgrades tier when stripe not configured', async () => {
-      let callCount = 0;
-      const { db } = await import('../../lib/db.js');
-      vi.mocked(db.select).mockImplementation(() => {
-        callCount++;
-        return createChain([{ role: 'admin' }]) as any;
-      });
-      updateResult = [{ tier: 'pro' }];
-
+    it('returns team tier without touching the database (OSS build)', async () => {
       const result = await orgService.upgradeSubscription('org-1', 'user-1', 'pro');
-      expect(result.tier).toBe('pro');
-    });
-
-    it('throws 403 for non-admin', async () => {
-      selectResult = [{ role: 'member' }];
-      await expect(orgService.upgradeSubscription('org-1', 'user-1', 'pro'))
-        .rejects.toThrow('Only admins');
-    });
-
-    it('throws 403 for non-member', async () => {
-      selectResult = [];
-      await expect(orgService.upgradeSubscription('org-1', 'user-1', 'pro'))
-        .rejects.toThrow('do not have access');
-    });
-
-    it('throws 400 for invalid tier', async () => {
-      selectResult = [{ role: 'admin' }];
-      await expect(orgService.upgradeSubscription('org-1', 'user-1', 'invalid' as any))
-        .rejects.toThrow('Invalid tier');
+      expect(result.tier).toBe('team');
     });
   });
 });

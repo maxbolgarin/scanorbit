@@ -15,10 +15,7 @@ import { logger } from './lib/logger.js';
 import { getMetrics, getContentType, dbPoolConnections, queueLength, usersTotal, orgsByTier, orgsBySubscriptionStatus, orgsWithAwsAccounts } from './lib/metrics.js';
 import { pool } from './lib/db.js';
 import { redis } from './lib/redis.js';
-import { startSubscriberCron } from './services/subscriberCronService.js';
-import { startDripScheduler } from './services/dripSchedulerService.js';
 import { startNotificationCron } from './services/notificationCronService.js';
-import { startDigestCron } from './services/digestCronService.js';
 import { webhookDeliveryService } from './services/webhookDeliveryService.js';
 import type { Variables } from './types/index.js';
 
@@ -297,11 +294,9 @@ try {
         url: `http://localhost:${info.port}`,
       });
 
-      // Start subscriber lifecycle polling and drip scheduler
-      startSubscriberCron();
-      startDripScheduler();
+      // Background jobs: scan/finding notification dispatcher and webhook delivery worker.
+      // Marketing drip/digest crons are intentionally not started in the OSS build.
       startNotificationCron();
-      startDigestCron();
       webhookDeliveryService.startDeliveryWorker();
     }
   );

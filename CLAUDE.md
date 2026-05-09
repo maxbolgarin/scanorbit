@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-ScanOrbit — agentless AWS infrastructure scanner SaaS. pnpm monorepo with Turbo.
+ScanOrbit — agentless AWS infrastructure scanner. Open-source (Apache 2.0), self-hosted via Docker Compose. pnpm monorepo with Turbo.
 
 ## Commands
 
@@ -17,7 +17,6 @@ make dev-infra                # start PostgreSQL (15432) + Redis (16379)
 make dev                      # all TS apps via Turbo
 make dev-api                  # API only (tsx watch)
 make dev-app                  # React app only (Vite)
-make dev-landing              # Astro landing only
 
 # Build
 pnpm build                    # all apps
@@ -49,9 +48,8 @@ cd workers && make lint       # golangci-lint
 
 - **`apps/api`** — Hono.js backend (Node.js 24+, TypeScript strict). Entry: `src/index.ts`
 - **`apps/app`** — React 19 frontend (Vite, Tailwind CSS 4, Radix UI, Zustand, React Query)
-- **`apps/landing`** — Astro 5 static marketing site
 - **`workers/`** — Go services: `scanner` (AWS resource discovery) and `analyzer` (security/cost analysis)
-- **`packages/eslint-config`** — shared ESLint configs (base, react, astro)
+- **`packages/eslint-config`** — shared ESLint configs (base, react)
 
 ### API Structure (`apps/api/src/`)
 
@@ -74,7 +72,7 @@ JWT access tokens (5min) + refresh tokens (7d, httpOnly cookies). OAuth via Goog
 
 ### Subscription Tiers
 
-FREE / PRO / TEAM — defined in `types/index.ts` with `TIER_LIMITS`. Stripe integration for billing with trial support.
+`TIER_LIMITS` (FREE / PRO / TEAM) lives in `types/index.ts` for historical reasons. The OSS build hard-codes every org to the TEAM tier in `services/orgService.getOrgTier`; the Stripe routes are not mounted.
 
 ### Testing Patterns (API)
 
@@ -86,11 +84,10 @@ FREE / PRO / TEAM — defined in `types/index.ts` with `TIER_LIMITS`. Stripe int
 
 ### Infrastructure
 
-- PostgreSQL 17 + Redis 7 (docker-compose for local dev)
-- Production: Caddy reverse proxy, Docker containers on Scaleway
-- Monitoring: Prometheus, Grafana, Loki, Alertmanager
-- Secrets in production: Docker secrets at `/run/secrets/` (read via `lib/secrets.ts`)
-- GDPR: audit logging, data retention policies, consent tracking, deletion requests
+- PostgreSQL 17 + Redis 7 (docker-compose at the repo root for both dev and self-hosted production).
+- Self-hosted: a single `docker compose up -d` brings up db, redis, migrate, api, app, scanner, analyzer.
+- Secrets in production: env vars from `.env` (or Docker secrets at `/run/secrets/` — read via `lib/secrets.ts`).
+- GDPR: audit logging, data retention policies, consent tracking, deletion requests.
 
 ### Frontend (`apps/app`)
 

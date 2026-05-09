@@ -93,13 +93,23 @@ async function sendViaResend(
   }
 }
 
-// Send email via Resend
+// Send email via Resend, with a self-hosted fallback that prints the message body
+// to stdout when Resend is not configured. Self-hosted operators can read the
+// verification code or password reset link from the API container logs.
 async function sendEmail(
   to: string,
   subject: string,
   text: string,
   html: string,
 ): Promise<EmailResult> {
+  if (!config.email.resend.apiKey) {
+    logger.info('[email] Resend not configured — printing message to stdout', {
+      to: maskEmail(to),
+      subject,
+      body: text,
+    });
+    return { success: true, messageId: 'console' };
+  }
   return sendViaResend(to, subject, text, html);
 }
 

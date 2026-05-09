@@ -11,7 +11,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 # Copy workspace package.json files
 COPY apps/api/package.json ./apps/api/
 COPY apps/app/package.json ./apps/app/
-COPY apps/landing/package.json ./apps/landing/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile

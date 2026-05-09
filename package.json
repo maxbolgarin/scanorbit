@@ -2,12 +2,12 @@
   "name": "scanorbit",
   "version": "0.1.0",
   "private": true,
-  "description": "Agentless AWS Infrastructure Scanner SaaS",
+  "description": "Agentless AWS infrastructure scanner — self-hosted, Apache 2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/maxbolgarin/scanorbit"
   },
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
@@ -16,14 +16,10 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
-    "dev:landing": "pnpm --filter @scanorbit/landing dev",
     "dev:app": "pnpm --filter @scanorbit/app dev",
     "dev:api": "pnpm --filter @scanorbit/api dev",
-    "dev:telegram-bot": "pnpm --filter @scanorbit/telegram-bot dev",
-    "build:landing": "pnpm --filter @scanorbit/landing build",
     "build:app": "pnpm --filter @scanorbit/app build",
     "build:api": "pnpm --filter @scanorbit/api build",
-    "build:telegram-bot": "pnpm --filter @scanorbit/telegram-bot build",
     "db:migrate": "pnpm --filter @scanorbit/api db:migrate",
     "db:generate": "pnpm --filter @scanorbit/api db:generate",
     "db:reset": "pnpm --filter @scanorbit/api db:reset"
