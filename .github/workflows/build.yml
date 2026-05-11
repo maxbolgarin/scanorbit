@@ -1,0 +1,440 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Docker image tag (e.g. v1.0.0, hotfix-123)
+        required: true
+        type: string
+        default: latest
+      api:
+        description: Force build API
+        required: false
+        type: boolean
+        default: false
+      app:
+        description: Force build App
+        required: false
+        type: boolean
+        default: false
+      landing:
+        description: Force build Landing
+        required: false
+        type: boolean
+        default: false
+      workers:
+        description: Force build Workers (scanner + analyzer)
+        required: false
+        type: boolean
+        default: false
+      telegram-bot:
+        description: Force build Telegram Bot
+        required: false
+        type: boolean
+        default: false
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      app: ${{ steps.filter.outputs.app }}
+      landing: ${{ steps.filter.outputs.landing }}
+      workers: ${{ steps.filter.outputs.workers }}
+      telegram-bot: ${{ steps.filter.outputs.telegram-bot }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+            app:
+              - 'apps/app/**'
+            landing:
+              - 'apps/landing/**'
+            workers:
+              - 'workers/**'
+            telegram-bot:
+              - 'apps/telegram-bot/**'
+
+  build-api:
+    name: Build API
+    needs: changes
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.api == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.api)
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api
+          tags: |
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-app:
+    name: Build App
+    needs: changes
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.app == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.app)
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/app
+          tags: |
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/app/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_PUBLIC_API_URL=${{ vars.VITE_PUBLIC_API_URL }}
+            VITE_SCANORBIT_AWS_ACCOUNT_ID=${{ vars.VITE_SCANORBIT_AWS_ACCOUNT_ID }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-landing:
+    name: Build Landing
+    needs: changes
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.landing == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.landing)
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/landing
+          tags: |
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/landing/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-workers:
+    name: Build Workers
+    needs: changes
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.workers == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.workers)
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        worker: [scanner, analyzer]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.worker }}
+          tags: |
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./workers
+          target: ${{ matrix.worker }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-telegram-bot:
+    name: Build Telegram Bot
+    needs: changes
+    if: |
+      (github.event_name != 'workflow_dispatch' && needs.changes.outputs.telegram-bot == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.telegram-bot)
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/telegram-bot
+          tags: |
+            type=raw,value=${{ inputs.tag || 'latest' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/telegram-bot/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Production
+    needs: [build-api, build-app, build-landing, build-workers, build-telegram-bot]
+    if: |
+      vars.FORCE_DEPLOY == 'true' &&
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      contains(needs.*.result, 'success')
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux","x64"]') }}
+    steps:
+      - name: Compute deployed services
+        id: services
+        run: |
+          services=""
+          [ "${{ needs.build-api.result }}" = "success" ] && services="$services api"
+          [ "${{ needs.build-app.result }}" = "success" ] && services="$services app"
+          [ "${{ needs.build-landing.result }}" = "success" ] && services="$services landing"
+          [ "${{ needs.build-workers.result }}" = "success" ] && services="$services scanner analyzer"
+          [ "${{ needs.build-telegram-bot.result }}" = "success" ] && services="$services telegram-bot"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy changed services
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_DEPLOY_HOST }}
+          username: ${{ secrets.PROD_DEPLOY_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          proxy_host: ${{ vars.PROD_DEPLOY_JUMP_HOST }}
+          proxy_username: ${{ secrets.PROD_DEPLOY_USER }}
+          proxy_key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          script: |
+            SERVICES=""
+            [ "${{ needs.build-api.result }}" = "success" ] && SERVICES="$SERVICES api"
+            [ "${{ needs.build-app.result }}" = "success" ] && SERVICES="$SERVICES app"
+            [ "${{ needs.build-landing.result }}" = "success" ] && SERVICES="$SERVICES landing"
+            [ "${{ needs.build-workers.result }}" = "success" ] && SERVICES="$SERVICES scanner analyzer"
+            [ "${{ needs.build-telegram-bot.result }}" = "success" ] && SERVICES="$SERVICES telegram-bot"
+            /opt/scanorbit/scripts/deploy.sh $SERVICES
+
+      - name: Notify Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          DEPLOYED_SERVICES: ${{ steps.services.outputs.services }}
+        run: |
+          python3 - <<'EOF'
+          import os, json, urllib.request
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+
+          token             = os.environ['TELEGRAM_BOT_TOKEN']
+          chat_id           = os.environ['CHAT_ID']
+          thread_id         = os.environ.get('', '').strip()
+          pr_title          = os.environ.get('PR_TITLE', '').strip()
+          actor             = os.environ['ACTOR']
+          sha_full          = os.environ.get('HEAD_SHA') or os.environ['SHA']
+          sha_short         = sha_full[:7]
+          run_id            = os.environ['RUN_ID']
+          repo              = os.environ['REPO']
+          server            = os.environ['SERVER_URL']
+          deployed_services = os.environ.get('DEPLOYED_SERVICES', '').strip()
+          github_token      = os.environ.get('GITHUB_TOKEN', '').strip()
+
+          def escape_html(s: str) -> str:
+              return (
+                  s.replace('&', '&amp;')
+                   .replace('<', '&lt;')
+                   .replace('>', '&gt;')
+              )
+
+          # Fetch commit message from GitHub API, if possible
+          commit_message = ''
+          if github_token:
+              api_req = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/commits/{sha_full}',
+                  headers={
+                      'Authorization': f'Bearer {github_token}',
+                      'Accept': 'application/vnd.github+json',
+                      'User-Agent': 'scanorbit-deploy-bot'
+                  }
+              )
+              try:
+                  with urllib.request.urlopen(api_req) as cr:
+                      data = json.loads(cr.read().decode())
+                  commit_message = data.get('commit', {}).get('message', '') or ''
+              except Exception as e:
+                  commit_message = ''
+
+          commit_message_line = commit_message.splitlines()[0] if commit_message else 'n/a'
+          commit_message_line = escape_html(commit_message_line)
+
+          services_line = deployed_services if deployed_services else 'n/a'
+          services_line = escape_html(services_line)
+
+          # Datetime in CET/CEST (Europe/Berlin)
+          now_utc = datetime.now(timezone.utc)
+          now_cet = now_utc.astimezone(ZoneInfo("Europe/Berlin"))
+          deploy_time = now_cet.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+          commit_line = pr_title if pr_title else f'<code>{sha_short}</code>'
+          text = (
+              f'🔧 <b>Deploy [develop]</b>\n\n'
+              f'{commit_line}\n'
+              f'Commit: {commit_message_line}\n'
+              f'Services: {services_line}\n'
+              f'Datetime: {deploy_time}\n'
+              f'By: {actor}\n\n'
+              f'🔗 {server}/{repo}/actions/runs/{run_id}'
+          )
+
+          payload_dict = {
+              'chat_id': chat_id,
+              'text': text,
+              'parse_mode': 'HTML',
+              'disable_web_page_preview': True,
+              'disable_notification': True,
+          }
+
+          if thread_id:
+              payload_dict['message_thread_id'] = int(thread_id)
+
+          payload = json.dumps(payload_dict).encode()
+
+          req = urllib.request.Request(
+              f'https://api.telegram.org/bot{token}/sendMessage',
+              data=payload,
+              headers={'Content-Type': 'application/json'}
+          )
+          with urllib.request.urlopen(req) as r:
+              print(r.read().decode())
+          EOF

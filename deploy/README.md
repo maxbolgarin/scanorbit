@@ -1,0 +1,505 @@
+# ScanOrbit — Production Deployment Guide
+
+Complete guide to deploy ScanOrbit from scratch on a Scaleway VM.
+
+## Architecture Overview
+
+```
+Internet
+  │
+  ├── ci.scanorbit.cloud (:22) ──► CI VM (jump host + GitHub runners)
+  │                                  ├── 3 runners × 2 repos (scanorbit + biomaxing)
+  │                                  └── SSH jump to App VM
+  │
+  ├── :80/:443 ──► App VM ──► Caddy (reverse proxy, auto TLS)
+  │                              ├── scanorbit.cloud      ──► Landing (Astro/nginx)
+  │                              ├── app.scanorbit.cloud   ──► App (React SPA/nginx)
+  │                              └── api.scanorbit.cloud   ──► API (Node.js/Hono)
+  │
+  ├── Private Network (10.10.0.0/24) ──► CI VM ◄──► App VM
+  │
+  └── App VM Internal Docker network (172.22.0.0/16)
+       ├── PostgreSQL 17 (TLS, encrypted backups to Scaleway S3)
+       ├── Redis 7 (TLS + password)
+       ├── Scanner Worker (Go) — scans AWS accounts
+       ├── Analyzer Worker (Go) — analyzes scan results
+       ├── Watchtower ──► Docker Socket Proxy (auto-deploy from GHCR)
+       ├── Prometheus + Grafana + Loki (monitoring, localhost only)
+       └── Umami (analytics, localhost only)
+```
+
+**SSH Access**: The App VM has no public SSH. Access it via jump host: `ssh -J deploy@ci.scanorbit.cloud deploy@<app-private-ip>`.
+
+**Secrets** are stored as Docker secret files (`/run/secrets/`), never in env vars or `docker inspect`.
+
+**CI/CD**: Push to `main` → GitHub Actions (on CI VM runners) builds Docker images → GHCR → Watchtower auto-pulls on App VM.
+
+
+## Prerequisites
+
+- Scaleway account with a domain managed in Scaleway DNS
+- GitHub repository with Actions enabled and GHCR packages
+- Terraform installed locally
+- SSH key pair (`ssh-keygen -t ed25519`)
+- AWS account (for scanning target accounts)
+
+
+## Step 1: Provision Infrastructure with Terraform
+
+```bash
+cd terraform/scaleway
+
+# Copy and fill in your values
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars:
+#   - scw_zone, scw_region (e.g., nl-ams-1, nl-ams for GDPR)
+#   - instance_type (DEV1-M = 3 vCPU, 4GB RAM, ~€7/mo)
+#   - domain (your domain managed in Scaleway DNS)
+#   - admin_email (for Let's Encrypt)
+#   - ssh_public_keys (your public key content)
+#   - github_runner_repos (repos to register runners for)
+#   - github_runner_count (runners per repo, default 3)
+
+# Set GitHub PAT for runner registration (not stored in tfvars)
+export TF_VAR_github_runner_token="ghp_xxxx..."
+
+terraform init
+terraform plan
+terraform apply
+```
+
+This creates:
+- **App VM** — Docker host with fail2ban, UFW (HTTP/HTTPS only), SSH hardening
+- **CI VM** — Jump host with GitHub runners, fail2ban, UFW (SSH only), SSH hardening
+- **Private Network** — 10.10.0.0/24 connecting both VMs
+- DNS records: `scanorbit.cloud`, `www`, `app`, `api`, `ci`
+- S3 bucket for encrypted backups
+- IAM API key for backup operations
+
+Save the outputs:
+```bash
+terraform output                       # all outputs
+terraform output ci_public_ip          # CI VM (SSH entry point)
+terraform output app_private_ip        # App VM private IP (for jump SSH)
+terraform output -raw backup_secret_key  # save this for secrets setup
+```
+
+Verify CI VM and runners:
+```bash
+ssh deploy@ci.scanorbit.cloud          # test SSH to CI VM
+# Check GitHub → Settings → Actions → Runners for registered runners
+```
+
+
+## Step 2: Configure GitHub Actions
+
+In your GitHub repo, set these **repository variables** (Settings → Secrets and variables → Actions → Variables):
+
+| Variable | Value |
+|---|---|
+| `VITE_PUBLIC_API_URL` | `https://api.scanorbit.cloud` |
+| `VITE_SCANORBIT_AWS_ACCOUNT_ID` | Your AWS account ID |
+| `PROD_DEPLOY_JUMP_HOST` | **Optional.** SSH jump hostname (`ci.<yourdomain>`). Set this when workflow runners are **not** on the VPC (e.g. GitHub-hosted). **Leave unset** when using self-hosted runners on the CI VM so deploy connects directly to the app private IP. |
+
+Set these **repository secrets** (Settings → Actions → Secrets):
+
+| Secret | Value |
+|---|---|
+| `PROD_DEPLOY_HOST` | App VM **private** IPv4 from Terraform: `terraform output -raw app_private_ip` |
+| `PROD_DEPLOY_USER` | `deploy` |
+| `PROD_DEPLOY_SSH_KEY` | SSH private key whose public half is in `ssh_public_keys` (Terraform / cloud-init) |
+
+GitHub Actions uses `GITHUB_TOKEN` (automatic) for GHCR authentication. No additional secrets needed for GHCR.
+
+### First build
+
+Push to `main` or trigger the Release workflow manually. This builds and pushes Docker images to GHCR:
+- `ghcr.io/<org>/scanorbit/api:latest`
+- `ghcr.io/<org>/scanorbit/app:latest`
+- `ghcr.io/<org>/scanorbit/landing:latest`
+- `ghcr.io/<org>/scanorbit/scanner:latest`
+- `ghcr.io/<org>/scanorbit/analyzer:latest`
+
+
+## Step 3: Deploy Configuration Files
+
+From your local machine (via jump host to App VM):
+
+```bash
+# Send all deploy files to the App VM
+make send-deploy-files
+
+# This uses SSH jump through CI VM to reach the App VM.
+# Ensure your ~/.ssh/config has the ProxyJump configured (see SSH Access below).
+```
+
+Or individually:
+```bash
+make send-docker-compose  # just docker-compose.yml
+make send-caddyfile       # just Caddyfile
+make send-env             # just .env
+```
+
+
+## Step 4: Bootstrap
+
+The bootstrap script sets up everything needed before starting services: Docker secrets, TLS certificates, GHCR authentication, and file permissions.
+
+```bash
+# SSH to App VM via jump host
+ssh -J deploy@ci.scanorbit.cloud deploy@<app-private-ip>
+cd /opt/scanorbit/deploy
+
+# Prepare secrets file
+cp secrets.env.example secrets.env
+nano secrets.env   # fill in all values
+
+# Run bootstrap (secrets + certs + GHCR login + permissions)
+sudo ./scripts/bootstrap.sh --secrets secrets.env --tls --github
+
+# DELETE the secrets file
+rm -f secrets.env
+
+# Or run individual steps:
+# sudo ./scripts/bootstrap.sh --secrets secrets.env   # Secrets only
+# sudo ./scripts/bootstrap.sh --tls                   # TLS certs only
+# sudo ./scripts/bootstrap.sh --github                # GHCR auth only
+# sudo ./scripts/bootstrap.sh --force --tls           # Force regenerate certs
+```
+
+The bootstrap script (idempotent, skips steps already done):
+1. `--secrets <file>` — creates Docker secret files from the provided file
+2. `--tls` — generates internal TLS certificates (PostgreSQL + Redis, skips if < 30d old)
+3. `--github` — authenticates with GHCR (skips if already logged in)
+4. `--force` — skip all freshness checks, redo everything requested
+5. Always prepares PostgreSQL data dir and sets file permissions
+
+You can also set `GITHUB_USERNAME` and `GITHUB_TOKEN` environment variables to skip the interactive prompt.
+
+### Secrets reference
+
+Generate strong values with `openssl rand -hex 32`.
+
+**Database (admin + per-service users):**
+
+| Secret | How to get it |
+|---|---|
+| `POSTGRES_PASSWORD` | `openssl rand -hex 32` (admin user, used by init scripts) |
+| `SO_API_PASSWORD` | `openssl rand -hex 32` |
+| `SO_API_DATABASE_URL` | `postgresql://so_api:<SO_API_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_MIGRATE_PASSWORD` | `openssl rand -hex 32` |
+| `SO_MIGRATE_DATABASE_URL` | `postgresql://so_migrate:<SO_MIGRATE_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_SCANNER_PASSWORD` | `openssl rand -hex 32` |
+| `SO_SCANNER_DATABASE_URL` | `postgresql://so_scanner:<SO_SCANNER_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_ANALYZER_PASSWORD` | `openssl rand -hex 32` |
+| `SO_ANALYZER_DATABASE_URL` | `postgresql://so_analyzer:<SO_ANALYZER_PASSWORD>@postgres:5432/scanorbit?sslmode=require` |
+| `SO_BACKUP_PASSWORD` | `openssl rand -hex 32` |
+| `SO_EXPORTER_PASSWORD` | `openssl rand -hex 32` |
+| `SO_UMAMI_PASSWORD` | `openssl rand -hex 32` |
+**Other secrets:**
+
+| Secret | How to get it |
+|---|---|
+| `REDIS_PASSWORD` | `openssl rand -hex 32` |
+| `REDIS_URL` | `rediss://:<REDIS_PASSWORD>@redis:6379` |
+| `JWT_SECRET` | `openssl rand -hex 32` |
+| `JWT_REFRESH_SECRET` | `openssl rand -hex 32` |
+| `TOTP_ENCRYPTION_KEY` | `openssl rand -hex 32` |
+| `OAUTH_ENCRYPTION_KEY` | `openssl rand -hex 32` |
+| `GOOGLE_CLIENT_SECRET` | Google Cloud Console → APIs & Services → Credentials |
+| `GITHUB_CLIENT_SECRET` | GitHub → Settings → Developer settings → OAuth Apps |
+| `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks |
+| `AWS_ACCESS_KEY_ID` | AWS IAM → Create access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS IAM → Create access key |
+| `SMTP_PASS` | Your SMTP provider (e.g., Scaleway TEM) |
+| `BACKUP_ENCRYPTION_KEY` | `openssl rand -hex 32` |
+| `SCW_ACCESS_KEY` | `terraform output backup_access_key` |
+| `SCW_SECRET_KEY` | `terraform output -raw backup_secret_key` |
+
+
+## Step 5: Start Services
+
+```bash
+cd /opt/scanorbit/deploy
+
+# Pull images and start everything
+docker compose up -d
+
+# Watch startup progress
+docker compose logs -f --tail=50
+
+# Check health
+docker compose ps
+```
+
+### What happens on startup
+
+The `init-db` service runs automatically before any application service, creating databases, users, schema, and grants:
+
+| User | Service(s) | Access |
+|---|---|---|
+| `so_migrate` | migrate | DB owner, full DDL |
+| `so_api` | api, retention-cleanup | Full DML on all tables |
+| `so_scanner` | scanner | RW scan tables, RO user/org tables |
+| `so_analyzer` | analyzer | RW findings/jobs, RO scan/resource tables |
+| `so_backup` | postgres-backup | Read-only (pg_dump) |
+| `so_exporter` | postgres-exporter | pg_monitor role (statistics only) |
+| `so_umami` | umami | Owner of `umami` database |
+
+### Startup order (handled automatically by `depends_on`):
+
+1. `postgres` → healthy
+2. `redis` → healthy
+3. `init-db` → creates databases, users, schema, grants (idempotent)
+4. `migrate` → applies any pending Drizzle migrations
+5. `api`, `scanner`, `analyzer` → start
+6. `caddy` → start (auto-provisions TLS certificates)
+7. `app`, `landing` → start
+8. `umami` → start
+9. Monitoring stack: `loki` → `prometheus` → `alertmanager` → `grafana` → `promtail`
+10. `watchtower` + `docker-socket-proxy` → start
+
+### Verify
+
+```bash
+# Health checks
+curl https://scanorbit.cloud          # Landing page
+curl https://app.scanorbit.cloud      # React SPA
+curl https://api.scanorbit.cloud/health  # API health
+
+# Verify secrets are NOT in docker inspect
+docker inspect api | grep -i "jwt\|password\|secret"
+# Should show NO secret values in Environment section
+
+# Verify secrets ARE mounted
+docker exec api cat /run/secrets/jwt_secret
+# Should print the secret value
+
+# Check all services are healthy
+docker compose ps
+```
+
+> After adding new tables via migrations, re-run `docker compose up -d` — the `init-db` service re-runs automatically and grants access to `so_scanner`/`so_analyzer` for new tables. `so_api` and `so_backup` get automatic grants via `ALTER DEFAULT PRIVILEGES`.
+
+
+## Day-to-Day Operations
+
+### Deployments (automatic)
+
+Push to `main` → GitHub Actions builds images → GHCR → Watchtower pulls and restarts (within 5 minutes).
+
+### Manual deployment
+
+```bash
+# On VM
+cd /opt/scanorbit/deploy
+docker compose pull api scanner analyzer app landing
+docker compose up -d
+```
+
+### Update configuration
+
+```bash
+# From local machine
+make send-env              # update .env
+make send-docker-compose   # update docker-compose.yml
+make send-caddyfile        # update Caddyfile
+
+# On VM — restart affected services
+cd /opt/scanorbit/deploy
+docker compose up -d       # recreates changed services
+```
+
+### View logs
+
+```bash
+# On VM
+docker compose logs -f api         # API logs
+docker compose logs -f scanner     # Scanner logs
+docker compose logs -f analyzer    # Analyzer logs
+
+# From local machine (via Grafana/Loki)
+make tunnel-grafana   # open http://localhost:3001
+```
+
+### SSH tunnels to internal services
+
+Tunnels go through the CI VM (jump host) to the App VM:
+
+```bash
+make tunnel-grafana       # Grafana    → localhost:3001
+make tunnel-umami         # Umami      → localhost:3002
+```
+
+### Database operations
+
+```bash
+# On VM
+cd /opt/scanorbit/deploy
+
+# Manual backup
+docker compose exec postgres-backup /usr/local/bin/backup.sh
+
+# List available backups
+docker compose exec postgres-backup /usr/local/bin/restore.sh --list
+
+# Restore a backup (interactive, with confirmation)
+docker compose exec postgres-backup /usr/local/bin/restore.sh daily/scanorbit_20240115_020000.sql.gz.gpg
+```
+
+### Redis CLI
+
+```bash
+# On VM
+cd /opt/scanorbit/deploy
+docker compose exec redis redis-cli \
+  --tls --cert /data/certs/redis.crt \
+  --key /data/certs/redis.key \
+  --cacert /data/certs/ca.crt \
+  -a "$(cat secrets/redis_password)"
+```
+
+### Renew internal TLS certificates
+
+```bash
+# On VM (certificates are valid for 365 days)
+cd /opt/scanorbit/deploy
+./scripts/generate-certs.sh
+
+# Restart services that use TLS
+docker compose restart postgres redis api scanner analyzer
+```
+
+
+## Monitoring
+
+All monitoring services bind to `127.0.0.1` on the App VM — access via SSH tunnel through the jump host.
+
+| Service | Local port | Tunnel command |
+|---|---|---|
+| Grafana | 3001 | `make tunnel-grafana` |
+| Prometheus | 9092 | `ssh -N -J deploy@ci.scanorbit.cloud -L 9092:localhost:9092 deploy@<app-private-ip>` |
+| Loki | 3100 | `ssh -N -J deploy@ci.scanorbit.cloud -L 3100:localhost:3100 deploy@<app-private-ip>` |
+| Alertmanager | 9093 | `ssh -N -J deploy@ci.scanorbit.cloud -L 9093:localhost:9093 deploy@<app-private-ip>` |
+| Umami | 3002 | `make tunnel-umami` |
+
+With `~/.ssh/config` ProxyJump configured (see SSH Access section in Terraform README), you can simplify:
+```bash
+ssh -N -L 3001:localhost:3001 scanorbit-app   # Grafana
+```
+
+### Metrics endpoints (internal)
+
+| Service | Endpoint |
+|---|---|
+| API | `http://api:4000/metrics` |
+| Scanner | `http://scanner:9090/metrics` |
+| Analyzer | `http://analyzer:9091/metrics` |
+| PostgreSQL Exporter | `http://postgres-exporter:9187/metrics` |
+| Redis Exporter | `http://redis-exporter:9121/metrics` |
+
+
+## Backups
+
+Automated daily backups at 02:00 UTC. Encrypted with GPG (AES-256) and uploaded to Scaleway S3.
+
+| Type | Schedule | Retention |
+|---|---|---|
+| Daily | Every day | 30 days |
+| Weekly | Sundays | 90 days |
+| Monthly | 1st of month | 365 days |
+
+GDPR data retention cleanup runs daily at 03:00 UTC:
+- Stale resources: 90 days
+- Resolved findings: 180 days
+- Scan records: 365 days
+- Audit logs: 730 days
+
+
+## Security
+
+- **App VM**: No public SSH, UFW allows HTTP/HTTPS + SSH from private network only, fail2ban, auto security updates
+- **CI VM**: SSH-only (jump host), fail2ban, UFW allows SSH only, GitHub runners as systemd services
+- **Private Network**: 10.10.0.0/24 connecting both VMs, App VM SSH only accessible via jump through CI VM
+- **SSH Hardening**: Key-only auth, strong ciphers (ChaCha20, AES-256-GCM), root login disabled, deploy user only
+- **Docker**: Socket proxy for Watchtower (no direct socket access), isolated internal network
+- **Secrets**: Docker secret files (`/run/secrets/`), never in env vars or process listings
+- **TLS**: Caddy auto-TLS for public, self-signed certs for internal PostgreSQL/Redis
+- **DB**: Per-service users with least-privilege grants, password auth + TLS required, no public port exposure
+- **Monitoring**: All dashboards on `127.0.0.1` only, accessed via SSH tunnel through jump host
+
+
+## Troubleshooting
+
+### Services won't start
+```bash
+docker compose logs init-db    # check DB initialization
+docker compose logs migrate    # check migration errors
+docker compose logs postgres   # check DB startup
+docker compose logs redis      # check Redis startup
+```
+
+### Caddy can't get TLS certificate
+```bash
+docker compose logs caddy      # check ACME errors
+# Ensure DNS records point to the VM IP
+# Ensure ports 80/443 are open (ufw status)
+```
+
+### Watchtower not pulling updates
+```bash
+docker compose logs watchtower
+# Check GHCR auth: docker pull ghcr.io/<org>/scanorbit/api:latest
+# Re-login: echo "TOKEN" | docker login ghcr.io -u USER --password-stdin
+```
+
+### Secret not found errors
+```bash
+ls -la /opt/scanorbit/deploy/secrets/   # check files exist
+docker compose config                     # check secrets section resolves
+```
+
+### Internal TLS errors
+```bash
+# Regenerate certificates
+./scripts/generate-certs.sh
+docker compose restart postgres redis api scanner analyzer
+```
+
+
+## File Structure
+
+```
+deploy/
+├── docker-compose.yml         # Main compose file
+├── Caddyfile                  # Reverse proxy config
+├── redis.conf                 # Redis production config
+├── prometheus.yml             # Prometheus scrape config
+├── alertmanager.yml           # Alert routing (Slack/Telegram)
+├── loki.yml                   # Log aggregation config
+├── promtail.yml               # Log collection config
+├── secrets.env.example        # Template for Docker secrets
+├── Makefile                   # Operations shortcuts
+├── certs/                     # Internal TLS certificates (generated)
+│   ├── postgres/              # CA + server cert/key
+│   └── redis/                 # CA + server cert/key + DH params
+├── secrets/                   # Docker secret files (gitignored)
+├── grafana/provisioning/      # Grafana datasource/dashboard provisioning
+├── prometheus/rules/          # Alerting rules
+├── scripts/
+│   ├── bootstrap.sh           # One-time setup (secrets + certs + GHCR + permissions)
+│   ├── setup-secrets.sh       # Create secret files from template
+│   ├── init-db.sh             # DB init entrypoint (runs as Docker Compose service)
+│   ├── init-db.sql            # SQL: databases, users, schema, grants
+│   ├── generate-certs.sh      # Generate internal TLS certs
+│   ├── backup.sh              # Encrypted PostgreSQL backup
+│   ├── restore.sh             # Restore from encrypted backup
+│   └── crontab                # Backup schedule
+└── entrypoints/
+    ├── secret-entrypoint.sh   # Generic: export secrets as env vars
+    ├── pg-exporter-entrypoint.sh
+    ├── umami-entrypoint.sh
+    ├── backup-entrypoint.sh
+    └── alertmanager-entrypoint.sh
+```

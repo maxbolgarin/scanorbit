@@ -1,0 +1,34 @@
+---
+import { Icon } from "astro-icon/components";
+
+interface Props {
+  current: string;
+}
+
+const { current } = Astro.props;
+
+const legalPages = [
+  { label: "Security Policy", href: "/security", icon: "lucide:shield" },
+  { label: "Privacy Policy", href: "/privacy", icon: "lucide:file-text" },
+  { label: "DPA", href: "/dpa", icon: "lucide:file-check" },
+  { label: "Terms of Service", href: "/terms", icon: "lucide:scale" },
+  { label: "Cookie Policy", href: "/cookies", icon: "lucide:cookie" },
+];
+---
+
+<nav class="mt-16 pt-8 border-t border-border-subtle">
+  <p class="text-sm text-slate-gray mb-4">Other legal documents</p>
+  <div class="flex flex-wrap gap-3">
+    {legalPages
+      .filter((page) => page.href !== current)
+      .map((page) => (
+        <a
+          href={page.href}
+          class="flex items-center gap-2 px-4 py-2 bg-midnight rounded-full border border-border-subtle hover:border-cyber-cyan/30 text-slate-gray hover:text-cloud-gray transition-colors text-sm"
+        >
+          <Icon name={page.icon} class="w-4 h-4" />
+          {page.label}
+        </a>
+      ))}
+  </div>
+</nav>

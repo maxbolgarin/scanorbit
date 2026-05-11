@@ -1,0 +1,50 @@
+---
+# =============================================================================
+# Quick sync — rsync deploy files, no bootstrap or restart
+# =============================================================================
+# Usage:
+#   cd ansible
+#   ansible-playbook playbooks/sync.yml
+# =============================================================================
+
+- name: Sync deploy files
+  hosts: app
+  become: false
+  vars:
+    local_deploy_dir: "{{ playbook_dir }}/../../deploy"
+    local_env_file: "{{ playbook_dir }}/../../.env.prod"
+
+  tasks:
+    - name: Ensure deploy directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0755"
+      become: true
+
+    - name: Sync deploy directory
+      ansible.posix.synchronize:
+        src: "{{ local_deploy_dir }}/"
+        dest: "{{ deploy_dir }}/"
+        use_ssh_args: true
+        rsync_opts:
+          - "--exclude=secrets/"
+          - "--exclude=certs/"
+          - "--exclude=.env"
+          - "--exclude=*.example"
+        delete: false
+
+    - name: Copy .env.prod as .env
+      ansible.builtin.copy:
+        src: "{{ local_env_file }}"
+        dest: "{{ deploy_dir }}/.env"
+        mode: "0600"
+      when: local_env_file is file
+
+    - name: Set script permissions
+      ansible.builtin.shell: |
+        chmod +x {{ deploy_dir }}/scripts/*.sh
+        chmod +x {{ deploy_dir }}/entrypoints/*.sh
+      changed_when: true

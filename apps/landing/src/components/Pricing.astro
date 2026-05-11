@@ -1,0 +1,244 @@
+---
+import { Icon } from "astro-icon/components";
+import { signupUrl } from "../config";
+
+const plans = [
+  {
+    name: "Free",
+    price: "€0",
+    period: "",
+    ctaLink: signupUrl,
+    highlight: false,
+  },
+  {
+    name: "Pro",
+    price: "€19",
+    period: "/month",
+    ctaLink: `${signupUrl}?plan=pro&trial=1`,
+    highlight: true,
+  },
+  {
+    name: "Team",
+    price: "€79",
+    period: "/month",
+    ctaLink: `${signupUrl}?plan=team&trial=1`,
+    highlight: false,
+  },
+];
+
+const features = [
+  { name: "AWS Accounts", free: "1", pro: "3", team: "10" },
+  { name: "Scan Frequency", free: "Single scan", pro: "1 hour cooldown", team: "Unlimited" },
+  { name: "Data Retention", free: "7 days", pro: "90 days", team: "180+ days" },
+  { name: "Infrastructure Health", free: true, pro: true, team: true },
+  { name: "Infrastructure Map", free: false, pro: true, team: true },
+  { name: "Issues Control", free: false, pro: true, team: true },
+  { name: "Cost Optimization", free: false, pro: true, team: true },
+  { name: "Data Export (CSV/JSON)", free: false, pro: false, team: true },
+  { name: "Scan Priority", free: false, pro: false, team: true },
+  { name: "Team Members", free: false, pro: false, team: "5 included (+$10/seat)" },
+  { name: "Access to API", free: false, pro: false, team: true },
+  { name: "Audit Logs", free: false, pro: false, team: true },
+];
+
+const planKeys = ["free", "pro", "team"] as const;
+
+const pricingSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: "ScanOrbit",
+  description: "Agentless AWS infrastructure scanner. Discover orphaned resources, security misconfigurations, and compliance violations.",
+  brand: {
+    "@type": "Organization",
+    name: "ScanOrbit",
+  },
+  offers: plans.map((plan) => ({
+    "@type": "Offer",
+    name: `ScanOrbit ${plan.name}`,
+    price: plan.price.replace("€", ""),
+    priceCurrency: "EUR",
+    availability: "https://schema.org/InStock",
+    url: plan.ctaLink,
+    ...(plan.period ? { priceValidUntil: new Date(new Date().getFullYear() + 1, 0, 1).toISOString().split("T")[0] } : {}),
+  })),
+};
+---
+
+<section id="pricing" class="py-16 bg-midnight relative overflow-hidden">
+  <!-- Background decoration -->
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orbit-purple/5 rounded-full blur-3xl"></div>
+
+  <div class="container mx-auto px-6 relative z-10">
+    <!-- Section header -->
+    <div class="text-center mb-10">
+      <h2 class="text-3xl md:text-5xl font-bold mb-6">
+        <span class="text-cloud-gray">Simple, </span>
+        <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+          Transparent Pricing
+        </span>
+      </h2>
+      <p class="text-lg text-slate-gray max-w-2xl mx-auto">
+        Start free. Upgrade anytime. 7-day free trial for paid plans.
+      </p>
+    </div>
+
+    <!-- Mobile: Stacked pricing cards -->
+    <div class="md:hidden space-y-6">
+      {plans.map((plan, planIndex) => (
+        <div class={`bg-deep-space rounded-2xl border ${plan.highlight ? 'border-orbit-purple' : 'border-slate-gray/10'} overflow-hidden`}>
+          {/* Plan header */}
+          <div class={`p-4 text-center ${plan.highlight ? 'bg-orbit-purple/10' : ''}`}>
+            {plan.highlight && (
+              <span class="inline-block px-3 py-1 mb-3 text-xs font-semibold text-orbit-purple bg-orbit-purple/20 rounded-full">
+                Most Popular
+              </span>
+            )}
+            <h3 class="text-xl font-bold text-cloud-gray mb-2">{plan.name}</h3>
+            <div class="flex items-baseline justify-center gap-1">
+              <span class="text-4xl font-bold text-white">{plan.price}</span>
+              <span class="text-slate-gray">{plan.period}</span>
+            </div>
+          </div>
+
+          {/* Features list */}
+          <div class="px-4 py-3">
+            <ul class="space-y-3">
+              {features.map((feature) => {
+                const value = feature[planKeys[planIndex]];
+                return (
+                  <li class="flex items-center justify-between py-2 border-b border-slate-gray/10 last:border-0">
+                    <span class="text-cloud-gray text-sm">{feature.name}</span>
+                    <span class="text-right">
+                      {typeof value === "boolean" ? (
+                        value ? (
+                          <Icon name="lucide:check" class="w-5 h-5 text-neon-green" aria-hidden="true" />
+                        ) : (
+                          <Icon name="lucide:x" class="w-5 h-5 text-slate-gray/30" aria-hidden="true" />
+                        )
+                      ) : (
+                        <span class="text-cloud-gray text-sm font-medium">{value}</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* CTA button */}
+          <div class="p-4 pt-2">
+            <a
+              href={plan.ctaLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              class={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                plan.highlight
+                  ? 'bg-orbit-purple hover:bg-orbit-purple/90 text-white hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]'
+                  : 'bg-slate-gray/10 hover:bg-slate-gray/20 text-cloud-gray border border-slate-gray/20'
+              }`}
+            >
+              {plan.name === "Free" ? "Get Started" : "Start Free Trial"}
+            </a>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Desktop: Table layout -->
+    <div class="hidden md:block max-w-4xl mx-auto">
+      <div class="bg-deep-space rounded-2xl border border-slate-gray/10 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <caption class="sr-only">ScanOrbit pricing plans comparison: Free, Pro, and Team</caption>
+            <!-- Header with plan names and prices -->
+            <thead>
+              <tr class="border-b border-slate-gray/10">
+                <th scope="col" class="text-left py-4 px-6 text-slate-gray font-medium">
+                  Feature
+                </th>
+                {plans.map((plan) => (
+                  <th scope="col" class="py-4 px-6 text-center min-w-[140px]">
+                    <div class="flex flex-col items-center gap-2">
+                      <span class="text-lg font-bold text-cloud-gray">{plan.name}</span>
+                      <div class="flex items-baseline gap-0.5">
+                        <span class="text-2xl font-bold text-white">{plan.price}</span>
+                        <span class="text-slate-gray text-sm">{plan.period}</span>
+                      </div>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {features.map((feature, index) => (
+                <tr class={index % 2 === 0 ? "bg-midnight/30" : ""}>
+                  <td class="py-3 px-6 text-cloud-gray">{feature.name}</td>
+                  {planKeys.map((plan) => {
+                    const value = feature[plan];
+                    return (
+                      <td class="py-3 px-6 text-center">
+                        {typeof value === "boolean" ? (
+                          value ? (
+                            <div class="flex justify-center">
+                              <Icon name="lucide:check" class="w-5 h-5 text-neon-green" aria-hidden="true" />
+                            </div>
+                          ) : (
+                            <span class="text-slate-gray/50">—</span>
+                          )
+                        ) : (
+                          <span class="text-cloud-gray">{value}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+            <!-- CTA row -->
+            <tfoot>
+              <tr class="border-t border-slate-gray/10">
+                <td class="py-4 px-6"></td>
+                {plans.map((plan) => (
+                  <td class="py-4 px-6 text-center">
+                    <a
+                      href={plan.ctaLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-300 bg-orbit-purple hover:bg-orbit-purple/90 text-white hover:shadow-[0_0_20px_rgba(107,70,193,0.4)]"
+                    >
+                      {plan.name === "Free" ? "Get Started" : "Start Free Trial"}
+                    </a>
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  <!-- Subscription Terms (EU pre-contractual information) -->
+  <div class="max-w-4xl mx-auto mt-8 text-center">
+    <div class="p-6 bg-deep-space rounded-xl border border-slate-gray/10">
+      <p class="text-sm text-slate-gray mb-2">
+        <strong class="text-cloud-gray">ScanOrbit</strong> &middot; Amsterdam, Netherlands &middot;
+        <a href="/contact" class="text-cyber-cyan hover:underline">Contact us</a>
+      </p>
+      <p class="text-xs text-slate-gray mb-1">
+        Subscriptions renew automatically each month. Cancel anytime from your account settings or the billing portal.
+      </p>
+      <p class="text-xs text-slate-gray mb-1">
+        7-day free trial for new subscribers. You won't be charged until the trial ends.
+      </p>
+      <p class="text-xs text-slate-gray">
+        By subscribing you agree to our
+        <a href="/terms" class="text-cyber-cyan hover:underline">Terms of Service</a> and
+        <a href="/privacy" class="text-cyber-cyan hover:underline">Privacy Policy</a>.
+      </p>
+    </div>
+  </div>
+
+  </div>
+</section>
+
+<script type="application/ld+json" set:html={JSON.stringify(pricingSchemaLd)} />

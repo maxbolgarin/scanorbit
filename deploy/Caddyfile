@@ -1,0 +1,188 @@
+# Global options
+{
+	email {$ADMIN_EMAIL}
+}
+
+# Common hardening: block attack patterns, scanner probes, and malicious UAs (before upstreams)
+(block_scanners) {
+	# ── Path traversal & encoding attacks ──
+	@path_attacks path_regexp path_attacks (?i)(\.\.|%2e%2e|%252e|%2f|%252f|%00|%0a|%0d|;|%3b)
+	respond @path_attacks 404
+
+	# ── Dotfile access (/.env, /.git, /.vscode, etc.) ──
+	@dotfiles path_regexp dotfiles ^/\.
+	respond @dotfiles 404
+
+	# ── Known malicious User-Agents ──
+	@bad_ua header_regexp User-Agent (?i)(nmap|nikto|sqlmap|dirbuster|gobuster|ffuf|feroxbuster|wfuzz|nuclei|httpx|masscan|zgrab|zmap|shodan|censys|netcraft|openvas|nessus|qualys|acunetix|burpsuite|arachni|w3af|owasp[\s-]?zap|havij|metasploit|netsparker|jaeles|xray|tsunami|wapiti|skipfish|vega|paros|webscarab|commix|sn1per|striker|subfinder|amass|katana|gospider|hakrawler)
+	respond @bad_ua 404
+
+	# ── WordPress / CMS ──
+	@wp path /wp-* /wp-admin* /wp-login* /wp-content* /wp-includes* /wordpress* /xmlrpc.php /license.txt /readme.html
+	respond @wp 404
+
+	# ── Java / Spring / Atlassian / Tomcat ──
+	@java path /actuator* /jolokia* /console /manager* /solr* /jenkins* /s/* /login.action /login.do /invoker* /jmx-console* /web-console*
+	respond @java 404
+
+	# ── API docs / GraphQL probes ──
+	@apidocs path /api-docs* /swagger* /swagger-ui* /v2/api-docs* /v3/api-docs* /graphql /graphiql /gql /api/gql /api/graphql /altair /playground /explorer /openapi* /redoc* /webjars*
+	respond @apidocs 404
+
+	# ── PHP / Laravel / Symfony ──
+	@php path *.php /vendor* /telescope* /artisan /laravel* /elfinder* /cgi-bin* /phpmyadmin* /pma* /myadmin* /adminer*
+	respond @php 404
+
+	# ── .NET / IIS ──
+	@dotnet path /trace.axd /elmah.axd /web.config /global.asax *.aspx *.asmx *.ashx *.svc /Telerik* /umbraco*
+	respond @dotnet 404
+
+	# ── Microsoft Exchange / OWA ──
+	@exchange path /owa* /ecp* /autodiscover* /mapi* /rpc* /oab* /Microsoft-Server-ActiveSync* /remote* /Exchange*
+	respond @exchange 404
+
+	# ── Config / version / debug disclosure ──
+	@disclosure path /config.json /configuration /version /version.txt /build.json /package.json /composer.json /debug* /server-status* /server-info* /phpinfo* /_profiler* /_debugbar* /backup* /*.sql /*.bak /*.old /*.orig /*.save /*.swp /*.log
+	respond @disclosure 404
+
+	# ── DevOps / CI files ──
+	@devops path /docker* /Dockerfile* /k8s* /kubernetes* /ansible* /terraform* /vagrant* /Makefile /Jenkinsfile
+	respond @devops 404
+
+	# ── Dev server probes (Vite, Next.js, etc.) ──
+	@devserver path /@vite* /__vite_* /node_modules* /.next* /.nuxt*
+	respond @devserver 404
+
+	# ── Database / NoSQL probes ──
+	@dbprobes path /_all_dbs /_utils* /_config* /couchdb* /mongo* /redis* /elastic* /_search* /_cat* /_cluster* /_nodes*
+	respond @dbprobes 404
+
+	# ── Miscellaneous scanner probes ──
+	@misc path /HNAP1* /nmaplowercheck* /evox* /sdk* /CFIDE* /cfide*
+	respond @misc 404
+}
+
+# Landing page - root domain
+{$DOMAIN} {
+	import block_scanners
+	header /* {
+		-Server
+		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
+	@umami path /t.js
+	reverse_proxy @umami umami:3000
+
+	handle /api/send {
+		reverse_proxy umami:3000
+	}
+
+	# Proxy API calls from landing page (newsletter subscribe, etc.)
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
+
+	reverse_proxy landing:80
+}
+
+# WWW redirect to root
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+# React App - app subdomain
+app.{$DOMAIN} {
+	import block_scanners
+	header /* {
+		-Server
+		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.scanorbit.cloud; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; report-uri /api/csp-report;"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	# Umami tracking (dashboard not public — access via SSH tunnel on :3002)
+	@umami path /t.js
+	reverse_proxy @umami umami:3000
+
+	handle /api/send {
+		reverse_proxy umami:3000
+	}
+
+	# Route API paths to the API service (so they don't hit the SPA's nginx).
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
+	@api_paths path /auth/* /orgs /orgs/* /aws/* /resources /resources/* /findings /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports /bug-reports/* /api/v1/*
+	reverse_proxy @api_paths api:4000
+
+	# Everything else is the SPA.
+	reverse_proxy app:80
+}
+
+# API - api subdomain (allowlist-based: only known routes reach the API)
+api.{$DOMAIN} {
+	header /* {
+		-Server
+		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# CORS preflight matcher — handle OPTIONS from the app origin at proxy level
+	@cors_preflight {
+		method OPTIONS
+		header Origin https://app.{$DOMAIN}
+	}
+
+	# Use route to enforce written order (Caddy's default directive order
+	# puts respond before reverse_proxy, which would make the catch-all 404
+	# fire before the proxy has a chance to handle allowed paths).
+	route {
+		# 1. Handle CORS preflight at proxy level (before anything else)
+		header @cors_preflight Access-Control-Allow-Origin "https://app.{$DOMAIN}"
+		header @cors_preflight Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+		header @cors_preflight Access-Control-Allow-Headers "Content-Type, Authorization, X-API-Key, x-request-id, x-trace-id, x-span-id"
+		header @cors_preflight Access-Control-Allow-Credentials "true"
+		header @cors_preflight Access-Control-Max-Age "86400"
+		respond @cors_preflight 204
+
+		# 2. Block attack patterns, scanner probes, and malicious UAs
+		import block_scanners
+
+		# 3. Block internal-only endpoints from public access
+		@internal_endpoints path /metrics /status
+		respond @internal_endpoints 404
+
+		# 4. Block meta files that only make sense on landing/app
+		@api_meta path /robots.txt /sitemap.xml /favicon.ico
+		respond @api_meta 404
+
+		# 5. Allowlist: ONLY proxy known valid API route prefixes
+		@api_allowed path /auth/* /orgs /orgs/* /aws/* /resources /resources/* /findings /findings/* /gdpr/* /stripe/* /newsletter/* /webhooks/* /bug-reports /bug-reports/* /api/v1/* /health /health/ready
+		reverse_proxy @api_allowed api:4000
+
+		# 6. Everything else: 404 without hitting the API
+		respond 404
+	}
+}
+
+# maxbolgarin.com - both www and non-www (Caddy will get one cert covering both)
+maxbolgarin.com, www.maxbolgarin.com {
+	import block_scanners
+	header /* {
+		-Server
+		-Via
+	}
+	reverse_proxy maxbolgarin:80
+}

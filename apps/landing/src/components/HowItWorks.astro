@@ -1,0 +1,460 @@
+---
+import { Icon } from "astro-icon/components";
+import { signupUrl } from "../config";
+
+const steps = [
+  {
+    number: "01",
+    icon: "lucide:link",
+    title: "Connect AWS",
+    subtitle: "5 minute setup",
+    description: "Create a read-only IAM role with only the permissions you need. Choose which scanners to enable — we generate a customized policy. No agents, no SSH, no network access required.",
+    screenshotDark: "/screenshots/account_black.jpg",
+    screenshotLight: "/screenshots/account_white.jpg",
+    screenshotAlt: "ScanOrbit add new account wizard showing IAM policy creation steps",
+    color: "orbit-purple",
+    features: [
+      { icon: "lucide:shield-check", label: "Read-only access" },
+      { icon: "lucide:settings", label: "Custom permissions" },
+      { icon: "lucide:clock", label: "Under 5 minutes" },
+      { icon: "lucide:cloud-off", label: "No agents needed" },
+    ],
+  },
+  {
+    number: "02",
+    icon: "lucide:layout-dashboard",
+    title: "See Dashboard",
+    subtitle: "Instant overview",
+    description: "Get a complete overview of your infrastructure health, open issues, resource status, and compliance posture — all in one place. See exactly where you stand.",
+    screenshotDark: "/screenshots/dashboard_black.jpeg",
+    screenshotLight: "/screenshots/dashboard_white.jpeg",
+    screenshotAlt: "ScanOrbit dashboard with health score, open issues, resource health, and compliance status",
+    color: "signal-blue",
+    features: [
+      { icon: "lucide:heart-pulse", label: "Health score" },
+      { icon: "lucide:alert-triangle", label: "Open issues" },
+      { icon: "lucide:server", label: "Resource health" },
+      { icon: "lucide:shield-check", label: "Compliance status" },
+    ],
+  },
+  {
+    number: "03",
+    icon: "lucide:file-check",
+    title: "Get Findings",
+    subtitle: "Actionable results",
+    description: "Review prioritized findings with severity levels, detection history, and step-by-step remediation guidance. Track issues over time and see how your security posture improves.",
+    screenshotDark: "/screenshots/finding_black.jpeg",
+    screenshotLight: "/screenshots/finding_white.jpeg",
+    screenshotAlt: "Finding detail with severity, fix instructions, and detection history",
+    color: "scan-teal",
+    features: [
+      { icon: "lucide:hard-drive", label: "Orphaned resources" },
+      { icon: "lucide:shield-alert", label: "SSL expiry alerts" },
+      { icon: "lucide:globe", label: "Data residency issues" },
+      { icon: "lucide:lock", label: "Security vulnerabilities" },
+    ],
+  },
+  {
+    number: "04",
+    icon: "lucide:network",
+    title: "Explore Map",
+    subtitle: "Full visibility",
+    description: "Visualize your entire AWS infrastructure as an interactive dependency graph. See how VPCs, subnets, instances, security groups, and IAM roles connect across regions.",
+    screenshotDark: "/screenshots/map_black.jpeg",
+    screenshotLight: "/screenshots/map_white.jpeg",
+    screenshotAlt: "Infrastructure map showing VPCs, subnets, EC2 instances, and IAM resources with connections",
+    color: "neon-green",
+    features: [
+      { icon: "lucide:globe", label: "Multi-region" },
+      { icon: "lucide:git-branch", label: "Dependencies" },
+      { icon: "lucide:search", label: "Interactive search" },
+      { icon: "lucide:list", label: "Complete inventory" },
+    ],
+  },
+];
+
+const howToSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to scan your AWS infrastructure with ScanOrbit",
+  description: "No agents to install. No SSH access required. Just a simple IAM role with read-only permissions.",
+  step: steps.map((step, index) => ({
+    "@type": "HowToStep",
+    position: index + 1,
+    name: step.title,
+    text: step.description,
+    image: `https://scanorbit.cloud${step.screenshotDark}`,
+  })),
+};
+
+const colorMap: Record<string, { bg: string; text: string; border: string; glow: string; pillBorder: string }> = {
+  "orbit-purple": {
+    bg: "bg-orbit-purple",
+    text: "text-orbit-purple",
+    border: "border-orbit-purple",
+    glow: "shadow-[0_0_20px_rgba(107,70,193,0.4)]",
+    pillBorder: "border-orbit-purple/20 group-hover:border-orbit-purple/30",
+  },
+  "signal-blue": {
+    bg: "bg-signal-blue",
+    text: "text-signal-blue",
+    border: "border-signal-blue",
+    glow: "shadow-[0_0_20px_rgba(59,130,246,0.4)]",
+    pillBorder: "border-signal-blue/20 group-hover:border-signal-blue/30",
+  },
+  "scan-teal": {
+    bg: "bg-scan-teal",
+    text: "text-scan-teal",
+    border: "border-scan-teal",
+    glow: "shadow-[0_0_20px_rgba(20,184,166,0.4)]",
+    pillBorder: "border-scan-teal/20 group-hover:border-scan-teal/30",
+  },
+  "neon-green": {
+    bg: "bg-neon-green",
+    text: "text-neon-green",
+    border: "border-neon-green",
+    glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
+    pillBorder: "border-neon-green/20 group-hover:border-neon-green/30",
+  },
+};
+---
+
+<section id="how-it-works" class="py-24 bg-midnight relative overflow-hidden">
+  <!-- Background decoration -->
+  <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-cyber-cyan/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+  <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-orbit-purple/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+
+  <div class="container mx-auto px-6 relative z-10">
+    <!-- Section header -->
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-bold mb-6">
+        <span class="text-cloud-gray">Start scanning in </span>
+        <span class="bg-gradient-to-r from-cyber-cyan to-neon-green bg-clip-text text-transparent">
+          under 5 minutes
+        </span>
+      </h2>
+      <p class="text-lg text-slate-gray max-w-2xl mx-auto">
+        No agents to install. No SSH access required. Just a simple IAM role with read-only permissions.
+      </p>
+    </div>
+
+    <!-- Stepper bar -->
+    <div class="relative flex items-start justify-between max-w-4xl mx-auto mb-12 px-2 md:px-4">
+      <!-- Progress line track -->
+      <div class="absolute top-6 left-[calc(12.5%)] right-[calc(12.5%)] h-0.5 bg-slate-gray/20 hidden md:block">
+        <div class="step-progress-fill h-full bg-gradient-to-r from-orbit-purple to-orbit-purple transition-all duration-500 ease-out" style="width: 0%"></div>
+      </div>
+
+      {steps.map((step, index) => {
+        const colors = colorMap[step.color];
+        return (
+          <button
+            class="step-trigger group relative z-10 flex flex-col items-center gap-3 cursor-pointer bg-transparent border-0 px-1 md:px-4 flex-1"
+            data-step-index={index}
+            data-step-color={step.color}
+            data-state={index === 0 ? "active" : "inactive"}
+            aria-controls={`step-panel-${index}`}
+            aria-selected={index === 0 ? "true" : "false"}
+            role="tab"
+          >
+            {/* Step circle */}
+            <div class={`
+              step-circle w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold
+              transition-all duration-300 border-2
+              ${index === 0
+                ? `${colors.bg} ${colors.border} text-white ${colors.glow}`
+                : "bg-deep-space border-slate-gray/30 text-slate-gray"
+              }
+            `}>
+              <span class="step-number">{step.number}</span>
+              <Icon name="lucide:check" class="step-check w-5 h-5 hidden" aria-hidden="true" />
+            </div>
+
+            {/* Step label */}
+            <div class="text-center">
+              <div class={`text-sm font-semibold transition-colors duration-300 ${index === 0 ? "text-cloud-gray" : "text-slate-gray"}`}>
+                {step.title}
+              </div>
+              <div class="text-xs text-slate-gray/70 mt-0.5 hidden md:block">
+                {step.subtitle}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+
+    <!-- Content panels -->
+    <div class="step-panels relative max-w-6xl mx-auto mb-16">
+      {steps.map((step, index) => {
+        const colors = colorMap[step.color];
+        return (
+          <div
+            id={`step-panel-${index}`}
+            class="step-panel"
+            data-panel-index={index}
+            data-active={index === 0 ? "true" : "false"}
+          >
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              {/* Left: Description + features */}
+              <div class="group space-y-6">
+                <div class="flex items-center gap-4">
+                  <div class={`w-12 h-12 rounded-xl bg-gradient-to-br from-${step.color}/20 to-${step.color}/5 flex items-center justify-center`}>
+                    <Icon name={step.icon} class={`w-6 h-6 ${colors.text}`} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 class="text-2xl font-bold text-cloud-gray">{step.title}</h3>
+                    <p class={`text-sm ${colors.text}`}>{step.subtitle}</p>
+                  </div>
+                </div>
+
+                <p class="text-slate-gray leading-relaxed text-lg">
+                  {step.description}
+                </p>
+
+                <div class="grid grid-cols-2 gap-3">
+                  {step.features.map((feature) => (
+                    <div class={`flex items-center gap-2.5 p-3 rounded-lg bg-deep-space/50 border ${colors.pillBorder} transition-colors duration-300`}>
+                      <Icon name={feature.icon} class={`w-4 h-4 ${colors.text}`} aria-hidden="true" />
+                      <span class="text-sm text-cloud-gray">{feature.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Screenshot in browser chrome */}
+              <div class="browser-chrome-frame rounded-2xl overflow-hidden border border-slate-gray/10 shadow-2xl shadow-black/20">
+                <div class="browser-chrome-bar flex items-center justify-between px-4 py-3 border-b border-slate-gray/10">
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-alert-red/80"></div>
+                    <div class="w-3 h-3 rounded-full bg-warning-orange/80"></div>
+                    <div class="w-3 h-3 rounded-full bg-neon-green/80"></div>
+                  </div>
+                  <span class="text-xs text-slate-gray/60 font-mono">app.scanorbit.cloud</span>
+                  <div class="w-16"></div>
+                </div>
+                <div class="relative">
+                  <img
+                    src={step.screenshotDark}
+                    alt={step.screenshotAlt}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    class="screenshot-dark w-full h-auto block"
+                  />
+                  <img
+                    src={step.screenshotLight}
+                    alt={step.screenshotAlt}
+                    loading="lazy"
+                    class="screenshot-light w-full h-auto block absolute inset-0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    <!-- CTA -->
+    <div class="text-center">
+      <a
+        href={signupUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="group inline-flex items-center gap-3 px-8 py-4 bg-orbit-purple hover:bg-orbit-purple/90 rounded-xl font-semibold text-lg text-white transition-all duration-300 hover:shadow-[0_0_40px_rgba(107,70,193,0.5)] hover:scale-105"
+      >
+        Start Free Scan
+        <Icon name="lucide:arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+      </a>
+      <p class="text-slate-gray text-sm mt-4">No credit card required</p>
+    </div>
+  </div>
+</section>
+
+<script type="application/ld+json" set:html={JSON.stringify(howToSchemaLd)} />
+
+<style>
+  /* Theme-aware screenshots */
+  html[data-theme="dark"] .screenshot-dark,
+  html:not([data-theme]) .screenshot-dark {
+    display: block;
+  }
+  html[data-theme="dark"] .screenshot-light,
+  html:not([data-theme]) .screenshot-light {
+    display: none;
+  }
+  html[data-theme="light"] .screenshot-dark {
+    display: none;
+  }
+  html[data-theme="light"] .screenshot-light {
+    position: relative;
+    display: block;
+  }
+
+  /* No-JS: all panels visible, stacked */
+  .step-panel {
+    margin-bottom: 2rem;
+  }
+
+  .step-panel:last-child {
+    margin-bottom: 0;
+  }
+
+  /* JS-enhanced: only active panel visible */
+  .js-enhanced .step-panels {
+    position: relative;
+  }
+
+  .js-enhanced .step-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    margin-bottom: 0;
+  }
+
+  .js-enhanced .step-panel[data-active="true"] {
+    position: relative;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  /* Step trigger states */
+  .step-trigger[data-state="completed"] .step-circle {
+    background-color: var(--brand-neon-green);
+    border-color: var(--brand-neon-green);
+    color: white;
+  }
+
+  .step-trigger[data-state="completed"] .step-number {
+    display: none;
+  }
+
+  .step-trigger[data-state="completed"] .step-check {
+    display: block;
+  }
+
+  .step-trigger[data-state="active"] .step-circle {
+    transform: scale(1.1);
+  }
+
+  .step-trigger:hover .step-circle {
+    transform: scale(1.05);
+  }
+
+  .step-trigger[data-state="active"]:hover .step-circle {
+    transform: scale(1.1);
+  }
+</style>
+
+<script>
+  const section = document.getElementById("how-it-works");
+  const stepTriggers = document.querySelectorAll<HTMLButtonElement>(".step-trigger");
+  const stepPanels = document.querySelectorAll<HTMLDivElement>(".step-panel");
+  const progressFill = document.querySelector<HTMLDivElement>(".step-progress-fill");
+
+  if (section && stepTriggers.length && stepPanels.length) {
+    section.classList.add("js-enhanced");
+
+    const colorConfig: Record<string, { bg: string; border: string; glow: string }> = {
+      "orbit-purple": {
+        bg: "bg-orbit-purple",
+        border: "border-orbit-purple",
+        glow: "shadow-[0_0_20px_rgba(107,70,193,0.4)]",
+      },
+      "signal-blue": {
+        bg: "bg-signal-blue",
+        border: "border-signal-blue",
+        glow: "shadow-[0_0_20px_rgba(59,130,246,0.4)]",
+      },
+      "scan-teal": {
+        bg: "bg-scan-teal",
+        border: "border-scan-teal",
+        glow: "shadow-[0_0_20px_rgba(20,184,166,0.4)]",
+      },
+      "neon-green": {
+        bg: "bg-neon-green",
+        border: "border-neon-green",
+        glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
+      },
+    };
+
+    const activeClasses = ["text-white"];
+    const inactiveClasses = ["bg-deep-space", "border-slate-gray/30", "text-slate-gray"];
+
+    function setActiveStep(index: number) {
+      stepTriggers.forEach((trigger, i) => {
+        const isActive = i === index;
+        const isCompleted = i < index;
+        const state = isActive ? "active" : isCompleted ? "completed" : "inactive";
+        trigger.setAttribute("data-state", state);
+        trigger.setAttribute("aria-selected", String(isActive));
+
+        const circle = trigger.querySelector<HTMLDivElement>(".step-circle");
+        const label = trigger.querySelector<HTMLDivElement>(".text-center > div:first-child");
+        const color = trigger.getAttribute("data-step-color") || "cyber-cyan";
+        const config = colorConfig[color];
+
+        if (circle) {
+          Object.values(colorConfig).forEach((c) => {
+            circle.classList.remove(c.bg, c.border, c.glow);
+          });
+          circle.classList.remove(...activeClasses, ...inactiveClasses);
+
+          if (isActive && config) {
+            circle.classList.add(config.bg, config.border, ...activeClasses, config.glow);
+          } else if (isCompleted) {
+            // Completed state handled by CSS (green checkmark)
+          } else {
+            circle.classList.add(...inactiveClasses);
+          }
+        }
+
+        if (label) {
+          label.classList.toggle("text-cloud-gray", isActive || isCompleted);
+          label.classList.toggle("text-slate-gray", !isActive && !isCompleted);
+        }
+      });
+
+      stepPanels.forEach((panel, i) => {
+        panel.setAttribute("data-active", String(i === index));
+      });
+
+      if (progressFill) {
+        const pct = stepTriggers.length > 1 ? (index / (stepTriggers.length - 1)) * 100 : 0;
+        progressFill.style.width = `${pct}%`;
+
+        // Update gradient based on progress
+        const colors = ["var(--brand-orbit-purple)", "var(--brand-signal-blue)", "var(--brand-scan-teal)", "var(--brand-neon-green)"];
+        const gradientStops = colors.slice(0, index + 1).join(", ");
+        progressFill.style.background = index === 0
+          ? colors[0]
+          : `linear-gradient(to right, ${gradientStops})`;
+      }
+    }
+
+    stepTriggers.forEach((trigger, i) => {
+      trigger.addEventListener("click", () => setActiveStep(i));
+    });
+
+    stepTriggers.forEach((trigger, i) => {
+      trigger.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "ArrowRight" && i < stepTriggers.length - 1) {
+          e.preventDefault();
+          setActiveStep(i + 1);
+          stepTriggers[i + 1]?.focus();
+        } else if (e.key === "ArrowLeft" && i > 0) {
+          e.preventDefault();
+          setActiveStep(i - 1);
+          stepTriggers[i - 1]?.focus();
+        }
+      });
+    });
+
+    setActiveStep(0);
+  }
+</script>

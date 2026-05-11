@@ -1,110 +1,33 @@
-# ScanOrbit — single-host docker compose for self-hosting.
-#
-# Usage:
-#   1. cp .env.example .env  &&  edit .env
-#   2. docker compose up -d
-#   3. open http://localhost:8080
-#
-# All services share an internal network. Only the web app (port 8080) is
-# exposed to the host by default — point a reverse proxy at it for production.
-
 services:
   db:
     image: postgres:17-alpine
     container_name: scanorbit-db
-    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-scanorbit}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scanorbit}
       POSTGRES_DB: ${POSTGRES_DB:-scanorbit}
-    # Bind only to localhost on the host. Comment this out if your reverse
-    # proxy or workers run elsewhere and you want to lock the DB inside the
-    # docker network only.
     ports:
-      - "127.0.0.1:15432:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scanorbit}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: scanorbit-redis
-    restart: unless-stopped
     ports:
-      - "127.0.0.1:16379:6379"
+      - "16379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 10
-
-  migrate:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-      target: production
-    container_name: scanorbit-migrate
-    command: ["node", "dist/db/migrate.js"]
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
-      NODE_ENV: production
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-      target: production
-    container_name: scanorbit-api
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      PORT: 4000
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}
-      REDIS_URL: redis://redis:6379
-      # Required: generate each with `openssl rand -hex 32`.
-      # The API process refuses to start in production mode if any are unset.
-      JWT_SECRET: ${JWT_SECRET:-}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
-      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
-      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      # Optional: Resend for transactional email. When unset, verification codes
-      # are printed to the API container logs (run `docker compose logs -f api`).
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-ScanOrbit <noreply@localhost>}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-
-  app:
-    build:
-      context: .
-      dockerfile: apps/app/Dockerfile
-      target: production
-      args:
-        VITE_PUBLIC_API_URL: /api
-    container_name: scanorbit-app
-    restart: unless-stopped
-    ports:
-      - "${APP_PORT:-8080}:80"
-    depends_on:
-      - api
+      retries: 5
 
   scanner:
     build:
@@ -112,24 +35,26 @@ services:
       dockerfile: Dockerfile
       target: scanner
     container_name: scanorbit-scanner
-    restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SCAN_CONCURRENCY: ${SCAN_CONCURRENCY:-10}
-      SCAN_TIMEOUT_MINUTES: ${SCAN_TIMEOUT_MINUTES:-60}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY:-}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SCAN_TIMEOUT_MINUTES: ${SCAN_TIMEOUT_MINUTES:-60}
+      REQUIRED_TAGS: ${REQUIRED_TAGS:-}
+      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY}
+    ports:
+      - "9090:9090"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
   analyzer:
     build:
@@ -137,19 +62,20 @@ services:
       dockerfile: Dockerfile
       target: analyzer
     container_name: scanorbit-analyzer
-    restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-scanorbit}:${POSTGRES_PASSWORD:-scanorbit}@db:5432/${POSTGRES_DB:-scanorbit}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY:-}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY}
+    ports:
+      - "9091:9091"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
 volumes:
   postgres_data:

@@ -1,0 +1,133 @@
+---
+import { Icon } from "astro-icon/components";
+
+const features = [
+  { name: "Setup time", scanorbit: "5 minutes", explorer: "30 minutes", manual: "Weeks" },
+  { name: "Orphaned resources", scanorbit: true, explorer: false, manual: true },
+  { name: "SSL expiry alerts", scanorbit: true, explorer: false, manual: false },
+  { name: "Data residency checks", scanorbit: true, explorer: false, manual: "Varies" },
+  { name: "GDPR-safe (EU hosting)", scanorbit: true, explorer: false, manual: "Varies" },
+  { name: "Starting cost", scanorbit: "€0/mo", explorer: "Free (limited)", manual: "€5k-50k" },
+];
+---
+
+<section id="comparison" class="py-24 bg-deep-space relative">
+  <div class="container mx-auto px-6">
+    <div class="max-w-5xl mx-auto">
+      <!-- Section header -->
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-6">
+          <span class="text-cloud-gray">How we </span>
+          <span class="bg-gradient-to-r from-cyber-cyan to-neon-green bg-clip-text text-transparent">
+            compare
+          </span>
+        </h2>
+        <p class="text-lg text-slate-gray max-w-2xl mx-auto">
+          Why teams switch from native AWS tools and expensive audits
+        </p>
+      </div>
+
+      <!-- Comparison table - Card style -->
+      <div class="bg-midnight rounded-2xl border border-border-subtle overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <caption class="sr-only">Comparison of ScanOrbit, AWS Cost Explorer, and Manual Audit</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="text-left py-5 px-6 text-slate-gray font-medium bg-deep-space">
+                  Feature
+                </th>
+                <th scope="col" class="py-5 px-6 bg-gradient-to-b from-orbit-purple/20 to-cyber-cyan/10 border-x border-cyber-cyan/20">
+                  <div class="flex flex-col items-center gap-1">
+                    <span class="text-lg font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+                      ScanOrbit
+                    </span>
+                    <span class="text-xs text-cyber-cyan/70">Recommended</span>
+                  </div>
+                </th>
+                <th scope="col" class="py-5 px-6 bg-deep-space">
+                  <span class="text-slate-gray font-medium">AWS Cost Explorer</span>
+                </th>
+                <th scope="col" class="py-5 px-6 bg-deep-space">
+                  <span class="text-slate-gray font-medium">Manual Audit</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {features.map((feature, index) => (
+                <tr class={index % 2 === 0 ? "bg-midnight/30" : "bg-deep-space"}>
+                  <td class="py-4 px-6 text-cloud-gray font-medium">{feature.name}</td>
+                  <td class="py-4 px-6 text-center border-x border-cyber-cyan/20 bg-cyber-cyan/5">
+                    {typeof feature.scanorbit === "boolean" ? (
+                      feature.scanorbit ? (
+                        <div class="flex justify-center">
+                          <div class="w-7 h-7 rounded-full bg-neon-green/20 flex items-center justify-center">
+                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green" aria-hidden="true" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div class="flex justify-center">
+                          <div class="w-7 h-7 rounded-full bg-alert-red/20 flex items-center justify-center">
+                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red" aria-hidden="true" />
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <span class="font-semibold text-cyber-cyan">{feature.scanorbit}</span>
+                    )}
+                  </td>
+                  <td class="py-4 px-6 text-center">
+                    {typeof feature.explorer === "boolean" ? (
+                      feature.explorer ? (
+                        <div class="flex justify-center">
+                          <div class="w-7 h-7 rounded-full bg-neon-green/10 flex items-center justify-center">
+                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green/70" aria-hidden="true" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div class="flex justify-center">
+                          <div class="w-7 h-7 rounded-full bg-alert-red/10 flex items-center justify-center">
+                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red/70" aria-hidden="true" />
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <span class="text-slate-gray">{feature.explorer}</span>
+                    )}
+                  </td>
+                  <td class="py-4 px-6 text-center">
+                    {typeof feature.manual === "boolean" ? (
+                      feature.manual ? (
+                        <div class="flex justify-center">
+                          <div class="w-7 h-7 rounded-full bg-neon-green/10 flex items-center justify-center">
+                            <Icon name="lucide:check" class="w-4 h-4 text-neon-green/70" aria-hidden="true" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div class="flex justify-center">
+                          <div class="w-7 h-7 rounded-full bg-alert-red/10 flex items-center justify-center">
+                            <Icon name="lucide:x" class="w-4 h-4 text-alert-red/70" aria-hidden="true" />
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <span class="text-slate-gray">{feature.manual}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Explanation paragraph -->
+      <div class="mt-10 text-center max-w-3xl mx-auto">
+        <p class="text-slate-gray leading-relaxed">
+          AWS Cost Explorer shows billing data but can't detect orphaned resources, expiring SSL certificates, or GDPR residency violations. Manual audits cost €5k–50k, take weeks to complete, and go stale the moment your infrastructure changes. ScanOrbit combines all of this in one agentless tool with a 5-minute setup.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
