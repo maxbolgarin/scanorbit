@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest a new capability or improvement.
+title: "[feat] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the **problem** first, the **solution** second. Half the time the discussion produces a different (better) solution than the one in the original request.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What can't you do today, or what's painful about how you do it now?
+      placeholder: |
+        I want to alert on critical findings in Slack the moment a scan completes, but the only way today is to poll the API.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What do you have in mind?
+      description: A concrete shape if you have one — endpoints, env vars, UI changes. "I don't know" is also fine.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Use case, scale, related issues, screenshots, mockups, links to similar features in other tools.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true

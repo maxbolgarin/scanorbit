@@ -1,0 +1,1625 @@
+import axios, { AxiosError } from "axios";
+import type {
+  User,
+  Org,
+  OrgMember,
+  OrgSettings,
+  AwsAccount,
+  Resource,
+  Finding,
+  Scan,
+  LoginCredentials,
+  SignupCredentials,
+  LoginResponse,
+  SignupResponse,
+  MeResponse,
+  CreateAwsAccountInput,
+  TestConnectionResult,
+  FindingFilters,
+  ResourceFilters,
+  FindingStatus,
+  FindingType,
+  PaginatedResponse,
+  ResourceStats,
+  FindingStats,
+  DependencyWithResource,
+  DependentWithResource,
+  ResourceScanHistory,
+  EnhancedDashboardSummary,
+  FindingScanHistory,
+  FindingTimelineEntry,
+  OrgInvitation,
+  SeatInfo,
+  InviteInfo,
+  MyPendingInvitation,
+  ApiKeyInfo,
+  CreateApiKeyResponse,
+} from "@/types";
+
+export function normalizeApiUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const v = value.trim();
+  if (!v) return undefined;
+
+  // Already absolute (or scheme-relative) URL
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(v) || v.startsWith("//")) return v;
+
+  // Same-origin proxy path
+  if (v.startsWith("/")) return v;
+
+  // Bare host (e.g. "api.example.com" or "localhost:4000") → add scheme
+  const host = v.split("/")[0];
+  const isLocal =
+    host === "localhost" ||
+    host.startsWith("localhost:") ||
+    host === "127.0.0.1" ||
+    host.startsWith("127.0.0.1:") ||
+    host === "0.0.0.0" ||
+    host.startsWith("0.0.0.0:") ||
+    host === "[::1]" ||
+    host.startsWith("[::1]:");
+
+  return `${isLocal ? "http" : "https"}://${v}`;
+}
+
+// Same-origin `/api` — Caddy (prod) and Vite (dev) both proxy this to the API server.
+const API_URL = "/api";
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true, // Send cookies with requests
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Track if we're currently handling a 401 to prevent redirect loops
+let isHandling401 = false;
+// Track if we're currently refreshing the token to prevent concurrent refreshes
+let isRefreshing = false;
+// Queue of requests waiting for token refresh
+let refreshSubscribers: ((success: boolean) => void)[] = [];
+
+// Store access token in memory (not localStorage for security)
+let accessToken: string | null = null;
+// Track when the token expires for proactive refresh
+let tokenExpiresAt: number | null = null;
+// Track the current org ID for refresh token requests
+let currentOrgId: string | null = null;
+
+// Token timing constants (must match backend ACCESS_TOKEN_EXPIRY_MINUTES)
+const ACCESS_TOKEN_TTL_MINUTES = parseInt(import.meta.env.VITE_ACCESS_TOKEN_TTL_MINUTES || '5', 10);
+const ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000; // Convert to ms
+const REFRESH_THRESHOLD = 0.8; // Refresh at 80% of TTL
+
+/**
+ * Set the access token for API requests
+ * Also tracks when the token will expire for proactive refresh
+ */
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+  tokenExpiresAt = token ? Date.now() + ACCESS_TOKEN_TTL : null;
+}
+
+/**
+ * Get the current access token
+ */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+/**
+ * Set the current org ID so refresh token requests preserve org context
+ */
+export function setCurrentOrgId(orgId: string | null) {
+  currentOrgId = orgId;
+}
+
+/**
+ * Subscribe to token refresh result
+ */
+function subscribeToRefresh(callback: (success: boolean) => void) {
+  refreshSubscribers.push(callback);
+}
+
+/**
+ * Notify all subscribers of refresh result
+ */
+function notifyRefreshSubscribers(success: boolean) {
+  refreshSubscribers.forEach(callback => callback(success));
+  refreshSubscribers = [];
+}
+
+/**
+ * Check if the token needs to be refreshed (expired or near expiry)
+ * Returns true if token is missing or has passed the refresh threshold (80% of TTL)
+ */
+function shouldRefreshToken(): boolean {
+  if (!accessToken || !tokenExpiresAt) return true;
+  const elapsed = Date.now() - (tokenExpiresAt - ACCESS_TOKEN_TTL);
+  return elapsed >= ACCESS_TOKEN_TTL * REFRESH_THRESHOLD;
+}
+
+/**
+ * Refresh the access token with proper concurrency handling.
+ * If a refresh is already in progress, waits for it to complete.
+ * Returns true if refresh succeeded (or was already in progress and succeeded), false otherwise.
+ */
+async function doRefreshToken(): Promise<boolean> {
+  // If already refreshing, wait for the result
+  if (isRefreshing) {
+    return new Promise<boolean>((resolve) => {
+      subscribeToRefresh(resolve);
+    });
+  }
+
+  // Start refreshing
+  isRefreshing = true;
+
+  try {
+    const refreshUrl = currentOrgId ? `/auth/refresh?orgId=${currentOrgId}` : '/auth/refresh';
+    const { data } = await api.post<{ accessToken: string }>(refreshUrl);
+    setAccessToken(data.accessToken);
+    notifyRefreshSubscribers(true);
+    return true;
+  } catch (error) {
+    setAccessToken(null);
+    notifyRefreshSubscribers(false);
+
+    // Log specific error details for debugging
+    if (error instanceof AxiosError) {
+      console.warn('[Auth] Token refresh failed:', {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        error: error.response?.data?.error,
+      });
+    }
+
+    return false;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+/**
+ * Public function to refresh the access token if needed
+ * Call this before making authenticated requests if the token might be missing (e.g., after page refresh)
+ * Returns true if a valid token exists after the call
+ */
+export async function ensureAccessToken(): Promise<boolean> {
+  // If we already have a valid token that's not near expiry, we're good
+  if (accessToken && !shouldRefreshToken()) {
+    return true;
+  }
+  // Try to refresh using the refresh token cookie
+  return doRefreshToken();
+}
+
+// Request interceptor to add access token and proactively refresh if needed
+api.interceptors.request.use(async (config) => {
+  // Skip auth endpoints to avoid refresh loops
+  const url = config.url || '';
+  const isAuthEndpoint = url.includes('/auth/');
+
+  // Proactively refresh token before it expires (at 80% of TTL)
+  // Uses concurrency-safe doRefreshToken to prevent duplicate refresh requests
+  if (!isAuthEndpoint && shouldRefreshToken()) {
+    await doRefreshToken();
+  }
+
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
+
+// Response interceptor to handle 401 (unauthorized) responses globally
+// First tries to refresh the token, then redirects to login if refresh fails
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error instanceof AxiosError && error.response?.status === 401) {
+      const originalRequest = error.config;
+
+      // Avoid handling 401 during login/logout/2fa/refresh flows to prevent loops
+      const url = originalRequest?.url || '';
+      const isAuthEndpoint = url.includes('/auth/login') ||
+                             url.includes('/auth/logout') ||
+                             url.includes('/auth/2fa') ||
+                             url.includes('/auth/signup') ||
+                             url.includes('/auth/oauth/complete-signup') ||
+                             url.includes('/auth/me') ||
+                             url.includes('/auth/refresh');
+
+      // If this is an auth endpoint or already retrying, don't try to refresh
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (isAuthEndpoint || (originalRequest as any)?._retry) {
+        return Promise.reject(error);
+      }
+
+      // Mark this request as being retried
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (originalRequest as any)._retry = true;
+
+      // Try to refresh the token (handles concurrency internally)
+      const refreshSuccess = await doRefreshToken();
+
+      if (refreshSuccess && originalRequest) {
+        // Retry the original request with the new token
+        return api(originalRequest);
+      }
+
+      // Refresh failed - redirect to login
+
+      if (!isHandling401) {
+        isHandling401 = true;
+
+        // Clear any stored auth state - import dynamically to avoid circular deps
+        import('@/stores/auth-store').then(({ useAuthStore }) => {
+          const state = useAuthStore.getState();
+          // Only redirect if we thought we were authenticated
+          if (state.isAuthenticated) {
+            // Clear the auth state without calling API logout (we're already unauthorized)
+            useAuthStore.setState({
+              user: null,
+              org: null,
+              orgs: [],
+              isAuthenticated: false,
+              hasOrg: false,
+              isLoading: false,
+              error: null,
+              requires2FA: false,
+              challengeToken: null,
+            });
+
+            // Redirect to login with session expired message
+            window.location.href = '/login?session_expired=true';
+          }
+        }).finally(() => {
+          isHandling401 = false;
+        });
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Error handler helper
+function handleApiError(error: unknown): never {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data;
+    const url = error.config?.url || '';
+
+    // Don't log 401 errors for auth check endpoints - these are expected when not logged in
+    const isAuthCheckEndpoint = url.includes('/auth/me') || url.includes('/auth/refresh');
+    const is401 = error.response?.status === 401;
+
+    // Only log errors in development, skip expected auth check failures
+    if (import.meta.env.DEV && !(is401 && isAuthCheckEndpoint)) {
+      console.error("API Error:", error);
+    }
+
+    // Handle validation errors with details array
+    if (data?.details && Array.isArray(data.details)) {
+      const messages = data.details.map((d: { message?: string }) => d.message).filter(Boolean);
+      throw new Error(messages.join(', ') || data.message || 'Validation failed');
+    }
+
+    // Handle standard error responses
+    const message = typeof data?.message === 'string'
+      ? data.message
+      : typeof data?.error === 'string'
+        ? data.error
+        : error.message;
+    throw new Error(message);
+  }
+  throw error;
+}
+
+// ============================================
+// Auth API
+// ============================================
+
+export async function login(credentials: LoginCredentials): Promise<LoginResponse> {
+  try {
+    const { data } = await api.post<LoginResponse>("/auth/login", credentials);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function signup(credentials: SignupCredentials): Promise<SignupResponse> {
+  try {
+    const { data } = await api.post<SignupResponse>("/auth/signup", credentials);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await api.post("/auth/logout");
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getMe(): Promise<MeResponse> {
+  try {
+    const { data } = await api.get<MeResponse>("/auth/me");
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function switchOrg(orgId: string): Promise<{ accessToken: string }> {
+  try {
+    const { data } = await api.post<{ accessToken: string }>("/auth/switch-org", { orgId });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Password Reset API
+// ============================================
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  try {
+    const { data } = await api.post<{ message: string }>("/auth/forgot-password", { email });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function resetPassword(token: string, password: string): Promise<{ message: string }> {
+  try {
+    const { data } = await api.post<{ message: string }>("/auth/reset-password", { token, password });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// New Signup Flow API
+// ============================================
+
+export async function sendVerificationCode(email: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data } = await api.post<{ success: boolean; message: string }>("/auth/send-code", { email });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verifyCode(email: string, code: string): Promise<{ success: boolean; signupToken: string }> {
+  try {
+    const { data } = await api.post<{ success: boolean; signupToken: string }>("/auth/verify-code", { email, code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function completeSignup(signupToken: string, password: string): Promise<{ user: User; accessToken: string }> {
+  try {
+    const { data } = await api.post<{ user: User; accessToken: string }>("/auth/complete-signup", { signupToken, password });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function resendVerificationCode(email: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data } = await api.post<{ success: boolean; message: string }>("/auth/resend-code", { email });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export type JobTitle = 'devops' | 'cto' | 'developer' | 'security' | 'personal' | 'other';
+
+export async function createOrg(input: {
+  orgName: string;
+  fullName?: string;
+  title?: JobTitle;
+}): Promise<{ org: Org; accessToken: string }> {
+  try {
+    const { data } = await api.post<{ data: Org; accessToken: string }>("/orgs", input);
+    return { org: data.data, accessToken: data.accessToken };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Organization API
+// ============================================
+
+export async function getOrgs(): Promise<Org[]> {
+  try {
+    const { data } = await api.get<{ data: Org[] }>("/orgs");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getOrg(orgId: string): Promise<Org> {
+  try {
+    const { data } = await api.get<{ data: Org }>(`/orgs/${orgId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateOrganization(updates: { name?: string; logoUrl?: string }): Promise<Org> {
+  try {
+    // Get current org from the first org (simplified - in real app you'd track active org)
+    const orgs = await getOrgs();
+    if (orgs.length === 0) throw new Error("No organization found");
+    const { data } = await api.patch<{ data: Org }>(`/orgs/${orgs[0].id}`, updates);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getOrgMembers(orgId: string): Promise<OrgMember[]> {
+  try {
+    const { data } = await api.get<{ data: OrgMember[] }>(`/orgs/${orgId}/members`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// =============================================================================
+// Team Members & Invitations
+// =============================================================================
+
+export async function getOrgInvitations(orgId: string): Promise<OrgInvitation[]> {
+  try {
+    const { data } = await api.get<{ data: OrgInvitation[] }>(`/orgs/${orgId}/invitations`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function createInvitation(
+  orgId: string,
+  email: string,
+  role: "admin" | "member"
+): Promise<{ invitation: OrgInvitation }> {
+  try {
+    const { data } = await api.post<{ data: { invitation: OrgInvitation } }>(
+      `/orgs/${orgId}/invitations`,
+      { email, role }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function cancelInvitation(orgId: string, invitationId: string): Promise<void> {
+  try {
+    await api.delete(`/orgs/${orgId}/invitations/${invitationId}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function resendInvitation(orgId: string, invitationId: string): Promise<void> {
+  try {
+    await api.post(`/orgs/${orgId}/invitations/${invitationId}/resend`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getInviteInfo(token: string): Promise<InviteInfo> {
+  try {
+    const { data } = await api.get<{ data: InviteInfo }>(`/auth/invite-info/${token}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function acceptInvitation(token: string): Promise<{ org: Org; accessToken: string }> {
+  try {
+    const { data } = await api.post<{ data: { org: Org }; accessToken: string }>(
+      "/auth/accept-invite",
+      { token }
+    );
+    return { org: data.data.org, accessToken: data.accessToken };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getMyPendingInvitations(): Promise<MyPendingInvitation[]> {
+  try {
+    const { data } = await api.get<{ data: MyPendingInvitation[] }>("/auth/my-invitations");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function declineInvitation(token: string): Promise<void> {
+  try {
+    await api.post("/auth/decline-invite", { token });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function removeMember(orgId: string, userId: string): Promise<void> {
+  try {
+    await api.delete(`/orgs/${orgId}/members/${userId}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function changeMemberRole(
+  orgId: string,
+  userId: string,
+  role: "admin" | "member"
+): Promise<void> {
+  try {
+    await api.patch(`/orgs/${orgId}/members/${userId}`, { role });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getSeatInfo(orgId: string): Promise<SeatInfo> {
+  try {
+    const { data } = await api.get<{ data: SeatInfo }>(`/orgs/${orgId}/seats`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// API Keys
+// ============================================
+
+export async function getApiKeys(orgId: string): Promise<ApiKeyInfo[]> {
+  try {
+    const { data } = await api.get<{ data: ApiKeyInfo[] }>(`/orgs/${orgId}/api-keys`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function createApiKey(
+  orgId: string,
+  name: string,
+  description?: string
+): Promise<CreateApiKeyResponse> {
+  try {
+    const { data } = await api.post<{ data: CreateApiKeyResponse }>(
+      `/orgs/${orgId}/api-keys`,
+      { name, description }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function revokeApiKey(orgId: string, keyId: string): Promise<void> {
+  try {
+    await api.delete(`/orgs/${orgId}/api-keys/${keyId}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  userId: string | null;
+  action: string;
+  method: string | null;
+  path: string | null;
+  statusCode: number | null;
+  ipAddress: string | null;
+  durationMs: number | null;
+  userEmail: string | null;
+  userFullName: string | null;
+}
+
+export async function getAuditLogs(
+  orgId: string,
+  params?: { page?: number; limit?: number; action?: string; userId?: string; startDate?: string; endDate?: string; sortOrder?: 'asc' | 'desc'; status?: string }
+): Promise<PaginatedResponse<AuditLogEntry>> {
+  try {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.action) searchParams.set("action", params.action);
+    if (params?.userId) searchParams.set("userId", params.userId);
+    if (params?.startDate) searchParams.set("startDate", params.startDate);
+    if (params?.endDate) searchParams.set("endDate", params.endDate);
+    if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+    if (params?.status) searchParams.set("status", params.status);
+    const { data } = await api.get<PaginatedResponse<AuditLogEntry>>(
+      `/orgs/${orgId}/audit-logs?${searchParams.toString()}`
+    );
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
+  try {
+    const { data } = await api.get<{ data: OrgSettings }>(`/orgs/${orgId}/settings`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateOrgSettings(
+  orgId: string,
+  settings: Partial<OrgSettings>
+): Promise<OrgSettings> {
+  try {
+    const { data } = await api.patch<{ data: OrgSettings }>(`/orgs/${orgId}/settings`, settings);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// AWS Accounts API
+// ============================================
+
+export async function getAwsAccounts(): Promise<AwsAccount[]> {
+  try {
+    const { data } = await api.get<{ data: AwsAccount[] }>("/aws/accounts");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getAwsAccount(accountId: string): Promise<AwsAccount> {
+  try {
+    const { data } = await api.get<{ data: AwsAccount }>(`/aws/accounts/${accountId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function createAwsAccount(input: CreateAwsAccountInput): Promise<AwsAccount> {
+  try {
+    const { data } = await api.post<{ data: AwsAccount }>("/aws/accounts", input);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function deleteAwsAccount(accountId: string): Promise<void> {
+  try {
+    await api.delete(`/aws/accounts/${accountId}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function testAwsConnection(accountId: string): Promise<TestConnectionResult> {
+  try {
+    const { data } = await api.post<{ data: TestConnectionResult }>(`/aws/accounts/${accountId}/test`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function triggerScan(accountId: string): Promise<Scan> {
+  try {
+    const { data } = await api.post<{ data: Scan }>(`/aws/accounts/${accountId}/scan`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getScanHistory(accountId: string): Promise<Scan[]> {
+  try {
+    const { data } = await api.get<{ data: Scan[] }>(`/aws/accounts/${accountId}/scans`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateAwsAccountScanners(
+  accountId: string,
+  enabledScanners: string[]
+): Promise<AwsAccount> {
+  try {
+    const { data } = await api.patch<{ data: AwsAccount }>(
+      `/aws/accounts/${accountId}/scanners`,
+      { enabledScanners }
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getScan(scanId: string): Promise<Scan> {
+  try {
+    const { data } = await api.get<{ data: Scan }>(`/aws/scans/${scanId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getActiveScans(): Promise<Scan[]> {
+  try {
+    const { data } = await api.get<{ data: Scan[] }>("/aws/scans/active");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getRecentScans(
+  limit: number = 10,
+  includeArchived: boolean = false
+): Promise<Scan[]> {
+  try {
+    const { data } = await api.get<{ data: Scan[] }>(
+      `/aws/scans/recent?limit=${limit}&includeArchived=${includeArchived}`
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Resources API
+// ============================================
+
+export async function getResources(filters?: ResourceFilters): Promise<PaginatedResponse<Resource>> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.region) params.set("region", filters.region);
+    if (filters?.service) params.set("service", filters.service);
+    if (filters?.state) params.set("state", filters.state);
+    if (filters?.costFilter) params.set("costFilter", filters.costFilter);
+    if (filters?.health) params.set("health", filters.health);
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
+
+    const { data } = await api.get<PaginatedResponse<Resource>>(`/resources?${params.toString()}`);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function exportResources(format: 'csv' | 'json', filters?: { awsAccountId?: string; region?: string; service?: string; state?: string }): Promise<Blob> {
+  try {
+    const params = new URLSearchParams({ format });
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.region) params.set("region", filters.region);
+    if (filters?.service) params.set("service", filters.service);
+    if (filters?.state) params.set("state", filters.state);
+    const { data } = await api.get(`/resources/export?${params.toString()}`, {
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResource(resourceId: string): Promise<Resource> {
+  try {
+    const { data } = await api.get<{ data: Resource }>(`/resources/${resourceId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceStats(filters?: { awsAccountId?: string }): Promise<ResourceStats> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    const queryString = params.toString();
+    const { data } = await api.get<{ data: ResourceStats }>(`/resources/stats${queryString ? `?${queryString}` : ""}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceHealth(filters?: { awsAccountId?: string }): Promise<{ total: number; healthy: number; warning: number; critical: number; orphaned: number }> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    const queryString = params.toString();
+    const { data } = await api.get<{ data: { total: number; healthy: number; warning: number; critical: number; orphaned?: number } }>(`/resources/health${queryString ? `?${queryString}` : ""}`);
+    // Backend may not return orphaned, default to 0
+    return { ...data.data, orphaned: data.data.orphaned ?? 0 };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getDistinctRegions(): Promise<string[]> {
+  try {
+    const { data } = await api.get<{ data: string[] }>("/resources/regions");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getDistinctServices(): Promise<string[]> {
+  try {
+    const { data } = await api.get<{ data: string[] }>("/resources/services");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceDependencies(resourceId: string): Promise<DependencyWithResource[]> {
+  try {
+    const { data } = await api.get<{ data: DependencyWithResource[] }>(`/resources/${resourceId}/dependencies`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceDependents(resourceId: string): Promise<DependentWithResource[]> {
+  try {
+    const { data } = await api.get<{ data: DependentWithResource[] }>(`/resources/${resourceId}/dependents`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceScanHistory(resourceId: string): Promise<ResourceScanHistory[]> {
+  try {
+    const { data } = await api.get<{ data: ResourceScanHistory[] }>(`/resources/${resourceId}/scan-history`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
+ * Dependency as stored in the database
+ */
+export interface DBDependency {
+  id: string;
+  orgId: string;
+  sourceResourceId: string;
+  targetResourceId: string;
+  targetService: string;
+  relationshipType: string;
+  createdAt: string;
+}
+
+export async function getAllDependencies(): Promise<DBDependency[]> {
+  try {
+    const { data } = await api.get<{ data: DBDependency[] }>("/resources/dependencies/all");
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Findings API
+// ============================================
+
+export async function getFindings(filters?: FindingFilters): Promise<PaginatedResponse<Finding>> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.resourceId) params.set("resourceId", filters.resourceId);
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.severity) params.set("severity", filters.severity);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    if (filters?.sortBy) params.set("sortBy", filters.sortBy);
+
+    const { data } = await api.get<PaginatedResponse<Finding>>(`/findings?${params.toString()}`);
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function exportFindings(format: 'csv' | 'json', filters?: { awsAccountId?: string; status?: string; type?: string; severity?: string }): Promise<Blob> {
+  try {
+    const params = new URLSearchParams({ format });
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.severity) params.set("severity", filters.severity);
+    const { data } = await api.get(`/findings/export?${params.toString()}`, {
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getFinding(findingId: string): Promise<Finding> {
+  try {
+    const { data } = await api.get<{ data: Finding }>(`/findings/${findingId}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getFindingStats(filters?: { awsAccountId?: string }): Promise<FindingStats> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.awsAccountId) params.set("awsAccountId", filters.awsAccountId);
+    const queryString = params.toString();
+    const { data } = await api.get<{ data: FindingStats }>(`/findings/stats${queryString ? `?${queryString}` : ""}`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function updateFindingStatus(
+  findingId: string,
+  status: FindingStatus,
+  snoozedUntil?: Date
+): Promise<Finding> {
+  try {
+    const { data } = await api.patch<{ data: Finding }>(`/findings/${findingId}`, {
+      status,
+      snoozedUntil,
+    });
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function bulkUpdateFindingStatus(
+  findingIds: string[],
+  status: FindingStatus
+): Promise<{ updatedCount: number }> {
+  try {
+    const { data } = await api.post<{ data: { updatedCount: number } }>("/findings/bulk-update", {
+      findingIds,
+      status,
+    });
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getFindingHistory(findingId: string): Promise<FindingScanHistory[]> {
+  try {
+    const { data } = await api.get<{ data: FindingScanHistory[] }>(`/findings/${findingId}/history`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getResourceFindingTimeline(resourceId: string): Promise<FindingTimelineEntry[]> {
+  try {
+    const { data } = await api.get<{ data: FindingTimelineEntry[] }>(`/resources/${resourceId}/finding-timeline`);
+    return data.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Dashboard API (computed from other endpoints)
+// ============================================
+
+export async function getDashboardSummary(filters?: { awsAccountId?: string }): Promise<{
+  totalResources: number;
+  resourcesTrend: number;
+  orphanedResources: number;
+  orphanedSavings: number;
+  expiringCertificates: number;
+  urgentCertificates: number;
+  residencyViolations: number;
+}> {
+  try {
+    // Fetch stats from backend
+    const [resourceStats, findingStats] = await Promise.all([
+      getResourceStats(filters),
+      getFindingStats(filters),
+    ]);
+
+    // Compute dashboard metrics from stats
+    // Count all orphaned/unused/idle resources
+    const orphanedCount =
+      (findingStats.byType["orphaned_volume"] || 0) +
+      (findingStats.byType["orphaned_eip"] || 0) +
+      (findingStats.byType["orphaned_snapshot"] || 0) +
+      (findingStats.byType["orphaned_eni"] || 0) +
+      (findingStats.byType["idle_load_balancer"] || 0) +
+      (findingStats.byType["idle_nat_gateway"] || 0) +
+      (findingStats.byType["unused_security_group"] || 0);
+
+    return {
+      totalResources: resourceStats.totalCount,
+      resourcesTrend: 0, // Would need historical data
+      orphanedResources: orphanedCount,
+      orphanedSavings: 0, // Would need to compute from findings details
+      expiringCertificates: findingStats.byType["ssl_expiry"] || 0,
+      urgentCertificates: 0, // Would need to filter by urgency
+      residencyViolations: findingStats.byType["data_residency_violation"] || 0,
+    };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function getRecommendedActions(filters?: { awsAccountId?: string }): Promise<Finding[]> {
+  try {
+    // Get open findings sorted by severity
+    const { data: findings } = await getFindings({
+      status: "open",
+      limit: 10,
+      awsAccountId: filters?.awsAccountId,
+    });
+
+    // Sort by severity (high first)
+    const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return findings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// Helper: Calculate health score from metrics
+function calculateHealthScores(
+  findingStats: FindingStats,
+  resourceStats: ResourceStats,
+  orphanedCount: number,
+  residencyViolations: number,
+  expiringCerts: number,
+  securityComplianceIssues: number
+): { overall: number; security: number; compliance: number; costEfficiency: number } {
+  const totalResources = resourceStats.totalCount || 1; // Avoid division by zero
+
+  // Security score (40% weight): Based on finding severity
+  // Penalize: critical -20, high -10, medium -5, low -2 per finding (max penalty 100)
+  const criticalFindings = findingStats.bySeverity["critical"] || 0;
+  const highFindings = findingStats.bySeverity["high"] || 0;
+  const mediumFindings = findingStats.bySeverity["medium"] || 0;
+  const lowFindings = findingStats.bySeverity["low"] || 0;
+
+  const securityPenalty = Math.min(100,
+    criticalFindings * 20 + highFindings * 10 + mediumFindings * 5 + lowFindings * 2
+  );
+  const securityScore = Math.max(0, 100 - securityPenalty);
+
+  // Compliance score (30% weight): Certs + residency + security compliance issues
+  // Each expiring cert = -15, each violation = -20, each security compliance issue = -10
+  const compliancePenalty = Math.min(100, expiringCerts * 15 + residencyViolations * 20 + securityComplianceIssues * 10);
+  const complianceScore = Math.max(0, 100 - compliancePenalty);
+
+  // Cost efficiency score (30% weight): Orphaned resources ratio
+  // If >10% orphaned = bad, scale down to 0% = 100
+  const orphanedRatio = orphanedCount / totalResources;
+  const costScore = Math.max(0, Math.round(100 - (orphanedRatio * 1000))); // 10% orphaned = 0 score
+
+  // Overall weighted score
+  const overall = Math.round(
+    securityScore * 0.4 + complianceScore * 0.3 + costScore * 0.3
+  );
+
+  return {
+    overall,
+    security: securityScore,
+    compliance: complianceScore,
+    costEfficiency: costScore,
+  };
+}
+
+// Helper: Get health status from score
+function getHealthStatus(score: number): 'excellent' | 'good' | 'fair' | 'needs_attention' {
+  if (score >= 90) return 'excellent';
+  if (score >= 70) return 'good';
+  if (score >= 50) return 'fair';
+  return 'needs_attention';
+}
+
+// Helper: Calculate issues to resolve for next level
+function calculateIssuesToResolve(
+  currentScore: number,
+  highFindings: number,
+  criticalFindings: number
+): number {
+  // Estimate how many high-severity issues to fix to reach next level
+  if (currentScore >= 90) return 0;
+  if (currentScore >= 70) {
+    // Need to reach 90 - each high finding is ~10 points
+    return Math.min(highFindings + criticalFindings, Math.ceil((90 - currentScore) / 8));
+  }
+  if (currentScore >= 50) {
+    return Math.min(highFindings + criticalFindings, Math.ceil((70 - currentScore) / 8));
+  }
+  return Math.min(highFindings + criticalFindings, Math.ceil((50 - currentScore) / 8));
+}
+
+// Helper: Aggregate cost savings from findings
+function aggregateCostInsights(
+  findings: Finding[]
+): { totalPotentialSavings: number; byCategory: Array<{ type: string; label: string; count: number; savings: number }> } {
+  const categoryMap: Record<string, { label: string; count: number; savings: number }> = {};
+
+  const costFindingTypes: Record<string, string> = {
+    orphaned_volume: "Orphaned Volumes",
+    orphaned_eip: "Orphaned Elastic IPs",
+    orphaned_snapshot: "Orphaned Snapshots",
+    orphaned_eni: "Orphaned ENIs",
+    idle_load_balancer: "Idle Load Balancers",
+    idle_nat_gateway: "Idle NAT Gateways",
+    unused_security_group: "Unused Security Groups",
+    stopped_instance: "Stopped Instances",
+    unused_resource: "Unused Resources",
+    unused_log_group: "Unused Log Groups",
+    // Cost optimization findings
+    ebs_optimization: "EBS gp2 to gp3 Migration",
+    old_gen_instance: "Old Generation Instances",
+    oversized_lambda: "Oversized Lambda Functions",
+    log_retention: "No Log Retention Policy",
+    unused_kms_key: "Unused KMS Keys",
+    rds_optimization: "RDS Optimization",
+  };
+
+  findings.forEach(finding => {
+    if (costFindingTypes[finding.type]) {
+      const savings = (finding.details?.estimated_monthly_cost as number) ||
+                      (finding.details?.estimatedMonthlySavings as number) ||
+                      (finding.details?.estimated_savings as number) ||
+                      (finding.details?.monthlyCost as number) || 0;
+
+      if (!categoryMap[finding.type]) {
+        categoryMap[finding.type] = {
+          label: costFindingTypes[finding.type],
+          count: 0,
+          savings: 0
+        };
+      }
+      categoryMap[finding.type].count++;
+      categoryMap[finding.type].savings += savings;
+    }
+  });
+
+  const byCategory = Object.entries(categoryMap)
+    .map(([type, data]) => ({ type, ...data }))
+    .filter(c => c.count > 0)
+    .sort((a, b) => b.savings - a.savings);
+
+  const totalPotentialSavings = byCategory.reduce((sum, c) => sum + c.savings, 0);
+
+  return { totalPotentialSavings, byCategory };
+}
+
+// Enhanced Dashboard Summary with all computed metrics
+export async function getEnhancedDashboardSummary(filters?: {
+  awsAccountId?: string;
+  hiddenFindingTypes?: FindingType[];
+}): Promise<EnhancedDashboardSummary> {
+  try {
+    const [resourceStats, findingStats, resourceHealth, openFindingsSettled] = await Promise.all([
+      getResourceStats(filters),
+      getFindingStats(filters),
+      getResourceHealth(filters),
+      getFindings({ status: "open", limit: 100, awsAccountId: filters?.awsAccountId })
+        .catch(() => {
+          // If findings list is blocked (403), return empty result
+          // This allows dashboard to still load with stats-only data
+          return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
+        }),
+    ]);
+
+    const openFindingsResult = openFindingsSettled;
+    const hiddenTypes = new Set(filters?.hiddenFindingTypes || []);
+
+    // Filter open findings to exclude hidden types
+    const openFindings = (openFindingsResult?.data || []).filter(
+      f => !hiddenTypes.has(f.type as FindingType)
+    );
+
+    // Safety checks
+    if (!resourceStats || !findingStats || !resourceHealth) {
+      throw new Error("Failed to fetch dashboard data");
+    }
+
+    // Filter byType to exclude hidden types
+    const rawByType = findingStats.byType || {};
+    const byType: Record<string, number> = {};
+    for (const [type, count] of Object.entries(rawByType)) {
+      if (!hiddenTypes.has(type as FindingType)) {
+        byType[type] = count;
+      }
+    }
+
+    // Recalculate bySeverity from filtered byType using the type->severity mapping
+    const byTypeSeverity = findingStats.byTypeSeverity || {};
+    const bySeverity: Record<string, number> = {};
+    for (const [type, count] of Object.entries(byType)) {
+      const severity = byTypeSeverity[type];
+      if (severity) {
+        bySeverity[severity] = (bySeverity[severity] || 0) + count;
+      }
+    }
+
+    const orphanedCount =
+      (byType["orphaned_volume"] || 0) +
+      (byType["orphaned_eip"] || 0) +
+      (byType["orphaned_snapshot"] || 0) +
+      (byType["orphaned_eni"] || 0) +
+      (byType["idle_load_balancer"] || 0) +
+      (byType["idle_nat_gateway"] || 0) +
+      (byType["unused_security_group"] || 0);
+
+    const expiringCertificates = byType["ssl_expiry"] || 0;
+    const residencyViolations = byType["data_residency_violation"] || 0;
+
+    // Compute enhanced metrics using filtered bySeverity (accounts for hidden types)
+    const filteredFindingStats = {
+      ...findingStats,
+      bySeverity,
+    };
+    const securityComplianceIssues = (byType["public_access"] || 0) + (byType["permissive_security_group"] || 0) + (byType["unencrypted_resource"] || 0);
+    const healthScores = calculateHealthScores(
+      filteredFindingStats,
+      resourceStats,
+      orphanedCount,
+      residencyViolations,
+      expiringCertificates,
+      securityComplianceIssues
+    );
+
+    const healthStatus = getHealthStatus(healthScores.overall);
+
+    const criticalFindings = bySeverity["critical"] || 0;
+    const highFindings = bySeverity["high"] || 0;
+    const issuesToResolve = calculateIssuesToResolve(healthScores.overall, highFindings, criticalFindings);
+
+    // Finding counts - calculate total from individual counts to ensure consistency
+    const mediumFindings = bySeverity["medium"] || 0;
+    const lowFindings = bySeverity["low"] || 0;
+    const trivialFindings = bySeverity["trivial"] || 0;
+    const findingCounts = {
+      critical: criticalFindings,
+      high: highFindings,
+      medium: mediumFindings,
+      low: lowFindings,
+      trivial: trivialFindings,
+      total: criticalFindings + highFindings + mediumFindings + lowFindings + trivialFindings,
+    };
+
+    // Cost insights from actual findings
+    const costInsights = aggregateCostInsights(openFindings);
+
+    // Certificate insights
+    // Count SSL findings by urgency from details
+    let urgentCerts = 0;
+    let expiringSoonCerts = 0;
+    let nearestExpiryDays: number | null = null;
+
+    openFindings.filter(f => f.type === "ssl_expiry").forEach(f => {
+      const daysUntil = (f.details?.days_until_expiry as number) ||
+                        (f.details?.daysUntilExpiry as number) || 30;
+      if (nearestExpiryDays === null || daysUntil < nearestExpiryDays) {
+        nearestExpiryDays = daysUntil;
+      }
+      if (daysUntil <= 7) {
+        urgentCerts++;
+      } else if (daysUntil <= 30) {
+        expiringSoonCerts++;
+      }
+    });
+
+    const certificateInsights = {
+      total: expiringCertificates,
+      healthy: 0, // Would need total certs from separate query
+      expiringSoon: expiringSoonCerts,
+      urgent: urgentCerts,
+      nearestExpiryDays,
+    };
+
+    // Compliance details
+    // Security issues should count security-related finding types (matching the filter link in ComplianceStatusCard)
+    const complianceDetails = {
+      residencyViolations,
+      missingTags: byType["missing_tag"] || 0,
+      securityIssues: securityComplianceIssues,
+    };
+
+    return {
+      // Legacy fields
+      totalResources: resourceStats.totalCount,
+      resourcesTrend: 0,
+      orphanedResources: orphanedCount,
+      orphanedSavings: costInsights.totalPotentialSavings,
+      expiringCertificates,
+      urgentCertificates: urgentCerts,
+      residencyViolations,
+      // Enhanced fields
+      healthScores,
+      healthStatus,
+      issuesToResolve,
+      findingCounts,
+      costInsights,
+      certificateInsights,
+      resourceHealth,
+      complianceDetails,
+    };
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Profile API
+// ============================================
+
+export async function updateProfile(updates: { fullName?: string }): Promise<User> {
+  try {
+    const { data } = await api.patch<{ user: User }>("/auth/profile", updates);
+    return data.user;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  try {
+    await api.post("/auth/change-password", { currentPassword, newPassword });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function setPassword(newPassword: string): Promise<void> {
+  try {
+    await api.post("/auth/set-password", { newPassword });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// ============================================
+// Two-Factor Authentication API
+// ============================================
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  recoveryCodesRemaining: number;
+}
+
+export interface TwoFactorSetupInit {
+  qrCodeUri: string;
+  secret: string;
+}
+
+export interface TwoFactorSetupVerify {
+  recoveryCodes: string[];
+}
+
+export async function get2FAStatus(): Promise<TwoFactorStatus> {
+  try {
+    const { data } = await api.get<TwoFactorStatus>("/auth/2fa/status");
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function init2FASetup(): Promise<TwoFactorSetupInit> {
+  try {
+    const { data } = await api.post<TwoFactorSetupInit>("/auth/2fa/setup/init");
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verify2FASetup(code: string): Promise<TwoFactorSetupVerify> {
+  try {
+    const { data } = await api.post<TwoFactorSetupVerify>("/auth/2fa/setup/verify", { code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function disable2FA(password: string, code: string): Promise<void> {
+  try {
+    await api.post("/auth/2fa/disable", { password, code });
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verify2FAChallenge(challengeToken: string, code: string): Promise<LoginResponse> {
+  try {
+    const { data } = await api.post<LoginResponse>("/auth/2fa/verify", { challengeToken, code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function verify2FARecovery(challengeToken: string, recoveryCode: string): Promise<LoginResponse> {
+  try {
+    const { data } = await api.post<LoginResponse>("/auth/2fa/verify-recovery", { challengeToken, recoveryCode });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+export async function regenerate2FARecoveryCodes(password: string, code: string): Promise<{ recoveryCodes: string[] }> {
+  try {
+    const { data } = await api.post<{ recoveryCodes: string[] }>("/auth/2fa/recovery-codes/regenerate", { password, code });
+    return data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+// =============================================================================
+// Integrations
+// =============================================================================
+
+// Webhooks
+export async function getWebhooks(): Promise<{ data: any[] }> {
+  try {
+    const { data: result } = await api.get('/integrations/webhooks');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function createWebhook(params: { url: string; eventTypes: string[]; description?: string }): Promise<{ data: { webhook: any; secret: string } }> {
+  try {
+    const { data: result } = await api.post('/integrations/webhooks', params);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function updateWebhook(id: string, params: { url?: string; eventTypes?: string[]; isActive?: boolean; description?: string }): Promise<{ data: any }> {
+  try {
+    const { data: result } = await api.patch(`/integrations/webhooks/${id}`, params);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function deleteWebhook(id: string): Promise<void> {
+  try {
+    await api.delete(`/integrations/webhooks/${id}`);
+  } catch (error) { handleApiError(error); }
+}
+
+export async function testWebhook(id: string): Promise<{ data: { statusCode: number; success: boolean } }> {
+  try {
+    const { data: result } = await api.post(`/integrations/webhooks/${id}/test`);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function getWebhookDeliveries(id: string, page = 1, limit = 20): Promise<{ data: any[]; pagination: any }> {
+  try {
+    const { data: result } = await api.get(`/integrations/webhooks/${id}/deliveries`, { params: { page, limit } });
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+// Notification Preferences
+export async function getNotificationPreferences(): Promise<{ data: any }> {
+  try {
+    const { data: result } = await api.get('/integrations/preferences');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function updateNotificationPreferences(params: { digestFrequency?: string; timezone?: string; notifyScanComplete?: boolean; notifyCriticalFindings?: boolean; notifyHighFindings?: boolean }): Promise<{ data: any }> {
+  try {
+    const { data: result } = await api.patch('/integrations/preferences', params);
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+// Slack
+export async function getSlackIntegration(): Promise<{ data: any | null }> {
+  try {
+    const { data: result } = await api.get('/integrations/slack');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function getSlackAuthorizeUrl(): Promise<{ data: { url: string } }> {
+  try {
+    const { data: result } = await api.get('/integrations/slack/authorize');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function getSlackChannels(): Promise<{ data: any[] }> {
+  try {
+    const { data: result } = await api.get('/integrations/slack/channels');
+    return result;
+  } catch (error) { handleApiError(error); }
+}
+
+export async function updateSlackChannelMappings(mappings: { eventType: string; channelId: string; channelName: string }[]): Promise<void> {
+  try {
+    await api.put('/integrations/slack/channels', { mappings });
+  } catch (error) { handleApiError(error); }
+}
+
+export async function disconnectSlack(): Promise<void> {
+  try {
+    await api.delete('/integrations/slack');
+  } catch (error) { handleApiError(error); }
+}
+
+// =============================================================================
+// Bug Reports
+// =============================================================================
+
+export async function createBugReport(data: {
+  title: string;
+  description: string;
+  category: string;
+  screenshotUrl?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ data: Record<string, unknown> }> {
+  try {
+    const { data: result } = await api.post<{ data: Record<string, unknown> }>('/bug-reports', data);
+    return result;
+  } catch (error) {
+    handleApiError(error);
+  }
+}

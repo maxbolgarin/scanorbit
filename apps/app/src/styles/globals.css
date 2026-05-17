@@ -1,0 +1,213 @@
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+@layer base {
+  /* ── Light Theme (default) ─── Stripe/Datadog-inspired soft gray ── */
+  :root {
+    --background: 220 14% 96%;
+    --foreground: 240 10% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 4%;
+
+    --primary: 262 50% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 4%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 262 40% 96%;
+    --accent-foreground: 240 10% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 65% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 48 95% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 262 50% 51%;
+    --radius: 0.5rem;
+
+    /* Brand colors — light */
+    --deep-space: 220 14% 96%;
+    --midnight: 240 5% 96%;
+    --orbit-purple: 262 50% 51%;
+    --cyber-cyan: 195 80% 40%;
+    --neon-green: 152 65% 40%;
+    --warning-orange: 48 95% 50%;
+    --alert-red: 0 84% 60%;
+    --cloud-gray: 240 10% 4%;
+    --slate-gray: 240 4% 46%;
+
+    /* Status colors */
+    --status-critical: 0 80% 50%;
+    --status-high: 0 72% 56%;
+    --status-warning: 48 95% 50%;
+    --status-success: 152 65% 40%;
+    --status-info: 217 91% 60%;
+    --status-trivial: 240 5% 55%;
+  }
+
+  /* ── Dark Theme ─── Deep black with indigo tint ── */
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 260 15% 96%;
+
+    --card: 240 12% 10%;
+    --card-foreground: 260 15% 96%;
+
+    --popover: 240 12% 10%;
+    --popover-foreground: 260 15% 96%;
+
+    --primary: 262 50% 51%;
+    --primary-foreground: 260 15% 96%;
+
+    --secondary: 240 12% 16%;
+    --secondary-foreground: 260 15% 96%;
+
+    --muted: 240 12% 16%;
+    --muted-foreground: 244 8% 60%;
+
+    --accent: 262 30% 22%;
+    --accent-foreground: 260 15% 96%;
+
+    --destructive: 0 80% 62%;
+    --destructive-foreground: 260 15% 96%;
+
+    --success: 152 65% 50%;
+    --success-foreground: 240 10% 4%;
+
+    --warning: 48 90% 58%;
+    --warning-foreground: 240 10% 4%;
+
+    --border: 240 10% 18%;
+    --input: 240 12% 10%;
+    --ring: 262 50% 51%;
+
+    /* Brand colors — dark */
+    --deep-space: 240 10% 4%;
+    --midnight: 240 12% 10%;
+    --orbit-purple: 262 50% 51%;
+    --cyber-cyan: 195 90% 45%;
+    --neon-green: 152 65% 50%;
+    --warning-orange: 48 90% 58%;
+    --alert-red: 0 80% 62%;
+    --cloud-gray: 260 15% 96%;
+    --slate-gray: 244 8% 60%;
+
+    /* Status colors — bright and saturated */
+    --status-critical: 0 80% 62%;
+    --status-high: 0 72% 66%;
+    --status-warning: 48 90% 58%;
+    --status-success: 152 65% 50%;
+    --status-info: 217 80% 65%;
+    --status-trivial: 240 8% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    overscroll-behavior: none;
+  }
+
+  /* Better tap highlight on mobile */
+  @media (hover: none) {
+    button, a, [role="button"] {
+      -webkit-tap-highlight-color: rgba(107, 70, 193, 0.1);
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Geist", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+
+  /* Typography - Headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: hsl(var(--foreground));
+  }
+
+  /* Code blocks */
+  code {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    @apply bg-card px-1.5 py-0.5 rounded text-sm;
+  }
+
+  /* Selection colors */
+  ::selection {
+    background-color: hsl(var(--orbit-purple));
+    color: white;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
+
+/* Focus styles */
+*:focus-visible {
+  @apply outline-2 outline-offset-2;
+  outline-color: hsl(var(--primary));
+}
+
+/* Animations */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: 0 0 20px rgba(107, 70, 193, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 40px rgba(107, 70, 193, 0.6);
+  }
+}
+
+.animate-scan { animation: scan 3s linear infinite; }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }

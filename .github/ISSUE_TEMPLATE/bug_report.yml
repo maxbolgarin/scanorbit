@@ -1,0 +1,95 @@
+name: Bug report
+description: Something in ScanOrbit is broken or behaving unexpectedly.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug.
+
+        **Security issue?** Don't post it here — use [private vulnerability reporting](https://github.com/maxbolgarin/scanorbit/security/advisories/new) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do and what did you observe?
+      placeholder: |
+        I triggered a scan via the dashboard and the scanner container exited with status 1.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. `docker compose up -d`
+        2. Sign up at http://localhost:8080
+        3. Connect AWS account with role arn:aws:iam::...:role/scanorbit-readonly
+        4. Click "Scan now"
+        5. Scanner container exits within ~10 seconds
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ScanOrbit version
+      description: Release tag (e.g. `v0.4.2`) or the commit SHA your deployment is built from.
+      placeholder: "v0.4.2 or abc1234"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How did you deploy?
+      options:
+        - Docker Compose (default)
+        - Docker Compose (custom)
+        - Native (`make run`)
+        - Other (please describe)
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Docker version, Node version (if running natively). One line each is fine.
+      placeholder: |
+        OS: Ubuntu 24.04
+        Docker: 27.3.1
+        Node: 24.4.0 (if applicable)
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Output from `docker compose logs api`, `docker compose logs scanner`, or the affected service.
+        **Redact any AWS account IDs, IAM role ARNs, secrets, or email addresses before pasting.**
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: This is not a security vulnerability (if it is, I'll use private reporting instead).
+          required: true

@@ -1,0 +1,67 @@
+/* Infrastructure Map - Custom React Flow Styling */
+
+/* Controls (zoom buttons) */
+.react-flow__controls {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+.react-flow__controls-button {
+  background: hsl(var(--card)) !important;
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 4px !important;
+}
+
+.react-flow__controls-button:hover {
+  background: hsl(var(--accent)) !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button svg {
+  fill: hsl(var(--foreground)) !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+}
+
+/* MiniMap */
+.react-flow__minimap {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+  overflow: hidden !important;
+}
+
+.react-flow__minimap-mask {
+  fill: hsl(var(--background) / 0.8) !important;
+}
+
+.react-flow__minimap svg {
+  background: hsl(var(--muted)) !important;
+}
+
+/* Attribution (hide) */
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* Edge styling */
+.react-flow__edge-path {
+  stroke: hsl(var(--muted-foreground) / 0.5) !important;
+  stroke-width: 1.5 !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: hsl(var(--primary)) !important;
+  stroke-width: 2 !important;
+}

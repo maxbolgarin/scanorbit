@@ -1,0 +1,117 @@
+---
+import { Icon } from "astro-icon/components";
+import { repoUrl } from "../config";
+
+const faqSchemaLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [] as { "@type": string; name: string; acceptedAnswer: { "@type": string; text: string } }[],
+};
+
+const faqs = [
+  {
+    question: "How is ScanOrbit licensed?",
+    answer: "Apache License 2.0. Use it commercially, modify it, redistribute it. The full source is on GitHub.",
+  },
+  {
+    question: "Where does my data live?",
+    answer: "Wherever you deploy it. ScanOrbit is fully self-hosted — your AWS metadata, findings, and scan history stay in your PostgreSQL database. Nothing is ever sent to a third party.",
+  },
+  {
+    question: "How do I install it?",
+    answer: "Clone the repo and run `docker compose up -d`. The stack includes PostgreSQL, Redis, the API, the React app, and the Go scanner/analyzer workers. See the README for full self-host instructions.",
+  },
+  {
+    question: "How do you prevent unauthorized access to my AWS account?",
+    answer: "ScanOrbit uses a read-only IAM role with zero write permissions. The generated policy only includes Describe* and List* actions — it literally cannot modify, create, or delete any resources in your AWS account.",
+  },
+  {
+    question: "Does ScanOrbit modify any AWS resources?",
+    answer: "Never. ScanOrbit only scans and reports. The IAM role has no write permissions — it cannot start, stop, create, or delete anything.",
+  },
+  {
+    question: "Is the data encrypted?",
+    answer: "Connections to your PostgreSQL and to AWS use TLS. Sensitive secrets (OAuth tokens, TOTP secrets) are encrypted at rest with AES-256 using keys you provide via environment variables or Docker secrets.",
+  },
+  {
+    question: "Can I connect multiple AWS accounts?",
+    answer: "Yes — there are no tier limits. Add as many AWS accounts as you want. Every feature is unrestricted in the OSS build.",
+  },
+  {
+    question: "What scanner types are available?",
+    answer: "Orphaned resource detection (EBS volumes, Elastic IPs, snapshots), SSL certificate expiry tracking, data residency checks, security findings, and complete cloud inventory. All scanners are included.",
+  },
+  {
+    question: "How long is data retained?",
+    answer: "You configure it. ScanOrbit ships with a single configurable data-retention policy — set the TTL in your environment, and old scans are pruned automatically.",
+  },
+  {
+    question: "Do you support other cloud providers?",
+    answer: "AWS today. Azure and GCP support is on the roadmap. Contributions welcome — open an issue or PR on GitHub.",
+  },
+  {
+    question: "How do I report a bug or request a feature?",
+    answer: "Open an issue on the GitHub repository. PRs are welcome too.",
+  },
+];
+
+for (const faq of faqs) {
+  faqSchemaLd.mainEntity.push({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  });
+}
+---
+
+<section id="faq" class="py-24 bg-deep-space relative">
+  <div class="container mx-auto px-6">
+    <div class="max-w-3xl mx-auto">
+      <!-- Section header -->
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-6">
+          <span class="text-cloud-gray">Frequently asked </span>
+          <span class="bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+            questions
+          </span>
+        </h2>
+        <p class="text-lg text-slate-gray">
+          Everything you need to know about ScanOrbit security and features.
+        </p>
+      </div>
+
+      <!-- FAQ items -->
+      <div class="space-y-4">
+        {faqs.map((faq, i) => (
+          <details class="group bg-midnight rounded-xl border border-border-subtle hover:border-cyber-cyan/20 transition-colors">
+            <summary class="flex items-center justify-between p-6 cursor-pointer list-none" aria-controls={`faq-answer-${i}`}>
+              <h3 class="font-medium text-cloud-gray pr-4">{faq.question}</h3>
+              <Icon name="lucide:chevron-down" class="w-5 h-5 text-slate-gray group-open:rotate-180 transition-transform flex-shrink-0" aria-hidden="true" />
+            </summary>
+            <div id={`faq-answer-${i}`} class="px-6 pb-6 pt-0">
+              <p class="text-slate-gray">{faq.answer}</p>
+            </div>
+          </details>
+        ))}
+      </div>
+
+      <!-- Contact CTA -->
+      <div class="mt-12 text-center">
+        <p class="text-slate-gray mb-4">Still have questions?</p>
+        <a
+          href={`${repoUrl}/issues`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-cyber-cyan hover:underline"
+        >
+          Open an issue on GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script type="application/ld+json" set:html={JSON.stringify(faqSchemaLd)} />

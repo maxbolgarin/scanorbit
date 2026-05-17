@@ -1,0 +1,241 @@
+@import "tailwindcss";
+
+/* ---- Theme color definitions ---- */
+
+/* Default / Dark theme */
+:root,
+html[data-theme="dark"] {
+  --bg-deep-space: #08080f;
+  --bg-midnight: #131520;
+  --brand-orbit-purple: #6b46c1;
+  --brand-cyber-cyan: #00b8e6;
+  --brand-neon-green: #10b981;
+  --brand-signal-blue: #3b82f6;
+  --brand-scan-teal: #14b8a6;
+  --brand-warning-orange: #f59e0b;
+  --brand-alert-red: #ef4444;
+  --text-cloud-gray: #e2e8f0;
+  --text-slate-gray: #94a3b8;
+
+  /* Hero heading gradient */
+  --hero-heading-from: #e2e8f0;
+  --hero-heading-via: #ffffff;
+  --hero-heading-to: #e2e8f0;
+
+  /* Subtle border for cards/sections */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+}
+
+/* Light theme */
+html[data-theme="light"] {
+  --bg-deep-space: #ffffff;
+  --bg-midnight: #ebedf2;
+  --brand-orbit-purple: #5b37b0;
+  --brand-cyber-cyan: #0891b2;
+  --brand-neon-green: #059669;
+  --brand-signal-blue: #2563eb;
+  --brand-scan-teal: #0d9488;
+  --brand-warning-orange: #d97706;
+  --brand-alert-red: #dc2626;
+  --text-cloud-gray: #1e293b;
+  --text-slate-gray: #475569;
+
+  /* Hero heading gradient */
+  --hero-heading-from: #0f172a;
+  --hero-heading-via: #334155;
+  --hero-heading-to: #0f172a;
+
+  /* Subtle border for cards/sections */
+  --border-subtle: rgba(0, 0, 0, 0.08);
+}
+
+/* Tailwind v4 theme tokens.
+   This enables utilities like `bg-orbit-purple`, `text-cloud-gray`, `animate-float`, etc. */
+@theme {
+  /* Colors - ScanOrbit Brand Palette (referencing theme-switched CSS variables) */
+  --color-deep-space: var(--bg-deep-space);
+  --color-midnight: var(--bg-midnight);
+  --color-orbit-purple: var(--brand-orbit-purple);
+  --color-cyber-cyan: var(--brand-cyber-cyan);
+  --color-neon-green: var(--brand-neon-green);
+  --color-signal-blue: var(--brand-signal-blue);
+  --color-scan-teal: var(--brand-scan-teal);
+  --color-warning-orange: var(--brand-warning-orange);
+  --color-alert-red: var(--brand-alert-red);
+  --color-cloud-gray: var(--text-cloud-gray);
+  --color-slate-gray: var(--text-slate-gray);
+  --color-border-subtle: var(--border-subtle);
+
+  /* Fonts */
+  --font-sans: "Geist Sans", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Animations */
+  --animate-scan: scan 3s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: 0 0 20px rgba(0, 184, 230, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 40px rgba(0, 184, 230, 0.6);
+  }
+}
+
+/* Base Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-deep-space);
+  color: var(--color-cloud-gray);
+  line-height: 1.6;
+}
+
+/* Selection colors */
+::selection {
+  background-color: var(--color-orbit-purple);
+  color: white;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-deep-space);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-midnight);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-orbit-purple);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-cyber-cyan);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Code blocks */
+code {
+  font-family: var(--font-mono);
+  background-color: var(--color-midnight);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+/* Typography - Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Hero heading gradient (theme-aware) */
+.hero-heading-primary {
+  background: linear-gradient(to right, var(--hero-heading-from), var(--hero-heading-via), var(--hero-heading-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hero section - theme-aware elements */
+.hero-orb-purple {
+  background-color: rgba(107, 70, 193, 0.2);
+}
+
+.hero-orb-cyan {
+  background-color: rgba(0, 184, 230, 0.1);
+}
+
+.hero-secondary-btn {
+  background-color: var(--bg-midnight);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.hero-secondary-btn:hover {
+  border-color: rgba(0, 184, 230, 0.5);
+}
+
+.hero-trust-badge {
+  background-color: rgba(19, 21, 32, 0.5);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 0.5rem 1rem;
+}
+
+html[data-theme="light"] .hero-orb-purple {
+  background-color: rgba(91, 55, 176, 0.12);
+}
+
+html[data-theme="light"] .hero-orb-cyan {
+  background-color: rgba(8, 145, 178, 0.08);
+}
+
+html[data-theme="light"] .hero-secondary-btn {
+  background-color: transparent;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+html[data-theme="light"] .hero-secondary-btn:hover {
+  border-color: rgba(8, 145, 178, 0.5);
+  background-color: rgba(235, 237, 242, 0.5);
+}
+
+html[data-theme="light"] .hero-trust-badge {
+  background-color: rgba(235, 237, 242, 0.8);
+  border: 1px solid rgba(5, 150, 105, 0.25);
+}
+
+/* Browser chrome frame - theme-aware */
+.browser-chrome-frame {
+  background-color: var(--bg-deep-space);
+}
+
+.browser-chrome-bar {
+  background-color: var(--bg-deep-space);
+}
+

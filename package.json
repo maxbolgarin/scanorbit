@@ -1,0 +1,50 @@
+{
+  "name": "scanorbit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agentless AWS infrastructure scanner — self-hosted, Apache 2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxbolgarin/scanorbit"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev --filter=!@scanorbit/landing",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "dev:landing": "pnpm --filter @scanorbit/landing dev",
+    "dev:app": "pnpm --filter @scanorbit/app dev",
+    "dev:api": "pnpm --filter @scanorbit/api dev",
+    "build:landing": "pnpm --filter @scanorbit/landing build",
+    "build:app": "pnpm --filter @scanorbit/app build",
+    "build:api": "pnpm --filter @scanorbit/api build",
+    "db:migrate": "pnpm --filter @scanorbit/api db:migrate",
+    "db:generate": "pnpm --filter @scanorbit/api db:generate",
+    "db:reset": "pnpm --filter @scanorbit/api db:reset",
+    "db:studio": "pnpm --filter @scanorbit/api db:studio"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "turbo": "^2.8.20",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "tar": ">=7.5.11",
+      "flatted": ">=3.4.2",
+      "undici": ">=7.24.0",
+      "fast-xml-parser": ">=5.5.6",
+      "h3": ">=1.15.6",
+      "picomatch": ">=4.0.4"
+    }
+  }
+}

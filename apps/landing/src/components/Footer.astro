@@ -1,0 +1,81 @@
+---
+import { Icon } from "astro-icon/components";
+import { repoUrl, withBase } from "../config";
+
+const footerLinks = {
+  features: [
+    { label: "Core Features", href: withBase("/#features") },
+    { label: "How it Saves Money", href: withBase("/#comparison") },
+    { label: "How it Works", href: withBase("/#how-it-works") },
+  ],
+  resources: [
+    { label: "GitHub", href: repoUrl },
+    { label: "Blog", href: withBase("/blog") },
+    { label: "API Reference", href: withBase("/api-reference") },
+    { label: "FAQ", href: withBase("/#faq") },
+  ],
+};
+---
+
+<footer class="bg-midnight border-t border-deep-space">
+  <div class="container mx-auto px-6 py-16">
+    <!-- Link columns -->
+    <div class="grid grid-cols-2 gap-8 mb-12">
+      <!-- Features -->
+      <div>
+        <h4 class="font-semibold text-cloud-gray mb-4 text-sm uppercase tracking-wider">Features</h4>
+        <ul class="space-y-3">
+          {footerLinks.features.map((link) => (
+            <li>
+              <a href={link.href} class="text-slate-gray hover:text-cyber-cyan transition-colors text-sm">
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Resources -->
+      <div>
+        <h4 class="font-semibold text-cloud-gray mb-4 text-sm uppercase tracking-wider">Resources</h4>
+        <ul class="space-y-3">
+          {footerLinks.resources.map((link) => (
+            <li>
+              <a href={link.href} class="text-slate-gray hover:text-cyber-cyan transition-colors text-sm">
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Divider -->
+    <div class="border-t border-deep-space"></div>
+
+    <!-- Bottom section -->
+    <div class="pt-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <!-- Brand & tagline -->
+      <div>
+        <a href={withBase("/")} class="flex items-center gap-2 mb-2">
+          <Icon name="lucide:orbit" class="w-7 h-7 text-cyber-cyan" aria-hidden="true" />
+          <span class="text-lg font-bold bg-gradient-to-r from-orbit-purple to-cyber-cyan bg-clip-text text-transparent">
+            ScanOrbit
+          </span>
+        </a>
+        <p class="text-slate-gray text-sm mb-1">
+          Agentless AWS scanner. Discover waste, ensure compliance.
+        </p>
+        <p class="text-slate-gray text-xs">
+          Self-hosted. Apache 2.0. Your data stays in your infrastructure.
+        </p>
+      </div>
+
+      <!-- Copyright -->
+      <p class="text-slate-gray text-sm">
+        &copy; {new Date().getFullYear()} ScanOrbit. Apache 2.0 licensed.
+      </p>
+    </div>
+  </div>
+</footer>

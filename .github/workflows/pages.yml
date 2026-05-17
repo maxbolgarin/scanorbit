@@ -1,0 +1,69 @@
+name: Deploy landing to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/landing/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # When apps/landing/public/CNAME exists, deploy to that custom apex
+      # domain at /. Otherwise fall back to the GitHub Pages project URL
+      # (https://<owner>.github.io/<repo>/) so forks work out of the box.
+      - name: Resolve deploy target
+        id: target
+        run: |
+          if [ -f apps/landing/public/CNAME ]; then
+            CNAME=$(tr -d '[:space:]' < apps/landing/public/CNAME)
+            echo "site=https://${CNAME}" >> "$GITHUB_OUTPUT"
+            echo "base=/" >> "$GITHUB_OUTPUT"
+            echo "Deploying to custom domain: https://${CNAME}/"
+          else
+            echo "site=https://${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
+            echo "base=/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+            echo "Deploying to GitHub Pages project URL"
+          fi
+
+      - name: Build landing
+        env:
+          SITE: ${{ steps.target.outputs.site }}
+          BASE: ${{ steps.target.outputs.base }}
+        run: pnpm --filter @scanorbit/landing build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/landing/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

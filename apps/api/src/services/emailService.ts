@@ -1,0 +1,609 @@
+import { Resend } from 'resend';
+import { config } from '../lib/config.js';
+import { logger } from '../lib/logger.js';
+
+// Brand colors for ScanOrbit
+const BRAND = {
+  primary: '#6b46c1', // Orbit Purple
+  primaryDark: '#5b37a8', // Darker purple for gradients
+  primaryLight: '#7c5acc', // Lighter purple for gradients
+  background: '#f8fafc', // Slate-50
+  surface: '#ffffff',
+  text: '#1e293b', // Slate-800
+  textSecondary: '#64748b', // Slate-500
+  border: '#e2e8f0', // Slate-200
+  success: '#22c55e',
+  warning: '#f59e0b',
+  error: '#ef4444',
+};
+
+interface EmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+// Escape HTML entities to prevent XSS in email templates
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Mask email for logging (PII protection)
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return '***@***';
+  const masked = localPart.length > 2
+    ? `${localPart[0]}***${localPart[localPart.length - 1]}`
+    : '***';
+  return `${masked}@${domain}`;
+}
+
+// Create reusable Resend client
+let resendClient: Resend | null = null;
+
+export function getResendClient(): Resend | null {
+  if (resendClient) return resendClient;
+
+  if (!config.email.resend.apiKey) {
+    logger.warn('Resend not configured: missing API key');
+    return null;
+  }
+
+  resendClient = new Resend(config.email.resend.apiKey);
+  return resendClient;
+}
+
+// Send email via Resend HTTP API (bypasses SMTP port blocks)
+async function sendViaResend(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+): Promise<EmailResult> {
+  const client = getResendClient();
+  if (!client) {
+    return { success: false, error: 'Resend client not configured' };
+  }
+
+  try {
+    const { data, error } = await client.emails.send({
+      from: config.email.from,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    if (error) {
+      logger.error('Resend API error', error);
+      return { success: false, error: error.message };
+    }
+
+    logger.info(`Email sent via Resend to ${maskEmail(to)}`, { messageId: data?.id });
+    return { success: true, messageId: data?.id };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to send email via Resend', undefined, { error: errorMessage });
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Send email via Resend, with a self-hosted fallback that prints the message body
+// to stdout when Resend is not configured. Self-hosted operators can read the
+// verification code or password reset link from the API container logs.
+async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+): Promise<EmailResult> {
+  if (!config.email.resend.apiKey) {
+    logger.info('[email] Resend not configured — printing message to stdout', {
+      to: maskEmail(to),
+      subject,
+      body: text,
+    });
+    return { success: true, messageId: 'console' };
+  }
+  return sendViaResend(to, subject, text, html);
+}
+
+// Base email template wrapper
+function wrapInTemplate(content: string, previewText: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>ScanOrbit</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    /* Reset styles */
+    body, table, td, p, a, li, blockquote {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+    table, td {
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+    }
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      background-color: ${BRAND.background};
+    }
+    a {
+      color: ${BRAND.primary};
+    }
+    @media only screen and (max-width: 600px) {
+      .container {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .content {
+        padding: 24px 16px !important;
+      }
+      .code-box {
+        font-size: 28px !important;
+        letter-spacing: 6px !important;
+      }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: ${BRAND.background}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <!-- Preview text -->
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
+    ${previewText}
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <!-- Email container -->
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${BRAND.background};">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <!-- Main content card -->
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="container" style="max-width: 560px; background-color: ${BRAND.surface}; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);">
+          <!-- Header with logo -->
+          <tr>
+            <td align="center" style="padding: 32px 32px 24px; border-bottom: 1px solid ${BRAND.border};">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="vertical-align: middle;">
+                    <!-- Logo icon -->
+                    <div style="display: inline-block; width: 40px; height: 40px; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryLight} 100%); border-radius: 10px; text-align: center; line-height: 40px; margin-right: 12px; vertical-align: middle;">
+                      <span style="color: white; font-size: 20px; font-weight: bold;">S</span>
+                    </div>
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <span style="font-size: 24px; font-weight: 700; color: ${BRAND.text}; letter-spacing: -0.5px;">Scan<span style="color: ${BRAND.primary};">Orbit</span></span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main content -->
+          <tr>
+            <td class="content" style="padding: 32px;">
+              ${content}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: ${BRAND.background}; border-radius: 0 0 12px 12px; border-top: 1px solid ${BRAND.border};">
+              <p style="margin: 0; font-size: 13px; color: ${BRAND.textSecondary}; text-align: center; line-height: 1.6;">
+                This email was sent by ScanOrbit running at
+                <a href="${config.frontendUrl}" style="color: ${BRAND.primary}; text-decoration: none;">${config.frontendUrl}</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Bottom text -->
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px;">
+          <tr>
+            <td style="padding: 24px 0; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: ${BRAND.textSecondary};">
+                &copy; ${new Date().getFullYear()} ScanOrbit. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+// Verification email HTML content
+function getVerificationEmailHtml(code: string, name?: string): string {
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      Verify your email address
+    </h1>
+    <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      ${greeting}<br><br>
+      Thanks for signing up for ScanOrbit! Please use the verification code below to complete your registration.
+    </p>
+
+    <!-- Verification code box -->
+    <div style="background: linear-gradient(135deg, ${BRAND.background} 0%, #f1f5f9 100%); border: 2px dashed ${BRAND.border}; border-radius: 12px; padding: 24px; text-align: center; margin: 0 0 24px;">
+      <p style="margin: 0 0 8px; font-size: 12px; color: ${BRAND.textSecondary}; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+        Verification Code
+      </p>
+      <p class="code-box" style="margin: 0; font-size: 36px; font-weight: 700; color: ${BRAND.primary}; letter-spacing: 8px; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">
+        ${code}
+      </p>
+    </div>
+
+    <p style="margin: 0 0 8px; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      <strong style="color: ${BRAND.text};">This code will expire in 5 minutes.</strong>
+    </p>
+    <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      If you didn't create a ScanOrbit account, you can safely ignore this email.
+    </p>
+  `;
+
+  return wrapInTemplate(content, `Your verification code is ${code}`);
+}
+
+// Verification email plain text
+function getVerificationEmailText(code: string, name?: string): string {
+  const greeting = name ? `Hi ${name}` : 'Hi there';
+
+  return `
+${greeting},
+
+Thanks for signing up for ScanOrbit! Please use the verification code below to complete your registration.
+
+Your verification code: ${code}
+
+This code will expire in 5 minutes.
+
+If you didn't create a ScanOrbit account, you can safely ignore this email.
+
+---
+ScanOrbit — ${config.frontendUrl}
+  `.trim();
+}
+
+// Password reset email HTML content
+function getPasswordResetEmailHtml(resetUrl: string, name?: string): string {
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      Reset your password
+    </h1>
+    <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      ${greeting}<br><br>
+      We received a request to reset your password. Click the button below to create a new password.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
+        Reset Password
+      </a>
+    </div>
+
+    <p style="margin: 0 0 16px; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      Or copy and paste this link into your browser:
+    </p>
+    <p style="margin: 0 0 24px; font-size: 13px; color: ${BRAND.primary}; word-break: break-all; background-color: ${BRAND.background}; padding: 12px; border-radius: 6px;">
+      ${resetUrl}
+    </p>
+
+    <p style="margin: 0 0 8px; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      <strong style="color: ${BRAND.text};">This link will expire in 1 hour.</strong>
+    </p>
+    <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      If you didn't request a password reset, you can safely ignore this email.
+    </p>
+  `;
+
+  return wrapInTemplate(content, 'Reset your ScanOrbit password');
+}
+
+// Password reset email plain text
+function getPasswordResetEmailText(resetUrl: string, name?: string): string {
+  const greeting = name ? `Hi ${name}` : 'Hi there';
+
+  return `
+${greeting},
+
+We received a request to reset your password. Click the link below to create a new password:
+
+${resetUrl}
+
+This link will expire in 1 hour.
+
+If you didn't request a password reset, you can safely ignore this email.
+
+---
+ScanOrbit — ${config.frontendUrl}
+  `.trim();
+}
+
+// Invitation email HTML content
+function getInvitationEmailHtml(inviterName: string, orgName: string, inviteUrl: string): string {
+  const safeInviterName = escapeHtml(inviterName);
+  const safeOrgName = escapeHtml(orgName);
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      You're invited to join ${safeOrgName}
+    </h1>
+    <p style="margin: 0 0 24px; font-size: 15px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      ${safeInviterName} has invited you to join <strong style="color: ${BRAND.text};">${safeOrgName}</strong> on ScanOrbit.
+      Accept the invitation to start collaborating on cloud infrastructure monitoring.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(107, 70, 193, 0.3);">
+        Join ${safeOrgName}
+      </a>
+    </div>
+
+    <p style="margin: 0 0 16px; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      Or copy and paste this link into your browser:
+    </p>
+    <p style="margin: 0 0 24px; font-size: 13px; color: ${BRAND.primary}; word-break: break-all; background-color: ${BRAND.background}; padding: 12px; border-radius: 6px;">
+      ${inviteUrl}
+    </p>
+
+    <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6;">
+      <strong style="color: ${BRAND.text};">This invitation expires in 7 days.</strong><br>
+      If you weren't expecting this invitation, you can safely ignore this email.
+    </p>
+  `;
+
+  return wrapInTemplate(content, `${safeInviterName} invited you to join ${safeOrgName} on ScanOrbit`);
+}
+
+function getInvitationEmailText(inviterName: string, orgName: string, inviteUrl: string): string {
+  return `
+${inviterName} has invited you to join ${orgName} on ScanOrbit.
+
+Accept the invitation by visiting:
+${inviteUrl}
+
+This invitation expires in 7 days.
+
+If you weren't expecting this invitation, you can safely ignore this email.
+
+---
+ScanOrbit — ${config.frontendUrl}
+  `.trim();
+}
+
+// Bug report notification email HTML
+function getBugReportNotificationHtml(
+  title: string,
+  description: string,
+  category: string,
+  reporterEmail: string,
+  reporterName: string | undefined,
+  orgName: string,
+  metadata: Record<string, unknown>,
+): string {
+  const categoryLabels: Record<string, string> = {
+    ui_bug: 'UI Bug',
+    scan_issue: 'Scan Issue',
+    data_incorrect: 'Incorrect Data',
+    performance: 'Performance',
+    feature_request: 'Feature Request',
+    other: 'Other',
+  };
+  const categoryLabel = escapeHtml(categoryLabels[category] || category);
+  const safeReporterEmail = escapeHtml(reporterEmail);
+  const safeReporterName = reporterName ? escapeHtml(reporterName) : undefined;
+  const reporterDisplay = safeReporterName ? `${safeReporterName} (${safeReporterEmail})` : safeReporterEmail;
+  const pageUrl = escapeHtml((metadata.pageUrl as string) || 'N/A');
+  const safeTitle = escapeHtml(title);
+  const safeDescription = escapeHtml(description);
+  const safeOrgName = escapeHtml(orgName);
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: ${BRAND.text};">
+      New Bug Report
+    </h1>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 20px;">
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; width: 100px; vertical-align: top;">Reporter:</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">${reporterDisplay}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Organization:</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">${safeOrgName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Category:</td>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.text};">
+          <span style="display: inline-block; background-color: ${BRAND.background}; border: 1px solid ${BRAND.border}; border-radius: 4px; padding: 2px 8px; font-size: 13px;">${categoryLabel}</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 14px; color: ${BRAND.textSecondary}; vertical-align: top;">Page:</td>
+        <td style="padding: 8px 0; font-size: 13px; color: ${BRAND.primary}; word-break: break-all;">${pageUrl}</td>
+      </tr>
+    </table>
+
+    <div style="background-color: ${BRAND.background}; border: 1px solid ${BRAND.border}; border-radius: 8px; padding: 16px; margin: 0 0 20px;">
+      <p style="margin: 0 0 8px; font-size: 16px; font-weight: 600; color: ${BRAND.text};">${safeTitle}</p>
+      <p style="margin: 0; font-size: 14px; color: ${BRAND.textSecondary}; line-height: 1.6; white-space: pre-wrap;">${safeDescription}</p>
+    </div>
+  `;
+
+  return wrapInTemplate(content, `Bug Report: ${safeTitle}`);
+}
+
+function getBugReportNotificationText(
+  title: string,
+  description: string,
+  category: string,
+  reporterEmail: string,
+  reporterName: string | undefined,
+  orgName: string,
+  metadata: Record<string, unknown>,
+): string {
+  const categoryLabels: Record<string, string> = {
+    ui_bug: 'UI Bug',
+    scan_issue: 'Scan Issue',
+    data_incorrect: 'Incorrect Data',
+    performance: 'Performance',
+    feature_request: 'Feature Request',
+    other: 'Other',
+  };
+  const categoryLabel = categoryLabels[category] || category;
+  const reporterDisplay = reporterName ? `${reporterName} (${reporterEmail})` : reporterEmail;
+  const pageUrl = (metadata.pageUrl as string) || 'N/A';
+
+  return `
+New Bug Report
+
+Title: ${title}
+Category: ${categoryLabel}
+Reporter: ${reporterDisplay}
+Organization: ${orgName}
+Page: ${pageUrl}
+
+Description:
+${description}
+
+---
+ScanOrbit — ${config.frontendUrl}
+  `.trim();
+}
+
+export const emailService = {
+  /**
+   * Send verification email with 6-digit code
+   */
+  async sendVerificationEmail(
+    email: string,
+    code: string,
+    name?: string
+  ): Promise<EmailResult> {
+    const subject = 'Verify your ScanOrbit email';
+    const html = getVerificationEmailHtml(code, name);
+    const text = getVerificationEmailText(code, name);
+
+    return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send password reset email
+   */
+  async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+    name?: string
+  ): Promise<EmailResult> {
+    const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
+    const subject = 'Reset your ScanOrbit password';
+    const html = getPasswordResetEmailHtml(resetUrl, name);
+    const text = getPasswordResetEmailText(resetUrl, name);
+
+    return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send team invitation email
+   */
+  async sendInvitationEmail(
+    email: string,
+    inviterName: string,
+    orgName: string,
+    token: string
+  ): Promise<EmailResult> {
+    const inviteUrl = `${config.frontendUrl}/invite/${token}`;
+    const subject = `Join ${orgName} on ScanOrbit`;
+    const html = getInvitationEmailHtml(inviterName, orgName, inviteUrl);
+    const text = getInvitationEmailText(inviterName, orgName, inviteUrl);
+
+    return sendEmail(email, subject, text, html);
+  },
+
+  /**
+   * Send bug report notification to support team
+   */
+  async sendBugReportNotification(
+    title: string,
+    description: string,
+    category: string,
+    reporterEmail: string,
+    reporterName: string | undefined,
+    orgName: string,
+    metadata: Record<string, unknown>,
+  ): Promise<EmailResult> {
+    const to = config.bugReportEmail;
+    if (!to) {
+      // Operator hasn't configured an ops inbox — bug reports are stored in
+      // the DB only.
+      return { success: true };
+    }
+    const subject = `[Bug Report] ${title}`;
+    const html = getBugReportNotificationHtml(title, description, category, reporterEmail, reporterName, orgName, metadata);
+    const text = getBugReportNotificationText(title, description, category, reporterEmail, reporterName, orgName, metadata);
+
+    return sendEmail(to, subject, text, html);
+  },
+
+  /**
+   * Send a digest email (daily or weekly report)
+   */
+  async sendDigestEmail(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }): Promise<EmailResult> {
+    return sendEmail(params.to, params.subject, params.text, params.html);
+  },
+
+  /**
+   * Verify email provider connection (useful for health checks)
+   */
+  async verifyConnection(): Promise<{ success: boolean; error?: string; provider: string }> {
+    if (!config.email.resend.apiKey) {
+      return {
+        success: false,
+        error: 'Resend API key not configured',
+        provider: 'resend',
+      };
+    }
+    logger.info('Resend API configured (API key present)');
+    return { success: true, provider: 'resend' };
+  },
+};
